@@ -7,7 +7,11 @@ import { twMerge } from 'tailwind-merge';
 
 const NAV_ITEMS = [
   { href: '/dashboard', icon: 'dashboard', label: 'Dashboard' },
+<<<<<<< HEAD
   { href: '/records', icon: 'folder_shared', label: 'Health Records' },
+=======
+  { href: '#', icon: 'folder_shared', label: 'Health Records' },
+>>>>>>> 927db80e1aef6181e7024aa64c7364312a81ec70
   { href: '/alerts', icon: 'notifications_active', label: 'Alerts' },
   { href: '/telemedicine', icon: 'video_chat', label: 'Telemedicine' },
   { href: '/benefits', icon: 'account_balance_wallet', label: 'Benefits & Insurance' },

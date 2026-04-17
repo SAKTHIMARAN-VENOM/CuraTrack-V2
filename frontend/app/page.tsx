@@ -36,6 +36,17 @@ const Navbar = () => (
       </Link>
     </nav>
     <div className="flex items-center gap-6">
+<<<<<<< HEAD
+=======
+      <div className="hidden lg:flex items-center bg-surface-container-low px-4 py-2 rounded-full ring-2 ring-transparent focus-within:ring-primary/20 transition-all">
+        <span className="material-symbols-outlined text-outline text-sm mr-2">search</span>
+        <input
+          className="bg-transparent border-none focus:ring-0 p-0 text-sm w-48 placeholder:text-outline-variant outline-none"
+          placeholder="Search records..."
+          type="text"
+        />
+      </div>
+>>>>>>> 927db80e1aef6181e7024aa64c7364312a81ec70
       <div className="flex items-center gap-4">
         <button className="material-symbols-outlined text-outline hover:text-primary transition-colors">
           notifications
@@ -88,6 +99,7 @@ const Hero = () => (
         </div>
         <div className="mt-16 flex items-center gap-8">
           <div className="flex -space-x-4">
+<<<<<<< HEAD
             <div className="w-12 h-12 rounded-full border-4 border-surface bg-slate-100 flex items-center justify-center text-slate-400">
               <span className="material-symbols-outlined text-xl" style={{ fontVariationSettings: "'FILL' 1" }}>person</span>
             </div>
@@ -97,6 +109,23 @@ const Hero = () => (
             <div className="w-12 h-12 rounded-full border-4 border-surface bg-slate-100 flex items-center justify-center text-slate-400">
               <span className="material-symbols-outlined text-xl" style={{ fontVariationSettings: "'FILL' 1" }}>person</span>
             </div>
+=======
+            <img
+              alt="Doctor"
+              className="w-12 h-12 rounded-full border-4 border-surface"
+              src="https://lh3.googleusercontent.com/aida-public/AB6AXuDQvDb1HIygjTHH-Y8kDInthD1ed9W5aNvI6YpiHRnwP1oKzMiBrtXp5Z4YKDZOTE4FhpBEJyHpfYF-7xOuPuJP4IKwz-AF965Oh3XMeYC7lA-ZE8VL5ntqH0r9mKlKwRuEAm886GTwmGqwnPVdPuUfyt4hN6O6bA7ZU8KpcH737dgaj4DBHPTM_HPsoah2khqSZ6yJo2r6VAo7BTj3uSc2TWoc2ZZI7S6T1BjNcemZbBuRtm_ue2AlulaF5HV4EzB7yria8xSR2OZs"
+            />
+            <img
+              alt="Patient"
+              className="w-12 h-12 rounded-full border-4 border-surface"
+              src="https://lh3.googleusercontent.com/aida-public/AB6AXuDrGTVyEL52qdzq_XsJxVfdq53bYC_LEk5aES3diiwlk_j8dAyEmJmYCbAyEFD0KZOVEDzoG8wklGQpsOAjAZPY-RGcYhS8YJnqiPuG9yTr_nfQj8h3BWxO0dVYgqqvovzhAA1xAOOdb1B2xe6wdy8jrKS1Q_yDEF3anF4hATbf-MG1fYI7X-eStga4_3vZQJ9-TGIw2BYjvEP63tBcivJhT66tLbmKjFY89NX-sdzIpeQiJPyR053H_x3B_XOyvJhaG86kDT8WFsQ7"
+            />
+            <img
+              alt="Professional"
+              className="w-12 h-12 rounded-full border-4 border-surface"
+              src="https://lh3.googleusercontent.com/aida-public/AB6AXuDUWRfCftTcR76U60C-CtL_oGPCfJLIIviEfmJFcxag3ppQrJWNq6Bh5k925SwtB3e-mphheeizFFPQMzUNGPciyBi0MZn46YrvnSiD3UVvYT94k_IZQxS05Nx7JEaqPOa22AUhwwJSeNOe-SWqPwcZwQTM1U9kS7ZbzIhFfaibDoAfgbhT0SaI9o0sHswto6yohKGLweOA0HLbU8easg2e2pFZBJN7-MDEWfwrpjw7qpc3jQFXm9BFO6gRIxev2K15yJFxL3n9W8x2"
+            />
+>>>>>>> 927db80e1aef6181e7024aa64c7364312a81ec70
           </div>
           <div>
             <p className="text-on-surface font-bold">4.9/5 Rating</p>
@@ -226,8 +255,17 @@ const Doctors = () => (
           },
         ].map((doctor) => (
           <div key={doctor.name} className="bg-surface-container-lowest rounded-3xl overflow-hidden border border-outline-variant/10 group">
+<<<<<<< HEAD
             <div className="aspect-[4/5] overflow-hidden bg-slate-100 flex items-center justify-center text-slate-400 group-hover:bg-slate-200 transition-colors">
               <span className="material-symbols-outlined text-6xl" style={{ fontVariationSettings: "'FILL' 1" }}>person</span>
+=======
+            <div className="aspect-[4/5] overflow-hidden">
+              <img
+                alt={doctor.name}
+                className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+                src={doctor.img}
+              />
+>>>>>>> 927db80e1aef6181e7024aa64c7364312a81ec70
             </div>
             <div className="p-6">
               <p className="text-primary font-bold text-xs tracking-widest uppercase mb-1">{doctor.role}</p>

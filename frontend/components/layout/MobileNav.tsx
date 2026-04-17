@@ -7,7 +7,11 @@ import { twMerge } from 'tailwind-merge';
 
 const MOBILE_NAV_ITEMS = [
   { href: '/dashboard', icon: 'dashboard', label: 'Home' },
+<<<<<<< HEAD
   { href: '/records', icon: 'folder_shared', label: 'Records' },
+=======
+  { href: '#', icon: 'folder_shared', label: 'Records' },
+>>>>>>> 927db80e1aef6181e7024aa64c7364312a81ec70
   { href: '/alerts', icon: 'notifications_active', label: 'Alerts' },
   { href: '/profile', icon: 'person', label: 'Profile' }
 ];

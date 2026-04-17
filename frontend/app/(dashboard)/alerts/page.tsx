@@ -7,7 +7,12 @@ export default function AlertsPage() {
     const router = useRouter();
     const [healthNews, setHealthNews] = useState<any[]>([]);
     const [loadingNews, setLoadingNews] = useState(true);
+<<<<<<< HEAD
     const [activeFilter, setActiveFilter] = useState('All');
+=======
+    const [healthRisks, setHealthRisks] = useState<any[]>([]);
+    const [loadingRisks, setLoadingRisks] = useState(true);
+>>>>>>> 927db80e1aef6181e7024aa64c7364312a81ec70
 
     useEffect(() => {
         const fetchNews = async () => {
@@ -22,7 +27,24 @@ export default function AlertsPage() {
             }
         };
         
+<<<<<<< HEAD
         fetchNews();
+=======
+        const fetchRisks = async () => {
+             try {
+                const res = await fetch(`${API_BASE}/api/health-risks`);
+                const data = await res.json();
+                setHealthRisks(data.risks || []);
+             } catch (err) {
+                 console.error("Failed to fetch health risks", err);
+             } finally {
+                 setLoadingRisks(false);
+             }
+        };
+
+        fetchNews();
+        fetchRisks();
+>>>>>>> 927db80e1aef6181e7024aa64c7364312a81ec70
     }, []);
 
     return (
@@ -36,6 +58,7 @@ export default function AlertsPage() {
                 <p className="text-tertiary mt-2 text-lg">Track critical health activities and stay informed</p>
             </div>
 
+<<<<<<< HEAD
             {/* ALERT SUMMARY - MOVED TO TOP */}
             <div className="bg-white rounded-3xl p-6 shadow-sm border border-surface-container mb-10 flex flex-col md:flex-row gap-6 items-center">
                 <div className="flex-1 w-full flex items-center justify-between p-4 bg-surface-container-low rounded-2xl">
@@ -100,6 +123,34 @@ export default function AlertsPage() {
             <div className="max-w-4xl mx-auto space-y-6">
                 {/* 1. MEDICATION TRACKER */}
                 {(activeFilter === 'All' || activeFilter === 'Medications') && (
+=======
+            {/* Filter Tabs */}
+            <div className="flex gap-2 mb-10 overflow-x-auto pb-2 no-scrollbar">
+                <button className="px-6 py-2.5 rounded-full bg-primary text-white font-semibold text-sm shadow-md shadow-primary/20 transition-transform active:scale-95">All</button>
+                <button className="px-6 py-2.5 rounded-full bg-surface-container-high text-on-surface-variant font-semibold text-sm hover:bg-surface-container-highest transition-colors">Medications</button>
+                <button className="px-6 py-2.5 rounded-full bg-surface-container-high text-on-surface-variant font-semibold text-sm hover:bg-surface-container-highest transition-colors">Outbreaks</button>
+                <button className="px-6 py-2.5 rounded-full bg-surface-container-high text-on-surface-variant font-semibold text-sm hover:bg-surface-container-highest transition-colors">Goals</button>
+                <button className="px-6 py-2.5 rounded-full bg-surface-container-high text-on-surface-variant font-semibold text-sm hover:bg-surface-container-highest transition-colors">Appointments</button>
+            </div>
+
+            {/* Two-Column Layout */}
+            <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
+                {/* Left Column: Alerts List */}
+                <div className="lg:col-span-8 space-y-6">
+
+                    {/* SEASONAL ALERT BLOCK */}
+                    {healthRisks.length > 0 && (
+                        <div className="bg-amber-50 border border-amber-200 p-5 rounded-3xl flex items-start gap-4 shadow-sm">
+                            <span className="text-3xl mt-1">🌧️</span>
+                            <div>
+                                <h4 className="font-bold text-amber-800 text-lg font-headline">Seasonal Health Alert</h4>
+                                <p className="text-amber-700 text-sm mt-1">Increased risk of {healthRisks.filter(r => r.risk === 'HIGH').map(r => r.disease).join(', ') || 'seasonal illnesses'} in your area. Check local precautions.</p>
+                            </div>
+                        </div>
+                    )}
+
+                    {/* 1. MEDICATION TRACKER */}
+>>>>>>> 927db80e1aef6181e7024aa64c7364312a81ec70
                     <div className="group relative bg-white p-6 rounded-3xl transition-all duration-300 hover:translate-y-[-4px] shadow-sm border border-surface-container">
                         <div className="absolute left-0 top-1/4 bottom-1/4 w-1.5 bg-amber-400 rounded-r-full"></div>
                         <div className="flex flex-col sm:flex-row gap-6">
@@ -113,21 +164,30 @@ export default function AlertsPage() {
                                 </div>
                                 <p className="text-on-surface-variant text-sm leading-relaxed mb-6">You missed your 8:00 AM dose of <span className="font-semibold text-on-surface">Lisinopril</span>. Timely dosage is critical for managing your blood pressure levels.</p>
                                 <div className="flex flex-wrap gap-3">
+<<<<<<< HEAD
                                     <button 
                                         onClick={() => router.push('/records')}
                                         className="px-5 py-2 rounded-xl bg-amber-100 text-amber-700 text-sm font-bold hover:bg-amber-200 transition-colors"
                                     >
                                         Log Now
                                     </button>
+=======
+                                    <button className="px-5 py-2 rounded-xl bg-amber-100 text-amber-700 text-sm font-bold hover:bg-amber-200 transition-colors">Log Now</button>
+>>>>>>> 927db80e1aef6181e7024aa64c7364312a81ec70
                                     <button className="px-5 py-2 rounded-xl bg-surface-container-low text-on-surface-variant text-sm font-bold hover:bg-surface-container-high transition-colors">Remind Me</button>
                                 </div>
                             </div>
                         </div>
                     </div>
+<<<<<<< HEAD
                 )}
 
                 {/* 2. DISEASE OUTBREAK */}
                 {(activeFilter === 'All' || activeFilter === 'Outbreaks') && (
+=======
+
+                    {/* 2. DISEASE OUTBREAK */}
+>>>>>>> 927db80e1aef6181e7024aa64c7364312a81ec70
                     <div className="group relative bg-white p-6 rounded-3xl transition-all duration-300 hover:translate-y-[-4px] shadow-sm border border-surface-container">
                         <div className="absolute left-0 top-1/4 bottom-1/4 w-1.5 bg-red-500 rounded-r-full"></div>
                         <div className="flex flex-col sm:flex-row gap-6">
@@ -137,12 +197,20 @@ export default function AlertsPage() {
                             <div className="flex-1">
                                 <div className="flex justify-between items-start mb-1">
                                     <div className="flex items-center gap-2">
+<<<<<<< HEAD
                                         <h3 className="text-xl font-bold font-headline text-on-surface">Dengue Alert Level</h3>
+=======
+                                        <h3 className="text-xl font-bold font-headline text-on-surface">Dengue Alert in Your Area</h3>
+>>>>>>> 927db80e1aef6181e7024aa64c7364312a81ec70
                                         <span className="px-2 py-0.5 rounded-md bg-red-100 text-red-700 text-[10px] font-black uppercase tracking-tighter">High Priority</span>
                                     </div>
                                     <span className="text-xs font-medium text-slate-400">30 mins ago</span>
                                 </div>
+<<<<<<< HEAD
                                 <p className="text-on-surface-variant text-sm leading-relaxed mb-6">Increased dengue cases reported in regional health updates. Please ensure there is no standing water around your premises.</p>
+=======
+                                <p className="text-on-surface-variant text-sm leading-relaxed mb-6">Increased dengue cases reported within <span className="font-semibold">5 km radius</span>. Please ensure there is no standing water around your premises.</p>
+>>>>>>> 927db80e1aef6181e7024aa64c7364312a81ec70
                                 <div className="flex flex-wrap gap-3">
                                     <button 
                                         className="px-6 py-2.5 rounded-xl bg-primary text-white text-sm font-bold shadow-lg shadow-primary/20 hover:scale-[1.02] active:scale-95 transition-all"
@@ -154,10 +222,15 @@ export default function AlertsPage() {
                             </div>
                         </div>
                     </div>
+<<<<<<< HEAD
                 )}
 
                 {/* 3. MISSED GOALS */}
                 {(activeFilter === 'All' || activeFilter === 'Goals') && (
+=======
+
+                    {/* 3. MISSED GOALS */}
+>>>>>>> 927db80e1aef6181e7024aa64c7364312a81ec70
                     <div className="group relative bg-white p-6 rounded-3xl transition-all duration-300 hover:translate-y-[-4px] shadow-sm border border-surface-container">
                         <div className="absolute left-0 top-1/4 bottom-1/4 w-1.5 bg-sky-500 rounded-r-full"></div>
                         <div className="flex flex-col sm:flex-row gap-6">
@@ -184,10 +257,15 @@ export default function AlertsPage() {
                             </div>
                         </div>
                     </div>
+<<<<<<< HEAD
                 )}
 
                 {/* 4. MISSED APPOINTMENT */}
                 {(activeFilter === 'All' || activeFilter === 'Appointments') && (
+=======
+
+                    {/* 4. MISSED APPOINTMENT */}
+>>>>>>> 927db80e1aef6181e7024aa64c7364312a81ec70
                     <div className="group relative bg-white p-6 rounded-3xl transition-all duration-300 hover:translate-y-[-4px] shadow-sm border border-surface-container">
                         <div className="absolute left-0 top-1/4 bottom-1/4 w-1.5 bg-purple-500 rounded-r-full"></div>
                         <div className="flex flex-col sm:flex-row gap-6">
@@ -211,6 +289,7 @@ export default function AlertsPage() {
                             </div>
                         </div>
                     </div>
+<<<<<<< HEAD
                 )}
 
                 {/* 5. HEALTH INSIGHTS SECTION */}
@@ -267,6 +346,164 @@ export default function AlertsPage() {
                         )}
                     </div>
                 )}
+=======
+                </div>
+
+                {/* 5. HEALTH INSIGHTS SECTION */}
+                <div className="lg:col-span-8 mt-12 pt-8 border-t border-surface-container">
+                    <h3 className="text-2xl font-bold font-headline mb-6 text-on-surface flex items-center gap-2">
+                        <span className="material-symbols-outlined text-primary">article</span>
+                        Health Insights
+                    </h3>
+                    
+                    {loadingNews ? (
+                        <div className="space-y-4">
+                            {[1, 2, 3].map((i) => (
+                                <div key={i} className="animate-pulse flex gap-4 bg-white p-4 rounded-3xl border border-surface-container">
+                                    <div className="w-24 h-24 bg-surface-container rounded-2xl shrink-0"></div>
+                                    <div className="flex-1 space-y-3 py-2">
+                                        <div className="h-4 bg-surface-container rounded w-3/4"></div>
+                                        <div className="h-3 bg-surface-container rounded w-full"></div>
+                                        <div className="h-3 bg-surface-container rounded w-5/6"></div>
+                                    </div>
+                                </div>
+                            ))}
+                        </div>
+                    ) : healthNews.length > 0 ? (
+                        <div className="space-y-4">
+                            {healthNews.map((article, idx) => (
+                                <div key={idx} className="group relative bg-white p-4 rounded-3xl transition-all duration-300 hover:shadow-md border border-surface-container flex flex-col sm:flex-row gap-5 items-start sm:items-center">
+                                    <div className="w-full sm:w-32 h-40 sm:h-24 shrink-0 rounded-2xl overflow-hidden bg-surface-container-low">
+                                        <img src={article.image} alt={article.title} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" />
+                                    </div>
+                                    <div className="flex-1">
+                                        <h4 className="font-bold text-on-surface mb-1 line-clamp-1">{article.title}</h4>
+                                        <p className="text-sm text-tertiary mb-3 line-clamp-2">{article.description}</p>
+                                        <div className="flex items-center justify-between">
+                                            <span className="text-xs font-semibold text-slate-400">
+                                                {new Date(article.publishedAt).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}
+                                            </span>
+                                            <button 
+                                                className="text-primary text-sm font-bold hover:underline py-1 px-2 -mr-2 flex items-center gap-1"
+                                                onClick={() => window.open(article.url, "_blank")}
+                                            >
+                                                Read More <span className="material-symbols-outlined text-[16px]">arrow_forward</span>
+                                            </button>
+                                        </div>
+                                    </div>
+                                </div>
+                            ))}
+                        </div>
+                    ) : (
+                        <div className="bg-surface-container-low rounded-3xl p-8 text-center text-tertiary">
+                            <span className="material-symbols-outlined text-4xl mb-3 opacity-50">news</span>
+                            <p className="font-medium">No recent health news available at the moment.</p>
+                        </div>
+                    )}
+                </div>
+
+                {/* Right Column: Summary Panel */}
+                <div className="lg:col-span-4 space-y-6 lg:sticky lg:top-24">
+                    <div className="bg-white rounded-3xl p-8 shadow-sm border border-surface-container">
+                        <h3 className="text-xl font-extrabold font-headline mb-6 text-on-surface">Alert Summary</h3>
+                        
+                        <div className="space-y-6">
+                            <div className="flex items-center justify-between p-4 bg-surface-container-low rounded-2xl">
+                                <div className="flex items-center gap-3">
+                                    <div className="w-2 h-2 rounded-full bg-primary"></div>
+                                    <span className="text-sm font-medium text-tertiary">Total Alerts</span>
+                                </div>
+                                <span className="text-2xl font-black font-headline text-on-surface">4</span>
+                            </div>
+
+                            <div className="space-y-4">
+                                <div className="flex items-center justify-between">
+                                    <div className="flex items-center gap-3">
+                                        <span className="material-symbols-outlined text-amber-500">pill</span>
+                                        <span className="text-sm font-medium">Missed Medications</span>
+                                    </div>
+                                    <span className="font-bold">1</span>
+                                </div>
+                                <div className="flex items-center justify-between">
+                                    <div className="flex items-center gap-3">
+                                        <span className="material-symbols-outlined text-sky-500">fitness_center</span>
+                                        <span className="text-sm font-medium">Missed Goals</span>
+                                    </div>
+                                    <span className="font-bold">1</span>
+                                </div>
+                            </div>
+
+                            <div className="pt-6 border-t border-surface-container">
+                                <h4 className="text-xs uppercase tracking-widest font-black text-slate-400 mb-4">Upcoming Actions</h4>
+                                <div className="space-y-3">
+                                    <div className="flex items-center gap-4 p-3 bg-surface rounded-xl border-l-4 border-primary">
+                                        <div className="w-8 h-8 rounded-lg bg-primary-fixed flex items-center justify-center">
+                                            <span className="material-symbols-outlined text-primary text-sm" style={{ fontVariationSettings: "'FILL' 1" }}>event</span>
+                                        </div>
+                                        <div className="min-w-0">
+                                            <p className="text-xs font-bold truncate">Dr. Lee Follow-up</p>
+                                            <p className="text-[10px] text-tertiary">Today, 2:30 PM</p>
+                                        </div>
+                                    </div>
+                                    <div className="flex items-center gap-4 p-3 bg-surface rounded-xl border-l-4 border-amber-400">
+                                        <div className="w-8 h-8 rounded-lg bg-amber-100 flex items-center justify-center">
+                                            <span className="material-symbols-outlined text-amber-600 text-sm" style={{ fontVariationSettings: "'FILL' 1" }}>medical_information</span>
+                                        </div>
+                                        <div className="min-w-0">
+                                            <p className="text-xs font-bold truncate">2pm Dose</p>
+                                            <p className="text-[10px] text-tertiary">Lisinopril 10mg</p>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    {/* Health Risks API Block */}
+                    <div className="bg-white rounded-3xl p-6 shadow-sm border border-surface-container">
+                        <h4 className="text-lg font-bold font-headline mb-4 px-2 tracking-tight">Health Risks in Your Area</h4>
+                        {loadingRisks ? (
+                            <div className="animate-pulse space-y-4 px-2">
+                                <div className="h-12 bg-surface-container rounded-2xl w-full"></div>
+                                <div className="h-12 bg-surface-container rounded-2xl w-full"></div>
+                            </div>
+                        ) : healthRisks.length > 0 ? (
+                            <div className="space-y-3">
+                                {healthRisks.map((risk, idx) => (
+                                    <div key={idx} className="flex items-center justify-between p-3 rounded-2xl border border-surface-container hover:bg-surface-container-low transition-colors group">
+                                        <div className="flex items-center gap-3">
+                                            <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${
+                                                risk.risk === 'HIGH' ? 'bg-red-50 text-red-600' :
+                                                risk.risk === 'MODERATE' ? 'bg-amber-50 text-amber-600' :
+                                                'bg-green-50 text-green-600'
+                                            }`}>
+                                                <span className="material-symbols-outlined text-lg">{risk.icon}</span>
+                                            </div>
+                                            <span className="font-bold text-on-surface text-sm group-hover:text-primary transition-colors">{risk.disease}</span>
+                                        </div>
+                                        <span className={`px-2 py-0.5 rounded-md text-[10px] font-black uppercase tracking-tighter ${
+                                            risk.risk === 'HIGH' ? 'bg-red-100 text-red-700' :
+                                            risk.risk === 'MODERATE' ? 'bg-amber-100 text-amber-700' :
+                                            'bg-green-100 text-green-700'
+                                        }`}>
+                                            {risk.risk}
+                                        </span>
+                                    </div>
+                                ))}
+                                <button 
+                                    className="w-full mt-2 px-5 py-2.5 rounded-xl bg-surface-container-high text-on-surface text-sm font-bold hover:bg-surface-container-highest transition-colors flex justify-center items-center gap-2"
+                                    onClick={() => router.push("/alerts/precautions?type=dengue")}
+                                >
+                                    <span className="material-symbols-outlined text-sm text-tertiary">health_and_safety</span>
+                                    View Precautions
+                                </button>
+                            </div>
+                        ) : (
+                            <p className="text-sm text-tertiary px-2">No regional health risks identified at this time.</p>
+                        )}
+                    </div>
+                </div>
+>>>>>>> 927db80e1aef6181e7024aa64c7364312a81ec70
             </div>
         </div>
     );
