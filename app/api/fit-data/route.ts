@@ -1,27 +1,37 @@
-import { getOAuth2Client } from '@/lib/google';
+import { getOAuth2Client, getTokensForUser } from '@/lib/google';
 import { NextRequest, NextResponse } from 'next/server';
-import { cookies } from 'next/headers';
 import { google } from 'googleapis';
+import { createClient } from '@/lib/supabase/server';
 
 export async function GET(req: NextRequest) {
-    const cookieStore = await cookies();
-    const tokenStr = cookieStore.get('tokens')?.value;
+    const supabase = await createClient();
+    const { data: { user } } = await supabase.auth.getUser();
 
-    if (!tokenStr) {
+    if (!user) {
         return NextResponse.json({ error: 'Not authenticated' }, { status: 401 });
     }
 
     try {
-        const tokens = JSON.parse(tokenStr);
-        const oauth2Client = getOAuth2Client();
-        oauth2Client.setCredentials(tokens);
+        console.log(`[API] Fetching fit data for user: ${user.id}`);
+        const oauth2Client = await getTokensForUser(user.id);
+
+        if (!oauth2Client) {
+            console.warn(`[API] Google Fit not connected for user: ${user.id}`);
+            return NextResponse.json({ 
+                error: 'Google Fit not connected',
+                code: 'GOOG_NOT_CONNECTED' 
+            }, { status: 403 });
+        }
+
 
         const fitness = google.fitness({ version: 'v1', auth: oauth2Client });
 
-        // USE A ROLLING 24-HOUR WINDOW TO AVOID SERVER TIMEZONE CUTOFFS
+        // USE A 24-HOUR WINDOW
         const now = Date.now();
         const endTimeMillis = now.toString();
         const startTimeMillis = (now - 24 * 60 * 60 * 1000).toString(); // Last 24 hours
+
+        console.log(`[API] Querying from ${new Date(parseInt(startTimeMillis)).toLocaleString()} to ${new Date(parseInt(endTimeMillis)).toLocaleString()}`);
 
         // Fetch Steps (Daily Total)
         const stepsResponse = await fitness.users.dataset.aggregate({
@@ -45,6 +55,7 @@ export async function GET(req: NextRequest) {
                 });
             });
         }
+        console.log(`[API] Found ${dailySteps} steps in the period.`);
 
         // Fetch Heart Rate (15 min intervals)
         const hrResponse = await fitness.users.dataset.aggregate({
@@ -85,6 +96,7 @@ export async function GET(req: NextRequest) {
 
         // Sort data by time to be absolutely sure the graph draws correctly
         heartRateData.sort((a, b) => new Date(a.time).getTime() - new Date(b.time).getTime());
+        console.log(`[API] Found ${heartRateData.length} heart rate data points.`);
 
         // Fetch Sleep Data (Robust 48-hour check)
         const sleepStartTimeMillis = (now - 48 * 60 * 60 * 1000).toString();

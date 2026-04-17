@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
+import { createClient } from '@/lib/supabase/client';
 
 type AuthMode = 'login' | 'signup';
 
@@ -14,10 +15,28 @@ export default function LoginPage() {
     const [showPassword, setShowPassword] = useState(false);
     const [error, setError] = useState('');
     const [loading, setLoading] = useState(false);
+    
+    const supabase = createClient();
 
-    const handleGoogleLogin = () => {
-        window.location.href = '/api/auth/google';
+    const handleGoogleLogin = async () => {
+        setError('');
+        const { error } = await supabase.auth.signInWithOAuth({
+            provider: 'google',
+            options: {
+                scopes: 'https://www.googleapis.com/auth/userinfo.email https://www.googleapis.com/auth/userinfo.profile https://www.googleapis.com/auth/fitness.activity.read https://www.googleapis.com/auth/fitness.heart_rate.read https://www.googleapis.com/auth/fitness.sleep.read',
+                queryParams: {
+                    access_type: 'offline',
+                    prompt: 'consent',
+                },
+                redirectTo: `${window.location.origin}/api/auth/callback`,
+            },
+        });
+
+        if (error) {
+            setError(error.message);
+        }
     };
+
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();

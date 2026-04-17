@@ -10,6 +10,7 @@ export default function Dashboard() {
     const [data, setData] = useState<any>(null);
     const [user, setUser] = useState<any>(null);
     const [error, setError] = useState<string | null>(null);
+    const [isDisconnected, setIsDisconnected] = useState(false);
 
     useEffect(() => {
         // Fetch session info
@@ -17,17 +18,19 @@ export default function Dashboard() {
             .then(r => r.json())
             .then(d => { if (d.isAuthenticated) setUser(d.user); });
 
-        // Fetch fit data (will 401 for email-only users without Google tokens)
+        // Fetch fit data
         const fetchFitData = async () => {
             try {
                 const response = await fetch('/api/fit-data');
                 if (response.ok) {
                     const result = await response.json();
                     setData(result);
+                    setIsDisconnected(false);
+                } else if (response.status === 403) {
+                    setIsDisconnected(true);
                 }
-                // If 401 for email-only users, that's fine — just no Fit data
             } catch (err) {
-                // Silently handle — Fit data is optional for email auth users
+                console.error('Fit data fetch error:', err);
             } finally {
                 setLoading(false);
             }
@@ -35,6 +38,11 @@ export default function Dashboard() {
 
         fetchFitData();
     }, [router]);
+
+    const handleConnectGoogle = () => {
+        window.location.href = '/api/auth/google';
+    };
+
 
     const userName = user?.name?.split(' ')[0] || 'there';
 
@@ -145,6 +153,22 @@ export default function Dashboard() {
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
                 {/* Vitals Chart Card */}
                 <div className="lg:col-span-2 bg-surface-container-lowest rounded-3xl p-8 shadow-sm relative overflow-hidden">
+                    {isDisconnected && (
+                        <div className="absolute inset-0 z-10 bg-white/60 backdrop-blur-sm flex flex-col items-center justify-center p-8 text-center">
+                            <div className="w-16 h-16 bg-primary/10 rounded-full flex items-center justify-center text-primary mb-4 rotate-12">
+                                <span className="material-symbols-outlined text-3xl">link_off</span>
+                            </div>
+                            <h3 className="text-xl font-bold text-on-surface mb-2">Google Fit Disconnected</h3>
+                            <p className="text-tertiary mb-6 max-w-sm">We need your permission to sync your heart rate, steps, and sleep data from Google Fit.</p>
+                            <button 
+                                onClick={handleConnectGoogle}
+                                className="px-8 py-3 bg-primary text-white font-bold rounded-2xl shadow-lg shadow-primary/20 hover:scale-105 transition-all flex items-center gap-2"
+                            >
+                                <span className="material-symbols-outlined">sync</span>
+                                Connect Google Fit
+                            </button>
+                        </div>
+                    )}
                     <div className="flex justify-between items-center mb-8">
                         <div>
                             <h3 className="text-xl font-extrabold text-on-surface">Heart Rate Trend</h3>
