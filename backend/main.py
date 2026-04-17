@@ -1,0 +1,31 @@
+import os
+from dotenv import load_dotenv
+from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
+from routes import insurance, government, health_news, health_risks, qr
+
+load_dotenv()
+
+app = FastAPI(title="CuraTrack API", version="2.0.0")
+
+# Enable CORS for Next.js frontend
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=[
+        "http://localhost:3000",
+        "http://127.0.0.1:3000",
+    ],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
+app.include_router(insurance.router, prefix="/api", tags=["Insurance"])
+app.include_router(government.router, prefix="/api", tags=["Government Schemes"])
+app.include_router(health_news.router, prefix="/api", tags=["Health News"])
+app.include_router(health_risks.router, prefix="/api", tags=["Health Risks"])
+app.include_router(qr.router, prefix="/api", tags=["QR Health ID"])
+
+@app.get("/")
+def read_root():
+    return {"message": "CuraTrack Backend API Running", "version": "2.0.0"}

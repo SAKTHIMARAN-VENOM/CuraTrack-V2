@@ -15,11 +15,10 @@ export default function LoginPage() {
     const [showPassword, setShowPassword] = useState(false);
     const [error, setError] = useState('');
     const [loading, setLoading] = useState(false);
-    
-    const supabase = createClient();
 
     const handleGoogleLogin = async () => {
         setError('');
+        const supabase = createClient();
         const { error } = await supabase.auth.signInWithOAuth({
             provider: 'google',
             options: {

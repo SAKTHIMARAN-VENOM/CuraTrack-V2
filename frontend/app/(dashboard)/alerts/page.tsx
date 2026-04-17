@@ -1,6 +1,44 @@
 'use client';
+import { useState, useEffect } from 'react';
+import { useRouter } from 'next/navigation';
+import { API_BASE } from '@/lib/api';
 
 export default function AlertsPage() {
+    const router = useRouter();
+    const [healthNews, setHealthNews] = useState<any[]>([]);
+    const [loadingNews, setLoadingNews] = useState(true);
+    const [healthRisks, setHealthRisks] = useState<any[]>([]);
+    const [loadingRisks, setLoadingRisks] = useState(true);
+
+    useEffect(() => {
+        const fetchNews = async () => {
+            try {
+                const res = await fetch(`${API_BASE}/api/health-news`);
+                const data = await res.json();
+                setHealthNews(data.articles || []);
+            } catch (err) {
+                console.error("Failed to fetch health news", err);
+            } finally {
+                setLoadingNews(false);
+            }
+        };
+        
+        const fetchRisks = async () => {
+             try {
+                const res = await fetch(`${API_BASE}/api/health-risks`);
+                const data = await res.json();
+                setHealthRisks(data.risks || []);
+             } catch (err) {
+                 console.error("Failed to fetch health risks", err);
+             } finally {
+                 setLoadingRisks(false);
+             }
+        };
+
+        fetchNews();
+        fetchRisks();
+    }, []);
+
     return (
         <div className="p-8 max-w-7xl mx-auto w-full">
             {/* Page Header */}
@@ -25,6 +63,18 @@ export default function AlertsPage() {
             <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
                 {/* Left Column: Alerts List */}
                 <div className="lg:col-span-8 space-y-6">
+
+                    {/* SEASONAL ALERT BLOCK */}
+                    {healthRisks.length > 0 && (
+                        <div className="bg-amber-50 border border-amber-200 p-5 rounded-3xl flex items-start gap-4 shadow-sm">
+                            <span className="text-3xl mt-1">🌧️</span>
+                            <div>
+                                <h4 className="font-bold text-amber-800 text-lg font-headline">Seasonal Health Alert</h4>
+                                <p className="text-amber-700 text-sm mt-1">Increased risk of {healthRisks.filter(r => r.risk === 'HIGH').map(r => r.disease).join(', ') || 'seasonal illnesses'} in your area. Check local precautions.</p>
+                            </div>
+                        </div>
+                    )}
+
                     {/* 1. MEDICATION TRACKER */}
                     <div className="group relative bg-white p-6 rounded-3xl transition-all duration-300 hover:translate-y-[-4px] shadow-sm border border-surface-container">
                         <div className="absolute left-0 top-1/4 bottom-1/4 w-1.5 bg-amber-400 rounded-r-full"></div>
@@ -63,7 +113,12 @@ export default function AlertsPage() {
                                 </div>
                                 <p className="text-on-surface-variant text-sm leading-relaxed mb-6">Increased dengue cases reported within <span className="font-semibold">5 km radius</span>. Please ensure there is no standing water around your premises.</p>
                                 <div className="flex flex-wrap gap-3">
-                                    <button className="px-6 py-2.5 rounded-xl bg-primary text-white text-sm font-bold shadow-lg shadow-primary/20 hover:scale-[1.02] active:scale-95 transition-all">View Precautions</button>
+                                    <button 
+                                        className="px-6 py-2.5 rounded-xl bg-primary text-white text-sm font-bold shadow-lg shadow-primary/20 hover:scale-[1.02] active:scale-95 transition-all"
+                                        onClick={() => router.push("/alerts/precautions?type=dengue")}
+                                    >
+                                        View Precautions
+                                    </button>
                                 </div>
                             </div>
                         </div>
@@ -86,7 +141,12 @@ export default function AlertsPage() {
                                     <div className="bg-sky-500 h-full rounded-full transition-all duration-1000" style={{ width: '52.5%' }}></div>
                                 </div>
                                 <div className="flex flex-wrap gap-3">
-                                    <button className="px-5 py-2 rounded-xl bg-sky-100 text-sky-700 text-sm font-bold hover:bg-sky-200 transition-colors">View Activity</button>
+                                    <button 
+                                        className="px-5 py-2 rounded-xl bg-sky-100 text-sky-700 text-sm font-bold hover:bg-sky-200 transition-colors"
+                                        onClick={() => router.push("/dashboard?section=steps")}
+                                    >
+                                        View Activity
+                                    </button>
                                 </div>
                             </div>
                         </div>
@@ -106,11 +166,69 @@ export default function AlertsPage() {
                                 </div>
                                 <p className="text-on-surface-variant text-sm leading-relaxed mb-6">You missed your consultation with <span className="font-semibold">Dr. Sharma</span> at 10:30 AM. Missing regular check-ups can delay your recovery progress.</p>
                                 <div className="flex flex-wrap gap-3">
-                                    <button className="px-5 py-2 rounded-xl bg-purple-100 text-purple-700 text-sm font-bold hover:bg-purple-200 transition-colors">Reschedule</button>
+                                    <button 
+                                        className="px-5 py-2 rounded-xl bg-purple-100 text-purple-700 text-sm font-bold hover:bg-purple-200 transition-colors"
+                                        onClick={() => router.push("/telemedicine")}
+                                    >
+                                        Reschedule
+                                    </button>
                                 </div>
                             </div>
                         </div>
                     </div>
+                </div>
+
+                {/* 5. HEALTH INSIGHTS SECTION */}
+                <div className="lg:col-span-8 mt-12 pt-8 border-t border-surface-container">
+                    <h3 className="text-2xl font-bold font-headline mb-6 text-on-surface flex items-center gap-2">
+                        <span className="material-symbols-outlined text-primary">article</span>
+                        Health Insights
+                    </h3>
+                    
+                    {loadingNews ? (
+                        <div className="space-y-4">
+                            {[1, 2, 3].map((i) => (
+                                <div key={i} className="animate-pulse flex gap-4 bg-white p-4 rounded-3xl border border-surface-container">
+                                    <div className="w-24 h-24 bg-surface-container rounded-2xl shrink-0"></div>
+                                    <div className="flex-1 space-y-3 py-2">
+                                        <div className="h-4 bg-surface-container rounded w-3/4"></div>
+                                        <div className="h-3 bg-surface-container rounded w-full"></div>
+                                        <div className="h-3 bg-surface-container rounded w-5/6"></div>
+                                    </div>
+                                </div>
+                            ))}
+                        </div>
+                    ) : healthNews.length > 0 ? (
+                        <div className="space-y-4">
+                            {healthNews.map((article, idx) => (
+                                <div key={idx} className="group relative bg-white p-4 rounded-3xl transition-all duration-300 hover:shadow-md border border-surface-container flex flex-col sm:flex-row gap-5 items-start sm:items-center">
+                                    <div className="w-full sm:w-32 h-40 sm:h-24 shrink-0 rounded-2xl overflow-hidden bg-surface-container-low">
+                                        <img src={article.image} alt={article.title} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" />
+                                    </div>
+                                    <div className="flex-1">
+                                        <h4 className="font-bold text-on-surface mb-1 line-clamp-1">{article.title}</h4>
+                                        <p className="text-sm text-tertiary mb-3 line-clamp-2">{article.description}</p>
+                                        <div className="flex items-center justify-between">
+                                            <span className="text-xs font-semibold text-slate-400">
+                                                {new Date(article.publishedAt).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}
+                                            </span>
+                                            <button 
+                                                className="text-primary text-sm font-bold hover:underline py-1 px-2 -mr-2 flex items-center gap-1"
+                                                onClick={() => window.open(article.url, "_blank")}
+                                            >
+                                                Read More <span className="material-symbols-outlined text-[16px]">arrow_forward</span>
+                                            </button>
+                                        </div>
+                                    </div>
+                                </div>
+                            ))}
+                        </div>
+                    ) : (
+                        <div className="bg-surface-container-low rounded-3xl p-8 text-center text-tertiary">
+                            <span className="material-symbols-outlined text-4xl mb-3 opacity-50">news</span>
+                            <p className="font-medium">No recent health news available at the moment.</p>
+                        </div>
+                    )}
                 </div>
 
                 {/* Right Column: Summary Panel */}
@@ -170,22 +288,48 @@ export default function AlertsPage() {
                         </div>
                     </div>
 
-                    {/* Mini Map Card for Outbreak */}
-                    <div className="bg-white rounded-3xl overflow-hidden shadow-sm p-4 border border-surface-container">
-                        <h4 className="text-sm font-bold font-headline mb-3 px-2">Outbreak Proximity</h4>
-                        <div className="aspect-video rounded-2xl overflow-hidden relative grayscale hover:grayscale-0 transition-all duration-700">
-                            <img className="w-full h-full object-cover" src="https://lh3.googleusercontent.com/aida-public/AB6AXuBMd3gkZNXnA-Kawwp5Fw1YAi5_ZIxREHcDHHdrZKnCZ0-PYLyb_dKEGVYxjOkY48NJSxA9XuM6PXprxEnazHLbOE7lZwVpBSrKyI2cEycanw6ZkaCM29WdBA3hp6fw5-oPvgm-KTMXYRNSAA2Lb1e4hM1d9C0pv_RW39rr0FiA7HpU-btVtBRcVzHaULkUex6mUSKAh6A2oXTyJUMofr24wu-cZwXZ2i7LV4_PGSVNw5xAhmfj0zdb2vxf3eY6Uvwu6M8vOnHZ2_11" alt="Map"/>
-                            <div className="absolute inset-0 bg-red-500/10 pointer-events-none"></div>
-                            <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2">
-                                <div className="relative">
-                                    <div className="absolute inset-0 animate-ping rounded-full bg-red-500 opacity-20"></div>
-                                    <div className="w-6 h-6 bg-red-600 rounded-full border-4 border-white shadow-lg relative z-10"></div>
-                                </div>
+                    {/* Health Risks API Block */}
+                    <div className="bg-white rounded-3xl p-6 shadow-sm border border-surface-container">
+                        <h4 className="text-lg font-bold font-headline mb-4 px-2 tracking-tight">Health Risks in Your Area</h4>
+                        {loadingRisks ? (
+                            <div className="animate-pulse space-y-4 px-2">
+                                <div className="h-12 bg-surface-container rounded-2xl w-full"></div>
+                                <div className="h-12 bg-surface-container rounded-2xl w-full"></div>
                             </div>
-                        </div>
-                        <div className="p-2 mt-2">
-                            <p className="text-[11px] text-tertiary text-center">Safety Radius: <span className="text-red-500 font-bold">Infected Zone</span></p>
-                        </div>
+                        ) : healthRisks.length > 0 ? (
+                            <div className="space-y-3">
+                                {healthRisks.map((risk, idx) => (
+                                    <div key={idx} className="flex items-center justify-between p-3 rounded-2xl border border-surface-container hover:bg-surface-container-low transition-colors group">
+                                        <div className="flex items-center gap-3">
+                                            <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${
+                                                risk.risk === 'HIGH' ? 'bg-red-50 text-red-600' :
+                                                risk.risk === 'MODERATE' ? 'bg-amber-50 text-amber-600' :
+                                                'bg-green-50 text-green-600'
+                                            }`}>
+                                                <span className="material-symbols-outlined text-lg">{risk.icon}</span>
+                                            </div>
+                                            <span className="font-bold text-on-surface text-sm group-hover:text-primary transition-colors">{risk.disease}</span>
+                                        </div>
+                                        <span className={`px-2 py-0.5 rounded-md text-[10px] font-black uppercase tracking-tighter ${
+                                            risk.risk === 'HIGH' ? 'bg-red-100 text-red-700' :
+                                            risk.risk === 'MODERATE' ? 'bg-amber-100 text-amber-700' :
+                                            'bg-green-100 text-green-700'
+                                        }`}>
+                                            {risk.risk}
+                                        </span>
+                                    </div>
+                                ))}
+                                <button 
+                                    className="w-full mt-2 px-5 py-2.5 rounded-xl bg-surface-container-high text-on-surface text-sm font-bold hover:bg-surface-container-highest transition-colors flex justify-center items-center gap-2"
+                                    onClick={() => router.push("/alerts/precautions?type=dengue")}
+                                >
+                                    <span className="material-symbols-outlined text-sm text-tertiary">health_and_safety</span>
+                                    View Precautions
+                                </button>
+                            </div>
+                        ) : (
+                            <p className="text-sm text-tertiary px-2">No regional health risks identified at this time.</p>
+                        )}
                     </div>
                 </div>
             </div>
