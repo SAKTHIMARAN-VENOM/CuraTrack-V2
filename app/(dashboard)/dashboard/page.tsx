@@ -119,12 +119,12 @@ export default function Dashboard() {
                     <div>
                         <p className="text-tertiary text-sm font-medium">Sleep Trend</p>
                         <div className="flex items-baseline gap-2">
-                            <h3 className="text-3xl font-extrabold text-on-surface">7h 45m</h3>
+                            <h3 className="text-3xl font-extrabold text-on-surface">{data?.sleep?.formatted || '--'}</h3>
                         </div>
                     </div>
                     <div className="flex items-center gap-2 text-secondary text-sm font-bold">
                         <span className="material-symbols-outlined !text-sm">trending_up</span>
-                        <span>+12% from last week</span>
+                        <span>Sync Active</span>
                     </div>
                 </div>
 

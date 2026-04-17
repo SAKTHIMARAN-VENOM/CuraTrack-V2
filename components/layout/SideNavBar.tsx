@@ -52,13 +52,26 @@ export function SideNavBar() {
             })}
         </nav>
 
-        <div className="mt-auto pt-6 flex items-center gap-3">
-            <div className="h-10 w-10 rounded-full overflow-hidden bg-surface-container">
-                <img className="h-full w-full object-cover" src="https://lh3.googleusercontent.com/aida-public/AB6AXuBKALZodifP1ePGrMeZG0L5k8Z9hP2bsuSQVTyS0NFKx7PklwfFbTmjR4xfqgUMh14bAX_ytFct3UscvcaqcHRX85EaqtJetY-rSt6H7yNgfu2RSZ84BfnSCW-OuPXwZhv6GAkN6wleXc7AW-AieZ8weaPZ1n8xfPAQ7PT-y9e9FhTGpg5qOVPt3GRI9YU42mPDSJ_viMT5ty_0ecZ79sdQ10WrgVNeAJjdf5Evfq1Bzyj3OOL7JBxBmbNCwqZue2T0ApCRCmwzw9gb" alt="Doc" />
-            </div>
-            <div>
-                <p className="text-sm font-bold text-on-surface">Dr. Sarah Chen</p>
-                <p className="text-xs text-tertiary">Primary Care</p>
+        <div className="mt-auto space-y-4">
+            <button 
+                onClick={async () => {
+                    await fetch('/api/logout', { method: 'POST' });
+                    window.location.href = '/login';
+                }}
+                className="w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all scale-95 hover:bg-red-50 text-red-600 font-bold"
+            >
+                <span className="material-symbols-outlined">logout</span>
+                <span>Logout</span>
+            </button>
+
+            <div className="pt-6 border-t border-slate-200 flex items-center gap-3">
+                <div className="h-10 w-10 rounded-full overflow-hidden bg-surface-container">
+                    <img className="h-full w-full object-cover" src="https://lh3.googleusercontent.com/aida-public/AB6AXuBKALZodifP1ePGrMeZG0L5k8Z9hP2bsuSQVTyS0NFKx7PklwfFbTmjR4xfqgUMh14bAX_ytFct3UscvcaqcHRX85EaqtJetY-rSt6H7yNgfu2RSZ84BfnSCW-OuPXwZhv6GAkN6wleXc7AW-AieZ8weaPZ1n8xfPAQ7PT-y9e9FhTGpg5qOVPt3GRI9YU42mPDSJ_viMT5ty_0ecZ79sdQ10WrgVNeAJjdf5Evfq1Bzyj3OOL7JBxBmbNCwqZue2T0ApCRCmwzw9gb" alt="Doc" />
+                </div>
+                <div>
+                    <p className="text-sm font-bold text-on-surface">Dr. Sarah Chen</p>
+                    <p className="text-xs text-tertiary">Primary Care</p>
+                </div>
             </div>
         </div>
     </aside>

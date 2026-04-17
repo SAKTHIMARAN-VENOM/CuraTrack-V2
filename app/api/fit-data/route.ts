@@ -86,10 +86,68 @@ export async function GET(req: NextRequest) {
         // Sort data by time to be absolutely sure the graph draws correctly
         heartRateData.sort((a, b) => new Date(a.time).getTime() - new Date(b.time).getTime());
 
+        // Fetch Sleep Data (Robust 48-hour check)
+        const sleepStartTimeMillis = (now - 48 * 60 * 60 * 1000).toString();
+        const sleepResponse = await fitness.users.dataset.aggregate({
+            userId: 'me',
+            requestBody: {
+                aggregateBy: [{ 
+                    dataTypeName: 'com.google.sleep.segment'
+                }],
+                // No bucketing for sleep here so we can process raw points across the 48h
+                startTimeMillis: sleepStartTimeMillis,
+                endTimeMillis
+            }
+        });
+
+        let sleepMinutes = 0;
+        const sleepPoints: any[] = [];
+        
+        // Extract all sleep points in the 48h window
+        const sleepBuckets = sleepResponse.data.bucket;
+        if (sleepBuckets) {
+            for (let bucket of sleepBuckets) {
+                bucket.dataset?.[0]?.point?.forEach(point => {
+                    const sleepType = point.value?.[0]?.intVal;
+                    if (sleepType && [2, 4, 5, 6].includes(sleepType)) {
+                        sleepPoints.push({
+                            start: parseInt(point.startTimeNanos!, 10) / 1000000,
+                            end: parseInt(point.endTimeNanos!, 10) / 1000000
+                        });
+                    }
+                });
+            }
+        }
+
+        if (sleepPoints.length > 0) {
+            // Sort points by end time (latest first)
+            sleepPoints.sort((a, b) => b.end - a.end);
+
+            // Logic: Take the most recent sleep point and sum everything within 14 hours of it
+            // This captures a full night's sleep even if it spans across the 24h cutoff
+            const latestSleepEnd = sleepPoints[0].end;
+            let totalSleepMillis = 0;
+
+            for (let p of sleepPoints) {
+                // If this segment is part of the same "night" (within 14 hours of the latest point)
+                if (latestSleepEnd - p.start < 14 * 60 * 60 * 1000) {
+                    totalSleepMillis += (p.end - p.start);
+                }
+            }
+            sleepMinutes = Math.round(totalSleepMillis / 60000);
+        }
+
+        const sleepHours = Math.floor(sleepMinutes / 60);
+        const remainingMinutes = sleepMinutes % 60;
+
         return NextResponse.json({
             isAuthenticated: true,
             steps: dailySteps,
-            heartRateData
+            heartRateData,
+            sleep: {
+                totalMinutes: sleepMinutes,
+                formatted: sleepMinutes > 0 ? `${sleepHours}h ${remainingMinutes}m` : '0h 0m'
+            }
         });
 
     } catch (error) {
