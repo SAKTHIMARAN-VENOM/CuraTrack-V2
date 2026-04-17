@@ -18,64 +18,77 @@ export async function GET(req: NextRequest) {
 
         const fitness = google.fitness({ version: 'v1', auth: oauth2Client });
 
-        // Today's data (last 24 hours or since midnight)
-        const endTime = new Date();
-        const startTime = new Date();
-        startTime.setHours(0, 0, 0, 0);
+        // USE A ROLLING 24-HOUR WINDOW TO AVOID SERVER TIMEZONE CUTOFFS
+        const now = Date.now();
+        const endTimeMillis = now.toString();
+        const startTimeMillis = (now - 24 * 60 * 60 * 1000).toString(); // Last 24 hours
 
-        // Fetch overall daily steps (1 bucket for the whole day)
+        // Fetch Steps (Daily Total)
         const stepsResponse = await fitness.users.dataset.aggregate({
             userId: 'me',
             requestBody: {
-                aggregateBy: [{ dataTypeName: 'com.google.step_count.delta' }],
-                bucketByTime: { durationMillis: 86400000 },
-                startTimeMillis: startTime.getTime(),
-                endTimeMillis: endTime.getTime()
+                // Use 'derived' for more accurate merged data from phone/watch
+                aggregateBy: [{ 
+                    dataTypeName: 'com.google.step_count.delta',
+                    dataSourceId: 'derived:com.google.step_count.delta:com.google.android.gms:estimated_steps' 
+                }],
+                bucketByTime: { durationMillis: '86400000' }, 
+                startTimeMillis,
+                endTimeMillis
             }
         });
 
         let dailySteps = 0;
         const stepsBucket = stepsResponse.data.bucket;
-        if (stepsBucket && stepsBucket.length > 0 && stepsBucket[0].dataset[0]?.point?.length > 0) {
-            for (let bucket of stepsBucket) {
-                for (let point of bucket.dataset?.[0]?.point || []) {
-                    for (let value of point.value || []) {
-                        dailySteps += value.intVal || 0;
-                    }
-                }
-            }
+        if (stepsBucket && stepsBucket.length > 0) {
+            stepsBucket.forEach(bucket => {
+                bucket.dataset?.[0]?.point?.forEach(point => {
+                    point.value?.forEach(val => { dailySteps += val.intVal || 0; });
+                });
+            });
         }
 
-        // Fetch Heart Rate Time Series (15 min buckets)
-        // Duration: 15 minutes = 15 * 60 * 1000 = 900000 ms
+        // Fetch Heart Rate (15 min intervals)
         const hrResponse = await fitness.users.dataset.aggregate({
             userId: 'me',
             requestBody: {
-                aggregateBy: [{ dataTypeName: 'com.google.heart_rate.bpm' }],
-                bucketByTime: { durationMillis: 900000 },
-                startTimeMillis: startTime.getTime(),
-                endTimeMillis: endTime.getTime()
+                aggregateBy: [{ 
+                    dataTypeName: 'com.google.heart_rate.bpm',
+                    // Prioritizing the boAt/CoveIoT source which seems to be the primary wearable data
+                    dataSourceId: 'derived:com.google.heart_rate.bpm:com.coveiot.android.boat:GoogleFitDataManager - heart rate' 
+                }],
+                bucketByTime: { durationMillis: '900000' }, // 15 mins
+                startTimeMillis,
+                endTimeMillis
             }
         });
 
         const heartRateData: any[] = [];
         const hrBuckets = hrResponse.data.bucket;
 
-        if (hrBuckets && hrBuckets.length > 0) {
+        if (hrBuckets) {
             for (let bucket of hrBuckets) {
-                const points = bucket.dataset?.[0]?.point;
+                const dataset = bucket.dataset?.[0];
+                const points = dataset?.point;
+                
                 if (points && points.length > 0) {
-                    const avgValue = points[0].value?.[0]?.fpVal;
-                    if (avgValue) {
-                        const hrTime = new Date(parseInt(bucket.startTimeMillis as string, 10));
+                    // Points in aggregate HR usually contain [avg, max, min]
+                    // The first value (index 0) is the Average BPM
+                    const bpmValue = points[0].value?.[0]?.fpVal;
+                    
+                    if (bpmValue) {
                         heartRateData.push({
-                            bpm: Math.round(avgValue),
-                            time: hrTime.toISOString()
+                            bpm: Math.round(bpmValue),
+                            // Convert string millis to ISO for the client to parse locally
+                            time: new Date(parseInt(bucket.startTimeMillis!, 10)).toISOString()
                         });
                     }
                 }
             }
         }
+
+        // Sort data by time to be absolutely sure the graph draws correctly
+        heartRateData.sort((a, b) => new Date(a.time).getTime() - new Date(b.time).getTime());
 
         return NextResponse.json({
             isAuthenticated: true,
