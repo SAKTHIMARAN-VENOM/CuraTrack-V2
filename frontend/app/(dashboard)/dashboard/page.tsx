@@ -71,20 +71,11 @@ export default function Dashboard() {
                     <h2 className="text-3xl font-extrabold tracking-tight text-on-surface">Welcome back, {userName}</h2>
                     <p className="text-tertiary mt-1">Your health overview for today</p>
                 </div>
-                <div className="flex gap-3">
-                    <button className="px-6 py-3 bg-white text-on-surface font-bold rounded-2xl shadow-sm hover:bg-slate-50 transition-colors flex items-center gap-2">
-                        <span className="material-symbols-outlined !text-lg">download</span>
-                        Export Report
-                    </button>
-                    <button className="px-6 py-3 bg-gradient-to-br from-primary to-primary-container text-white font-bold rounded-2xl shadow-md hover:opacity-90 transition-all flex items-center gap-2">
-                        <span className="material-symbols-outlined !text-lg">add_circle</span>
-                        New Reading
-                    </button>
-                </div>
+
             </div>
 
             {/* Bento Grid Summary Cards */}
-            <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                 {/* Heart Rate */}
                 <div className="bg-surface-container-lowest p-6 rounded-3xl shadow-sm flex flex-col gap-4">
                     <div className="flex justify-between items-start">
@@ -136,23 +127,13 @@ export default function Dashboard() {
                     </div>
                 </div>
 
-                {/* Medications */}
-                <div className="bg-surface-container-lowest p-6 rounded-3xl shadow-sm flex flex-col justify-between">
-                    <div className="flex flex-col gap-1">
-                        <p className="text-tertiary text-sm font-bold tracking-wider uppercase">Next Dose</p>
-                        <h3 className="text-xl font-extrabold text-on-surface">Lisinopril</h3>
-                        <p className="text-primary text-sm font-semibold">10mg • 09:00 AM</p>
-                    </div>
-                    <button className="mt-4 w-full py-2.5 bg-surface-container-high text-on-surface font-bold text-sm rounded-xl hover:bg-surface-container-highest transition-colors">
-                        Mark as Taken
-                    </button>
-                </div>
+
             </div>
 
             {/* Chart & Alerts Section */}
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+            <div className="grid grid-cols-1 gap-8">
                 {/* Vitals Chart Card */}
-                <div className="lg:col-span-2 bg-surface-container-lowest rounded-3xl p-8 shadow-sm relative overflow-hidden">
+                <div className="bg-surface-container-lowest rounded-3xl p-8 shadow-sm relative overflow-hidden">
                     {isDisconnected && (
                         <div className="absolute inset-0 z-10 bg-white/60 backdrop-blur-sm flex flex-col items-center justify-center p-8 text-center">
                             <div className="w-16 h-16 bg-primary/10 rounded-full flex items-center justify-center text-primary mb-4 rotate-12">
@@ -176,41 +157,12 @@ export default function Dashboard() {
                         </div>
                         <div className="flex bg-slate-50 p-1 rounded-xl">
                             <button className="px-4 py-1.5 text-xs font-bold bg-white shadow-sm rounded-lg text-primary">Day</button>
-                            <button className="px-4 py-1.5 text-xs font-bold text-tertiary">Week</button>
                         </div>
                     </div>
                     <HeartRateChart data={data?.heartRateData || []} />
                 </div>
 
-                {/* Recent Alerts */}
-                <div className="bg-surface-container-lowest rounded-3xl p-8 shadow-sm">
-                    <div className="flex justify-between items-center mb-6">
-                        <h3 className="text-xl font-extrabold text-on-surface">Recent Alerts</h3>
-                        <span className="text-xs font-bold text-primary cursor-pointer hover:underline">View All</span>
-                    </div>
-                    <div className="space-y-4">
-                        <div className="flex gap-4 p-4 rounded-2xl bg-surface-container-low">
-                            <div className="h-10 w-10 shrink-0 bg-secondary/10 rounded-xl flex items-center justify-center text-secondary">
-                                <span className="material-symbols-outlined">check_circle</span>
-                            </div>
-                            <div>
-                                <p className="text-sm font-bold text-on-surface">Lab Results Ready</p>
-                                <p className="text-xs text-tertiary mt-0.5">Metabolic panel from 05/20 is now available for review.</p>
-                                <p className="text-[10px] font-bold text-slate-400 mt-2">2 HOURS AGO</p>
-                            </div>
-                        </div>
-                        <div className="flex gap-4 p-4 rounded-2xl border border-dashed border-outline-variant">
-                            <div className="h-10 w-10 shrink-0 bg-tertiary/10 rounded-xl flex items-center justify-center text-tertiary">
-                                <span className="material-symbols-outlined">calendar_today</span>
-                            </div>
-                            <div>
-                                <p className="text-sm font-bold text-on-surface">Follow-up Reminder</p>
-                                <p className="text-xs text-tertiary mt-0.5">Dr. Chen requested a check-in regarding your medication.</p>
-                                <p className="text-[10px] font-bold text-slate-400 mt-2">1 DAY AGO</p>
-                            </div>
-                        </div>
-                    </div>
-                </div>
+
             </div>
 
             {/* Quick Actions Section */}

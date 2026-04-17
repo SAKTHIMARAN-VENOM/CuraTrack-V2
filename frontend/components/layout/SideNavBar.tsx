@@ -7,7 +7,7 @@ import { twMerge } from 'tailwind-merge';
 
 const NAV_ITEMS = [
   { href: '/dashboard', icon: 'dashboard', label: 'Dashboard' },
-  { href: '#', icon: 'folder_shared', label: 'Health Records' },
+  { href: '/records', icon: 'folder_shared', label: 'Health Records' },
   { href: '/alerts', icon: 'notifications_active', label: 'Alerts' },
   { href: '/telemedicine', icon: 'video_chat', label: 'Telemedicine' },
   { href: '/benefits', icon: 'account_balance_wallet', label: 'Benefits & Insurance' },

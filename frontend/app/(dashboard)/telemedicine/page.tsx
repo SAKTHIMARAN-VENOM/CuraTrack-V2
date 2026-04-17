@@ -154,14 +154,8 @@ export default function TelemedicinePage() {
             {doctors.map((doc) => (
               <div key={doc.id} className="bg-white border rounded-3xl p-6 shadow-sm hover:shadow-md transition-shadow">
                 <div className="flex items-center gap-4 mb-6">
-                  <div className="w-16 h-16 rounded-full bg-surface-container-high overflow-hidden">
-                    {doc.picture ? (
-                      <img src={doc.picture} alt={doc.name} className="w-full h-full object-cover" />
-                    ) : (
-                      <div className="w-full h-full flex items-center justify-center text-2xl font-bold text-outline">
-                        {doc.name[0]}
-                      </div>
-                    )}
+                  <div className="w-16 h-16 rounded-full bg-slate-100 flex items-center justify-center text-slate-400 border-2 border-slate-50">
+                    <span className="material-symbols-outlined text-3xl" style={{ fontVariationSettings: "'FILL' 1" }}>person</span>
                   </div>
                   <div>
                     <h3 className="font-bold text-lg">{doc.name}</h3>

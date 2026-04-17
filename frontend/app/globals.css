@@ -83,4 +83,25 @@
     -ms-overflow-style: none;
     scrollbar-width: none;
   }
+  .fill-icon { font-variation-settings: 'FILL' 1, 'wght' 400, 'GRAD' 0, 'opsz' 24; }
+  .tab-active { background: var(--color-primary); color: #fff; }
+  .tab-inactive { background: transparent; color: var(--color-on-surface-variant); }
+  .tab-inactive:hover { background: var(--color-surface-container); }
+  .section-card { background: #ffffff; border-radius: 1.5rem; box-shadow: 0 8px 32px -8px rgba(25,28,29,0.06); }
+  .med-pill-active { background: #d4f0fa; color: var(--color-primary); }
+  .med-pill-inactive { background: var(--color-surface-container); color: var(--color-outline); }
+  .status-badge-stable { background: #d1faf5; color: var(--color-secondary); }
+  .status-badge-urgent { background: var(--color-error-container); color: var(--color-error); }
+  .status-badge-pending { background: var(--color-surface-container-low); color: var(--color-tertiary); }
+  .status-badge-normal { background: #d4f0fa; color: var(--color-primary); }
+  .progress-bar { height: 6px; border-radius: 9999px; background: var(--color-surface-container); overflow: hidden; }
+  .progress-fill { height: 100%; border-radius: 9999px; background: linear-gradient(90deg, var(--color-primary), var(--color-primary-container)); }
+  .sparkline { display: flex; align-items: flex-end; gap: 3px; height: 32px; }
+  .spark-bar { width: 5px; border-radius: 2px; background: var(--color-primary-fixed-dim); transition: background 0.2s; }
+  .spark-bar.high { background: var(--color-error); }
+  .spark-bar.normal { background: var(--color-secondary); }
+  .collapsible-content { max-height: 0; overflow: hidden; transition: max-height 0.35s ease; }
+  .collapsible-content.open { max-height: 2000px; }
+  .rotate-icon { transition: transform 0.3s ease; }
+  .rotate-icon.open { transform: rotate(180deg); }
 }
