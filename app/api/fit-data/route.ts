@@ -27,10 +27,8 @@ export async function GET(req: NextRequest) {
         const stepsResponse = await fitness.users.dataset.aggregate({
             userId: 'me',
             requestBody: {
-                // Use 'derived' for more accurate merged data from phone/watch
                 aggregateBy: [{ 
-                    dataTypeName: 'com.google.step_count.delta',
-                    dataSourceId: 'derived:com.google.step_count.delta:com.google.android.gms:estimated_steps' 
+                    dataTypeName: 'com.google.step_count.delta'
                 }],
                 bucketByTime: { durationMillis: '86400000' }, 
                 startTimeMillis,
@@ -53,9 +51,7 @@ export async function GET(req: NextRequest) {
             userId: 'me',
             requestBody: {
                 aggregateBy: [{ 
-                    dataTypeName: 'com.google.heart_rate.bpm',
-                    // Prioritizing the boAt/CoveIoT source which seems to be the primary wearable data
-                    dataSourceId: 'derived:com.google.heart_rate.bpm:com.coveiot.android.boat:GoogleFitDataManager - heart rate' 
+                    dataTypeName: 'com.google.heart_rate.bpm'
                 }],
                 bucketByTime: { durationMillis: '900000' }, // 15 mins
                 startTimeMillis,

@@ -38,6 +38,9 @@ yarn-error.log*
 .env.production.local
 # .env.example is intentionally NOT ignored so the team can see required variables
 
+# local data store (user accounts)
+/data
+
 # vercel
 .vercel
 
