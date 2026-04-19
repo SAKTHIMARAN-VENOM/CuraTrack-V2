@@ -16,12 +16,14 @@ export async function GET(req: NextRequest) {
         const oauth2Client = await getTokensForUser(user.id);
 
         if (!oauth2Client) {
-            console.warn(`[API] Google Fit not connected for user: ${user.id}`);
+            console.warn(`[API] Google Fit not connected for user: ${user.id} (Status: 403)`);
             return NextResponse.json({ 
                 error: 'Google Fit not connected',
                 code: 'GOOG_NOT_CONNECTED' 
             }, { status: 403 });
         }
+
+        console.log(`[API] Successfully retrieved OAuth2 client for user: ${user.id}`);
 
 
         const fitness = google.fitness({ version: 'v1', auth: oauth2Client });

@@ -36,17 +36,6 @@ const Navbar = () => (
       </Link>
     </nav>
     <div className="flex items-center gap-6">
-<<<<<<< HEAD
-=======
-      <div className="hidden lg:flex items-center bg-surface-container-low px-4 py-2 rounded-full ring-2 ring-transparent focus-within:ring-primary/20 transition-all">
-        <span className="material-symbols-outlined text-outline text-sm mr-2">search</span>
-        <input
-          className="bg-transparent border-none focus:ring-0 p-0 text-sm w-48 placeholder:text-outline-variant outline-none"
-          placeholder="Search records..."
-          type="text"
-        />
-      </div>
->>>>>>> 927db80e1aef6181e7024aa64c7364312a81ec70
       <div className="flex items-center gap-4">
         <button className="material-symbols-outlined text-outline hover:text-primary transition-colors">
           notifications
@@ -63,7 +52,7 @@ const Navbar = () => (
 );
 
 const Hero = () => (
-  <section className="relative min-h-[921px] flex items-center px-8 lg:px-24 overflow-hidden">
+  <section className="relative min-h-[921px] flex items-center px-8 lg:px-24 overflow-hidden bg-white">
     <div className="grid lg:grid-cols-2 gap-16 items-center w-full max-w-7xl mx-auto h-full">
       <div className="z-10 pt-20 lg:pt-0">
         <div className="inline-flex items-center gap-2 px-3 py-1 bg-secondary-container rounded-full mb-6">
@@ -99,7 +88,6 @@ const Hero = () => (
         </div>
         <div className="mt-16 flex items-center gap-8">
           <div className="flex -space-x-4">
-<<<<<<< HEAD
             <div className="w-12 h-12 rounded-full border-4 border-surface bg-slate-100 flex items-center justify-center text-slate-400">
               <span className="material-symbols-outlined text-xl" style={{ fontVariationSettings: "'FILL' 1" }}>person</span>
             </div>
@@ -109,23 +97,6 @@ const Hero = () => (
             <div className="w-12 h-12 rounded-full border-4 border-surface bg-slate-100 flex items-center justify-center text-slate-400">
               <span className="material-symbols-outlined text-xl" style={{ fontVariationSettings: "'FILL' 1" }}>person</span>
             </div>
-=======
-            <img
-              alt="Doctor"
-              className="w-12 h-12 rounded-full border-4 border-surface"
-              src="https://lh3.googleusercontent.com/aida-public/AB6AXuDQvDb1HIygjTHH-Y8kDInthD1ed9W5aNvI6YpiHRnwP1oKzMiBrtXp5Z4YKDZOTE4FhpBEJyHpfYF-7xOuPuJP4IKwz-AF965Oh3XMeYC7lA-ZE8VL5ntqH0r9mKlKwRuEAm886GTwmGqwnPVdPuUfyt4hN6O6bA7ZU8KpcH737dgaj4DBHPTM_HPsoah2khqSZ6yJo2r6VAo7BTj3uSc2TWoc2ZZI7S6T1BjNcemZbBuRtm_ue2AlulaF5HV4EzB7yria8xSR2OZs"
-            />
-            <img
-              alt="Patient"
-              className="w-12 h-12 rounded-full border-4 border-surface"
-              src="https://lh3.googleusercontent.com/aida-public/AB6AXuDrGTVyEL52qdzq_XsJxVfdq53bYC_LEk5aES3diiwlk_j8dAyEmJmYCbAyEFD0KZOVEDzoG8wklGQpsOAjAZPY-RGcYhS8YJnqiPuG9yTr_nfQj8h3BWxO0dVYgqqvovzhAA1xAOOdb1B2xe6wdy8jrKS1Q_yDEF3anF4hATbf-MG1fYI7X-eStga4_3vZQJ9-TGIw2BYjvEP63tBcivJhT66tLbmKjFY89NX-sdzIpeQiJPyR053H_x3B_XOyvJhaG86kDT8WFsQ7"
-            />
-            <img
-              alt="Professional"
-              className="w-12 h-12 rounded-full border-4 border-surface"
-              src="https://lh3.googleusercontent.com/aida-public/AB6AXuDUWRfCftTcR76U60C-CtL_oGPCfJLIIviEfmJFcxag3ppQrJWNq6Bh5k925SwtB3e-mphheeizFFPQMzUNGPciyBi0MZn46YrvnSiD3UVvYT94k_IZQxS05Nx7JEaqPOa22AUhwwJSeNOe-SWqPwcZwQTM1U9kS7ZbzIhFfaibDoAfgbhT0SaI9o0sHswto6yohKGLweOA0HLbU8easg2e2pFZBJN7-MDEWfwrpjw7qpc3jQFXm9BFO6gRIxev2K15yJFxL3n9W8x2"
-            />
->>>>>>> 927db80e1aef6181e7024aa64c7364312a81ec70
           </div>
           <div>
             <p className="text-on-surface font-bold">4.9/5 Rating</p>
@@ -134,8 +105,6 @@ const Hero = () => (
         </div>
       </div>
       <div className="relative w-full h-[500px] lg:h-[800px] flex items-center justify-center">
-        <div className="absolute -top-20 -right-20 w-96 h-96 bg-primary/5 rounded-full blur-3xl"></div>
-        <div className="absolute -bottom-20 -left-20 w-96 h-96 bg-secondary/5 rounded-full blur-3xl"></div>
         <div className="relative z-10 w-full h-full max-w-[600px] max-h-[600px]">
           <Spline scene="https://prod.spline.design/GsqIZvYkemIIKvGB/scene.splinecode" />
         </div>
@@ -196,11 +165,9 @@ const Features = () => (
             </button>
           </div>
           <div className="w-full md:w-1/2 flex justify-center">
-            <img
-              alt="Smartwatch"
-              className="w-48 object-contain drop-shadow-2xl rotate-12"
-              src="https://lh3.googleusercontent.com/aida-public/AB6AXuDw-pgjH0bZgtEg59X7AQ3KC4KmZ3-KG2V8IxiaKngZu_iy4B8-5vpRElp74hkJ0ah95jDTei4c408WaUxZqjHzs1iWMKS3QvNLGNdyoPP6Mm5vvvR4PMtFdoTE5FRwUxSmWnFdPf7lsgAY_AfD0yDAdlh7ev7t_WKOQFxrFsil-r_L_PPXFDD0ov9NlO-9FIP1ahfFLCKzYUaK2ZqPtDEAeWU2t6hk0HXj3OZ_NMog6slPwGWyggMuKHAw84iYrbIZ_RXgGIQzZIXs"
-            />
+            <div className="w-48 h-48 bg-white/10 rounded-3xl flex items-center justify-center">
+              <span className="material-symbols-outlined text-6xl text-white/60">watch</span>
+            </div>
           </div>
         </div>
         <div className="bg-surface-container-lowest rounded-[2rem] p-10 border border-outline-variant/10 flex flex-col justify-center">
@@ -209,7 +176,7 @@ const Features = () => (
           </div>
           <h3 className="text-2xl font-bold text-on-surface mb-3">Empathetic AI Insights</h3>
           <p className="text-tertiary leading-relaxed">
-            Our AI interprets numbers into actionable wellness nudges. "You seem stressed, your HRV is lower than usual. Try a 5-minute breathing session."
+            Our AI interprets numbers into actionable wellness nudges. &quot;You seem stressed, your HRV is lower than usual. Try a 5-minute breathing session.&quot;
           </p>
           <div className="mt-8 flex items-center gap-4 p-4 bg-surface-container-low rounded-2xl">
             <div className="w-10 h-10 primary-gradient rounded-full flex items-center justify-center text-white">
@@ -238,34 +205,13 @@ const Doctors = () => (
       </div>
       <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
         {[
-          {
-            name: "Dr. Sarah Mitchell",
-            role: "Cardiologist",
-            img: "https://lh3.googleusercontent.com/aida-public/AB6AXuDauRZCtuVdQYia0S25_LvQ4depBG9oePHeqV6Dyi-H9T1hQZ_e7X8snLiDdrLJqiwYlYNEbIcFwn7ZGycufQvdtPJx6nsU4g7cmSeBC-mHksUmBQwuFC1ITmhSH7s8JLGXwu5-6wWsHndx1rYiWY4jmgQv5ymJTuyOJljDJY0VeKr46dbs5WS1Pc-wG7yKzkDcBI2y2KVklwuzqefNkkiWvyMRCzSItR6rpyQ__qZUz2dbk00-y_bKTxGvwncEBFddWSYviw4LpUlG",
-          },
-          {
-            name: "Dr. James Wilson",
-            role: "Internal Medicine",
-            img: "https://lh3.googleusercontent.com/aida-public/AB6AXuDQvDb1HIygjTHH-Y8kDInthD1ed9W5aNvI6YpiHRnwP1oKzMiBrtXp5Z4YKDZOTE4FhpBEJyHpfYF-7xOuPuJP4IKwz-AF965Oh3XMeYC7lA-ZE8VL5ntqH0r9mKlKwRuEAm886GTwmGqwnPVdPuUfyt4hN6O6bA7ZU8KpcH737dgaj4DBHPTM_HPsoah2khqSZ6yJo2r6VAo7BTj3uSc2TWoc2ZZI7S6T1BjNcemZbBuRtm_ue2AlulaF5HV4EzB7yria8xSR2OZs",
-          },
-          {
-            name: "Dr. Elena Rodriguez",
-            role: "Neurologist",
-            img: "https://lh3.googleusercontent.com/aida-public/AB6AXuDUWRfCftTcR76U60C-CtL_oGPCfJLIIviEfmJFcxag3ppQrJWNq6Bh5k925SwtB3e-mphheeizFFPQMzUNGPciyBi0MZn46YrvnSiD3UVvYT94k_IZQxS05Nx7JEaqPOa22AUhwwJSeNOe-SWqPwcZwQTM1U9kS7ZbzIhFfaibDoAfgbhT0SaI9o0sHswto6yohKGLweOA0HLbU8easg2e2pFZBJN7-MDEWfwrpjw7qpc3jQFXm9BFO6gRIxev2K15yJFxL3n9W8x2",
-          },
+          { name: "Dr. Sarah Mitchell", role: "Cardiologist" },
+          { name: "Dr. James Wilson", role: "Internal Medicine" },
+          { name: "Dr. Elena Rodriguez", role: "Neurologist" },
         ].map((doctor) => (
           <div key={doctor.name} className="bg-surface-container-lowest rounded-3xl overflow-hidden border border-outline-variant/10 group">
-<<<<<<< HEAD
             <div className="aspect-[4/5] overflow-hidden bg-slate-100 flex items-center justify-center text-slate-400 group-hover:bg-slate-200 transition-colors">
               <span className="material-symbols-outlined text-6xl" style={{ fontVariationSettings: "'FILL' 1" }}>person</span>
-=======
-            <div className="aspect-[4/5] overflow-hidden">
-              <img
-                alt={doctor.name}
-                className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
-                src={doctor.img}
-              />
->>>>>>> 927db80e1aef6181e7024aa64c7364312a81ec70
             </div>
             <div className="p-6">
               <p className="text-primary font-bold text-xs tracking-widest uppercase mb-1">{doctor.role}</p>
@@ -302,15 +248,8 @@ const Security = () => (
       <div className="grid lg:grid-cols-2 gap-16 items-center">
         <div>
           <div className="inline-flex items-center gap-2 px-3 py-1 bg-primary/10 rounded-full mb-6">
-            <span
-              className="material-symbols-outlined text-primary text-sm"
-              style={{ fontVariationSettings: "'FILL' 1" }}
-            >
-              lock
-            </span>
-            <span className="text-xs font-bold text-primary tracking-wider uppercase">
-              Privacy First Architecture
-            </span>
+            <span className="material-symbols-outlined text-primary text-sm" style={{ fontVariationSettings: "'FILL' 1" }}>lock</span>
+            <span className="text-xs font-bold text-primary tracking-wider uppercase">Privacy First Architecture</span>
           </div>
           <h2 className="font-headline text-4xl font-extrabold text-on-surface mb-6 tracking-tight">
             Your health data is a fortress.
@@ -325,9 +264,7 @@ const Security = () => (
               </div>
               <div>
                 <h4 className="font-bold text-on-surface text-lg">End-to-End Encryption</h4>
-                <p className="text-tertiary text-sm">
-                  Data is encrypted at rest and in transit using AES-256 bit encryption, the gold standard for global security.
-                </p>
+                <p className="text-tertiary text-sm">Data is encrypted at rest and in transit using AES-256 bit encryption.</p>
               </div>
             </div>
             <div className="flex items-start gap-4">
@@ -336,9 +273,7 @@ const Security = () => (
               </div>
               <div>
                 <h4 className="font-bold text-on-surface text-lg">HIPAA & GDPR Compliance</h4>
-                <p className="text-tertiary text-sm">
-                  Fully compliant with international healthcare data regulations, ensuring your rights are protected everywhere.
-                </p>
+                <p className="text-tertiary text-sm">Fully compliant with international healthcare data regulations.</p>
               </div>
             </div>
             <div className="flex items-start gap-4">
@@ -347,9 +282,7 @@ const Security = () => (
               </div>
               <div>
                 <h4 className="font-bold text-on-surface text-lg">Multi-Factor Authentication</h4>
-                <p className="text-tertiary text-sm">
-                  Biometric login and 2FA options provide an extra layer of protection against unauthorized access.
-                </p>
+                <p className="text-tertiary text-sm">Biometric login and 2FA options provide an extra layer of protection.</p>
               </div>
             </div>
           </div>
@@ -379,7 +312,7 @@ const Security = () => (
                 </div>
               </div>
               <p className="mt-8 text-sm text-tertiary italic">
-                Audited quarterly by independent security firms to ensure maximum uptime and data integrity.
+                Audited quarterly by independent security firms.
               </p>
             </div>
           </div>
@@ -395,26 +328,13 @@ const Footer = () => (
       <div className="col-span-1 md:col-span-1">
         <div className="flex items-center gap-3 mb-6">
           <div className="w-8 h-8 primary-gradient rounded-lg flex items-center justify-center text-white">
-            <span
-              className="material-symbols-outlined text-sm"
-              style={{ fontVariationSettings: "'FILL' 1" }}
-            >
-              health_and_safety
-            </span>
+            <span className="material-symbols-outlined text-sm" style={{ fontVariationSettings: "'FILL' 1" }}>health_and_safety</span>
           </div>
           <span className="text-xl font-bold tracking-tighter text-primary">CuraTrack</span>
         </div>
         <p className="text-tertiary text-sm leading-relaxed mb-8">
-          Empathetic precision in healthcare management. Unifying your world of wellness.
+          Empathetic precision in healthcare management.
         </p>
-        <div className="flex gap-4">
-          <div className="w-10 h-10 rounded-full bg-surface-container flex items-center justify-center text-tertiary hover:bg-primary/10 hover:text-primary transition-colors cursor-pointer">
-            <span className="material-symbols-outlined text-lg">language</span>
-          </div>
-          <div className="w-10 h-10 rounded-full bg-surface-container flex items-center justify-center text-tertiary hover:bg-primary/10 hover:text-primary transition-colors cursor-pointer">
-            <span className="material-symbols-outlined text-lg">share</span>
-          </div>
-        </div>
       </div>
       <div>
         <h4 className="font-bold text-on-surface mb-6">Product</h4>
@@ -430,7 +350,6 @@ const Footer = () => (
         <ul className="space-y-4 text-tertiary text-sm">
           <li><a className="hover:text-primary transition-colors" href="#">About Us</a></li>
           <li><a className="hover:text-primary transition-colors" href="#">Careers</a></li>
-          <li><a className="hover:text-primary transition-colors" href="#">Press Kit</a></li>
           <li><a className="hover:text-primary transition-colors" href="#">Contact</a></li>
         </ul>
       </div>
@@ -440,12 +359,11 @@ const Footer = () => (
           <li><a className="hover:text-primary transition-colors" href="#">Privacy Policy</a></li>
           <li><a className="hover:text-primary transition-colors" href="#">Terms of Service</a></li>
           <li><a className="hover:text-primary transition-colors" href="#">HIPAA Compliance</a></li>
-          <li><a className="hover:text-primary transition-colors" href="#">Security</a></li>
         </ul>
       </div>
     </div>
     <div className="max-w-7xl mx-auto mt-20 pt-8 border-t border-outline-variant/10 flex flex-col md:flex-row justify-between items-center gap-6">
-      <p className="text-tertiary text-xs">© 2024 CuraTrack. All rights reserved.</p>
+      <p className="text-tertiary text-xs">© 2026 CuraTrack. All rights reserved.</p>
       <div className="flex gap-8 text-xs text-tertiary">
         <span>Designed with Empathetic Precision</span>
         <div className="flex items-center gap-2">
@@ -477,7 +395,7 @@ export default function LandingPageBundle() {
                 Empowering precision health for everyone.
               </h2>
               <p className="text-tertiary">
-                Our partners include the world's leading medical institutions and wearable manufacturers.
+                Our partners include the world&apos;s leading medical institutions and wearable manufacturers.
               </p>
             </div>
             <div className="flex flex-wrap justify-center gap-12 opacity-40 grayscale contrast-125">
@@ -498,7 +416,7 @@ export default function LandingPageBundle() {
                 Ready to unify your health?
               </h2>
               <p className="text-white/80 text-xl max-w-2xl mx-auto mb-12">
-                Join thousands of proactive individuals taking control of their medical journey today. Your first 30 days are on us.
+                Join thousands of proactive individuals taking control of their medical journey today.
               </p>
               <div className="flex flex-col sm:flex-row items-center justify-center gap-6">
                 <button className="bg-white text-primary px-10 py-5 rounded-2xl font-bold text-lg hover:shadow-2xl hover:shadow-white/10 transition-all w-full sm:w-auto active:scale-95">

@@ -1,17 +1,15 @@
 'use client';
 
 import Link from 'next/link';
-import { usePathname } from 'next/navigation';
+import { useEffect, useMemo, useState } from 'react';
+import { useRouter, usePathname } from 'next/navigation';
+import { createClient } from '@/lib/supabase/client';
 import clsx from 'clsx';
 import { twMerge } from 'tailwind-merge';
 
 const NAV_ITEMS = [
   { href: '/dashboard', icon: 'dashboard', label: 'Dashboard' },
-<<<<<<< HEAD
   { href: '/records', icon: 'folder_shared', label: 'Health Records' },
-=======
-  { href: '#', icon: 'folder_shared', label: 'Health Records' },
->>>>>>> 927db80e1aef6181e7024aa64c7364312a81ec70
   { href: '/alerts', icon: 'notifications_active', label: 'Alerts' },
   { href: '/telemedicine', icon: 'video_chat', label: 'Telemedicine' },
   { href: '/benefits', icon: 'account_balance_wallet', label: 'Benefits & Insurance' },
@@ -20,12 +18,31 @@ const NAV_ITEMS = [
 
 export function SideNavBar() {
   const pathname = usePathname();
+  const router = useRouter();
+  const supabase = useMemo(() => createClient(), []);
+  const [profile, setProfile] = useState<any>(null);
+
+  useEffect(() => {
+    async function fetchProfile() {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+
+      const { data } = await supabase
+        .from('profiles')
+        .select('*')
+        .eq('id', user.id)
+        .single();
+      
+      setProfile(data);
+    }
+    fetchProfile();
+  }, [supabase]);
 
   return (
-    <aside className="hidden md:flex w-72 flex-col p-6 rounded-r-3xl my-4 ml-4 h-[calc(100vh-2rem)] bg-slate-50 shadow-sm font-headline antialiased tracking-tight shrink-0 sticky top-4">
+    <aside className="hidden md:flex w-72 flex-col p-8 rounded-[2rem] my-4 ml-4 h-[calc(100vh-2rem)] bg-white border border-outline-variant/20 shadow-[0_8px_30px_rgb(0,0,0,0.02)] font-headline antialiased tracking-tight shrink-0 sticky top-4">
         <div className="flex flex-col gap-1 mb-10">
-            <h1 className="text-2xl font-bold tracking-tighter text-blue-700">CuraTrack</h1>
-            <p className="text-xs text-tertiary uppercase tracking-widest font-semibold">Empathetic Precision</p>
+            <h1 className="text-2xl font-black tracking-tighter text-primary">CuraTrack</h1>
+            <p className="text-[10px] text-tertiary uppercase tracking-[0.2em] font-bold">Clinical Care</p>
         </div>
 
         <nav className="flex flex-col gap-2 flex-grow">
@@ -37,10 +54,10 @@ export function SideNavBar() {
                         href={item.href}
                         className={twMerge(
                             clsx(
-                                "flex items-center gap-3 px-4 py-3 rounded-xl transition-all scale-95",
+                                "flex items-center gap-3 px-5 py-3.5 rounded-2xl transition-all",
                                 isActive 
-                                    ? "bg-white text-blue-700 font-bold shadow-sm" 
-                                    : "hover:bg-slate-200/50 text-slate-500 font-medium"
+                                    ? "bg-primary text-white font-bold shadow-lg shadow-primary/20" 
+                                    : "hover:bg-surface-container-low text-tertiary font-medium"
                             )
                         )}
                     >
@@ -60,21 +77,27 @@ export function SideNavBar() {
             <button 
                 onClick={async () => {
                     await fetch('/api/logout', { method: 'POST' });
-                    window.location.href = '/login';
+                    router.push('/login');
                 }}
-                className="w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all scale-95 hover:bg-red-50 text-red-600 font-bold"
+                className="w-full flex items-center gap-3 px-5 py-3.5 rounded-2xl transition-all hover:bg-error/5 text-error font-bold"
             >
                 <span className="material-symbols-outlined">logout</span>
                 <span>Logout</span>
             </button>
 
-            <div className="pt-6 border-t border-slate-200 flex items-center gap-3">
-                <div className="h-10 w-10 rounded-full overflow-hidden bg-surface-container">
-                    <img className="h-full w-full object-cover" src="https://lh3.googleusercontent.com/aida-public/AB6AXuBKALZodifP1ePGrMeZG0L5k8Z9hP2bsuSQVTyS0NFKx7PklwfFbTmjR4xfqgUMh14bAX_ytFct3UscvcaqcHRX85EaqtJetY-rSt6H7yNgfu2RSZ84BfnSCW-OuPXwZhv6GAkN6wleXc7AW-AieZ8weaPZ1n8xfPAQ7PT-y9e9FhTGpg5qOVPt3GRI9YU42mPDSJ_viMT5ty_0ecZ79sdQ10WrgVNeAJjdf5Evfq1Bzyj3OOL7JBxBmbNCwqZue2T0ApCRCmwzw9gb" alt="Doc" />
+            <div className="pt-6 border-t border-outline-variant/20 flex items-center gap-4">
+                <div className="h-11 w-11 rounded-2xl overflow-hidden bg-primary/10 flex items-center justify-center text-primary">
+                    <span className="material-symbols-outlined text-2xl" style={{ fontVariationSettings: "'FILL' 1" }}>
+                        {profile?.role === 'doctor' ? 'medical_services' : 'person'}
+                    </span>
                 </div>
-                <div>
-                    <p className="text-sm font-bold text-on-surface">Dr. Sarah Chen</p>
-                    <p className="text-xs text-tertiary">Primary Care</p>
+                <div className="min-w-0">
+                    <p className="text-sm font-bold text-on-surface truncate">
+                        {profile?.name || 'User'}
+                    </p>
+                    <p className="text-[10px] font-bold text-tertiary uppercase tracking-widest">
+                        {profile?.role === 'doctor' ? 'Professional' : 'Patient Account'}
+                    </p>
                 </div>
             </div>
         </div>

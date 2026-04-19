@@ -55,7 +55,7 @@ The easiest way to verify the implementation:
 
 ### 3. LAN Testing (Two Devices)
 1. Get your Local IP (run `ipconfig` or `ifconfig`).
-2. Access `http://YOUR_IP:3000/call/meeting-id` from both devices.
+2. Access `http://172.20.10.5:3000/call/meeting-id` from both devices.
 3. *Note: Most browsers require HTTPS for camera access. Use localhost or set up a secure proxy for cross-device testing.*
 
 ---

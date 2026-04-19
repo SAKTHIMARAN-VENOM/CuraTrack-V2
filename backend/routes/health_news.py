@@ -33,8 +33,8 @@ def get_health_news():
         # Filter: Must have an image AND be relevant health news
         filtered_articles = [a for a in articles if a.get("image") and is_health_news(a)]
         
-        # Limit to 5
-        filtered_articles = filtered_articles[:5]
+        # Limit to 4
+        filtered_articles = filtered_articles[:4]
         
         # Format response
         result = []

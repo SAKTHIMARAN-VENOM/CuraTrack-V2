@@ -20,7 +20,9 @@ export async function GET(req: NextRequest) {
             return NextResponse.redirect(new URL('/login?error=SessionLost', req.url));
         }
 
-        const oauth2Client = getOAuth2Client();
+        const origin = new URL(req.url).origin;
+        const dynamicRedirectUri = `${origin}/api/oauth2callback`;
+        const oauth2Client = getOAuth2Client(dynamicRedirectUri);
         const { tokens } = await oauth2Client.getToken(code);
         oauth2Client.setCredentials(tokens);
 

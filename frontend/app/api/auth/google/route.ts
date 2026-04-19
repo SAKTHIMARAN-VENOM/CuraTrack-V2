@@ -10,9 +10,10 @@ export async function GET(req: NextRequest) {
         return NextResponse.redirect(new URL('/login', req.url));
     }
 
-    const oauth2Client = getOAuth2Client();
+    const origin = new URL(req.url).origin;
+    const dynamicRedirectUri = `${origin}/api/oauth2callback`;
+    const oauth2Client = getOAuth2Client(dynamicRedirectUri);
 
-    
     const url = oauth2Client.generateAuthUrl({
         access_type: 'offline',
         scope: [...SCOPES, 'https://www.googleapis.com/auth/userinfo.email', 'https://www.googleapis.com/auth/userinfo.profile'],

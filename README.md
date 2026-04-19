@@ -1,88 +1,94 @@
-# CuraTrack V2 — Unified Health Ecosystem
+# 🧬 CuraTrack V2 — Unified Health Ecosystem
 
-CuraTrack V2 is an advanced, privacy-first healthcare management platform designed to unify patient records, streamline insurance eligibility, and provide AI-driven health insights. This repository combines a modern Next.js frontend with a robust FastAPI backend.
-
----
-
-## 🧩 Project Structure
-
-- **`/frontend`**: Next.js (App Router) application focusing on user experience, dashboard visualization, and secure patient access.
-- **`/backend`**: FastAPI-powered microservices handle complex logic such as FHIR insurance eligibility, government scheme recommendations, and secure QR generation.
+**CuraTrack V2** is a modular, high-performance healthcare management platform designed with "Empathetic Precision." It unifies patient wearables, medical records, and telemedicine into a single, secure environment powered by AI-driven insights.
 
 ---
 
-## 🚀 Key Features
+## 🚀 Core Features
 
-### Frontend (Patient & Doctor Portal)
-- 🔐 **Supabase Authentication**: Secure login/signup with MFA support and Google OAuth integration.
-- 📊 **Dynamic Dashboard**: Real-time health data visualization (Heart Rate, Steps, Activity) using Recharts.
-- 📹 **Telemedicine Hub**: Instant video call booking with specialists (Peer-to-peer room system).
-- 🧬 **Vital Story**: Deep dive analysis of patient vitals and health history.
-- 📱 **Mobile Responsive**: Native-feel UI designed for both desktop and mobile devices.
+### 🧠 AI Health Intelligence (Ollama + Llama 3.1)
+- **Clinical Ingestion**: Automated health record processing using **Tesseract OCR**. Parses prescriptions and lab results from images/PDFs directly into your digital history.
+- **Dynamic Risk Radar**: An AI engine that analyzes seasonal and localized data to provide context-aware health precautions and disease outbreak alerts.
+- **Intelligent Schemes**: AI-driven eligibility check for government and private insurance schemes based on demographic and medical profiles.
 
-### Backend (Intelligent Logic)
-- 🛡️ **Insurance Eligibility**: FHIR-style compliance engine for validating insurance coverage and claim processing.
-- 🤖 **Scheme Radar**: AI-driven recommendation engine for government health schemes based on patient demographics.
-- 📰 **Health News Feed**: Keyword-based health news integration using the GNews API.
-- ⚠️ **Health Risks Engine**: Context-aware seasonal risk analysis and precautions.
-- 🔳 **Secure Health ID**: Dynamic, expiring (5-min) QR code system for transient clinician access.
+### 🎥 Telemedicine Hub (WebRTC + P2P)
+- **Instant Video Consults**: Secure, room-based video calling with zero-infrastructure signaling via **Supabase Realtime Broadcast**.
+- **Real-time Vitals Sync**: Doctors can view live heart rate and activity metrics from the patient during the call for more accurate remote diagnosis.
+- **Professional Lobby**: A clinical-grade lobby system for patients and doctors to manage consultations seamlessly.
+
+### 🔐 Security & Privacy (The "PASSPORT" System)
+- **Patient Passport**: Scoped, one-time-use access tokens that allow clinicians to view specific segments of medical history without full record exposure.
+- **Dynamic QR Health ID**: Expiring QR codes for secure, transient access in emergency or clinical settings.
+- **End-to-End Encryption**: All sensitive medical documents and vitals are encrypted at rest and in transit using industry-standard protocols.
+
+### 📱 Unified Patient Dashboard
+- **Activity & Fit Dashboard**: Real-time tracking of **Heart Rate**, **Steps**, and **Sleep Quality** with visual trend analysis using Recharts.
+- **Smart Wellness Nudges**: AI-interpreted wellness advice: *"Your HRV is lower than usual. We recommend a 5-minute breathing session."*
+- **Clinical Design System**: A premium, accessibility-focused UI built with a refined teal-clinical color palette.
 
 ---
 
-## 🛠️ Technology Stack
+## 🛠️ Technical Architecture
 
-| Component | Technologies |
-|---|---|
-| **Frontend** | Next.js 16, React 19, Tailwind CSS 4, Supabase JS, Recharts, Lucide Icons |
-| **Backend** | Python, FastAPI, Pydantic, PyJWT, qrcode (PIL), python-dotenv |
-| **Database/Auth**| Supabase (PostgreSQL) |
-| **External APIs** | GNews API, Google Fit API (via OAuth) |
+### Tech Stack
+| Layer | Technology |
+| :--- | :--- |
+| **Frontend** | Next.js 15+ (App Router), React 19, Tailwind CSS (V4), TypeScript |
+| **Backend** | Python 3.10+, FastAPI, Uvicorn, Pydantic |
+| **AI/OCR** | Llama 3.1:8b (via Ollama), Tesseract OCR |
+| **Database/Auth** | Supabase (PostgreSQL), Supabase Auth |
+| **Video/Signaling** | WebRTC (P2P), Supabase Realtime (Signaling) |
+
+### System Integration
+```mermaid
+graph TD
+    A[Patient Wearables] --> B[FastAPI Backend]
+    C[Medical Documents] --> D[Tesseract OCR]
+    D --> E[Llama 3.1 Analysis]
+    E --> B
+    B --> F[Supabase Database]
+    G[Next.js Dashboard] <--> B
+    G <--> H[WebRTC Video Stream]
+    I[Doctor Portal] <--> G
+```
+
+---
+
+## 🎨 Clinical Design System
+CuraTrack V2 uses a custom design system optimized for clarity and trust:
+- **Primary**: `#006782` (Deep Clinical Teal)
+- **Secondary**: `#35B0AB` (Aquamarine Accent)
+- **Neutral**: `#F8F9FA` (Clean Clinical White)
+- **Typography**: `Manrope` for Headlines, `Inter` for Body/Labels.
 
 ---
 
 ## ⚙️ Local Setup
 
-### Prerequisites
-- Node.js (v18+)
-- Python (v3.10+)
-- Supabase Project
-
-### 1. Repository Setup
-```bash
-git clone https://github.com/SAKTHIMARAN-VENOM/CuraTrack-V2.git
-cd CuraTrack-V2
-```
+### 1. Prerequisites
+- **Ollama**: [Download](https://ollama.com/) and run `ollama pull llama3.1`
+- **Tesseract OCR**: Install the engine on your system ([Guide](https://github.com/tesseract-ocr/tesseract))
+- **Environment**: Node.js 18+ and Python 3.10+
 
 ### 2. Backend Installation
 ```bash
 cd backend
 python -m venv .venv
-source .venv/bin/activate  # On Windows: .venv\Scripts\activate
+source .venv/bin/activate  # Windows: .venv\Scripts\activate
 pip install -r requirements.txt
-cp .env.example .env       # Configure your GNEWS_API_KEY and QR_SECRET_KEY
-uvicorn main:app --reload
+python -m uvicorn main:app --reload
 ```
 
 ### 3. Frontend Installation
 ```bash
 cd frontend
 npm install
-cp .env.example .env       # Configure Supabase and FastAPI credentials
 npm run dev
 ```
 
 ---
 
-## 🔒 Security Procedures
+## 📜 Privacy & Compliance
+CuraTrack adheres to HIPAA-inspired data isolation principles. All peer-to-peer video sessions are encrypted, and medical record access is enforced via short-lived Row-Level Security (RLS) policies in Supabase.
 
-- **Environment Isolation**: `.env` files are strictly ignored and should never be committed. Use `.env.example` as a template.
-- **Expiring Tokens**: QR Health IDs use JWTs with a 5-minute time-to-live (TTL).
-- **Encrypted Data**: All patient-clinician interactions are secured via session-specific encryption.
-
----
-
-## 🤝 Contributing
-
-This project is a high-performance prototype. Maintain strict code standards and ensure no sensitive paths are exposed in the frontend.
-
-**"Empathetic Precision in Modern Care"**
+**"CuraTrack: Empathetic Precision in Modern Care"**

@@ -1,10 +1,72 @@
 'use client';
 
 import { useState } from 'react';
+import AddRecordModal from '@/components/AddRecordModal';
+import ReviewMedicationModal from '@/components/ReviewMedicationModal';
 
 export default function HealthRecordsPage() {
   const [activeTab, setActiveTab] = useState('medications');
   const [openSections, setOpenSections] = useState<Record<string, boolean>>({});
+  const [isAddRecordModalOpen, setIsAddRecordModalOpen] = useState(false);
+  const [isReviewModalOpen, setIsReviewModalOpen] = useState(false);
+  const [extractedMedications, setExtractedMedications] = useState<any[]>([]);
+  const [activeMedications, setActiveMedications] = useState<any[]>([
+    { name: 'Lisinopril', dosage: '10mg', frequency: 'Once daily', time: '08:00 AM', status: 'TAKEN', color: '#d4f0fa', icon: 'medication' },
+    { name: 'Metformin', dosage: '500mg', frequency: 'Twice daily', time: '01:00 PM with meal', status: 'UPCOMING', color: '#d4f0fa', icon: 'vaccines' },
+    { name: 'Atorvastatin', dosage: '20mg', frequency: 'Once at night', time: '09:00 PM (yesterday)', status: 'MISSED', color: '#ffdad6', icon: 'medication_liquid', isError: true },
+    { name: 'Aspirin', dosage: '81mg', frequency: 'Once daily', time: '09:00 PM', status: 'UPCOMING', color: '#d4f0fa', icon: 'pill' },
+  ]);
+  const [reviewingMedication, setReviewingMedication] = useState<any>(null);
+  const [reviewIndex, setReviewIndex] = useState<number>(-1);
+  const [userPrescriptions, setUserPrescriptions] = useState<any[]>([]);
+  const [userNotes, setUserNotes] = useState<any[]>([]);
+  const [userLabReports, setUserLabReports] = useState<any[]>([]);
+
+  const handleRecordAdded = (data: any) => {
+    // Handle new structured record types
+    if (data && data.type === 'prescription') {
+      setUserPrescriptions(prev => [data.data, ...prev]);
+      setActiveTab('prescriptions');
+      return;
+    }
+    if (data && data.type === 'notes') {
+      setUserNotes(prev => [data.data, ...prev]);
+      setActiveTab('notes');
+      return;
+    }
+    if (data && data.type === 'lab') {
+      setUserLabReports(prev => [data.data, ...prev]);
+      setActiveTab('lab');
+      return;
+    }
+    // Legacy: AI-extracted medications
+    if (data && data.medications && data.medications.length > 0) {
+      setExtractedMedications(prev => [...prev, ...data.medications]);
+      setActiveTab('prescriptions');
+    }
+  };
+
+  const startReview = (med: any, index: number) => {
+    setReviewingMedication(med);
+    setReviewIndex(index);
+    setIsReviewModalOpen(true);
+  };
+
+  const handleReviewConfirm = (updatedMed: any) => {
+    // Add to active medications
+    setActiveMedications(prev => [...prev, {
+        ...updatedMed,
+        status: 'UPCOMING', // Default status for new confirms
+        color: '#d4f0fa',
+        icon: 'pill'
+    }]);
+    
+    // Remove the item from the extracted list
+    setExtractedMedications(prev => prev.filter((_, i) => i !== reviewIndex));
+    setReviewingMedication(null);
+    setReviewIndex(-1);
+    setActiveTab('medications'); // Switch to medications tab to see the result
+  };
 
   const toggleSection = (id: string) => {
     setOpenSections(prev => ({ ...prev, [id]: !prev[id] }));
@@ -18,13 +80,12 @@ export default function HealthRecordsPage() {
         <div>
           <span className="inline-block px-3 py-1 bg-secondary-container text-on-secondary-container text-[11px] font-bold rounded-full uppercase tracking-widest mb-3">Medical History</span>
           <h2 className="font-headline text-4xl lg:text-5xl font-extrabold tracking-tight text-on-surface leading-none">Health Records</h2>
-          <p className="text-tertiary mt-2 text-base">Last updated: <span className="font-semibold text-on-surface-variant">May 24, 2025 · 09:14 AM</span></p>
         </div>
         <div className="flex items-center gap-3 shrink-0">
           <button className="flex items-center gap-2 px-4 py-2.5 bg-surface-container rounded-xl text-sm font-bold text-on-surface-variant hover:bg-surface-container-high transition-colors">
             <span className="material-symbols-outlined text-xl">download</span> Export PDF
           </button>
-          <button className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-bold text-white transition-all" style={{ background: 'linear-gradient(135deg, #00647e, #2c7d99)' }}>
+          <button onClick={() => setIsAddRecordModalOpen(true)} className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-bold text-white transition-all" style={{ background: 'linear-gradient(135deg, #00647e, #2c7d99)' }}>
             <span className="material-symbols-outlined text-xl fill-icon">add_circle</span> Add Record
           </button>
         </div>
@@ -80,77 +141,37 @@ export default function HealthRecordsPage() {
               <span className="text-xs font-bold text-tertiary uppercase tracking-wider">Tuesday, May 24</span>
             </div>
             <div className="space-y-4">
-              {/* Medication item: taken */}
-              <div className="flex items-center gap-5 p-4 bg-surface-container-low rounded-2xl group hover:bg-surface-container transition-colors">
-                <div className="w-12 h-12 rounded-2xl flex items-center justify-center shrink-0" style={{ background: '#d4f0fa' }}>
-                  <span className="material-symbols-outlined fill-icon text-primary">medication</span>
-                </div>
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-2 mb-0.5">
-                    <p className="font-headline font-bold text-on-surface">Lisinopril</p>
-                    <span className="px-2 py-0.5 rounded-full text-[10px] font-bold status-badge-stable">TAKEN</span>
+              {activeMedications.map((med, idx) => (
+                <div key={`active-${idx}`} className={`flex items-center gap-5 p-4 ${med.isError ? 'bg-error-container/40' : 'bg-surface-container-low'} rounded-2xl group hover:bg-surface-container transition-colors`}>
+                  <div className={`w-12 h-12 rounded-2xl flex items-center justify-center shrink-0 ${med.isError ? 'bg-error-container' : ''}`} style={!med.isError ? { background: med.color } : {}}>
+                    <span className={`material-symbols-outlined fill-icon ${med.isError ? 'text-error' : 'text-primary'}`}>{med.icon}</span>
                   </div>
-                  <p className="text-sm text-tertiary">10mg · Once daily · 08:00 AM</p>
-                  <div className="progress-bar mt-3 w-40">
-                    <div className="progress-fill" style={{ width: '100%' }}></div>
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2 mb-0.5">
+                      <p className="font-headline font-bold text-on-surface">{med.name}</p>
+                      <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${
+                        med.status === 'TAKEN' ? 'status-badge-stable' : 
+                        med.status === 'MISSED' ? 'status-badge-urgent' : 
+                        'status-badge-pending'
+                      }`}>{med.status}</span>
+                    </div>
+                    <p className="text-sm text-tertiary">{med.dosage} · {med.frequency} · {med.time}</p>
+                    <div className="progress-bar mt-3 w-40" style={med.isError ? { background: '#ffdad6' } : {}}>
+                      <div className={med.isError ? "" : "progress-fill"} style={med.isError ? { width: '0%', height: '100%', borderRadius: '9999px', background: '#ba1a1a' } : { width: med.status === 'TAKEN' ? '100%' : '0%' }}></div>
+                    </div>
                   </div>
+                  {med.status === 'TAKEN' ? (
+                    <div className="text-right shrink-0">
+                      <p className="text-xs font-bold text-secondary">08:04 AM</p>
+                      <p className="text-xs text-tertiary">Logged</p>
+                    </div>
+                  ) : med.status === 'MISSED' ? (
+                    <button className="shrink-0 px-4 py-2 rounded-xl text-xs font-bold bg-error-container text-on-error-container hover:bg-error/20 transition-colors">Log Missed</button>
+                  ) : (
+                    <button className="shrink-0 px-4 py-2 rounded-xl text-xs font-bold text-white transition-all" style={{ background: 'linear-gradient(135deg, #00647e, #2c7d99)' }}>{med.icon === 'pill' && idx > 3 ? 'Mark Taken' : 'Mark Taken'}</button>
+                  )}
                 </div>
-                <div className="text-right shrink-0">
-                  <p className="text-xs font-bold text-secondary">08:04 AM</p>
-                  <p className="text-xs text-tertiary">Logged</p>
-                </div>
-              </div>
-              {/* Medication item: upcoming */}
-              <div className="flex items-center gap-5 p-4 bg-surface-container-low rounded-2xl group hover:bg-surface-container transition-colors">
-                <div className="w-12 h-12 rounded-2xl flex items-center justify-center shrink-0" style={{ background: '#d4f0fa' }}>
-                  <span className="material-symbols-outlined fill-icon text-primary">vaccines</span>
-                </div>
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-2 mb-0.5">
-                    <p className="font-headline font-bold text-on-surface">Metformin</p>
-                    <span className="px-2 py-0.5 rounded-full text-[10px] font-bold status-badge-pending">UPCOMING</span>
-                  </div>
-                  <p className="text-sm text-tertiary">500mg · Twice daily · 01:00 PM with meal</p>
-                  <div className="progress-bar mt-3 w-40">
-                    <div className="progress-fill" style={{ width: '0%' }}></div>
-                  </div>
-                </div>
-                <button className="shrink-0 px-4 py-2 rounded-xl text-xs font-bold text-white transition-all" style={{ background: 'linear-gradient(135deg, #00647e, #2c7d99)' }}>Mark Taken</button>
-              </div>
-              {/* Medication item: missed */}
-              <div className="flex items-center gap-5 p-4 bg-error-container/40 rounded-2xl group hover:bg-error-container/60 transition-colors">
-                <div className="w-12 h-12 rounded-2xl flex items-center justify-center shrink-0 bg-error-container">
-                  <span className="material-symbols-outlined fill-icon text-error">medication_liquid</span>
-                </div>
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-2 mb-0.5">
-                    <p className="font-headline font-bold text-on-surface">Atorvastatin</p>
-                    <span className="px-2 py-0.5 rounded-full text-[10px] font-bold status-badge-urgent">MISSED</span>
-                  </div>
-                  <p className="text-sm text-tertiary">20mg · Once at night · 09:00 PM (yesterday)</p>
-                  <div className="progress-bar mt-3 w-40" style={{ background: '#ffdad6' }}>
-                    <div style={{ width: '0%', height: '100%', borderRadius: '9999px', background: '#ba1a1a' }}></div>
-                  </div>
-                </div>
-                <button className="shrink-0 px-4 py-2 rounded-xl text-xs font-bold bg-error-container text-on-error-container hover:bg-error/20 transition-colors">Log Missed</button>
-              </div>
-              {/* Medication item: upcoming */}
-              <div className="flex items-center gap-5 p-4 bg-surface-container-low rounded-2xl group hover:bg-surface-container transition-colors">
-                <div className="w-12 h-12 rounded-2xl flex items-center justify-center shrink-0" style={{ background: '#d4f0fa' }}>
-                  <span className="material-symbols-outlined fill-icon text-primary">pill</span>
-                </div>
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-2 mb-0.5">
-                    <p className="font-headline font-bold text-on-surface">Aspirin</p>
-                    <span className="px-2 py-0.5 rounded-full text-[10px] font-bold status-badge-pending">UPCOMING</span>
-                  </div>
-                  <p className="text-sm text-tertiary">81mg · Once daily · 09:00 PM</p>
-                  <div className="progress-bar mt-3 w-40">
-                    <div className="progress-fill" style={{ width: '0%' }}></div>
-                  </div>
-                </div>
-                <button className="shrink-0 px-4 py-2 rounded-xl text-xs font-bold bg-surface-container-high text-on-surface-variant hover:bg-surface-container-highest transition-colors">Remind Me</button>
-              </div>
+              ))}
             </div>
           </div>
 
@@ -282,6 +303,41 @@ export default function HealthRecordsPage() {
             </div>
 
             <div className="space-y-3">
+              {/* User-added lab reports */}
+              {userLabReports.map((lab, idx) => (
+                <div key={`user-lab-${idx}`} className="rounded-2xl overflow-hidden">
+                  <button onClick={() => toggleSection(`user-lab-${idx}`)} className={`w-full flex items-center gap-4 p-5 ${lab.status === 'Flagged' ? 'bg-error-container/30 hover:bg-error-container/50' : 'bg-surface-container-low hover:bg-surface-container'} transition-colors text-left`}>
+                    <div className={`w-11 h-11 rounded-xl flex items-center justify-center shrink-0 ${lab.status === 'Flagged' ? 'bg-error-container' : 'bg-primary/10'}`}>
+                      <span className={`material-symbols-outlined ${lab.status === 'Flagged' ? 'text-error' : 'text-primary'}`}>biotech</span>
+                    </div>
+                    <div className="flex-1">
+                      <div className="flex items-center gap-2 mb-0.5">
+                        <p className="font-headline font-bold text-on-surface">{lab.testName}</p>
+                        <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${lab.status === 'Flagged' ? 'status-badge-urgent' : lab.status === 'Pending' ? 'status-badge-pending' : 'status-badge-stable'}`}>{lab.status?.toUpperCase()}</span>
+                        <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-primary/10 text-primary">NEW</span>
+                      </div>
+                      <p className="text-xs text-tertiary">{lab.date} · {lab.labName || 'Unknown Lab'} · {lab.doctor || 'Unknown Doctor'}</p>
+                    </div>
+                    <span className={`material-symbols-outlined rotate-icon text-tertiary ${openSections[`user-lab-${idx}`] ? 'open' : ''}`}>expand_more</span>
+                  </button>
+                  <div className={`collapsible-content ${openSections[`user-lab-${idx}`] ? 'open' : ''}`}>
+                    <div className="p-5 bg-surface-container-lowest border-t border-outline-variant/10 space-y-3">
+                      {lab.results && lab.results.length > 0 && (
+                        <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                          {lab.results.map((r: any, ri: number) => (
+                            <div key={ri} className="p-4 bg-surface-container-low rounded-xl text-center">
+                              <p className="text-[10px] font-bold text-tertiary uppercase tracking-wider mb-1">{r.key}</p>
+                              <p className="font-headline text-xl font-extrabold text-on-surface">{r.value}</p>
+                              {r.unit && <p className="text-[10px] text-tertiary">{r.unit}</p>}
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              ))}
+
               {/* Metabolic Panel */}
               <div className="rounded-2xl overflow-hidden">
                 <button onClick={() => toggleSection('lab-metabolic')} className="w-full flex items-center gap-4 p-5 bg-surface-container-low hover:bg-surface-container transition-colors text-left">
@@ -442,6 +498,55 @@ export default function HealthRecordsPage() {
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
             {/* Main notes list */}
             <div className="lg:col-span-2 space-y-4">
+              {/* User-added notes */}
+              {userNotes.map((note, idx) => (
+                <div key={`user-note-${idx}`} className="section-card overflow-hidden">
+                  <div className="p-6 lg:p-8 border-b border-outline-variant/10">
+                    <div className="flex items-start justify-between gap-4">
+                      <div className="flex items-start gap-4">
+                        <div className="w-12 h-12 rounded-2xl bg-primary/10 flex items-center justify-center shrink-0">
+                          <span className="material-symbols-outlined fill-icon text-primary text-2xl">person</span>
+                        </div>
+                        <div>
+                          <div className="flex items-center gap-2">
+                            <p className="font-headline font-bold text-on-surface">{note.doctor}</p>
+                            <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-primary/10 text-primary">NEW</span>
+                          </div>
+                          <p className="text-xs text-tertiary">{note.specialty || 'General'} · {note.date}</p>
+                          {note.visitType && <span className="inline-block mt-1.5 px-2 py-0.5 rounded-full text-[10px] font-bold status-badge-stable">{note.visitType.toUpperCase()}</span>}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                  <div className="p-6 lg:p-8 space-y-5">
+                    {note.complaint && (
+                      <div>
+                        <p className="text-xs font-bold text-tertiary uppercase tracking-widest mb-2">Chief Complaint</p>
+                        <p className="text-sm text-on-surface leading-relaxed">{note.complaint}</p>
+                      </div>
+                    )}
+                    {note.observations && (
+                      <div>
+                        <p className="text-xs font-bold text-tertiary uppercase tracking-widest mb-2">Clinical Observations</p>
+                        <p className="text-sm text-on-surface leading-relaxed">{note.observations}</p>
+                      </div>
+                    )}
+                    {note.plan && (
+                      <div>
+                        <p className="text-xs font-bold text-tertiary uppercase tracking-widest mb-2">Assessment &amp; Plan</p>
+                        <p className="text-sm text-on-surface leading-relaxed">{note.plan}</p>
+                      </div>
+                    )}
+                    {note.followUp && (
+                      <div className="p-4 bg-primary-fixed/40 rounded-xl">
+                        <p className="text-xs font-bold text-primary uppercase tracking-widest mb-1">Follow-up</p>
+                        <p className="text-sm text-on-surface font-semibold">Next appointment: {note.followUp}</p>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              ))}
+
               <div className="section-card overflow-hidden">
                 <div className="p-6 lg:p-8 border-b border-outline-variant/10">
                   <div className="flex items-start justify-between gap-4">
@@ -622,6 +727,88 @@ export default function HealthRecordsPage() {
             </div>
 
             <div className="space-y-4">
+              {/* User-added prescriptions */}
+              {userPrescriptions.map((rx, idx) => (
+                <div key={`user-rx-${idx}`} className="p-6 bg-primary-container/20 border border-primary/20 rounded-2xl hover:bg-primary-container/30 transition-colors">
+                  <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-4">
+                    <div className="flex items-start gap-4">
+                      <div className="w-14 h-14 rounded-2xl flex items-center justify-center shrink-0" style={{ background: 'linear-gradient(135deg,#00647e,#2c7d99)' }}>
+                        <span className="material-symbols-outlined fill-icon text-white text-2xl">medication</span>
+                      </div>
+                      <div>
+                        <div className="flex items-center gap-2 mb-1">
+                          <h4 className="font-headline font-bold text-on-surface text-lg">{rx.name}</h4>
+                          <span className="px-2 py-0.5 rounded-full text-[10px] font-bold status-badge-stable">ACTIVE</span>
+                          <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-primary/10 text-primary">NEW</span>
+                        </div>
+                        <p className="text-sm text-tertiary mb-3">{rx.dosage} · {rx.frequency || 'As directed'} · {rx.date}</p>
+                        <div className="flex flex-wrap gap-3 text-xs">
+                          {rx.doctor && (
+                            <div className="px-3 py-1.5 bg-surface-container-lowest rounded-lg">
+                              <span className="text-tertiary">Prescribed by: </span><span className="font-bold text-on-surface">{rx.doctor}</span>
+                            </div>
+                          )}
+                          {rx.refills && (
+                            <div className="px-3 py-1.5 bg-surface-container-lowest rounded-lg">
+                              <span className="text-tertiary">Refills: </span><span className="font-bold text-on-surface">{rx.refills} left</span>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                    <div className="flex gap-2 shrink-0">
+                      <button className="p-2.5 rounded-xl bg-surface-container-lowest hover:bg-surface-container-high transition-colors text-tertiary hover:text-primary">
+                        <span className="material-symbols-outlined text-xl">download</span>
+                      </button>
+                    </div>
+                  </div>
+                  {rx.instructions && (
+                    <div className="mt-4 pt-4 border-t border-outline-variant/10">
+                      <p className="text-xs font-bold text-tertiary uppercase tracking-wider mb-2">Instructions</p>
+                      <p className="text-sm text-on-surface">{rx.instructions}</p>
+                    </div>
+                  )}
+                </div>
+              ))}
+
+              {extractedMedications.map((med, idx) => (
+                <div key={`extracted-${idx}`} className="p-6 bg-primary-container/20 border border-primary/20 rounded-2xl hover:bg-primary-container/30 transition-colors">
+                  <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-4">
+                    <div className="flex items-start gap-4">
+                      <div className="w-14 h-14 rounded-2xl flex items-center justify-center shrink-0" style={{ background: 'linear-gradient(135deg,#00647e,#2c7d99)' }}>
+                        <span className="material-symbols-outlined fill-icon text-white text-2xl">medication</span>
+                      </div>
+                      <div>
+                        <div className="flex items-center gap-2 mb-1">
+                          <h4 className="font-headline font-bold text-on-surface text-lg">{med.name || "Unknown Medication"}</h4>
+                          <span className="px-2 py-0.5 rounded-full text-[10px] font-bold status-badge-stable bg-primary/10 text-primary">NEW (EXTRACTED)</span>
+                        </div>
+                        <p className="text-sm text-tertiary mb-3">{med.dosage || "N/A"} · {med.frequency || "N/A"} · {med.time || "N/A"}</p>
+                        <div className="flex flex-wrap gap-3 text-xs">
+                          {med.reason && (
+                            <div className="px-3 py-1.5 bg-surface-container-lowest rounded-lg">
+                              <span className="text-tertiary">Reason: </span><span className="font-bold text-on-surface">{med.reason}</span>
+                            </div>
+                          )}
+                          <div className="px-3 py-1.5 bg-surface-container-lowest rounded-lg">
+                            <span className="text-tertiary">AI Confidence: </span><span className="font-bold text-secondary">{Math.round((med.confidence || 0) * 100)}%</span>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                    <div className="flex gap-2 shrink-0">
+                      <button 
+                        onClick={() => startReview(med, idx)}
+                        className="px-4 py-2.5 rounded-xl text-sm font-bold text-white transition-all" 
+                        style={{ background: 'linear-gradient(135deg,#00647e,#2c7d99)' }}
+                      >
+                        Review
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              ))}
+
               {/* Prescription card: Lisinopril */}
               <div className="p-6 bg-surface-container-low rounded-2xl hover:bg-surface-container transition-colors">
                 <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-4">
@@ -753,6 +940,23 @@ export default function HealthRecordsPage() {
             </div>
           </div>
         </div>
+      )}
+      <AddRecordModal 
+        isOpen={isAddRecordModalOpen} 
+        onClose={() => setIsAddRecordModalOpen(false)} 
+        onSuccess={handleRecordAdded} 
+      />
+
+      {reviewingMedication && (
+        <ReviewMedicationModal
+          isOpen={isReviewModalOpen}
+          onClose={() => {
+            setIsReviewModalOpen(false);
+            setReviewingMedication(null);
+          }}
+          medication={reviewingMedication}
+          onConfirm={handleReviewConfirm}
+        />
       )}
     </div>
   );

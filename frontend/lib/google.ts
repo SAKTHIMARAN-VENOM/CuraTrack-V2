@@ -1,11 +1,11 @@
 import { google } from 'googleapis';
 import { createClient } from './supabase/server';
 
-export const getOAuth2Client = () => {
+export const getOAuth2Client = (customRedirectUri?: string) => {
     return new google.auth.OAuth2(
         process.env.GOOGLE_CLIENT_ID,
         process.env.GOOGLE_CLIENT_SECRET,
-        process.env.REDIRECT_URI
+        customRedirectUri || process.env.REDIRECT_URI
     );
 };
 

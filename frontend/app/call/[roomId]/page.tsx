@@ -27,12 +27,19 @@ export default function CallPage() {
   const channelRef = useRef<ReturnType<typeof supabase.channel> | null>(null);
   const pendingCandidatesRef = useRef<RTCIceCandidateInit[]>([]);
   const hasJoinedRef = useRef(false);
+  const recognitionRef = useRef<any>(null);
+  const transcriptContainerRef = useRef<HTMLDivElement>(null);
 
   const [callStatus, setCallStatus] = useState<CallStatus>('idle');
   const [isMuted, setIsMuted] = useState(false);
   const [isVideoOff, setIsVideoOff] = useState(false);
   const [elapsedTime, setElapsedTime] = useState(0);
   const [error, setError] = useState<string | null>(null);
+  const [showCaptions, setShowCaptions] = useState(false);
+  const [currentTranscript, setCurrentTranscript] = useState('');
+  const [transcriptHistory, setTranscriptHistory] = useState<{text: string; timestamp: string}[]>([]);
+  const [isTranscribing, setIsTranscribing] = useState(false);
+  const [isInsecureContext, setIsInsecureContext] = useState(false);
 
   // Timer for call duration
   useEffect(() => {
@@ -40,6 +47,15 @@ export default function CallPage() {
     const interval = setInterval(() => setElapsedTime((t) => t + 1), 1000);
     return () => clearInterval(interval);
   }, [callStatus]);
+
+  // Check for secure context and mediaDevices support
+  useEffect(() => {
+    if (!navigator.mediaDevices || !window.isSecureContext) {
+      if (window.location.hostname !== 'localhost' && window.location.hostname !== '127.0.0.1') {
+        setIsInsecureContext(true);
+      }
+    }
+  }, []);
 
   const formatTime = (seconds: number) => {
     const m = Math.floor(seconds / 60).toString().padStart(2, '0');
@@ -54,7 +70,77 @@ export default function CallPage() {
     };
   }, []);
 
+  const stopTranscription = useCallback(() => {
+    if (recognitionRef.current) {
+      try { recognitionRef.current.stop(); } catch (_) {}
+      recognitionRef.current = null;
+    }
+    setIsTranscribing(false);
+  }, []);
+
+  const startTranscription = useCallback(() => {
+    const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+    if (!SpeechRecognition) {
+      console.warn('Web Speech API not supported in this browser');
+      return;
+    }
+
+    const recognition = new SpeechRecognition();
+    recognition.continuous = true;
+    recognition.interimResults = true;
+    recognition.lang = 'en-US';
+
+    recognition.onresult = (event: any) => {
+      let interim = '';
+      let finalText = '';
+
+      for (let i = event.resultIndex; i < event.results.length; i++) {
+        const result = event.results[i];
+        if (result.isFinal) {
+          finalText += result[0].transcript;
+        } else {
+          interim += result[0].transcript;
+        }
+      }
+
+      if (finalText.trim()) {
+        const now = new Date();
+        const timestamp = now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+        setTranscriptHistory(prev => [...prev, { text: finalText.trim(), timestamp }]);
+        setCurrentTranscript('');
+      } else {
+        setCurrentTranscript(interim);
+      }
+    };
+
+    recognition.onerror = (event: any) => {
+      console.error('Speech recognition error:', event.error);
+      if (event.error === 'not-allowed') {
+        setIsTranscribing(false);
+        return;
+      }
+      // Auto-restart on transient errors
+      if (event.error !== 'aborted') {
+        setTimeout(() => {
+          try { recognition.start(); } catch (_) {}
+        }, 1000);
+      }
+    };
+
+    recognition.onend = () => {
+      // Auto-restart if still transcribing
+      if (recognitionRef.current) {
+        try { recognition.start(); } catch (_) {}
+      }
+    };
+
+    recognitionRef.current = recognition;
+    recognition.start();
+    setIsTranscribing(true);
+  }, []);
+
   const cleanup = useCallback(() => {
+    stopTranscription();
     if (peerConnectionRef.current) {
       peerConnectionRef.current.close();
       peerConnectionRef.current = null;
@@ -67,10 +153,13 @@ export default function CallPage() {
       supabase.removeChannel(channelRef.current);
       channelRef.current = null;
     }
-  }, [supabase]);
+  }, [supabase, stopTranscription]);
 
   const startCall = async () => {
     try {
+      if (!navigator.mediaDevices) {
+        throw new Error('Camera/Microphone access is blocked by your browser (Insecure Context). Please use HTTPS or follow the Chrome Flag instructions.');
+      }
       setCallStatus('connecting');
       setError(null);
 
@@ -250,33 +339,51 @@ export default function CallPage() {
     router.push('/telemedicine');
   };
 
+  const downloadTranscript = () => {
+    if (transcriptHistory.length === 0) return;
+    
+    const content = transcriptHistory
+      .map(entry => `[${entry.timestamp}] ${entry.text}`)
+      .join('\n');
+    
+    const blob = new Blob([`CuraTrack Consultation Transcript\nRoom: ${roomId}\nDate: ${new Date().toLocaleDateString()}\n\n${content}`], { type: 'text/plain' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `transcript-${roomId.slice(0, 8)}.txt`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+  };
+
   return (
-    <div className="min-h-screen bg-[#0f1117] flex flex-col items-center justify-center p-4 relative overflow-hidden">
+    <div className="min-h-screen bg-[#0a0c10] flex flex-col items-center justify-center p-4 relative overflow-hidden font-body">
       {/* Ambient gradient background */}
       <div className="absolute inset-0 pointer-events-none">
-        <div className="absolute -top-40 -left-40 w-96 h-96 bg-primary/10 rounded-full blur-[120px]" />
-        <div className="absolute -bottom-40 -right-40 w-96 h-96 bg-secondary/10 rounded-full blur-[120px]" />
+        <div className="absolute -top-40 -left-40 w-[30rem] h-[30rem] bg-primary/20 rounded-full blur-[120px]" />
+        <div className="absolute -bottom-40 -right-40 w-[30rem] h-[30rem] bg-secondary/15 rounded-full blur-[120px]" />
       </div>
 
       {/* Header bar */}
-      <div className="absolute top-0 left-0 right-0 h-16 flex items-center justify-between px-6 z-20">
-        <div className="flex items-center gap-3">
-          <button onClick={leaveRoom} className="text-white/60 hover:text-white transition-colors">
+      <div className="absolute top-0 left-0 right-0 h-20 flex items-center justify-between px-8 z-20">
+        <div className="flex items-center gap-4">
+          <button onClick={leaveRoom} className="p-2 rounded-xl text-white/40 hover:text-primary hover:bg-white/5 transition-all">
             <span className="material-symbols-outlined">arrow_back</span>
           </button>
-          <h1 className="text-white font-headline font-bold text-lg">CuraTrack Consult</h1>
+          <h1 className="text-white font-headline font-bold text-xl tracking-tight">Consult Room</h1>
         </div>
         <div className="flex items-center gap-3">
           {callStatus === 'connected' && (
-            <div className="flex items-center gap-2 px-3 py-1.5 bg-white/10 backdrop-blur rounded-full">
-              <div className="w-2 h-2 bg-green-400 rounded-full animate-pulse" />
-              <span className="text-white/80 text-sm font-mono font-bold">{formatTime(elapsedTime)}</span>
+            <div className="flex items-center gap-2 px-4 py-2 bg-white/5 backdrop-blur-md border border-white/10 shadow-sm rounded-full">
+              <div className="w-2 h-2 bg-secondary rounded-full animate-pulse" />
+              <span className="text-white text-sm font-mono font-bold tracking-tight">{formatTime(elapsedTime)}</span>
             </div>
           )}
           {callStatus === 'connecting' && (
-            <div className="flex items-center gap-2 px-3 py-1.5 bg-amber-500/20 rounded-full">
-              <div className="w-2 h-2 bg-amber-400 rounded-full animate-pulse" />
-              <span className="text-amber-300 text-sm font-bold">Connecting...</span>
+            <div className="flex items-center gap-2 px-4 py-2 bg-primary/5 border border-primary/10 rounded-full">
+              <div className="w-2 h-2 bg-primary rounded-full animate-pulse" />
+              <span className="text-primary text-sm font-bold">Connecting...</span>
             </div>
           )}
         </div>
@@ -286,44 +393,100 @@ export default function CallPage() {
       <div className="relative z-10 w-full max-w-5xl flex-1 flex items-center justify-center py-20">
         {callStatus === 'idle' ? (
           /* Pre-call screen */
-          <div className="text-center space-y-8">
-            <div className="w-24 h-24 mx-auto rounded-full bg-gradient-to-br from-primary to-primary-container flex items-center justify-center shadow-lg shadow-primary/30">
-              <span className="material-symbols-outlined text-white text-4xl" style={{ fontVariationSettings: "'FILL' 1" }}>video_camera_front</span>
+          <div className="text-center space-y-10 max-w-lg w-full">
+            <div className="w-32 h-32 mx-auto rounded-[2.5rem] primary-gradient flex items-center justify-center shadow-xl shadow-primary/20">
+              <span className="material-symbols-outlined text-white text-5xl" style={{ fontVariationSettings: "'FILL' 1" }}>video_camera_front</span>
             </div>
             <div>
-              <h2 className="text-white text-3xl font-headline font-bold mb-2">Ready to join?</h2>
-              <p className="text-white/50 max-w-md mx-auto">Room: <span className="font-mono text-white/70">{roomId.slice(0, 8)}...</span></p>
+              <h2 className="text-white text-4xl font-headline font-extrabold tracking-tight mb-4">Start Consultation</h2>
+              <p className="text-white/60 max-w-md mx-auto leading-relaxed">Prepare for your secure session. Camera and microphone permissions are required.</p>
+              <div className="mt-4 inline-flex items-center gap-2 px-4 py-2 bg-white/5 rounded-2xl text-xs font-bold text-white/40">
+                 <span className="material-symbols-outlined text-sm">vpn_key</span>
+                 Room ID: {roomId.slice(0, 8)}
+              </div>
             </div>
-            {error && (
-              <div className="bg-red-500/20 border border-red-500/30 text-red-300 px-6 py-3 rounded-2xl text-sm max-w-md mx-auto">
-                {error}
+            {isInsecureContext && (
+              <div className="bg-amber-950/40 border border-amber-500/30 p-6 rounded-3xl text-left max-w-md mx-auto mb-6">
+                <div className="flex items-center gap-2 text-amber-200 font-bold mb-2">
+                  <span className="material-symbols-outlined">security</span>
+                  <h4>Browser Security Block</h4>
+                </div>
+                <p className="text-amber-200/70 text-xs leading-relaxed mb-4">
+                  Browsers disable camera/mic access on local IPs (e.g., 10.151.93.61) unless over HTTPS. To test this on your network:
+                </p>
+                <ol className="text-[11px] space-y-2 text-amber-200/80 list-decimal pl-4">
+                  <li>Go to <code className="bg-white/10 px-1 rounded text-amber-100">chrome://flags/#unsafely-treat-insecure-origin-as-secure</code></li>
+                  <li>Enable the flag and add <code className="bg-white/10 px-1 rounded text-amber-100">http://{window.location.host}</code> to the list.</li>
+                  <li>Relaunch Chrome and refresh this page.</li>
+                </ol>
               </div>
             )}
             <button
               onClick={startCall}
-              className="px-10 py-4 bg-gradient-to-r from-primary to-[#2c7d99] text-white text-lg font-bold rounded-2xl shadow-lg shadow-primary/30 hover:scale-105 active:scale-95 transition-all flex items-center gap-3 mx-auto"
+              disabled={isInsecureContext && !navigator.mediaDevices}
+              className="px-12 py-5 primary-gradient text-white text-lg font-bold rounded-3xl shadow-xl shadow-primary/20 hover:scale-[1.02] active:scale-[0.98] transition-all flex items-center gap-4 mx-auto disabled:opacity-50 disabled:grayscale"
             >
               <span className="material-symbols-outlined text-2xl" style={{ fontVariationSettings: "'FILL' 1" }}>videocam</span>
-              Start Meeting
+              {isInsecureContext && !navigator.mediaDevices ? 'Access Blocked' : 'Join Secure Call'}
             </button>
           </div>
         ) : callStatus === 'ended' ? (
           /* Post-call screen */
-          <div className="text-center space-y-6">
-            <div className="w-20 h-20 mx-auto rounded-full bg-white/10 flex items-center justify-center">
-              <span className="material-symbols-outlined text-white/60 text-3xl">call_end</span>
+          <div className="text-center space-y-8 max-w-lg w-full">
+            <div className="w-24 h-24 mx-auto rounded-[2rem] bg-secondary/10 flex items-center justify-center text-secondary">
+              <span className="material-symbols-outlined text-4xl" style={{ fontVariationSettings: "'FILL' 1" }}>task_alt</span>
             </div>
-            <h2 className="text-white text-2xl font-headline font-bold">Call Ended</h2>
-            <p className="text-white/50">Duration: {formatTime(elapsedTime)}</p>
+            <div>
+              <h2 className="text-white text-3xl font-headline font-bold mb-3">Call Completed</h2>
+              <p className="text-white/60 leading-relaxed">Your consultation has ended securely. Duration: <span className="text-primary font-bold">{formatTime(elapsedTime)}</span></p>
+            </div>
+
+            {/* Full Transcript */}
+            {transcriptHistory.length > 0 && (
+              <div className="bg-white/5 border border-white/10 backdrop-blur-md rounded-2xl p-6 text-left max-h-60 overflow-y-auto shadow-sm">
+                <div className="flex items-center justify-between mb-4">
+                  <div className="flex items-center gap-2">
+                    <span className="material-symbols-outlined text-primary text-lg">subtitles</span>
+                    <h3 className="text-sm font-bold text-white">Call Transcript</h3>
+                  </div>
+                  <div className="flex gap-2">
+                    <button 
+                      onClick={downloadTranscript}
+                      className="p-1.5 hover:bg-white/5 rounded-lg text-primary transition-colors"
+                      title="Download as Text"
+                    >
+                      <span className="material-symbols-outlined text-xl">download</span>
+                    </button>
+                    <button 
+                      onClick={() => window.print()}
+                      className="p-1.5 hover:bg-white/5 rounded-lg text-primary transition-colors"
+                      title="Export as PDF"
+                    >
+                      <span className="material-symbols-outlined text-xl">picture_as_pdf</span>
+                    </button>
+                  </div>
+                </div>
+                <div className="space-y-2" id="printable-transcript">
+                  {transcriptHistory.map((entry, idx) => (
+                    <div key={idx} className="flex gap-3 text-sm">
+                      <span className="text-[10px] font-mono text-white/40 whitespace-nowrap pt-0.5">{entry.timestamp}</span>
+                      <p className="text-white/80 leading-relaxed">{entry.text}</p>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
             <button
               onClick={leaveRoom}
-              className="px-8 py-3 bg-white/10 hover:bg-white/20 text-white font-bold rounded-2xl transition-all"
+              className="w-full py-4 bg-white/5 border border-white/10 text-white font-bold rounded-2xl hover:bg-white/10 transition-all shadow-sm"
             >
               Return to Telemedicine
             </button>
           </div>
         ) : (
           /* Active call — video feeds */
+          <>
           <div className="w-full grid grid-cols-1 md:grid-cols-2 gap-4 max-h-[70vh]">
             {/* Remote video (large) */}
             <div className="relative bg-[#1a1d27] rounded-3xl overflow-hidden aspect-video flex items-center justify-center">
@@ -367,12 +530,30 @@ export default function CallPage() {
               </div>
             </div>
           </div>
+
+          {/* Transcript overlay */}
+          {showCaptions && (currentTranscript || transcriptHistory.length > 0) && (
+            <div className="w-full max-w-5xl mt-4">
+              <div
+                ref={transcriptContainerRef}
+                className="bg-black/70 backdrop-blur-md rounded-2xl px-6 py-4 max-h-32 overflow-y-auto"
+              >
+                {transcriptHistory.slice(-3).map((entry, idx) => (
+                  <p key={idx} className="text-white/70 text-sm leading-relaxed">{entry.text}</p>
+                ))}
+                {currentTranscript && (
+                  <p className="text-white text-sm leading-relaxed italic">{currentTranscript}...</p>
+                )}
+              </div>
+            </div>
+          )}
+          </>
         )}
       </div>
 
       {/* Bottom control bar */}
       {(callStatus === 'connecting' || callStatus === 'connected') && (
-        <div className="absolute bottom-8 left-1/2 -translate-x-1/2 z-20 flex items-center gap-4 p-2 bg-white/10 backdrop-blur-xl rounded-full border border-white/10">
+        <div className="absolute bottom-8 left-1/2 -translate-x-1/2 z-20 flex items-center gap-3 p-2 bg-white/10 backdrop-blur-xl rounded-full border border-white/10">
           <button
             onClick={toggleMute}
             className={`w-14 h-14 rounded-full flex items-center justify-center transition-all ${
@@ -388,6 +569,23 @@ export default function CallPage() {
             }`}
           >
             <span className="material-symbols-outlined">{isVideoOff ? 'videocam_off' : 'videocam'}</span>
+          </button>
+          <button
+            onClick={() => {
+              if (showCaptions) {
+                setShowCaptions(false);
+                stopTranscription();
+              } else {
+                setShowCaptions(true);
+                startTranscription();
+              }
+            }}
+            className={`w-14 h-14 rounded-full flex items-center justify-center transition-all ${
+              showCaptions ? 'bg-primary text-white' : 'bg-white/10 text-white hover:bg-white/20'
+            }`}
+            title="Toggle Captions"
+          >
+            <span className="material-symbols-outlined">{showCaptions ? 'subtitles' : 'subtitles_off'}</span>
           </button>
           <button
             onClick={endCall}
