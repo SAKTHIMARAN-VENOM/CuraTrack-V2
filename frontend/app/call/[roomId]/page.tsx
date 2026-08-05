@@ -39,6 +39,7 @@ export default function CallPage() {
   const remoteVideoRef = useRef<HTMLVideoElement>(null);
   const peerConnectionRef = useRef<RTCPeerConnection | null>(null);
   const localStreamRef = useRef<MediaStream | null>(null);
+  const remoteStreamRef = useRef<MediaStream | null>(null);
   const channelRef = useRef<ReturnType<typeof supabase.channel> | null>(null);
   const pendingCandidatesRef = useRef<RTCIceCandidateInit[]>([]);
   const hasJoinedRef = useRef(false);
@@ -52,7 +53,7 @@ export default function CallPage() {
   const [error, setError] = useState<string | null>(null);
   const [showCaptions, setShowCaptions] = useState(false);
   const [currentTranscript, setCurrentTranscript] = useState('');
-  const [transcriptHistory, setTranscriptHistory] = useState<{text: string; timestamp: string}[]>([]);
+  const [transcriptHistory, setTranscriptHistory] = useState<{ text: string; timestamp: string }[]>([]);
   const [isTranscribing, setIsTranscribing] = useState(false);
   const [isInsecureContext, setIsInsecureContext] = useState(false);
 
@@ -97,7 +98,7 @@ export default function CallPage() {
 
   const stopTranscription = useCallback(() => {
     if (recognitionRef.current) {
-      try { recognitionRef.current.stop(); } catch (_) {}
+      try { recognitionRef.current.stop(); } catch (_) { }
       recognitionRef.current = null;
     }
     setIsTranscribing(false);
@@ -147,7 +148,7 @@ export default function CallPage() {
       // Auto-restart on transient errors
       if (event.error !== 'aborted') {
         setTimeout(() => {
-          try { recognition.start(); } catch (_) {}
+          try { recognition.start(); } catch (_) { }
         }, 1000);
       }
     };
@@ -155,7 +156,7 @@ export default function CallPage() {
     recognition.onend = () => {
       // Auto-restart if still transcribing
       if (recognitionRef.current) {
-        try { recognition.start(); } catch (_) {}
+        try { recognition.start(); } catch (_) { }
       }
     };
 
@@ -204,7 +205,7 @@ export default function CallPage() {
       }
 
       localStreamRef.current = stream;
-      
+
       // Set call status to connected immediately so user enters call room
       setCallStatus('connected');
 
@@ -388,11 +389,11 @@ export default function CallPage() {
 
   const downloadTranscript = () => {
     if (transcriptHistory.length === 0) return;
-    
+
     const content = transcriptHistory
       .map(entry => `[${entry.timestamp}] ${entry.text}`)
       .join('\n');
-    
+
     const blob = new Blob([`CuraTrack Consultation Transcript\nRoom: ${roomId}\nDate: ${new Date().toLocaleDateString()}\n\n${content}`], { type: 'text/plain' });
     const url = URL.createObjectURL(blob);
     const link = document.createElement('a');
@@ -448,8 +449,8 @@ export default function CallPage() {
               <h2 className="text-white text-4xl font-headline font-extrabold tracking-tight mb-4">Start Consultation</h2>
               <p className="text-white/60 max-w-md mx-auto leading-relaxed">Prepare for your secure session. Camera and microphone permissions are required.</p>
               <div className="mt-4 inline-flex items-center gap-2 px-4 py-2 bg-white/5 rounded-2xl text-xs font-bold text-white/40">
-                 <span className="material-symbols-outlined text-sm">vpn_key</span>
-                 Room ID: {roomId.slice(0, 8)}
+                <span className="material-symbols-outlined text-sm">vpn_key</span>
+                Room ID: {roomId.slice(0, 8)}
               </div>
             </div>
             {isInsecureContext && (
@@ -501,14 +502,14 @@ export default function CallPage() {
                     <h3 className="text-sm font-bold text-white">Call Transcript</h3>
                   </div>
                   <div className="flex gap-2">
-                    <button 
+                    <button
                       onClick={downloadTranscript}
                       className="p-1.5 hover:bg-white/5 rounded-lg text-primary transition-colors"
                       title="Download as Text"
                     >
                       <span className="material-symbols-outlined text-xl">download</span>
                     </button>
-                    <button 
+                    <button
                       onClick={() => window.print()}
                       className="p-1.5 hover:bg-white/5 rounded-lg text-primary transition-colors"
                       title="Export as PDF"
@@ -538,66 +539,66 @@ export default function CallPage() {
         ) : (
           /* Active call — video feeds */
           <>
-          <div className="w-full grid grid-cols-1 md:grid-cols-2 gap-4 max-h-[70vh]">
-            {/* Remote video (large) */}
-            <div className="relative bg-[#1a1d27] rounded-3xl overflow-hidden aspect-video flex items-center justify-center">
-              <video
-                ref={remoteVideoRef}
-                autoPlay
-                playsInline
-                className="w-full h-full object-cover"
-              />
-              {callStatus === 'connecting' && (
-                <div className="absolute inset-0 flex flex-col items-center justify-center bg-[#1a1d27]">
-                  <div className="w-16 h-16 rounded-full bg-white/5 flex items-center justify-center mb-4">
-                    <div className="w-10 h-10 border-2 border-primary border-t-transparent rounded-full animate-spin" />
+            <div className="w-full grid grid-cols-1 md:grid-cols-2 gap-4 max-h-[70vh]">
+              {/* Remote video (large) */}
+              <div className="relative bg-[#1a1d27] rounded-3xl overflow-hidden aspect-video flex items-center justify-center">
+                <video
+                  ref={remoteVideoRef}
+                  autoPlay
+                  playsInline
+                  className="w-full h-full object-cover"
+                />
+                {callStatus === 'connecting' && (
+                  <div className="absolute inset-0 flex flex-col items-center justify-center bg-[#1a1d27]">
+                    <div className="w-16 h-16 rounded-full bg-white/5 flex items-center justify-center mb-4">
+                      <div className="w-10 h-10 border-2 border-primary border-t-transparent rounded-full animate-spin" />
+                    </div>
+                    <p className="text-white/50 text-sm">Waiting for other participant...</p>
                   </div>
-                  <p className="text-white/50 text-sm">Waiting for other participant...</p>
-                </div>
-              )}
-              <div className="absolute bottom-3 left-3 px-3 py-1 bg-black/50 backdrop-blur rounded-lg">
-                <span className="text-white/80 text-xs font-bold">Remote</span>
-              </div>
-            </div>
-
-            {/* Local video (small) */}
-            <div className="relative bg-[#1a1d27] rounded-3xl overflow-hidden aspect-video">
-              <video
-                ref={localVideoRef}
-                autoPlay
-                playsInline
-                muted
-                className={`w-full h-full object-cover ${isVideoOff ? 'invisible' : ''}`}
-              />
-              {isVideoOff && (
-                <div className="absolute inset-0 flex items-center justify-center bg-[#1a1d27]">
-                  <div className="w-16 h-16 rounded-full bg-white/10 flex items-center justify-center">
-                    <span className="material-symbols-outlined text-white/40 text-2xl">videocam_off</span>
-                  </div>
-                </div>
-              )}
-              <div className="absolute bottom-3 left-3 px-3 py-1 bg-black/50 backdrop-blur rounded-lg">
-                <span className="text-white/80 text-xs font-bold">You</span>
-              </div>
-            </div>
-          </div>
-
-          {/* Transcript overlay */}
-          {showCaptions && (currentTranscript || transcriptHistory.length > 0) && (
-            <div className="w-full max-w-5xl mt-4">
-              <div
-                ref={transcriptContainerRef}
-                className="bg-black/70 backdrop-blur-md rounded-2xl px-6 py-4 max-h-32 overflow-y-auto"
-              >
-                {transcriptHistory.slice(-3).map((entry, idx) => (
-                  <p key={idx} className="text-white/70 text-sm leading-relaxed">{entry.text}</p>
-                ))}
-                {currentTranscript && (
-                  <p className="text-white text-sm leading-relaxed italic">{currentTranscript}...</p>
                 )}
+                <div className="absolute bottom-3 left-3 px-3 py-1 bg-black/50 backdrop-blur rounded-lg">
+                  <span className="text-white/80 text-xs font-bold">Remote</span>
+                </div>
+              </div>
+
+              {/* Local video (small) */}
+              <div className="relative bg-[#1a1d27] rounded-3xl overflow-hidden aspect-video">
+                <video
+                  ref={localVideoRef}
+                  autoPlay
+                  playsInline
+                  muted
+                  className={`w-full h-full object-cover ${isVideoOff ? 'invisible' : ''}`}
+                />
+                {isVideoOff && (
+                  <div className="absolute inset-0 flex items-center justify-center bg-[#1a1d27]">
+                    <div className="w-16 h-16 rounded-full bg-white/10 flex items-center justify-center">
+                      <span className="material-symbols-outlined text-white/40 text-2xl">videocam_off</span>
+                    </div>
+                  </div>
+                )}
+                <div className="absolute bottom-3 left-3 px-3 py-1 bg-black/50 backdrop-blur rounded-lg">
+                  <span className="text-white/80 text-xs font-bold">You</span>
+                </div>
               </div>
             </div>
-          )}
+
+            {/* Transcript overlay */}
+            {showCaptions && (currentTranscript || transcriptHistory.length > 0) && (
+              <div className="w-full max-w-5xl mt-4">
+                <div
+                  ref={transcriptContainerRef}
+                  className="bg-black/70 backdrop-blur-md rounded-2xl px-6 py-4 max-h-32 overflow-y-auto"
+                >
+                  {transcriptHistory.slice(-3).map((entry, idx) => (
+                    <p key={idx} className="text-white/70 text-sm leading-relaxed">{entry.text}</p>
+                  ))}
+                  {currentTranscript && (
+                    <p className="text-white text-sm leading-relaxed italic">{currentTranscript}...</p>
+                  )}
+                </div>
+              </div>
+            )}
           </>
         )}
       </div>
@@ -607,17 +608,15 @@ export default function CallPage() {
         <div className="absolute bottom-8 left-1/2 -translate-x-1/2 z-20 flex items-center gap-3 p-2 bg-white/10 backdrop-blur-xl rounded-full border border-white/10">
           <button
             onClick={toggleMute}
-            className={`w-14 h-14 rounded-full flex items-center justify-center transition-all ${
-              isMuted ? 'bg-red-500 text-white' : 'bg-white/10 text-white hover:bg-white/20'
-            }`}
+            className={`w-14 h-14 rounded-full flex items-center justify-center transition-all ${isMuted ? 'bg-red-500 text-white' : 'bg-white/10 text-white hover:bg-white/20'
+              }`}
           >
             <span className="material-symbols-outlined">{isMuted ? 'mic_off' : 'mic'}</span>
           </button>
           <button
             onClick={toggleVideo}
-            className={`w-14 h-14 rounded-full flex items-center justify-center transition-all ${
-              isVideoOff ? 'bg-red-500 text-white' : 'bg-white/10 text-white hover:bg-white/20'
-            }`}
+            className={`w-14 h-14 rounded-full flex items-center justify-center transition-all ${isVideoOff ? 'bg-red-500 text-white' : 'bg-white/10 text-white hover:bg-white/20'
+              }`}
           >
             <span className="material-symbols-outlined">{isVideoOff ? 'videocam_off' : 'videocam'}</span>
           </button>
@@ -631,9 +630,8 @@ export default function CallPage() {
                 startTranscription();
               }
             }}
-            className={`w-14 h-14 rounded-full flex items-center justify-center transition-all ${
-              showCaptions ? 'bg-primary text-white' : 'bg-white/10 text-white hover:bg-white/20'
-            }`}
+            className={`w-14 h-14 rounded-full flex items-center justify-center transition-all ${showCaptions ? 'bg-primary text-white' : 'bg-white/10 text-white hover:bg-white/20'
+              }`}
             title="Toggle Captions"
           >
             <span className="material-symbols-outlined">{showCaptions ? 'subtitles' : 'subtitles_off'}</span>
