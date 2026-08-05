@@ -193,7 +193,7 @@ export default function DoctorPortal() {
   // Single entry point to navigate to existing WebRTC room
   const handleStartConsultation = () => {
     if (latestAppointment?.room_id) {
-      router.push(`/call/${latestAppointment.room_id}`);
+      router.push(`/call/${latestAppointment.room_id}?role=doctor`);
     }
   };
 

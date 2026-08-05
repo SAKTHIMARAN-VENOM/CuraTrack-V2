@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState, useMemo, useCallback } from 'react';
 import { createClient } from '@/lib/supabase/client';
-import { useParams, useRouter } from 'next/navigation';
+import { useParams, useRouter, useSearchParams } from 'next/navigation';
 
 const ICE_SERVERS: RTCConfiguration = {
   iceServers: [
@@ -31,7 +31,11 @@ type CallStatus = 'idle' | 'connecting' | 'connected' | 'ended';
 export default function CallPage() {
   const params = useParams();
   const router = useRouter();
+  const searchParams = useSearchParams();
   const roomId = params.roomId as string;
+
+  const isDoctorRole = searchParams ? searchParams.get('role') === 'doctor' : false;
+  const isOfferer = !isDoctorRole; // Patient is ALWAYS Offerer, Doctor is ALWAYS Answerer
 
   const supabase = useMemo(() => createClient(), []);
 
@@ -42,7 +46,6 @@ export default function CallPage() {
   const remoteStreamRef = useRef<MediaStream | null>(null);
   const channelRef = useRef<ReturnType<typeof supabase.channel> | null>(null);
   const pendingCandidatesRef = useRef<RTCIceCandidateInit[]>([]);
-  const makingOfferRef = useRef<boolean>(false);
   const myPeerIdRef = useRef<string>(
     typeof crypto !== 'undefined' && crypto.randomUUID
       ? crypto.randomUUID()
@@ -201,7 +204,6 @@ export default function CallPage() {
       channelRef.current = null;
     }
     pendingCandidatesRef.current = [];
-    makingOfferRef.current = false;
   }, [supabase, stopTranscription]);
 
   // Helper to drain ICE candidates after setRemoteDescription succeeds
@@ -211,12 +213,40 @@ export default function CallPage() {
       for (const candidate of pendingCandidatesRef.current) {
         try {
           await pc.addIceCandidate(new RTCIceCandidate(candidate));
-          console.log('[WebRTC] Queued ICE candidate added successfully.');
+          console.log('[WebRTC] ICE: Connected candidate added from queue');
         } catch (err) {
           console.warn('[WebRTC] Failed to add queued ICE candidate:', err);
         }
       }
       pendingCandidatesRef.current = [];
+    }
+  };
+
+  const createOffer = async (
+    pc: RTCPeerConnection,
+    channel: ReturnType<typeof supabase.channel>
+  ) => {
+    // Guard createOffer with: if (pc.signalingState !== "stable") return;
+    if (pc.signalingState !== 'stable') {
+      console.log(`[WebRTC] createOffer skipped because signalingState is ${pc.signalingState}`);
+      return;
+    }
+    try {
+      console.log('[WebRTC] Patient: Creating Offer...');
+      const offer = await pc.createOffer();
+      if (pc.signalingState !== 'stable') return;
+
+      console.log('[WebRTC] Setting local description for Offer...');
+      await pc.setLocalDescription(offer);
+
+      console.log('[Signaling] Patient: Sending Offer SDP');
+      channel.send({
+        type: 'broadcast',
+        event: 'offer',
+        payload: { senderId: myPeerIdRef.current, sdp: pc.localDescription },
+      });
+    } catch (err) {
+      console.error('[WebRTC] Failed to create offer:', err);
     }
   };
 
@@ -226,6 +256,8 @@ export default function CallPage() {
       if (typeof window !== 'undefined' && !navigator.mediaDevices) {
         throw new Error('Camera/Microphone access is blocked by your browser. Make sure you are using HTTPS (https://).');
       }
+
+      console.log(`[WebRTC Initialization] Role: ${isOfferer ? 'Patient (Offerer)' : 'Doctor (Answerer)'}`);
 
       // 1. Get local media
       let stream: MediaStream | null = null;
@@ -262,23 +294,18 @@ export default function CallPage() {
         console.log(`[WebRTC] Signaling state: ${pc.signalingState}`);
 
         if (pc.connectionState === 'connected') {
-          console.log('[WebRTC] Connection Success: Peer Connection Established!');
+          console.log('[WebRTC] Connection: Connected!');
           setCallStatus('connected');
         } else if (pc.connectionState === 'failed') {
-          console.warn('[WebRTC] Connection Failure: Peer connection failed.');
+          console.warn('[WebRTC] Connection: Failed.');
         }
       };
 
       pc.oniceconnectionstatechange = () => {
         console.log(`[WebRTC] ICE State changed: ${pc.iceConnectionState}`);
         if (pc.iceConnectionState === 'connected' || pc.iceConnectionState === 'completed') {
-          console.log('[WebRTC] ICE Connection Success!');
+          console.log('[WebRTC] ICE: Connected');
           setCallStatus('connected');
-        } else if (pc.iceConnectionState === 'failed') {
-          console.warn('[WebRTC] ICE Connection Failure. Attempting ICE restart...');
-          try {
-            pc.restartIce();
-          } catch (_) { }
         }
       };
 
@@ -306,7 +333,7 @@ export default function CallPage() {
           const trackExists = remoteStreamRef.current.getTracks().some((t) => t.id === event.track.id);
           if (!trackExists) {
             remoteStreamRef.current.addTrack(event.track);
-            console.log('[WebRTC] Track added to remoteStreamRef');
+            console.log('[WebRTC] Track added to persistent remoteStreamRef');
           }
         }
 
@@ -318,41 +345,6 @@ export default function CallPage() {
             .play()
             .then(() => console.log('[WebRTC] Remote video playback started'))
             .catch((err) => console.error('[WebRTC] Error calling remoteVideo.play():', err));
-        }
-      };
-
-      // Perfect negotiation: offer needed trigger
-      pc.onnegotiationneeded = async () => {
-        if (pc.signalingState !== 'stable') {
-          console.log(`[WebRTC] Skipping negotiationneeded because signalingState is ${pc.signalingState}`);
-          return;
-        }
-        try {
-          console.log('[WebRTC] Negotiation needed triggered');
-          makingOfferRef.current = true;
-          console.log('[WebRTC] Creating Offer...');
-          const offer = await pc.createOffer();
-          if (pc.signalingState !== 'stable') {
-            console.log(`[WebRTC] signalingState changed to ${pc.signalingState} during createOffer, skipping setLocalDescription`);
-            return;
-          }
-          
-          console.log('[WebRTC] Before setLocalDescription() for Offer');
-          await pc.setLocalDescription(offer);
-          console.log('[WebRTC] After setLocalDescription() for Offer. SignalingState:', pc.signalingState);
-
-          if (channelRef.current) {
-            console.log('[Signaling] Sending Offer SDP to broadcast');
-            channelRef.current.send({
-              type: 'broadcast',
-              event: 'offer',
-              payload: { senderId: myPeerIdRef.current, sdp: pc.localDescription },
-            });
-          }
-        } catch (err) {
-          console.error('[WebRTC] Error in negotiationneeded:', err);
-        } finally {
-          makingOfferRef.current = false;
         }
       };
 
@@ -378,79 +370,82 @@ export default function CallPage() {
         // Broadcast: Peer Join
         channel.on('broadcast', { event: 'join' }, async ({ payload }) => {
           if (payload?.senderId === myPeerIdRef.current) return;
-          console.log('[Signaling] Received broadcast "join" from remote peer:', payload?.senderId);
-          if (peerConnectionRef.current && peerConnectionRef.current.signalingState === 'stable') {
-            await createOffer(peerConnectionRef.current, channel);
+          console.log(`[Signaling] Peer joined (${payload?.senderId}). My Role: ${isOfferer ? 'Patient (Offerer)' : 'Doctor (Answerer)'}`);
+          
+          // Patient re-sends or creates offer when Doctor joins
+          if (isOfferer && peerConnectionRef.current) {
+            const pc = peerConnectionRef.current;
+            if (pc.localDescription) {
+              console.log('[Signaling] Doctor joined! Patient re-broadcasting existing local Offer SDP to Doctor...');
+              channel.send({
+                type: 'broadcast',
+                event: 'offer',
+                payload: { senderId: myPeerIdRef.current, sdp: pc.localDescription },
+              });
+            } else if (pc.signalingState === 'stable') {
+              console.log('[Signaling] Doctor joined! Patient creating Offer SDP...');
+              await createOffer(pc, channel);
+            }
           }
         });
 
-        // Broadcast: Offer
+        // Broadcast: Offer (Doctor handles this)
         channel.on('broadcast', { event: 'offer' }, async ({ payload }) => {
           if (payload?.senderId === myPeerIdRef.current) return;
-          console.log('[Signaling] Received Offer SDP from remote peer');
+          console.log('[Signaling] Doctor: Offer Received from Patient!');
           if (!peerConnectionRef.current) return;
-          
+
           const pc = peerConnectionRef.current;
-          const isOfferCollision = makingOfferRef.current || pc.signalingState !== 'stable';
-          const isPolite = myPeerIdRef.current > (payload.senderId || '');
-
-          console.log(`[Signaling] Offer handling - signalingState: ${pc.signalingState}, collision: ${isOfferCollision}, isPolite: ${isPolite}`);
-
-          if (isOfferCollision && !isPolite) {
-            console.log('[Signaling] Impolite peer ignoring offer collision.');
+          if (pc.signalingState !== 'stable') {
+            console.warn(`[Signaling] Doctor: Offer received while signalingState is ${pc.signalingState}, skipping.`);
             return;
           }
 
           try {
-            if (isOfferCollision && isPolite) {
-              console.log('[Signaling] Polite peer rolling back local description...');
-              await pc.setLocalDescription({ type: 'rollback' });
-            }
-
-            console.log('[WebRTC] Before setRemoteDescription() for Offer. SignalingState:', pc.signalingState);
+            console.log('[WebRTC] Doctor: Applying Remote Offer SDP...');
             await pc.setRemoteDescription(new RTCSessionDescription(payload.sdp));
-            console.log('[WebRTC] After setRemoteDescription() for Offer. SignalingState:', pc.signalingState);
+            console.log('[WebRTC] Doctor: Remote Description Applied. SignalingState:', pc.signalingState);
 
             await drainPendingIceCandidates(pc);
 
-            console.log('[WebRTC] Creating Answer...');
+            console.log('[WebRTC] Doctor: Creating Answer...');
             const answer = await pc.createAnswer();
             
-            console.log('[WebRTC] Before setLocalDescription() for Answer');
+            console.log('[WebRTC] Doctor: Setting Local Description for Answer...');
             await pc.setLocalDescription(answer);
-            console.log('[WebRTC] After setLocalDescription() for Answer. SignalingState:', pc.signalingState);
+            console.log('[WebRTC] Doctor: Local Answer Description Set. SignalingState:', pc.signalingState);
 
-            console.log('[Signaling] Sending Answer SDP');
+            console.log('[Signaling] Doctor: Sending Answer SDP');
             channel.send({
               type: 'broadcast',
               event: 'answer',
               payload: { senderId: myPeerIdRef.current, sdp: answer },
             });
           } catch (err) {
-            console.error('[Signaling] Failed to handle remote offer:', err);
+            console.error('[Signaling] Doctor: Failed to handle remote offer:', err);
           }
         });
 
-        // Broadcast: Answer
+        // Broadcast: Answer (Patient handles this)
         channel.on('broadcast', { event: 'answer' }, async ({ payload }) => {
           if (payload?.senderId === myPeerIdRef.current) return;
-          console.log('[Signaling] Received Answer SDP from remote peer');
+          console.log('[Signaling] Patient: Answer Received from Doctor!');
           if (!peerConnectionRef.current) return;
 
           const pc = peerConnectionRef.current;
           if (pc.signalingState !== 'have-local-offer') {
-            console.warn(`[Signaling] Ignored answer because signalingState is ${pc.signalingState} (expected have-local-offer)`);
+            console.warn(`[Signaling] Patient: Ignored answer because signalingState is ${pc.signalingState} (expected have-local-offer)`);
             return;
           }
 
           try {
-            console.log('[WebRTC] Before setRemoteDescription() for Answer. SignalingState:', pc.signalingState);
+            console.log('[WebRTC] Patient: Applying Remote Answer SDP...');
             await pc.setRemoteDescription(new RTCSessionDescription(payload.sdp));
-            console.log('[WebRTC] After setRemoteDescription() for Answer. SignalingState:', pc.signalingState);
+            console.log('[WebRTC] Patient: Remote Answer Applied. SignalingState:', pc.signalingState);
 
             await drainPendingIceCandidates(pc);
           } catch (err) {
-            console.error('[Signaling] Failed to handle remote answer:', err);
+            console.error('[Signaling] Patient: Failed to handle remote answer:', err);
           }
         });
 
@@ -464,7 +459,7 @@ export default function CallPage() {
           if (pc.remoteDescription && pc.remoteDescription.type) {
             try {
               await pc.addIceCandidate(new RTCIceCandidate(payload.candidate));
-              console.log('[WebRTC] addIceCandidate() succeeded for candidate');
+              console.log('[WebRTC] ICE: Connected candidate added');
             } catch (err) {
               console.warn('[WebRTC] Failed to add ICE candidate:', err);
             }
@@ -481,23 +476,48 @@ export default function CallPage() {
           cleanup();
         });
 
-        await channel.subscribe();
-
-        // Announce join to peer
-        console.log('[Signaling] Broadcasting "join" to channel call-' + roomId);
-        channel.send({
-          type: 'broadcast',
-          event: 'join',
-          payload: { senderId: myPeerIdRef.current, ts: Date.now() },
-        });
-
-        // Fallback offer if room already occupied
-        setTimeout(async () => {
-          if (peerConnectionRef.current && peerConnectionRef.current.signalingState === 'stable' && !peerConnectionRef.current.remoteDescription) {
-            console.log('[Signaling] Initial timer fallback triggering createOffer...');
-            await createOffer(peerConnectionRef.current, channel);
+        // Gate signaling on RealtimeStatus === 'SUBSCRIBED'
+        console.log(`[Signaling] Subscribing to Supabase channel topic: ${channel.topic}`);
+        channel.subscribe((status, err) => {
+          console.log(`[Signaling] RealtimeStatus for ${channel.topic}: ${status}`);
+          if (err) {
+            console.warn('[Signaling] Realtime subscription error:', err);
           }
-        }, 1200);
+
+          if (status === 'SUBSCRIBED') {
+            console.log(`[Signaling] Channel ${channel.topic} fully SUBSCRIBED.`);
+
+            // Broadcast join once fully subscribed
+            console.log(`[Signaling] Broadcasting "join" as ${isOfferer ? 'Patient' : 'Doctor'} to channel ${channel.topic}`);
+            channel.send({
+              type: 'broadcast',
+              event: 'join',
+              payload: { senderId: myPeerIdRef.current, ts: Date.now() },
+            });
+
+            // Deterministic Offer triggering: ONLY Patient creates/sends offer when SUBSCRIBED
+            if (isOfferer) {
+              setTimeout(async () => {
+                if (peerConnectionRef.current) {
+                  const pc = peerConnectionRef.current;
+                  if (pc.localDescription) {
+                    console.log('[Signaling] Patient re-sending existing Offer SDP upon subscription...');
+                    channel.send({
+                      type: 'broadcast',
+                      event: 'offer',
+                      payload: { senderId: myPeerIdRef.current, sdp: pc.localDescription },
+                    });
+                  } else if (pc.signalingState === 'stable') {
+                    console.log('[Signaling] Patient creating initial Offer after subscription...');
+                    await createOffer(pc, channel);
+                  }
+                }
+              }, 400);
+            } else {
+              console.log('[Signaling] Doctor fully SUBSCRIBED, waiting for Patient Offer...');
+            }
+          }
+        });
 
       } catch (signalingErr) {
         console.warn('Realtime channel signaling setup warning:', signalingErr);
@@ -510,36 +530,6 @@ export default function CallPage() {
     }
   };
 
-  const createOffer = async (
-    pc: RTCPeerConnection,
-    channel: ReturnType<typeof supabase.channel>
-  ) => {
-    if (pc.signalingState !== 'stable') {
-      console.warn(`[WebRTC] createOffer skipped because signalingState is ${pc.signalingState}`);
-      return;
-    }
-    try {
-      makingOfferRef.current = true;
-      console.log('[WebRTC] Creating Offer...');
-      const offer = await pc.createOffer();
-      if (pc.signalingState !== 'stable') return;
-
-      console.log('[WebRTC] Before setLocalDescription() for Offer');
-      await pc.setLocalDescription(offer);
-      console.log('[WebRTC] After setLocalDescription() for Offer. SignalingState:', pc.signalingState);
-
-      console.log('[Signaling] Sending Offer SDP to broadcast');
-      channel.send({
-        type: 'broadcast',
-        event: 'offer',
-        payload: { senderId: myPeerIdRef.current, sdp: pc.localDescription },
-      });
-    } catch (err) {
-      console.error('[WebRTC] Failed to create offer:', err);
-    } finally {
-      makingOfferRef.current = false;
-    }
-  };
 
   const toggleMute = () => {
     if (!localStreamRef.current) return;
