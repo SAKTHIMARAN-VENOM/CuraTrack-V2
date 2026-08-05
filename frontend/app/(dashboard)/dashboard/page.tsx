@@ -16,6 +16,13 @@ export default function Dashboard() {
     const [insights, setInsights] = useState<any[]>([]);
     const [loadingInsights, setLoadingInsights] = useState(true);
     const [refreshing, setRefreshing] = useState(false);
+    const [chartRange, setChartRange] = useState<'day' | 'week'>('day');
+
+    // Weekly trend data fallback when no weekly wearable logs exist
+    const weeklyData: any[] = [];
+
+    const chartData = chartRange === 'week' ? weeklyData : (data?.heartRateData || []);
+
 
     const fetchFitData = async () => {
         setRefreshing(true);
@@ -196,11 +203,29 @@ export default function Dashboard() {
                         <p className="text-sm text-tertiary">Real-time data from CoveIoT wearable</p>
                     </div>
                     <div className="flex bg-slate-50 p-1 rounded-xl">
-                        <button className="px-4 py-1.5 text-xs font-bold bg-white shadow-sm rounded-lg text-primary">Day</button>
-                        <button className="px-4 py-1.5 text-xs font-bold text-tertiary">Week</button>
+                        <button 
+                            onClick={() => setChartRange('day')}
+                            className={`px-4 py-1.5 text-xs font-bold rounded-lg transition-all ${
+                                chartRange === 'day' 
+                                    ? 'bg-white shadow-sm text-primary' 
+                                    : 'text-tertiary hover:text-on-surface'
+                            }`}
+                        >
+                            Day
+                        </button>
+                        <button 
+                            onClick={() => setChartRange('week')}
+                            className={`px-4 py-1.5 text-xs font-bold rounded-lg transition-all ${
+                                chartRange === 'week' 
+                                    ? 'bg-white shadow-sm text-primary' 
+                                    : 'text-tertiary hover:text-on-surface'
+                            }`}
+                        >
+                            Week
+                        </button>
                     </div>
                 </div>
-                <HeartRateChart data={data?.heartRateData || []} />
+                <HeartRateChart data={chartData} />
             </div>
 
             {/* AI Health Insights - Moved Below Graph */}

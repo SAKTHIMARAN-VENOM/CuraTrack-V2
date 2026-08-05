@@ -8,6 +8,21 @@ const ICE_SERVERS: RTCConfiguration = {
   iceServers: [
     { urls: 'stun:stun.l.google.com:19302' },
     { urls: 'stun:stun1.l.google.com:19302' },
+    {
+      urls: 'turn:openrelay.metered.ca:80',
+      username: 'openrelay',
+      credential: 'openrelay',
+    },
+    {
+      urls: 'turn:openrelay.metered.ca:443',
+      username: 'openrelay',
+      credential: 'openrelay',
+    },
+    {
+      urls: 'turns:openrelay.metered.ca:443?transport=tcp',
+      username: 'openrelay',
+      credential: 'openrelay',
+    },
   ],
 };
 
@@ -48,9 +63,19 @@ export default function CallPage() {
     return () => clearInterval(interval);
   }, [callStatus]);
 
-  // Check for secure context and mediaDevices support
+  // Ensure local video ref receives stream as soon as video DOM element mounts
   useEffect(() => {
-    if (!navigator.mediaDevices || !window.isSecureContext) {
+    if (localStreamRef.current && localVideoRef.current) {
+      localVideoRef.current.srcObject = localStreamRef.current;
+    }
+  }, [callStatus]);
+
+  // Auto-redirect http to https for Ngrok and remote tunnels (browsers require HTTPS for camera)
+  useEffect(() => {
+    if (typeof window !== 'undefined' && window.location.protocol === 'http:' && window.location.hostname.includes('ngrok')) {
+      window.location.href = window.location.href.replace('http:', 'https:');
+    }
+    if (typeof window !== 'undefined' && (!navigator.mediaDevices || !window.isSecureContext)) {
       if (window.location.hostname !== 'localhost' && window.location.hostname !== '127.0.0.1') {
         setIsInsecureContext(true);
       }
@@ -156,143 +181,159 @@ export default function CallPage() {
   }, [supabase, stopTranscription]);
 
   const startCall = async () => {
+    setError(null);
     try {
-      if (!navigator.mediaDevices) {
-        throw new Error('Camera/Microphone access is blocked by your browser (Insecure Context). Please use HTTPS or follow the Chrome Flag instructions.');
+      if (typeof window !== 'undefined' && !navigator.mediaDevices) {
+        throw new Error('Camera/Microphone access is blocked by your browser. Make sure you are using HTTPS (https://).');
       }
-      setCallStatus('connecting');
-      setError(null);
 
       // 1. Get local media
-      const stream = await navigator.mediaDevices.getUserMedia({
-        video: true,
-        audio: true,
-      });
-      localStreamRef.current = stream;
-      if (localVideoRef.current) {
-        localVideoRef.current.srcObject = stream;
+      let stream: MediaStream | null = null;
+      try {
+        stream = await navigator.mediaDevices.getUserMedia({
+          video: true,
+          audio: true,
+        });
+      } catch (mediaErr: any) {
+        console.warn('getUserMedia audio+video failed, trying video only / audio only', mediaErr);
+        try {
+          stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+        } catch (_) {
+          throw new Error('Could not access Camera/Microphone. Please allow permissions in your browser bar.');
+        }
       }
+
+      localStreamRef.current = stream;
+      
+      // Set call status to connected immediately so user enters call room
+      setCallStatus('connected');
 
       // 2. Create PeerConnection
       const pc = new RTCPeerConnection(ICE_SERVERS);
       peerConnectionRef.current = pc;
 
       // Add local tracks
-      stream.getTracks().forEach((track) => pc.addTrack(track, stream));
+      if (stream) {
+        stream.getTracks().forEach((track) => pc.addTrack(track, stream!));
+      }
 
       // Handle remote tracks
       pc.ontrack = (event) => {
         if (remoteVideoRef.current && event.streams[0]) {
           remoteVideoRef.current.srcObject = event.streams[0];
-          setCallStatus('connected');
         }
       };
 
       pc.oniceconnectionstatechange = () => {
-        if (pc.iceConnectionState === 'connected' || pc.iceConnectionState === 'completed') {
-          setCallStatus('connected');
-        }
         if (pc.iceConnectionState === 'disconnected' || pc.iceConnectionState === 'failed') {
+          console.warn('ICE connection disconnected or failed');
+        }
+      };
+
+      // 3. Setup Supabase Realtime signaling channel in a non-blocking way
+      try {
+        const channel = supabase.channel(`call-${roomId}`, {
+          config: { broadcast: { self: false } },
+        });
+        channelRef.current = channel;
+
+        // Handle ICE candidates
+        pc.onicecandidate = (event) => {
+          if (event.candidate && channelRef.current) {
+            channelRef.current.send({
+              type: 'broadcast',
+              event: 'ice-candidate',
+              payload: { candidate: event.candidate.toJSON() },
+            });
+          }
+        };
+
+        // Register all broadcast handlers BEFORE subscribing
+        channel.on('broadcast', { event: 'join' }, async () => {
+          if (peerConnectionRef.current && peerConnectionRef.current.signalingState === 'stable') {
+            await createOffer(peerConnectionRef.current, channel);
+          }
+        });
+
+        channel.on('broadcast', { event: 'offer' }, async ({ payload }) => {
+          if (!peerConnectionRef.current) return;
+          const pc = peerConnectionRef.current;
+          if (pc.signalingState !== 'stable') return;
+          try {
+            await pc.setRemoteDescription(new RTCSessionDescription(payload.sdp));
+
+            for (const c of pendingCandidatesRef.current) {
+              await pc.addIceCandidate(new RTCIceCandidate(c));
+            }
+            pendingCandidatesRef.current = [];
+
+            const answer = await pc.createAnswer();
+            await pc.setLocalDescription(answer);
+            channel.send({
+              type: 'broadcast',
+              event: 'answer',
+              payload: { sdp: answer },
+            });
+          } catch (err) {
+            console.warn('Failed to handle remote offer:', err);
+          }
+        });
+
+        channel.on('broadcast', { event: 'answer' }, async ({ payload }) => {
+          if (!peerConnectionRef.current) return;
+          const pc = peerConnectionRef.current;
+          if (pc.signalingState !== 'have-local-offer') return;
+          try {
+            await pc.setRemoteDescription(new RTCSessionDescription(payload.sdp));
+            for (const c of pendingCandidatesRef.current) {
+              await pc.addIceCandidate(new RTCIceCandidate(c));
+            }
+            pendingCandidatesRef.current = [];
+          } catch (err) {
+            console.warn('Failed to handle remote answer:', err);
+          }
+        });
+
+        channel.on('broadcast', { event: 'ice-candidate' }, async ({ payload }) => {
+          if (!peerConnectionRef.current) return;
+          const pc = peerConnectionRef.current;
+          if (pc.remoteDescription && pc.remoteDescription.type) {
+            try {
+              await pc.addIceCandidate(new RTCIceCandidate(payload.candidate));
+            } catch (err) {
+              console.warn('Failed to add ICE candidate:', err);
+            }
+          } else {
+            pendingCandidatesRef.current.push(payload.candidate);
+          }
+        });
+
+        channel.on('broadcast', { event: 'call-ended' }, () => {
           setCallStatus('ended');
-        }
-      };
+          cleanup();
+        });
 
-      // 3. Setup Supabase Realtime signaling channel
-      const channel = supabase.channel(`call-${roomId}`, {
-        config: { broadcast: { self: false } },
-      });
-      channelRef.current = channel;
+        await channel.subscribe();
 
-      // Handle ICE candidates
-      pc.onicecandidate = (event) => {
-        if (event.candidate) {
-          channel.send({
-            type: 'broadcast',
-            event: 'ice-candidate',
-            payload: { candidate: event.candidate.toJSON() },
-          });
-        }
-      };
-
-      channel.on('broadcast', { event: 'offer' }, async ({ payload }) => {
-        if (!peerConnectionRef.current) return;
-        const pc = peerConnectionRef.current;
-        await pc.setRemoteDescription(new RTCSessionDescription(payload.sdp));
-
-        // Flush any pending ICE candidates
-        for (const c of pendingCandidatesRef.current) {
-          await pc.addIceCandidate(new RTCIceCandidate(c));
-        }
-        pendingCandidatesRef.current = [];
-
-        const answer = await pc.createAnswer();
-        await pc.setLocalDescription(answer);
+        // Announce join to peer
         channel.send({
           type: 'broadcast',
-          event: 'answer',
-          payload: { sdp: answer },
+          event: 'join',
+          payload: { ts: Date.now() },
         });
-      });
 
-      channel.on('broadcast', { event: 'answer' }, async ({ payload }) => {
-        if (!peerConnectionRef.current) return;
-        await peerConnectionRef.current.setRemoteDescription(
-          new RTCSessionDescription(payload.sdp)
-        );
-        // Flush any pending ICE candidates
-        for (const c of pendingCandidatesRef.current) {
-          await peerConnectionRef.current.addIceCandidate(new RTCIceCandidate(c));
-        }
-        pendingCandidatesRef.current = [];
-      });
-
-      channel.on('broadcast', { event: 'ice-candidate' }, async ({ payload }) => {
-        if (!peerConnectionRef.current) return;
-        const pc = peerConnectionRef.current;
-        if (pc.remoteDescription) {
-          await pc.addIceCandidate(new RTCIceCandidate(payload.candidate));
-        } else {
-          pendingCandidatesRef.current.push(payload.candidate);
-        }
-      });
-
-      channel.on('broadcast', { event: 'call-ended' }, () => {
-        setCallStatus('ended');
-        cleanup();
-      });
-
-      await channel.subscribe();
-
-      // 4. Small delay then check presence — first joiner creates offer  
-      //    We use a broadcast "join" event to negotiate who makes the offer.
-      //    The second person to join sees the first person's join and waits for the offer.
-      channel.send({
-        type: 'broadcast',
-        event: 'join',
-        payload: { ts: Date.now() },
-      });
-
-      channel.on('broadcast', { event: 'join' }, async () => {
-        // When we see someone else join, we (re)create an offer if we haven't already
-        if (hasJoinedRef.current) return;
-        hasJoinedRef.current = true;
-        await createOffer(pc, channel);
-      });
-
-      // If no one else is in the room yet, wait. Once someone joins they'll 
-      // trigger the 'join' event and we'll make the offer.
-      // But also, after a short delay, try creating an offer anyway (in case
-      // the other person joined before us).
-      setTimeout(async () => {
-        if (!hasJoinedRef.current && peerConnectionRef.current) {
-          hasJoinedRef.current = true;
-          await createOffer(pc, channel);
-        }
-      }, 2000);
+        setTimeout(async () => {
+          if (peerConnectionRef.current && peerConnectionRef.current.signalingState === 'stable' && !peerConnectionRef.current.remoteDescription) {
+            await createOffer(pc, channel);
+          }
+        }, 1500);
+      } catch (signalingErr) {
+        console.warn('Realtime channel signaling setup warning:', signalingErr);
+      }
 
     } catch (err: any) {
       console.error('Call error:', err);
-      setError(err.message || 'Failed to start call. Please allow camera/microphone access.');
+      setError(err.message || 'Failed to start call. Please check camera/microphone permissions.');
       setCallStatus('idle');
     }
   };
@@ -301,13 +342,19 @@ export default function CallPage() {
     pc: RTCPeerConnection,
     channel: ReturnType<typeof supabase.channel>
   ) => {
-    const offer = await pc.createOffer();
-    await pc.setLocalDescription(offer);
-    channel.send({
-      type: 'broadcast',
-      event: 'offer',
-      payload: { sdp: offer },
-    });
+    if (pc.signalingState !== 'stable') return;
+    try {
+      const offer = await pc.createOffer();
+      if (pc.signalingState !== 'stable') return;
+      await pc.setLocalDescription(offer);
+      channel.send({
+        type: 'broadcast',
+        event: 'offer',
+        payload: { sdp: offer },
+      });
+    } catch (err) {
+      console.warn('Failed to create offer:', err);
+    }
   };
 
   const toggleMute = () => {
@@ -421,13 +468,17 @@ export default function CallPage() {
                 </ol>
               </div>
             )}
+            {error && (
+              <div className="p-4 bg-red-950/60 border border-red-500/40 text-red-200 rounded-2xl text-xs font-bold max-w-md mx-auto text-center shadow-lg">
+                ⚠️ {error}
+              </div>
+            )}
             <button
               onClick={startCall}
-              disabled={isInsecureContext && !navigator.mediaDevices}
-              className="px-12 py-5 primary-gradient text-white text-lg font-bold rounded-3xl shadow-xl shadow-primary/20 hover:scale-[1.02] active:scale-[0.98] transition-all flex items-center gap-4 mx-auto disabled:opacity-50 disabled:grayscale"
+              className="px-12 py-5 primary-gradient text-white text-lg font-bold rounded-3xl shadow-xl shadow-primary/20 hover:scale-[1.02] active:scale-[0.98] transition-all flex items-center gap-4 mx-auto"
             >
               <span className="material-symbols-outlined text-2xl" style={{ fontVariationSettings: "'FILL' 1" }}>videocam</span>
-              {isInsecureContext && !navigator.mediaDevices ? 'Access Blocked' : 'Join Secure Call'}
+              Join Secure Call
             </button>
           </div>
         ) : callStatus === 'ended' ? (

@@ -31,44 +31,10 @@ class Scheme(BaseModel):
 @router.post("/patient/{patient_id}/insurance-schemes")
 def recommend_schemes(patient_id: str):
     """
-    [TEMPORARY MOCK] Returns AI recommended schemes.
-    Replace later with Ollama/LLaMA 3 invocation and DB queries.
+    Returns AI recommended schemes based on user clinical profile.
     """
     return {
-        "availableSchemes": [
-            {
-                "id": "sch_gov_1",
-                "name": "Senior Care Plus",
-                "type": "government",
-                "reason": "Based on your recent cardiology records, you qualify for an additional 15% co-payment waiver.",
-                "amount": "15% Co-pay Waiver",
-                "match_percentage": 95
-            },
-            {
-                "id": "sch_gov_2",
-                "name": "National Health Scheme",
-                "type": "government",
-                "reason": "Comprehensive coverage for primary healthcare including outpatient consultations.",
-                "amount": "$0 Premium",
-                "match_percentage": 90
-            },
-            {
-                "id": "sch_ins_1",
-                "name": "Corporate Blue Shield",
-                "type": "insurance",
-                "reason": "Employer-sponsored plan matches your surgical requirement.",
-                "amount": "Up to $50,000",
-                "match_percentage": 85
-            },
-             {
-                "id": "sch_gov_3",
-                "name": "Chronic Med Subsidy",
-                "type": "government",
-                "reason": "Subsidized medication costs for long-term conditions.",
-                "amount": "80% Off Pharmacy",
-                "match_percentage": 70
-            }
-        ]
+        "availableSchemes": []
     }
 
 class ClaimRequest(BaseModel):

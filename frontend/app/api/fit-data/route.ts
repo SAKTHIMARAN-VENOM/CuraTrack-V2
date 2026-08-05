@@ -28,12 +28,14 @@ export async function GET(req: NextRequest) {
 
         const fitness = google.fitness({ version: 'v1', auth: oauth2Client });
 
-        // USE A 24-HOUR WINDOW
+        // QUERY FROM 12:00 AM (MIDNIGHT) TO NOW
         const now = Date.now();
+        const midnight = new Date();
+        midnight.setHours(0, 0, 0, 0);
+        const startTimeMillis = midnight.getTime().toString();
         const endTimeMillis = now.toString();
-        const startTimeMillis = (now - 24 * 60 * 60 * 1000).toString(); // Last 24 hours
 
-        console.log(`[API] Querying from ${new Date(parseInt(startTimeMillis)).toLocaleString()} to ${new Date(parseInt(endTimeMillis)).toLocaleString()}`);
+        console.log(`[API] Querying today's data from ${new Date(parseInt(startTimeMillis)).toLocaleString()} to ${new Date(parseInt(endTimeMillis)).toLocaleString()}`);
 
         // Fetch Steps (Daily Total)
         const stepsResponse = await fitness.users.dataset.aggregate({

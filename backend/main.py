@@ -11,15 +11,16 @@ from routes import passport, ingest, activity, insights
 
 app = FastAPI(title="CuraTrack API", version="2.0.0")
 
-# Enable CORS for Next.js frontend
+# Enable CORS for Next.js frontend and Vercel deployments
+allowed_origins = os.getenv("ALLOWED_ORIGINS", "").split(",") + [
+    "http://localhost:3000",
+    "http://127.0.0.1:3000",
+]
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[
-        "http://localhost:3000",
-        "http://127.0.0.1:3000",
-        "http://localhost:3001",
-        "http://127.0.0.1:3001",
-    ],
+    allow_origins=[origin.strip() for origin in allowed_origins if origin.strip()],
+    allow_origin_regex=r"https://.*\.vercel\.app|http://(localhost|127\.0\.0\.1)(:[0-9]+)?",
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],

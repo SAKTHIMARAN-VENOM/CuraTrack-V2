@@ -11,17 +11,36 @@ export default function ProfilePage() {
     const [expiresAt, setExpiresAt] = useState<number | null>(null);
     const [countdown, setCountdown] = useState<string>('');
     const [isExpired, setIsExpired] = useState(false);
-    const [userName, setUserName] = useState('Alex Sterling Rivera');
+    const [userName, setUserName] = useState<string>('Patient');
+    const [userEmail, setUserEmail] = useState<string>('');
+    const [userAge, setUserAge] = useState<string>('Not set');
+    const [userGender, setUserGender] = useState<string>('Not set');
+    const [userBlood, setUserBlood] = useState<string>('O+');
 
-    // Fetch user name from Supabase
+    // Fetch user name and metadata from Supabase
     useEffect(() => {
         const fetchUser = async () => {
             const supabase = createClient();
             const { data: { user } } = await supabase.auth.getUser();
-            if (user?.user_metadata?.name) {
-                setUserName(user.user_metadata.name);
-            } else if (user?.email) {
-                setUserName(user.email.split('@')[0]);
+            if (user) {
+                if (user.user_metadata?.name) {
+                    setUserName(user.user_metadata.name);
+                } else if (user.email) {
+                    setUserName(user.email.split('@')[0]);
+                }
+                if (user.email) setUserEmail(user.email);
+                if (user.user_metadata?.age) setUserAge(String(user.user_metadata.age));
+                if (user.user_metadata?.gender) setUserGender(user.user_metadata.gender);
+                if (user.user_metadata?.blood_group) setUserBlood(user.user_metadata.blood_group);
+
+                // Fetch profile table if available
+                const { data: profile } = await supabase.from('profiles').select('*').eq('id', user.id).single();
+                if (profile) {
+                    if (profile.name) setUserName(profile.name);
+                    if (profile.age) setUserAge(String(profile.age));
+                    if (profile.gender) setUserGender(profile.gender);
+                    if (profile.blood_group) setUserBlood(profile.blood_group);
+                }
             }
         };
         fetchUser();
@@ -103,19 +122,20 @@ export default function ProfilePage() {
                         <div className="p-6 bg-surface-container-low rounded-xl group transition-all hover:bg-surface-container shadow-sm border border-surface-container">
                             <p className="text-xs font-bold text-tertiary uppercase tracking-widest mb-1">Full Name</p>
                             <p className="text-xl font-headline font-bold text-on-surface">{userName}</p>
+                            {userEmail && <p className="text-xs text-tertiary mt-0.5">{userEmail}</p>}
                         </div>
                         <div className="grid grid-cols-1 sm:grid-cols-3 gap-1 mt-1">
                             <div className="p-6 bg-surface-container-low rounded-xl group transition-all hover:bg-surface-container shadow-sm border border-surface-container">
                                 <p className="text-xs font-bold text-tertiary uppercase tracking-widest mb-1">Age</p>
-                                <p className="text-xl font-headline font-bold text-on-surface">28</p>
+                                <p className="text-xl font-headline font-bold text-on-surface">{userAge}</p>
                             </div>
                             <div className="p-6 bg-surface-container-low rounded-xl group transition-all hover:bg-surface-container shadow-sm border border-surface-container">
                                 <p className="text-xs font-bold text-tertiary uppercase tracking-widest mb-1">Gender</p>
-                                <p className="text-xl font-headline font-bold text-on-surface">Male</p>
+                                <p className="text-xl font-headline font-bold text-on-surface">{userGender}</p>
                             </div>
                             <div className="p-6 bg-surface-container-low rounded-xl group transition-all hover:bg-surface-container shadow-sm border border-surface-container">
                                 <p className="text-xs font-bold text-tertiary uppercase tracking-widest mb-1">Blood</p>
-                                <p className="text-xl font-headline font-bold text-on-surface">O+</p>
+                                <p className="text-xl font-headline font-bold text-on-surface">{userBlood}</p>
                             </div>
                         </div>
                     </div>

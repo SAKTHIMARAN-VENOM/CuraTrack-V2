@@ -51,6 +51,108 @@ const Navbar = () => (
   </header>
 );
 
+interface ErrorBoundaryProps {
+  children: React.ReactNode;
+  fallback: React.ReactNode;
+}
+
+interface ErrorBoundaryState {
+  hasError: boolean;
+}
+
+class SplineErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBoundaryState> {
+  constructor(props: ErrorBoundaryProps) {
+    super(props);
+    this.state = { hasError: false };
+  }
+
+  static getDerivedStateFromError() {
+    return { hasError: true };
+  }
+
+  componentDidCatch(error: Error) {
+    console.warn("Spline 3D scene failed to load:", error);
+  }
+
+  render() {
+    if (this.state.hasError) {
+      return this.props.fallback;
+    }
+    return this.props.children;
+  }
+}
+
+const SplineFallback = () => (
+  <div className="w-full h-full rounded-3xl bg-gradient-to-br from-[#006782]/10 via-[#35B0AB]/10 to-slate-900/10 border border-[#35B0AB]/20 p-8 flex flex-col justify-between relative overflow-hidden backdrop-blur-xl shadow-2xl">
+    {/* Animated background glow */}
+    <div className="absolute -top-20 -right-20 w-64 h-64 bg-[#35B0AB]/20 rounded-full blur-3xl animate-pulse" />
+    <div className="absolute -bottom-20 -left-20 w-64 h-64 bg-[#006782]/20 rounded-full blur-3xl animate-pulse" />
+
+    {/* Top Header Card */}
+    <div className="relative z-10 flex items-center justify-between bg-white/70 backdrop-blur-md p-4 rounded-2xl border border-white/50 shadow-sm">
+      <div className="flex items-center gap-3">
+        <div className="w-10 h-10 rounded-xl bg-[#006782] flex items-center justify-center text-white shadow-md">
+          <span className="material-symbols-outlined text-2xl animate-bounce">ecg_heart</span>
+        </div>
+        <div>
+          <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Live Vitals Sync</p>
+          <p className="text-sm font-bold text-slate-800">Heart Rate: 72 BPM</p>
+        </div>
+      </div>
+      <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold bg-emerald-100 text-emerald-800">
+        Optimal
+      </span>
+    </div>
+
+    {/* Middle Visual Element */}
+    <div className="relative z-10 my-auto flex flex-col items-center justify-center text-center p-6">
+      <div className="relative w-36 h-36 flex items-center justify-center">
+        <div className="absolute inset-0 rounded-full border-2 border-dashed border-[#35B0AB] animate-spin" style={{ animationDuration: "12s" }} />
+        <div className="w-24 h-24 rounded-full bg-gradient-to-tr from-[#006782] to-[#35B0AB] flex items-center justify-center text-white shadow-xl">
+          <span className="material-symbols-outlined text-4xl">health_and_safety</span>
+        </div>
+      </div>
+      <h3 className="mt-6 text-xl font-extrabold text-slate-800">Unified Health Ecosystem</h3>
+      <p className="text-sm text-slate-600 mt-1 max-w-xs">Real-time biometrics, OCR record ingestion, & P2P telemedicine</p>
+    </div>
+
+    {/* Bottom Floating Stats */}
+    <div className="relative z-10 grid grid-cols-2 gap-3">
+      <div className="bg-white/70 backdrop-blur-md p-3.5 rounded-2xl border border-white/50 shadow-sm flex items-center gap-3">
+        <span className="material-symbols-outlined text-[#006782]">verified_user</span>
+        <div>
+          <p className="text-xs text-slate-500 font-medium">Security</p>
+          <p className="text-xs font-bold text-slate-800">PASSPORT 256-bit</p>
+        </div>
+      </div>
+      <div className="bg-white/70 backdrop-blur-md p-3.5 rounded-2xl border border-white/50 shadow-sm flex items-center gap-3">
+        <span className="material-symbols-outlined text-[#35B0AB]">psychology</span>
+        <div>
+          <p className="text-xs text-slate-500 font-medium">AI Insights</p>
+          <p className="text-xs font-bold text-slate-800">Llama 3.1 Active</p>
+        </div>
+      </div>
+    </div>
+  </div>
+);
+
+const SafeSplineScene = () => {
+  const [hasError, setHasError] = React.useState(false);
+
+  if (hasError) {
+    return <SplineFallback />;
+  }
+
+  return (
+    <SplineErrorBoundary fallback={<SplineFallback />}>
+      <Spline
+        scene="https://prod.spline.design/GsqIZvYkemIIKvGB/scene.splinecode"
+        onError={() => setHasError(true)}
+      />
+    </SplineErrorBoundary>
+  );
+};
+
 const Hero = () => (
   <section className="relative min-h-[921px] flex items-center px-8 lg:px-24 overflow-hidden bg-white">
     <div className="grid lg:grid-cols-2 gap-16 items-center w-full max-w-7xl mx-auto h-full">
@@ -106,7 +208,7 @@ const Hero = () => (
       </div>
       <div className="relative w-full h-[500px] lg:h-[800px] flex items-center justify-center">
         <div className="relative z-10 w-full h-full max-w-[600px] max-h-[600px]">
-          <Spline scene="https://prod.spline.design/GsqIZvYkemIIKvGB/scene.splinecode" />
+          <SafeSplineScene />
         </div>
       </div>
     </div>

@@ -1,7 +1,7 @@
 'use client';
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { API_BASE } from '@/lib/api';
+import { apiFetch } from '@/lib/api';
 
 export default function AlertsPage() {
     const router = useRouter();
@@ -16,8 +16,7 @@ export default function AlertsPage() {
     useEffect(() => {
         const fetchNews = async () => {
             try {
-                const res = await fetch(`${API_BASE}/api/health-news`);
-                const data = await res.json();
+                const data = await apiFetch('/api/health-news');
                 setHealthNews(data.articles || []);
             } catch (err) {
                 console.error("Failed to fetch health news", err);
@@ -28,8 +27,7 @@ export default function AlertsPage() {
         
         const fetchRisks = async () => {
              try {
-                const res = await fetch(`${API_BASE}/api/health-risks`);
-                const data = await res.json();
+                const data = await apiFetch('/api/health-risks');
                 setHealthRisks(data.risks || []);
              } catch (err) {
                  console.error("Failed to fetch health risks", err);
@@ -40,8 +38,7 @@ export default function AlertsPage() {
 
         const fetchActivity = async () => {
              try {
-                const res = await fetch(`${API_BASE}/api/fit-data`);
-                const data = await res.json();
+                const data = await apiFetch('/api/fit-data');
                 setActivityData(data);
              } catch (err) {
                  console.error("Failed to fetch activity data", err);
@@ -55,13 +52,33 @@ export default function AlertsPage() {
         fetchActivity();
     }, []);
 
+    const [reminderSet, setReminderSet] = useState(false);
+
+    const activeAlertsCount = (healthRisks ? healthRisks.length : 0) + (activityData && activityData.steps < activityData.goal && activityData.steps > 0 ? 1 : 0);
+
+    const handleRemindMe = () => {
+        setReminderSet(true);
+        if ("Notification" in window && Notification.permission === "granted") {
+            new Notification("Medication Reminder Set", { body: "You will be reminded for your upcoming medication dose." });
+        } else if ("Notification" in window && Notification.permission !== "denied") {
+            Notification.requestPermission().then(permission => {
+                if (permission === "granted") {
+                    new Notification("Medication Reminder Set", { body: "You will be reminded for your upcoming medication dose." });
+                }
+            });
+        }
+        alert("⏰ Reminder set! We will notify you for your upcoming medication dose.");
+    };
+
     return (
         <div className="p-8 max-w-7xl mx-auto w-full">
             {/* Page Header */}
             <div className="mb-10">
                 <div className="flex items-baseline gap-3">
                     <h2 className="text-4xl font-extrabold font-headline tracking-tight text-on-surface">Health Alerts</h2>
-                    <span className="px-2.5 py-0.5 rounded-full bg-error-container text-on-error-container text-xs font-bold">4 New</span>
+                    <span className="px-2.5 py-0.5 rounded-full bg-error-container text-on-error-container text-xs font-bold">
+                        {activeAlertsCount} {activeAlertsCount === 1 ? 'Alert' : 'Alerts'}
+                    </span>
                 </div>
                 <p className="text-tertiary mt-2 text-lg">Track critical health activities and stay informed</p>
             </div>
@@ -99,125 +116,80 @@ export default function AlertsPage() {
                         </div>
                     )}
 
-                    {/* 1. MEDICATION TRACKER */}
-                    {(activeFilter === 'All' || activeFilter === 'Medications') && (
-                    <div className="group relative bg-white p-6 rounded-3xl transition-all duration-300 hover:translate-y-[-4px] shadow-sm border border-surface-container">
-                        <div className="absolute left-0 top-1/4 bottom-1/4 w-1.5 bg-amber-400 rounded-r-full"></div>
-                        <div className="flex flex-col sm:flex-row gap-6">
-                            <div className="w-14 h-14 shrink-0 rounded-2xl bg-amber-50 flex items-center justify-center text-amber-600">
-                                <span className="material-symbols-outlined text-3xl">pill</span>
-                            </div>
-                            <div className="flex-1">
-                                <div className="flex justify-between items-start mb-1">
-                                    <h3 className="text-xl font-bold font-headline text-on-surface">Missed Medication</h3>
-                                    <span className="text-xs font-medium text-slate-400">1 hour ago</span>
-                                </div>
-                                <p className="text-on-surface-variant text-sm leading-relaxed mb-6">You missed your 8:00 AM dose of <span className="font-semibold text-on-surface">Lisinopril</span>. Timely dosage is critical for managing your blood pressure levels.</p>
-                                <div className="flex flex-wrap gap-3">
-                                    <button 
-                                        onClick={() => router.push('/records')}
-                                        className="px-5 py-2 rounded-xl bg-amber-100 text-amber-700 text-sm font-bold hover:bg-amber-200 transition-colors"
-                                    >
-                                        Log Now
-                                    </button>
-                                    <button className="px-5 py-2 rounded-xl bg-surface-container-low text-on-surface-variant text-sm font-bold hover:bg-surface-container-high transition-colors">Remind Me</button>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                    )}
+                    {/* DYNAMIC ALERTS LIST */}
+                    {(() => {
+                        const dynamicAlerts = [];
+                        
+                        // Check step goal alert
+                        if (activityData && activityData.steps < activityData.goal && activityData.steps > 0) {
+                            dynamicAlerts.push({
+                                category: 'Goals',
+                                title: 'Daily Step Goal Progress',
+                                description: `You reached ${activityData.steps.toLocaleString()} / ${activityData.goal.toLocaleString()} steps today.`,
+                                time: activityData.lastUpdated || 'Today',
+                                color: 'sky',
+                                icon: 'directions_walk',
+                                actionText: 'View Activity',
+                                action: () => router.push('/dashboard')
+                            });
+                        }
 
-                    {/* 2. DISEASE OUTBREAK */}
-                    {(activeFilter === 'All' || activeFilter === 'Outbreaks') && (
-                    <div className="group relative bg-white p-6 rounded-3xl transition-all duration-300 hover:translate-y-[-4px] shadow-sm border border-surface-container">
-                        <div className="absolute left-0 top-1/4 bottom-1/4 w-1.5 bg-red-500 rounded-r-full"></div>
-                        <div className="flex flex-col sm:flex-row gap-6">
-                            <div className="w-14 h-14 shrink-0 rounded-2xl bg-red-50 flex items-center justify-center text-red-600">
-                                <span className="material-symbols-outlined text-3xl">warning</span>
-                            </div>
-                            <div className="flex-1">
-                                <div className="flex justify-between items-start mb-1">
-                                    <div className="flex items-center gap-2">
-                                        <h3 className="text-xl font-bold font-headline text-on-surface">Dengue Alert Level</h3>
-                                        <span className="px-2 py-0.5 rounded-md bg-red-100 text-red-700 text-[10px] font-black uppercase tracking-tighter">High Priority</span>
+                        // Check health risks alerts
+                        if (healthRisks && healthRisks.length > 0) {
+                            healthRisks.forEach((risk: any) => {
+                                dynamicAlerts.push({
+                                    category: 'Outbreaks',
+                                    title: `${risk.disease} Precautionary Alert`,
+                                    description: `Active regional alert level: ${risk.risk}. Review precautionary measures for ${risk.disease}.`,
+                                    time: 'Active',
+                                    color: 'amber',
+                                    icon: risk.icon || 'warning',
+                                    actionText: 'View Guidelines',
+                                    action: () => window.open('https://www.who.int', '_blank')
+                                });
+                            });
+                        }
+
+                        const filtered = activeFilter === 'All' 
+                            ? dynamicAlerts 
+                            : dynamicAlerts.filter(a => a.category === activeFilter);
+
+                        if (filtered.length === 0) {
+                            return (
+                                <div className="bg-white p-12 rounded-3xl text-center text-tertiary border border-surface-container shadow-sm">
+                                    <span className="material-symbols-outlined text-5xl mb-3 text-secondary/60">notifications_off</span>
+                                    <h3 className="font-headline font-bold text-lg text-on-surface">No Active Health Alerts</h3>
+                                    <p className="text-sm text-tertiary mt-1">You are all caught up! High priority health alerts, missed doses, and notifications will appear here when triggered.</p>
+                                </div>
+                            );
+                        }
+
+                        return filtered.map((alertItem, idx) => (
+                            <div key={idx} className="group relative bg-white p-6 rounded-3xl transition-all duration-300 hover:translate-y-[-4px] shadow-sm border border-surface-container">
+                                <div className={`absolute left-0 top-1/4 bottom-1/4 w-1.5 bg-${alertItem.color}-500 rounded-r-full`}></div>
+                                <div className="flex flex-col sm:flex-row gap-6">
+                                    <div className={`w-14 h-14 shrink-0 rounded-2xl bg-${alertItem.color}-50 flex items-center justify-center text-${alertItem.color}-600`}>
+                                        <span className="material-symbols-outlined text-3xl">{alertItem.icon}</span>
                                     </div>
-                                    <span className="text-xs font-medium text-slate-400">30 mins ago</span>
-                                </div>
-                                <p className="text-on-surface-variant text-sm leading-relaxed mb-6">Increased dengue cases reported in regional health updates. Please ensure there is no standing water around your premises.</p>
-                                <div className="flex flex-wrap gap-3">
-                                    <button 
-                                        className="px-6 py-2.5 rounded-xl bg-primary text-white text-sm font-bold shadow-lg shadow-primary/20 hover:scale-[1.02] active:scale-95 transition-all"
-                                        onClick={() => window.open("https://www.cdc.gov/dengue/prevention/index.html", "_blank")}
-                                    >
-                                        View Precautions
-                                    </button>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                    )}
-
-                    {/* 3. MISSED GOALS */}
-                    {(activeFilter === 'All' || activeFilter === 'Goals') && (
-                    <div className="group relative bg-white p-6 rounded-3xl transition-all duration-300 hover:translate-y-[-4px] shadow-sm border border-surface-container">
-                        <div className="absolute left-0 top-1/4 bottom-1/4 w-1.5 bg-sky-500 rounded-r-full"></div>
-                        <div className="flex flex-col sm:flex-row gap-6">
-                            <div className="w-14 h-14 shrink-0 rounded-2xl bg-sky-50 flex items-center justify-center text-sky-600">
-                                <span className="material-symbols-outlined text-3xl">steps</span>
-                            </div>
-                            <div className="flex-1">
-                                <div className="flex justify-between items-start mb-1">
-                                    <h3 className="text-xl font-bold font-headline text-on-surface">Daily Step Goal Not Met</h3>
-                                    <span className="text-xs font-medium text-slate-400">{activityData?.lastUpdated || "2 hours ago"}</span>
-                                </div>
-                                <p className="text-on-surface-variant text-sm leading-relaxed mb-4">
-                                    You reached only <span className="font-bold">{activityData?.steps?.toLocaleString() || "4,200"} / {activityData?.goal?.toLocaleString() || "8,000"}</span> steps today. A short 15-minute walk can help you bridge the gap!
-                                </p>
-                                <div className="mb-6 bg-surface-container rounded-full h-2.5 overflow-hidden">
-                                    <div 
-                                        className="bg-sky-500 h-full rounded-full transition-all duration-1000" 
-                                        style={{ width: `${activityData?.percentage || 52.5}%` }}
-                                    ></div>
-                                </div>
-                                <div className="flex flex-wrap gap-3">
-                                    <button 
-                                        className="px-5 py-2 rounded-xl bg-sky-100 text-sky-700 text-sm font-bold hover:bg-sky-200 transition-colors"
-                                        onClick={() => router.push("/dashboard")}
-                                    >
-                                        View Activity
-                                    </button>
+                                    <div className="flex-1">
+                                        <div className="flex justify-between items-start mb-1">
+                                            <h3 className="text-xl font-bold font-headline text-on-surface">{alertItem.title}</h3>
+                                            <span className="text-xs font-medium text-slate-400">{alertItem.time}</span>
+                                        </div>
+                                        <p className="text-on-surface-variant text-sm leading-relaxed mb-6">{alertItem.description}</p>
+                                        <div className="flex flex-wrap gap-3">
+                                            <button 
+                                                onClick={alertItem.action}
+                                                className={`px-5 py-2 rounded-xl bg-${alertItem.color}-100 text-${alertItem.color}-700 text-sm font-bold hover:bg-${alertItem.color}-200 transition-colors`}
+                                            >
+                                                {alertItem.actionText}
+                                            </button>
+                                        </div>
+                                    </div>
                                 </div>
                             </div>
-                        </div>
-                    </div>
-                    )}
-
-                    {/* 4. MISSED APPOINTMENT */}
-                    {(activeFilter === 'All' || activeFilter === 'Appointments') && (
-                    <div className="group relative bg-white p-6 rounded-3xl transition-all duration-300 hover:translate-y-[-4px] shadow-sm border border-surface-container">
-                        <div className="absolute left-0 top-1/4 bottom-1/4 w-1.5 bg-purple-500 rounded-r-full"></div>
-                        <div className="flex flex-col sm:flex-row gap-6">
-                            <div className="w-14 h-14 shrink-0 rounded-2xl bg-purple-50 flex items-center justify-center text-purple-600">
-                                <span className="material-symbols-outlined text-3xl">calendar_today</span>
-                            </div>
-                            <div className="flex-1">
-                                <div className="flex justify-between items-start mb-1">
-                                    <h3 className="text-xl font-bold font-headline text-on-surface">Missed Appointment</h3>
-                                    <span className="text-xs font-medium text-slate-400">Yesterday</span>
-                                </div>
-                                <p className="text-on-surface-variant text-sm leading-relaxed mb-6">You missed your consultation with <span className="font-semibold">Dr. Sharma</span> at 10:30 AM. Missing regular check-ups can delay your recovery progress.</p>
-                                <div className="flex flex-wrap gap-3">
-                                    <button 
-                                        className="px-5 py-2 rounded-xl bg-purple-100 text-purple-700 text-sm font-bold hover:bg-purple-200 transition-colors"
-                                        onClick={() => router.push("/telemedicine")}
-                                    >
-                                        Reschedule
-                                    </button>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                    )}
+                        ));
+                    })()}
                 </div>
 
                 {/* Right Column: Summary Panel + Health Risks */}
@@ -228,25 +200,9 @@ export default function AlertsPage() {
                             <div className="flex items-center justify-between p-4 bg-surface-container-low rounded-2xl">
                                 <div className="flex items-center gap-3">
                                     <div className="w-2 h-2 rounded-full bg-primary"></div>
-                                    <span className="text-sm font-medium text-tertiary">Total Alerts</span>
+                                    <span className="text-sm font-medium text-tertiary">Active Alerts</span>
                                 </div>
-                                <span className="text-2xl font-black font-headline text-on-surface">4</span>
-                            </div>
-                            <div className="space-y-4">
-                                <div className="flex items-center justify-between">
-                                    <div className="flex items-center gap-3">
-                                        <span className="material-symbols-outlined text-amber-500">pill</span>
-                                        <span className="text-sm font-medium">Missed Medications</span>
-                                    </div>
-                                    <span className="font-bold">1</span>
-                                </div>
-                                <div className="flex items-center justify-between">
-                                    <div className="flex items-center gap-3">
-                                        <span className="material-symbols-outlined text-sky-500">fitness_center</span>
-                                        <span className="text-sm font-medium">Missed Goals</span>
-                                    </div>
-                                    <span className="font-bold">1</span>
-                                </div>
+                                <span className="text-2xl font-black font-headline text-on-surface">{healthRisks.length}</span>
                             </div>
                         </div>
                     </div>
@@ -321,8 +277,8 @@ export default function AlertsPage() {
                                     <h4 className="font-bold text-on-surface mb-1 line-clamp-1">{article.title}</h4>
                                     <p className="text-sm text-tertiary mb-3 line-clamp-2">{article.description}</p>
                                     <div className="flex items-center justify-between">
-                                        <span className="text-xs font-semibold text-slate-400">
-                                            {new Date(article.publishedAt).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}
+                                        <span suppressHydrationWarning className="text-xs font-semibold text-slate-400">
+                                            {new Date(article.publishedAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
                                         </span>
                                         <button 
                                             className="text-primary text-sm font-bold hover:underline py-1 px-2 -mr-2 flex items-center gap-1"

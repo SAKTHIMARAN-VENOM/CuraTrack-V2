@@ -1,5 +1,5 @@
 'use client';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { API_BASE, apiFetch } from '@/lib/api';
 
 export default function BenefitsPage() {
@@ -13,11 +13,25 @@ export default function BenefitsPage() {
     const [govSchemes, setGovSchemes] = useState<any[]>([]);
     const [loadingGovSchemes, setLoadingGovSchemes] = useState(false);
     const [activeTab, setActiveTab] = useState("all");
+    const [patientId, setPatientId] = useState<string>("PAT-123");
+    const [userClaims, setUserClaims] = useState<any[]>([]);
+
+    useEffect(() => {
+        const fetchUser = async () => {
+            const { createClient } = await import('@/lib/supabase/client');
+            const supabase = createClient();
+            const { data: { user } } = await supabase.auth.getUser();
+            if (user) {
+                setPatientId(user.id.slice(0, 10));
+            }
+        };
+        fetchUser();
+    }, []);
 
     const fetchSchemes = async () => {
         setLoadingSchemes(true);
         try {
-            const res = await fetch(`${API_BASE}/api/patient/PAT-123/insurance-schemes`, {
+            const res = await fetch(`${API_BASE}/api/patient/${patientId}/insurance-schemes`, {
                 method: 'POST'
             });
             const data = await res.json();
@@ -35,7 +49,7 @@ export default function BenefitsPage() {
             const res = await fetch(`${API_BASE}/api/government-schemes/eligibility`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ patientId: 'PAT-123' })
+                body: JSON.stringify({ patientId: patientId })
             });
             const data = await res.json();
             setGovSchemes(data.eligibleSchemes || []);
@@ -61,7 +75,7 @@ export default function BenefitsPage() {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
-                    patientId: "PAT-123",
+                    patientId: patientId,
                     insuranceId: insuranceId,
                     service: selectedService
                 })
@@ -87,7 +101,7 @@ export default function BenefitsPage() {
     const handleClaim = async (scheme: any) => {
         setSubmittingClaim(scheme.id);
         try {
-            const res = await fetch(`${API_BASE}/api/patient/PAT-123/claims`, {
+            const res = await fetch(`${API_BASE}/api/patient/${patientId}/claims`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
@@ -96,6 +110,17 @@ export default function BenefitsPage() {
                 })
             });
             const data = await res.json();
+            
+            // Append claim dynamically
+            const newClaim = {
+                id: data.claimId || `CLM-${Math.floor(Math.random() * 90000 + 10000)}`,
+                title: scheme.name,
+                date: 'Just now',
+                amount: 2500,
+                status: 'Processing'
+            };
+            setUserClaims(prev => [newClaim, ...prev]);
+
             alert(`✅ ${data.message || 'Claim initiated successfully!'}`);
         } catch (err) {
             alert("❌ Failed to auto-fill claim. Please try again.");
@@ -421,31 +446,42 @@ export default function BenefitsPage() {
 
                         <div className="flex justify-between items-end mb-2">
                             <span className="text-tertiary text-sm font-semibold">Total Claimed</span>
-                            <span className="text-2xl font-black text-on-surface">$12,450</span>
+                            <span className="text-2xl font-black text-on-surface">
+                                ₹{userClaims.reduce((acc, c) => acc + (c.amount || 0), 0).toLocaleString('en-IN')}
+                            </span>
                         </div>
                         <div className="w-full bg-surface-container-low h-3 rounded-full mb-6 overflow-hidden">
-                            <div className="bg-primary h-full rounded-full w-[65%]"></div>
+                            <div 
+                                className="bg-primary h-full rounded-full transition-all"
+                                style={{ width: `${Math.min((userClaims.reduce((acc, c) => acc + (c.amount || 0), 0) / 100000) * 100, 100)}%` }}
+                            ></div>
                         </div>
 
                         <div className="flex justify-between text-sm mb-8 pb-8 border-b border-surface-container-low">
                             <span className="text-tertiary">Annual Limit</span>
-                            <span className="font-bold text-on-surface">$50,000</span>
+                            <span className="font-bold text-on-surface">₹1,00,000</span>
                         </div>
 
-                        <h4 className="text-sm font-bold text-tertiary uppercase tracking-wider mb-4">Pending Claims</h4>
+                        <h4 className="text-sm font-bold text-tertiary uppercase tracking-wider mb-4">
+                            Active Claims ({userClaims.length})
+                        </h4>
                         <div className="space-y-4">
-                            <div className="flex items-center justify-between p-3 rounded-xl bg-surface-container-low">
-                                <div className="flex items-center gap-3">
-                                    <div className="w-8 h-8 rounded-full bg-secondary-container flex items-center justify-center text-secondary">
-                                        <span className="material-symbols-outlined text-sm">dentistry</span>
+                            {userClaims.map((claim, cIdx) => (
+                                <div key={claim.id || cIdx} className="flex items-center justify-between p-3 rounded-xl bg-surface-container-low">
+                                    <div className="flex items-center gap-3">
+                                        <div className="w-8 h-8 rounded-full bg-secondary-container flex items-center justify-center text-secondary">
+                                            <span className="material-symbols-outlined text-sm">assignment_turned_in</span>
+                                        </div>
+                                        <div>
+                                            <p className="text-sm font-bold">{claim.title}</p>
+                                            <p className="text-[10px] text-tertiary">{claim.date} · {claim.id}</p>
+                                        </div>
                                     </div>
-                                    <div>
-                                        <p className="text-sm font-bold">Dental X-Ray</p>
-                                        <p className="text-[10px] text-tertiary">Submitted 2 days ago</p>
-                                    </div>
+                                    <span className="text-xs font-bold text-secondary bg-secondary-container/50 px-2 py-1 rounded w-fit">
+                                        {claim.status}
+                                    </span>
                                 </div>
-                                <span className="text-xs font-bold text-secondary bg-secondary-container/50 px-2 py-1 rounded w-fit">Processing</span>
-                            </div>
+                            ))}
                         </div>
                     </div>
                 </div>
