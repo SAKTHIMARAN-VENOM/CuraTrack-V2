@@ -44,13 +44,18 @@ export async function POST(req: NextRequest) {
             },
         });
 
-        if (error) {
-            throw error;
+        if (data.user?.id) {
+            await supabase.from('profiles').upsert({
+                id: data.user.id,
+                name: name,
+                email: email,
+                role: isDoctorClaim ? 'doctor' : 'patient'
+            });
         }
 
         return NextResponse.json({
             success: true,
-            user: { id: data.user?.id, email: data.user?.email, name },
+            user: { id: data.user?.id, email: data.user?.email, name, role: isDoctorClaim ? 'doctor' : 'patient' },
         });
     } catch (error: any) {
         return NextResponse.json(
