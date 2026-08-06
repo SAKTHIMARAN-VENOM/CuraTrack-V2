@@ -23,12 +23,22 @@ export async function POST(req: NextRequest) {
             throw error;
         }
 
+        const { data: profile } = await supabase
+            .from('profiles')
+            .select('role, name')
+            .eq('id', data.user.id)
+            .single();
+
+        const isDoctor = profile?.role === 'doctor' || email.toLowerCase().includes('doctor') || email.toLowerCase().includes('dr.');
+        const userRole = isDoctor ? 'doctor' : 'patient';
+
         return NextResponse.json({
             success: true,
             user: { 
                 id: data.user.id, 
                 email: data.user.email, 
-                name: data.user.user_metadata.name 
+                name: profile?.name || data.user.user_metadata?.name || 'User',
+                role: userRole
             },
         });
     } catch (error: any) {

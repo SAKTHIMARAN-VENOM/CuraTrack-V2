@@ -73,7 +73,11 @@ export default function LoginPage() {
                 return;
             }
 
-            router.push('/dashboard');
+            if (data.user?.role === 'doctor' || email.toLowerCase().includes('doctor') || email.toLowerCase().includes('dr.')) {
+                router.push('/doctor');
+            } else {
+                router.push('/dashboard');
+            }
         } catch (err) {
             setError('Network error. Please try again.');
         } finally {

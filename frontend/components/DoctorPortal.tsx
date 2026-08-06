@@ -127,9 +127,36 @@ export default function DoctorPortal() {
   const [currentView, setCurrentView] = useState<'schedule' | 'dashboard'>('schedule');
   const [selectedPatientId, setSelectedPatientId] = useState<string>('elena');
   const [qrModalPatientId, setQrModalPatientId] = useState<string | null>(null);
+  const [doctorName, setDoctorName] = useState<string>('Dr. Adrian Thorne');
 
   // Active appointment room state from Supabase
   const [latestAppointment, setLatestAppointment] = useState<Appointment | null>(null);
+
+  useEffect(() => {
+    async function loadDoctor() {
+      try {
+        const { data: { user } } = await supabase.auth.getUser();
+        if (user) {
+          const { data: profile } = await supabase.from('profiles').select('name').eq('id', user.id).single();
+          const name = profile?.name || user.user_metadata?.name;
+          if (name) {
+            setDoctorName(name.startsWith('Dr.') ? name : `Dr. ${name}`);
+          }
+        }
+      } catch (e) {
+        console.warn("Could not load doctor profile:", e);
+      }
+    }
+    loadDoctor();
+  }, [supabase]);
+
+  const handleLogout = async () => {
+    try {
+      await fetch('/api/logout', { method: 'POST' });
+      await supabase.auth.signOut();
+    } catch (e) {}
+    router.push('/login');
+  };
 
   // Fetch latest appointment with a valid room_id from Supabase
   const fetchLatestRoom = useCallback(async () => {
@@ -248,9 +275,12 @@ export default function DoctorPortal() {
             <span>Medical Records</span>
           </div>
 
-          <div className="nav-link flex items-center gap-3 px-4 py-3 rounded-xl font-headline font-medium text-sm text-outline hover:bg-[#00647e]/5 hover:text-[#00647e] transition-all cursor-pointer">
-            <span className="material-symbols-outlined">settings</span>
-            <span>Settings</span>
+          <div 
+            onClick={handleLogout}
+            className="nav-link flex items-center gap-3 px-4 py-3 rounded-xl font-headline font-medium text-sm text-error hover:bg-error/10 transition-all cursor-pointer"
+          >
+            <span className="material-symbols-outlined">logout</span>
+            <span>Sign Out</span>
           </div>
         </div>
 
@@ -263,14 +293,14 @@ export default function DoctorPortal() {
           >
             <div className="relative">
               <img
-                alt="Dr. Adrian Thorne"
+                alt={doctorName}
                 className="w-10 h-10 rounded-full object-cover ring-2 ring-primary/20 group-hover:ring-primary/50 transition-all"
                 src="https://lh3.googleusercontent.com/aida-public/AB6AXuDV3tj75_r2NcimLJqIr5Gzc77ZCRja6X841HxFsl5mmB0oLjuoWy0e-8GTa4JltLLuzkdL9X665dXwotQzjQgSfM5Z75m8SQZ1J6ZIuWYRwdUDThE5RoiaO2bPXpxdOhem4M5CvhBwnp-zKmCzeG_bG7-X9ZoHmHGJtRI1U5gBjS0kXE4CGv9MAZeuRqU2fiMAzdwBV4Ej2YHHmUb4EVqojDdMn26AMm4fB6LR7bnCAsV2qiAJqv7blEepmcnUqaTdjLQFlckjUPM"
               />
               <span className="absolute -bottom-0.5 -right-0.5 w-3 h-3 bg-secondary rounded-full border-2 border-white"></span>
             </div>
             <div className="flex-1 min-w-0">
-              <span className="font-headline font-bold text-sm text-on-surface block truncate">Dr. Adrian Thorne</span>
+              <span className="font-headline font-bold text-sm text-on-surface block truncate">{doctorName}</span>
               <span className="text-xs text-tertiary">Chief of Surgery</span>
             </div>
             <span className="material-symbols-outlined text-tertiary text-base opacity-0 group-hover:opacity-100 transition-opacity">
@@ -627,7 +657,7 @@ export default function DoctorPortal() {
                 </div>
                 <div className="relative z-10 flex-1">
                   <p className="text-white/70 text-sm font-semibold uppercase tracking-widest mb-1">Good Morning</p>
-                  <h2 className="font-headline font-extrabold text-4xl text-white tracking-tight">Dr. Adrian Thorne</h2>
+                  <h2 className="font-headline font-extrabold text-4xl text-white tracking-tight">{doctorName}</h2>
                   <p className="text-white/80 mt-1">Chief of Surgery · Metro City Medical Center</p>
                   <div className="flex items-center gap-4 mt-4">
                     <div className="flex items-center gap-2 bg-white/15 px-4 py-2 rounded-full">
