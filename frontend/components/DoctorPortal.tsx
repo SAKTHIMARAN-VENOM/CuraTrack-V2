@@ -265,6 +265,36 @@ export default function DoctorPortal() {
     loadRealPatient();
   }, [latestAppointment, supabase]);
 
+  const [registeredPatients, setRegisteredPatients] = useState<any[]>([]);
+
+  useEffect(() => {
+    async function loadRegisteredPatients() {
+      try {
+        const { data: profs } = await supabase
+          .from('profiles')
+          .select('id, name, email, created_at')
+          .or('role.eq.patient,role.is.null');
+
+        if (profs && profs.length > 0) {
+          const mapped = profs.map((p, idx) => ({
+            id: p.id,
+            name: p.name || (p.email ? p.email.split('@')[0] : `Patient #${idx + 1}`),
+            meta: p.email || 'Registered Patient',
+            photo: null,
+            time: 'Registered Patient',
+            type: 'General Care',
+            status: 'Active',
+            vitals: { bp: '120/80', hr: '72 bpm' }
+          }));
+          setRegisteredPatients(mapped);
+        }
+      } catch (e) {
+        console.warn('Could not fetch registered patients:', e);
+      }
+    }
+    loadRegisteredPatients();
+  }, [supabase]);
+
   // Handle escape key for modal
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -1156,13 +1186,13 @@ export default function DoctorPortal() {
                 </div>
                 <div className="flex items-center gap-3">
                   <span className="text-xs font-bold text-primary bg-primary/10 px-3 py-1.5 rounded-full">
-                    {Object.keys(DEFAULT_PATIENTS).length} Patients
+                    {(registeredPatients.length > 0 ? registeredPatients : Object.values(DEFAULT_PATIENTS)).length} Patients
                   </span>
                 </div>
               </div>
 
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
-                {Object.values(DEFAULT_PATIENTS)
+                {(registeredPatients.length > 0 ? registeredPatients : Object.values(DEFAULT_PATIENTS))
                   .filter(p => p.name.toLowerCase().includes(searchQuery.toLowerCase()) || p.meta.toLowerCase().includes(searchQuery.toLowerCase()))
                   .map((p) => (
                     <div key={p.id} className="bg-surface-container-lowest rounded-2xl p-6 shadow-sm border border-surface-container hover:shadow-md transition-all flex flex-col justify-between">
