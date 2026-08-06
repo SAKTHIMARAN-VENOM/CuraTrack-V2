@@ -124,10 +124,21 @@ export default function DoctorPortal() {
   const router = useRouter();
   const supabase = useMemo(() => createClient(), []);
 
-  const [currentView, setCurrentView] = useState<'schedule' | 'dashboard'>('schedule');
+  const [currentView, setCurrentView] = useState<'schedule' | 'dashboard' | 'directory' | 'records' | 'settings'>('schedule');
   const [selectedPatientId, setSelectedPatientId] = useState<string>('elena');
   const [qrModalPatientId, setQrModalPatientId] = useState<string | null>(null);
   const [doctorName, setDoctorName] = useState<string>('Dr. Adrian Thorne');
+  const [searchQuery, setSearchQuery] = useState<string>('');
+  const [showNotifications, setShowNotifications] = useState<boolean>(false);
+  const [showChatPopover, setShowChatPopover] = useState<boolean>(false);
+  const [showPrescriptionModal, setShowPrescriptionModal] = useState<boolean>(false);
+  const [prescriptionData, setPrescriptionData] = useState({
+    medication: '',
+    dosage: '',
+    frequency: 'Twice daily after meals',
+    notes: ''
+  });
+  const [prescriptionsList, setPrescriptionsList] = useState<any[]>([]);
 
   // Active appointment room state from Supabase
   const [latestAppointment, setLatestAppointment] = useState<Appointment | null>(null);
@@ -329,7 +340,14 @@ export default function DoctorPortal() {
             <span>Overview</span>
           </div>
 
-          <div className="nav-link flex items-center gap-3 px-4 py-3 rounded-xl font-headline font-medium text-sm text-outline hover:bg-[#00647e]/5 hover:text-[#00647e] transition-all cursor-pointer">
+          <div
+            className={`nav-link flex items-center gap-3 px-4 py-3 rounded-xl font-headline font-medium text-sm transition-all cursor-pointer ${
+              currentView === 'directory'
+                ? 'bg-[#e8f6fa] text-[#00647e] font-bold'
+                : 'text-outline hover:bg-[#00647e]/5 hover:text-[#00647e]'
+            }`}
+            onClick={() => setCurrentView('directory')}
+          >
             <span className="material-symbols-outlined">group</span>
             <span>Patient Directory</span>
           </div>
@@ -346,14 +364,33 @@ export default function DoctorPortal() {
             <span>Clinical Schedule</span>
           </div>
 
-          <div className="nav-link flex items-center gap-3 px-4 py-3 rounded-xl font-headline font-medium text-sm text-outline hover:bg-[#00647e]/5 hover:text-[#00647e] transition-all cursor-pointer">
+          <div
+            className={`nav-link flex items-center gap-3 px-4 py-3 rounded-xl font-headline font-medium text-sm transition-all cursor-pointer ${
+              currentView === 'records'
+                ? 'bg-[#e8f6fa] text-[#00647e] font-bold'
+                : 'text-outline hover:bg-[#00647e]/5 hover:text-[#00647e]'
+            }`}
+            onClick={() => setCurrentView('records')}
+          >
             <span className="material-symbols-outlined">folder_shared</span>
             <span>Medical Records</span>
           </div>
 
+          <div
+            className={`nav-link flex items-center gap-3 px-4 py-3 rounded-xl font-headline font-medium text-sm transition-all cursor-pointer ${
+              currentView === 'settings'
+                ? 'bg-[#e8f6fa] text-[#00647e] font-bold'
+                : 'text-outline hover:bg-[#00647e]/5 hover:text-[#00647e]'
+            }`}
+            onClick={() => setCurrentView('settings')}
+          >
+            <span className="material-symbols-outlined">settings</span>
+            <span>Settings</span>
+          </div>
+
           <div 
             onClick={handleLogout}
-            className="nav-link flex items-center gap-3 px-4 py-3 rounded-xl font-headline font-medium text-sm text-error hover:bg-error/10 transition-all cursor-pointer"
+            className="nav-link flex items-center gap-3 px-4 py-3 rounded-xl font-headline font-medium text-sm text-error hover:bg-error/10 transition-all cursor-pointer mt-auto"
           >
             <span className="material-symbols-outlined">logout</span>
             <span>Sign Out</span>
@@ -414,25 +451,82 @@ export default function DoctorPortal() {
               {currentView === 'dashboard' ? 'Dr. Adrian Thorne · Overview' : 'Today, Oct 24'}
             </p>
           </div>
-          <div className="flex items-center gap-4">
+          <div className="flex items-center gap-4 relative">
             <div className="flex items-center bg-surface-container-low px-4 py-2 rounded-full w-64 focus-within:ring-2 focus-within:ring-primary/20 transition-all">
               <span className="material-symbols-outlined text-outline text-xl mr-2">search</span>
               <input
                 className="bg-transparent border-none focus:ring-0 text-sm w-full placeholder:text-outline-variant outline-none"
                 placeholder="Search patients..."
                 type="text"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
               />
             </div>
-            <button className="relative text-outline hover:text-primary transition-colors">
-              <span className="material-symbols-outlined">notifications</span>
-              <span className="absolute -top-0.5 -right-0.5 w-2 h-2 bg-error rounded-full"></span>
-            </button>
-            <button className="text-outline hover:text-primary transition-colors">
-              <span className="material-symbols-outlined">chat</span>
-            </button>
+            
+            {/* Notification Bell & Dropdown */}
+            <div className="relative">
+              <button 
+                onClick={() => setShowNotifications(!showNotifications)}
+                className="relative text-outline hover:text-primary transition-colors p-2 rounded-full hover:bg-surface-container-low"
+                title="Clinical Alerts"
+              >
+                <span className="material-symbols-outlined">notifications</span>
+                <span className="absolute top-1 right-1 w-2 h-2 bg-error rounded-full animate-ping"></span>
+                <span className="absolute top-1 right-1 w-2 h-2 bg-error rounded-full"></span>
+              </button>
+
+              {showNotifications && (
+                <div className="absolute right-0 top-12 w-80 bg-white rounded-2xl shadow-2xl border border-surface-container-high p-4 z-50 animate-in fade-in slide-in-from-top-2">
+                  <div className="flex justify-between items-center mb-3 pb-2 border-b border-surface-container">
+                    <h4 className="font-headline font-bold text-xs uppercase tracking-wider text-tertiary">Clinical Notifications</h4>
+                    <span className="text-[10px] font-bold bg-error-container text-error px-2 py-0.5 rounded-full">2 New</span>
+                  </div>
+                  <div className="space-y-3">
+                    <div className="p-2.5 rounded-xl bg-error-container/30 border-l-4 border-error flex items-start gap-2.5">
+                      <span className="material-symbols-outlined text-error text-base shrink-0 mt-0.5">priority_high</span>
+                      <div>
+                        <p className="text-xs font-bold text-on-surface">Urgent: Amara Diallo</p>
+                        <p className="text-[11px] text-tertiary">Prenatal Check-up requested priority review.</p>
+                      </div>
+                    </div>
+                    <div className="p-2.5 rounded-xl bg-primary/10 border-l-4 border-primary flex items-start gap-2.5">
+                      <span className="material-symbols-outlined text-primary text-base shrink-0 mt-0.5">monitor_heart</span>
+                      <div>
+                        <p className="text-xs font-bold text-on-surface">Vitals Ready: Marcus Chen</p>
+                        <p className="text-[11px] text-tertiary">BP 135/88 recorded by triage staff.</p>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* Chat Icon & Popover */}
+            <div className="relative">
+              <button 
+                onClick={() => setShowChatPopover(!showChatPopover)}
+                className="text-outline hover:text-primary transition-colors p-2 rounded-full hover:bg-surface-container-low"
+                title="Consultation Messages"
+              >
+                <span className="material-symbols-outlined">chat</span>
+              </button>
+
+              {showChatPopover && (
+                <div className="absolute right-0 top-12 w-80 bg-white rounded-2xl shadow-2xl border border-surface-container-high p-4 z-50 animate-in fade-in slide-in-from-top-2">
+                  <div className="flex justify-between items-center mb-3 pb-2 border-b border-surface-container">
+                    <h4 className="font-headline font-bold text-xs uppercase tracking-wider text-tertiary">Patient Consult Chat</h4>
+                    <span className="text-[10px] font-bold bg-secondary-container text-secondary px-2 py-0.5 rounded-full">Online</span>
+                  </div>
+                  <div className="p-3 bg-surface-container-low rounded-xl text-xs text-tertiary text-center">
+                    No active chat session. Start a telehealth call to open live consultation messaging.
+                  </div>
+                </div>
+              )}
+            </div>
+
             <img
               onClick={() => setCurrentView('dashboard')}
-              alt="Dr. Adrian Thorne"
+              alt={doctorName}
               className="w-10 h-10 rounded-full object-cover ring-2 ring-primary/20 cursor-pointer hover:ring-primary transition-all"
               src="https://lh3.googleusercontent.com/aida-public/AB6AXuDV3tj75_r2NcimLJqIr5Gzc77ZCRja6X841HxFsl5mmB0oLjuoWy0e-8GTa4JltLLuzkdL9X665dXwotQzjQgSfM5Z75m8SQZ1J6ZIuWYRwdUDThE5RoiaO2bPXpxdOhem4M5CvhBwnp-zKmCzeG_bG7-X9ZoHmHGJtRI1U5gBjS0kXE4CGv9MAZeuRqU2fiMAzdwBV4Ej2YHHmUb4EVqojDdMn26AMm4fB6LR7bnCAsV2qiAJqv7blEepmcnUqaTdjLQFlckjUPM"
               title="View Dashboard"
@@ -578,16 +672,25 @@ export default function DoctorPortal() {
                         </div>
                       </div>
                     </div>
-                    <button
-                      onClick={handleStartConsultation}
-                      disabled={!hasActiveRoom}
-                      className={`primary-gradient text-on-primary px-6 py-3 rounded-xl font-headline font-semibold flex items-center gap-2 transition-all shadow-sm ${
-                        hasActiveRoom ? 'hover:opacity-90 cursor-pointer' : 'opacity-50 cursor-not-allowed'
-                      }`}
-                    >
-                      <span className="material-symbols-outlined fill-icon">videocam</span>
-                      {hasActiveRoom ? 'Initiate Telehealth' : 'Waiting for patient...'}
-                    </button>
+                    <div className="flex items-center gap-3">
+                      <button
+                        onClick={() => setShowPrescriptionModal(true)}
+                        className="bg-secondary text-white px-5 py-3 rounded-xl font-headline font-semibold text-sm flex items-center gap-2 transition-all hover:bg-secondary/90 shadow-sm"
+                      >
+                        <span className="material-symbols-outlined text-lg">edit_note</span>
+                        Issue E-Prescription
+                      </button>
+                      <button
+                        onClick={handleStartConsultation}
+                        disabled={!hasActiveRoom}
+                        className={`primary-gradient text-on-primary px-6 py-3 rounded-xl font-headline font-semibold flex items-center gap-2 transition-all shadow-sm ${
+                          hasActiveRoom ? 'hover:opacity-90 cursor-pointer' : 'opacity-50 cursor-not-allowed'
+                        }`}
+                      >
+                        <span className="material-symbols-outlined fill-icon">videocam</span>
+                        {hasActiveRoom ? 'Initiate Telehealth' : 'Waiting for patient...'}
+                      </button>
+                    </div>
                   </div>
                 </div>
 
@@ -1008,7 +1111,295 @@ export default function DoctorPortal() {
             </div>
           </div>
         )}
+        {/* ─────────── PATIENT DIRECTORY VIEW ─────────── */}
+        {currentView === 'directory' && (
+          <div className="flex-1 overflow-y-auto p-8 lg:p-10 transition-all duration-300">
+            <div className="max-w-6xl mx-auto space-y-6">
+              <div className="flex items-center justify-between">
+                <div>
+                  <h2 className="font-headline font-bold text-2xl text-on-surface">Patient Directory</h2>
+                  <p className="text-xs text-tertiary">All active patients registered in your clinical practice</p>
+                </div>
+                <div className="flex items-center gap-3">
+                  <span className="text-xs font-bold text-primary bg-primary/10 px-3 py-1.5 rounded-full">
+                    {Object.keys(DEFAULT_PATIENTS).length} Patients
+                  </span>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
+                {Object.values(DEFAULT_PATIENTS)
+                  .filter(p => p.name.toLowerCase().includes(searchQuery.toLowerCase()) || p.meta.toLowerCase().includes(searchQuery.toLowerCase()))
+                  .map((p) => (
+                    <div key={p.id} className="bg-surface-container-lowest rounded-2xl p-6 shadow-sm border border-surface-container hover:shadow-md transition-all flex flex-col justify-between">
+                      <div>
+                        <div className="flex items-start justify-between mb-4">
+                          <div className="flex items-center gap-3">
+                            {p.photo ? (
+                              <img src={p.photo} className="w-12 h-12 rounded-xl object-cover" alt={p.name} />
+                            ) : (
+                              <div className="w-12 h-12 rounded-xl bg-surface-container flex items-center justify-center text-tertiary">
+                                <span className="material-symbols-outlined text-2xl">person</span>
+                              </div>
+                            )}
+                            <div>
+                              <h3 className="font-headline font-bold text-on-surface text-base">{p.name}</h3>
+                              <p className="text-xs text-tertiary">{p.meta}</p>
+                            </div>
+                          </div>
+                        </div>
+
+                        <div className="space-y-2 mb-4">
+                          <div className="flex justify-between text-xs">
+                            <span className="text-tertiary">BP:</span>
+                            <span className="font-bold text-on-surface">{p.vitals?.bp || '120/80'}</span>
+                          </div>
+                          <div className="flex justify-between text-xs">
+                            <span className="text-tertiary">Heart Rate:</span>
+                            <span className="font-bold text-on-surface">{p.vitals?.hr || '72 bpm'}</span>
+                          </div>
+                        </div>
+                      </div>
+
+                      <div className="flex items-center gap-2 pt-3 border-t border-surface-container-low">
+                        <button
+                          onClick={() => {
+                            setSelectedPatientId(p.id);
+                            setCurrentView('schedule');
+                          }}
+                          className="flex-1 py-2 bg-primary/10 text-primary text-xs font-bold rounded-xl hover:bg-primary/20 transition-colors"
+                        >
+                          Review Patient
+                        </button>
+                        <button
+                          onClick={() => {
+                            setSelectedPatientId(p.id);
+                            setShowPrescriptionModal(true);
+                          }}
+                          className="py-2 px-3 bg-secondary text-white text-xs font-bold rounded-xl hover:bg-secondary/90 transition-colors"
+                        >
+                          Prescribe
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* ─────────── MEDICAL RECORDS VIEW ─────────── */}
+        {currentView === 'records' && (
+          <div className="flex-1 overflow-y-auto p-8 lg:p-10 transition-all duration-300">
+            <div className="max-w-6xl mx-auto space-y-6">
+              <div className="flex items-center justify-between">
+                <div>
+                  <h2 className="font-headline font-bold text-2xl text-on-surface">Clinical Medical Records (EHR)</h2>
+                  <p className="text-xs text-tertiary">Interoperable FHIR health records repository</p>
+                </div>
+                <button
+                  onClick={() => alert("✅ Clinical records exported to FHIR R4 JSON format!")}
+                  className="primary-gradient text-white px-4 py-2 rounded-xl text-xs font-bold hover:opacity-90 transition-opacity flex items-center gap-2"
+                >
+                  <span className="material-symbols-outlined text-base">download</span> Export FHIR Bundle
+                </button>
+              </div>
+
+              <div className="bg-surface-container-lowest rounded-3xl p-6 shadow-sm border border-surface-container space-y-4">
+                <h3 className="font-headline font-bold text-base text-on-surface">Prescription History ({prescriptionsList.length + 2})</h3>
+                <div className="space-y-3">
+                  <div className="p-4 bg-surface-container-low rounded-2xl flex items-center justify-between">
+                    <div className="flex items-center gap-3">
+                      <div className="w-10 h-10 rounded-xl bg-primary/10 text-primary flex items-center justify-center font-bold">
+                        <span className="material-symbols-outlined">pill</span>
+                      </div>
+                      <div>
+                        <p className="text-sm font-bold text-on-surface">Amoxicillin 500mg — Elena Rodriguez</p>
+                        <p className="text-xs text-tertiary">Issued Oct 20, 2025 · 3 times daily for 7 days</p>
+                      </div>
+                    </div>
+                    <span className="text-xs font-bold bg-green-500/10 text-green-700 px-3 py-1 rounded-full">Active</span>
+                  </div>
+
+                  <div className="p-4 bg-surface-container-low rounded-2xl flex items-center justify-between">
+                    <div className="flex items-center gap-3">
+                      <div className="w-10 h-10 rounded-xl bg-secondary/10 text-secondary flex items-center justify-center font-bold">
+                        <span className="material-symbols-outlined">pill</span>
+                      </div>
+                      <div>
+                        <p className="text-sm font-bold text-on-surface">Atorvastatin 20mg — Marcus Chen</p>
+                        <p className="text-xs text-tertiary">Issued Oct 15, 2025 · Once daily at bedtime</p>
+                      </div>
+                    </div>
+                    <span className="text-xs font-bold bg-green-500/10 text-green-700 px-3 py-1 rounded-full">Active</span>
+                  </div>
+
+                  {prescriptionsList.map((rx, rIdx) => (
+                    <div key={rIdx} className="p-4 bg-surface-container-low rounded-2xl flex items-center justify-between">
+                      <div className="flex items-center gap-3">
+                        <div className="w-10 h-10 rounded-xl bg-primary/10 text-primary flex items-center justify-center font-bold">
+                          <span className="material-symbols-outlined">pill</span>
+                        </div>
+                        <div>
+                          <p className="text-sm font-bold text-on-surface">{rx.medication} ({rx.dosage}) — {rx.patientName}</p>
+                          <p className="text-xs text-tertiary">{rx.date} · {rx.frequency}</p>
+                        </div>
+                      </div>
+                      <span className="text-xs font-bold bg-green-500/10 text-green-700 px-3 py-1 rounded-full">Issued Just Now</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* ─────────── SETTINGS VIEW ─────────── */}
+        {currentView === 'settings' && (
+          <div className="flex-1 overflow-y-auto p-8 lg:p-10 transition-all duration-300">
+            <div className="max-w-4xl mx-auto space-y-6">
+              <h2 className="font-headline font-bold text-2xl text-on-surface">Doctor Practice Settings</h2>
+              
+              <div className="bg-surface-container-lowest rounded-3xl p-6 shadow-sm border border-surface-container space-y-6">
+                <div className="flex items-center gap-5 pb-6 border-b border-surface-container">
+                  <img
+                    alt={doctorName}
+                    className="w-20 h-20 rounded-2xl object-cover border-4 border-primary/20 shadow-md"
+                    src="https://lh3.googleusercontent.com/aida-public/AB6AXuDV3tj75_r2NcimLJqIr5Gzc77ZCRja6X841HxFsl5mmB0oLjuoWy0e-8GTa4JltLLuzkdL9X665dXwotQzjQgSfM5Z75m8SQZ1J6ZIuWYRwdUDThE5RoiaO2bPXpxdOhem4M5CvhBwnp-zKmCzeG_bG7-X9ZoHmHGJtRI1U5gBjS0kXE4CGv9MAZeuRqU2fiMAzdwBV4Ej2YHHmUb4EVqojDdMn26AMm4fB6LR7bnCAsV2qiAJqv7blEepmcnUqaTdjLQFlckjUPM"
+                  />
+                  <div>
+                    <h3 className="font-headline font-extrabold text-2xl text-on-surface">{doctorName}</h3>
+                    <p className="text-sm text-tertiary">Chief of Surgery · Metro City Medical Center</p>
+                    <span className="inline-block mt-2 text-xs font-bold text-green-700 bg-green-500/10 px-3 py-1 rounded-full">
+                      Verified License: MED-00471-TX
+                    </span>
+                  </div>
+                </div>
+
+                <div className="space-y-4">
+                  <h4 className="font-headline font-bold text-sm text-tertiary uppercase tracking-wider">Clinical Preferences</h4>
+                  
+                  <div className="flex items-center justify-between p-4 bg-surface-container-low rounded-2xl">
+                    <div>
+                      <p className="text-sm font-bold text-on-surface">Default Consultation Duration</p>
+                      <p className="text-xs text-tertiary">Set slot duration for telehealth video consults</p>
+                    </div>
+                    <span className="text-xs font-bold bg-surface-container px-3 py-1.5 rounded-xl text-primary">20 minutes</span>
+                  </div>
+
+                  <div className="flex items-center justify-between p-4 bg-surface-container-low rounded-2xl">
+                    <div>
+                      <p className="text-sm font-bold text-on-surface">Urgent Call Auto-Accept</p>
+                      <p className="text-xs text-tertiary">Automatically light up video room when urgent patient enters queue</p>
+                    </div>
+                    <span className="text-xs font-bold bg-green-500/10 text-green-700 px-3 py-1.5 rounded-xl">Enabled</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
       </main>
+
+      {/* ═══════════════════════ E-PRESCRIPTION MODAL ═══════════════════════ */}
+      {showPrescriptionModal && (
+        <div className="fixed inset-0 bg-black/40 backdrop-blur-sm z-[100] flex items-center justify-center p-4">
+          <div className="bg-white rounded-3xl p-8 max-w-lg w-full shadow-2xl space-y-6">
+            <div className="flex justify-between items-center pb-4 border-b border-surface-container">
+              <div>
+                <h3 className="font-headline font-bold text-xl text-on-surface">Issue Digital E-Prescription</h3>
+                <p className="text-xs text-tertiary">Patient: {selectedPatient.name}</p>
+              </div>
+              <button onClick={() => setShowPrescriptionModal(false)} className="text-tertiary hover:text-on-surface">
+                <span className="material-symbols-outlined">close</span>
+              </button>
+            </div>
+
+            <form
+              onSubmit={(e) => {
+                e.preventDefault();
+                if (!prescriptionData.medication) return;
+                const newRx = {
+                  ...prescriptionData,
+                  patientName: selectedPatient.name,
+                  date: 'Today'
+                };
+                setPrescriptionsList([newRx, ...prescriptionsList]);
+                setShowPrescriptionModal(false);
+                setPrescriptionData({ medication: '', dosage: '', frequency: 'Twice daily after meals', notes: '' });
+                alert(`✅ E-Prescription for ${selectedPatient.name} issued successfully!`);
+              }}
+              className="space-y-4"
+            >
+              <div>
+                <label className="block text-xs font-bold text-tertiary uppercase tracking-wider mb-1">Medication Name</label>
+                <input
+                  type="text"
+                  required
+                  placeholder="e.g. Amoxicillin, Metformin"
+                  value={prescriptionData.medication}
+                  onChange={(e) => setPrescriptionData({ ...prescriptionData, medication: e.target.value })}
+                  className="w-full bg-surface-container-low p-3.5 rounded-xl border border-surface-container outline-none text-sm focus:ring-2 focus:ring-primary/20"
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-xs font-bold text-tertiary uppercase tracking-wider mb-1">Dosage</label>
+                  <input
+                    type="text"
+                    required
+                    placeholder="e.g. 500mg"
+                    value={prescriptionData.dosage}
+                    onChange={(e) => setPrescriptionData({ ...prescriptionData, dosage: e.target.value })}
+                    className="w-full bg-surface-container-low p-3.5 rounded-xl border border-surface-container outline-none text-sm focus:ring-2 focus:ring-primary/20"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-bold text-tertiary uppercase tracking-wider mb-1">Frequency</label>
+                  <select
+                    value={prescriptionData.frequency}
+                    onChange={(e) => setPrescriptionData({ ...prescriptionData, frequency: e.target.value })}
+                    className="w-full bg-surface-container-low p-3.5 rounded-xl border border-surface-container outline-none text-sm focus:ring-2 focus:ring-primary/20"
+                  >
+                    <option value="Once daily">Once daily</option>
+                    <option value="Twice daily after meals">Twice daily after meals</option>
+                    <option value="Three times daily">Three times daily</option>
+                    <option value="As needed for pain">As needed for pain</option>
+                  </select>
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-tertiary uppercase tracking-wider mb-1">Clinical Notes & Instructions</label>
+                <textarea
+                  rows={3}
+                  placeholder="Take after food. Drink plenty of water."
+                  value={prescriptionData.notes}
+                  onChange={(e) => setPrescriptionData({ ...prescriptionData, notes: e.target.value })}
+                  className="w-full bg-surface-container-low p-3.5 rounded-xl border border-surface-container outline-none text-sm focus:ring-2 focus:ring-primary/20"
+                ></textarea>
+              </div>
+
+              <div className="flex gap-3 pt-2">
+                <button
+                  type="button"
+                  onClick={() => setShowPrescriptionModal(false)}
+                  className="flex-1 py-3 bg-surface-container text-on-surface text-xs font-bold rounded-xl hover:bg-surface-container-high transition-colors"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  className="flex-1 py-3 primary-gradient text-white text-xs font-bold rounded-xl hover:opacity-90 transition-opacity"
+                >
+                  Issue E-Prescription
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
 
       {/* ═══════════════════════ QR MODAL ═══════════════════════ */}
       {qrModalPatientId && modalPatient && (
