@@ -1,7 +1,7 @@
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 from services.eligibility import check_coverage_logic, EligibilityRequest, EligibilityResponse
-from typing import List
+from typing import List, Optional
 
 router = APIRouter()
 
