@@ -267,33 +267,71 @@ export default function DoctorPortal() {
 
   const [registeredPatients, setRegisteredPatients] = useState<any[]>([]);
 
-  useEffect(() => {
-    async function loadRegisteredPatients() {
-      try {
-        const { data: profs } = await supabase
-          .from('profiles')
-          .select('id, name, email, created_at')
-          .or('role.eq.patient,role.is.null');
+  const loadRegisteredPatients = useCallback(async () => {
+    try {
+      // Fetch all user profiles from Supabase
+      const { data: profs } = await supabase
+        .from('profiles')
+        .select('*');
 
-        if (profs && profs.length > 0) {
-          const mapped = profs.map((p, idx) => ({
-            id: p.id,
-            name: p.name || (p.email ? p.email.split('@')[0] : `Patient #${idx + 1}`),
-            meta: p.email || 'Registered Patient',
-            photo: null,
-            time: 'Registered Patient',
-            type: 'General Care',
-            status: 'Active',
-            vitals: { bp: '120/80', hr: '72 bpm' }
-          }));
-          setRegisteredPatients(mapped);
-        }
-      } catch (e) {
-        console.warn('Could not fetch registered patients:', e);
+      // Fetch active appointments from Supabase
+      const { data: appts } = await supabase
+        .from('appointments')
+        .select('*')
+        .order('created_at', { ascending: false });
+
+      const patientMap = new Map();
+
+      if (profs && profs.length > 0) {
+        profs.forEach(p => {
+          if (p.role !== 'doctor') {
+            const patientName = p.name || (p.email ? p.email.split('@')[0] : 'Registered Patient');
+            patientMap.set(p.id, {
+              id: p.id,
+              name: patientName,
+              meta: p.email || 'Registered Patient',
+              photo: null,
+              time: 'Active Patient',
+              type: 'General Care',
+              status: 'Registered',
+              vitals: { bp: '120/80', hr: '72 bpm' }
+            });
+          }
+        });
       }
+
+      if (appts && appts.length > 0) {
+        appts.forEach(a => {
+          if (a.client_id && !patientMap.has(a.client_id)) {
+            patientMap.set(a.client_id, {
+              id: a.client_id,
+              name: 'Connected Patient',
+              meta: 'Active Appointment',
+              photo: null,
+              time: 'Appointment Booked',
+              type: 'Telehealth Consult',
+              status: 'Active',
+              room_id: a.room_id,
+              vitals: { bp: '120/80', hr: '72 bpm' }
+            });
+          } else if (a.client_id && patientMap.has(a.client_id)) {
+            const existing = patientMap.get(a.client_id);
+            existing.room_id = a.room_id;
+            existing.status = 'Appointment Booked';
+          }
+        });
+      }
+
+      const patientList = Array.from(patientMap.values());
+      setRegisteredPatients(patientList);
+    } catch (e) {
+      console.warn('Could not fetch registered patients:', e);
     }
-    loadRegisteredPatients();
   }, [supabase]);
+
+  useEffect(() => {
+    loadRegisteredPatients();
+  }, [loadRegisteredPatients]);
 
   // Handle escape key for modal
   useEffect(() => {
