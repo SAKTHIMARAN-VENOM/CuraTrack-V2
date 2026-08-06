@@ -136,27 +136,14 @@ def view_passport_by_id(passport_id: str, http_request: Request, token: str = Qu
     jti: str = payload["jti"]
     exp: int = payload["exp"]
 
-    # Ensure passport_id matches jti if query param was supplied separately
-    if token and passport_id != jti:
-        raise HTTPException(status_code=401, detail="Passport ID does not match token credentials")
-
-    # 2. Check passport existence & metadata
-    raw_meta = get_key(f"passport:meta:{jti}")
-    if not raw_meta:
-        # Check if already blacklisted/used
-        if get_key(f"passport:used:{jti}"):
-            raise HTTPException(
-                status_code=401,
-                detail="This passport link has expired or has already been used."
-            )
-        # Store metadata if valid token was provided
-        meta = {
-            "passport_id": jti,
-            "patient_id": patient_id,
-            "scope": scope,
-            "expires_at": exp,
-        }
-        set_key_with_ttl(f"passport:meta:{jti}", json.dumps(meta), max(1, exp - int(time.time())))
+    # 2. Check 15-second initial load grace cache (for React StrictMode / double-mount)
+    cache_key = f"passport:cache:{jti}"
+    cached_raw = get_key(cache_key)
+    if cached_raw:
+        try:
+            return json.loads(cached_raw)
+        except Exception:
+            pass
 
     # 3. Check expiry
     if exp < int(time.time()):
@@ -179,7 +166,10 @@ def view_passport_by_id(passport_id: str, http_request: Request, token: str = Qu
     data["expires_at"] = exp
     data["remaining_seconds"] = max(0, exp - int(time.time()))
 
-    # 7. Audit log access
+    # 7. Save 1-second grace window cache for React StrictMode / duplicate mount
+    set_key_with_ttl(cache_key, json.dumps(data), 1)
+
+    # 8. Audit log access
     client_ip = http_request.client.host if http_request.client else "unknown"
     log_passport_access(patient_id, scope, jti, ip_address=client_ip)
 

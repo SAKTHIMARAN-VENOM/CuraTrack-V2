@@ -1,15 +1,17 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { useParams } from 'next/navigation';
+import { useParams, useSearchParams } from 'next/navigation';
 import { API_BASE } from '@/lib/api';
 
 interface PassportData {
+    passport_id?: string;
     patient_name: string;
     generated_at: string;
     version: string;
     expires_at: number;
     remaining_seconds: number;
+    emergency_contact?: { name: string; relation: string; phone: string };
     last_3_diagnoses?: Array<{ name: string; date: string; status: string }>;
     active_medications?: Array<{ name: string; dose: string; frequency: string; active: boolean }>;
     allergies?: Array<{ allergen: string; severity: string; reaction: string }>;
@@ -19,7 +21,10 @@ interface PassportData {
 
 export default function PassportPage() {
     const params = useParams();
-    const token = (params?.token as string) || 'demo';
+    const searchParams = useSearchParams();
+    const passportId = (params?.token as string) || 'demo';
+    const tokenQueryParam = searchParams.get('token');
+
     const [data, setData] = useState<PassportData | null>(null);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
@@ -29,12 +34,15 @@ export default function PassportPage() {
     useEffect(() => {
         const fetchPassport = async () => {
             try {
-                const res = await fetch(`${API_BASE}/api/patient-passport/${token}`);
+                const targetToken = tokenQueryParam || passportId;
+                const endpoint = `${API_BASE}/api/passport/${passportId}?token=${encodeURIComponent(targetToken)}`;
+
+                const res = await fetch(endpoint);
                 if (!res.ok) {
                     const errData = await res.json().catch(() => ({}));
                     if (res.status === 401) {
                         setExpired(true);
-                        setError(errData.detail || 'Access expired or token already used');
+                        setError(errData.detail || 'This passport link has expired or has already been used.');
                     } else {
                         setError(errData.detail || `Error: ${res.status}`);
                     }
@@ -51,7 +59,7 @@ export default function PassportPage() {
         };
 
         fetchPassport();
-    }, [token]);
+    }, [passportId, tokenQueryParam]);
 
     // Countdown timer
     useEffect(() => {

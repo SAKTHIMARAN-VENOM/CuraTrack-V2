@@ -60,6 +60,7 @@ def run_tests():
 
     # 3. Test 2nd View (One-time Access Enforcement)
     print("\n--- Test 3: Access Passport Endpoint (2nd View - Should Fail) ---")
+    time.sleep(1.2)
     view_res_2 = client.get(f"/api/passport/{passport_id}?token={token}")
     assert view_res_2.status_code == 401, f"Expected 401 on 2nd view, got {view_res_2.status_code}: {view_res_2.text}"
     print(f"[OK] One-time access check PASSED: 2nd view rejected with 401 ('{view_res_2.json()['detail']}')")
