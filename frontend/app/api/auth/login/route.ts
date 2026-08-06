@@ -25,12 +25,14 @@ export async function POST(req: NextRequest) {
 
         const { data: profile } = await supabase
             .from('profiles')
-            .select('role, name')
+            .select('role, name, profile_completed')
             .eq('id', data.user.id)
             .single();
 
         const isDoctor = profile?.role === 'doctor' || email.toLowerCase().includes('doctor') || email.toLowerCase().includes('dr.');
-        const userRole = isDoctor ? 'doctor' : 'patient';
+        const isAdmin = profile?.role === 'admin' || email.toLowerCase().includes('admin');
+        const userRole = isAdmin ? 'admin' : isDoctor ? 'doctor' : 'patient';
+        const profileCompleted = profile?.profile_completed ?? false;
 
         return NextResponse.json({
             success: true,
@@ -38,7 +40,8 @@ export async function POST(req: NextRequest) {
                 id: data.user.id, 
                 email: data.user.email, 
                 name: profile?.name || data.user.user_metadata?.name || 'User',
-                role: userRole
+                role: userRole,
+                profile_completed: profileCompleted
             },
         });
     } catch (error: any) {

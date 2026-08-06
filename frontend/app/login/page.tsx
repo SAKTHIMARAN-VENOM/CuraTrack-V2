@@ -73,10 +73,25 @@ export default function LoginPage() {
                 return;
             }
 
-            if (data.user?.role === 'doctor' || email.toLowerCase().includes('doctor') || email.toLowerCase().includes('dr.')) {
-                router.push('/doctor');
+            const isCompleted = data.user?.profile_completed ?? false;
+            const role = data.user?.role || (email.toLowerCase().includes('doctor') ? 'doctor' : email.toLowerCase().includes('admin') ? 'admin' : 'patient');
+
+            if (!isCompleted) {
+                if (role === 'doctor') {
+                    router.push('/onboarding/doctor');
+                } else if (role === 'admin') {
+                    router.push('/onboarding/admin');
+                } else {
+                    router.push('/onboarding/patient');
+                }
             } else {
-                router.push('/dashboard');
+                if (role === 'doctor') {
+                    router.push('/doctor');
+                } else if (role === 'admin') {
+                    router.push('/admin');
+                } else {
+                    router.push('/dashboard');
+                }
             }
         } catch (err) {
             setError('Network error. Please try again.');

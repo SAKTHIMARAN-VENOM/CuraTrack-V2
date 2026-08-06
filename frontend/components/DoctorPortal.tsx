@@ -134,6 +134,7 @@ export default function DoctorPortal() {
 
   const [accessDenied, setAccessDenied] = useState<boolean>(false);
   const [verifyingAuth, setVerifyingAuth] = useState<boolean>(true);
+  const [isPendingVerification, setIsPendingVerification] = useState<boolean>(false);
 
   useEffect(() => {
     async function verifyDoctorAccess() {
@@ -158,6 +159,20 @@ export default function DoctorPortal() {
         const name = profile?.name || user.user_metadata?.name;
         if (name) {
           setDoctorName(name.startsWith('Dr.') ? name : `Dr. ${name}`);
+        }
+
+        // Fetch verification status
+        try {
+          const { API_BASE } = await import('@/lib/api');
+          const statusRes = await fetch(`${API_BASE}/api/onboarding/status/${user.id}`);
+          if (statusRes.ok) {
+            const statusData = await statusRes.json();
+            if (statusData.verification_status && statusData.verification_status !== 'verified') {
+              setIsPendingVerification(true);
+            }
+          }
+        } catch (err) {
+          console.warn('Could not fetch doctor verification status:', err);
         }
       } catch (e) {
         console.warn("Could not verify doctor access:", e);
@@ -278,7 +293,17 @@ export default function DoctorPortal() {
   const hasActiveRoom = Boolean(latestAppointment?.room_id);
 
   return (
-    <div className="bg-surface text-on-surface h-screen w-screen overflow-hidden flex font-body">
+    <div className="bg-surface text-on-surface h-screen w-screen overflow-hidden flex flex-col font-body">
+      {isPendingVerification && (
+        <div className="bg-amber-500/10 border-b border-amber-500/30 text-amber-900 px-6 py-2.5 flex items-center justify-between text-xs font-bold shrink-0 z-50">
+          <div className="flex items-center gap-2">
+            <span className="material-symbols-outlined text-amber-600 text-base">warning</span>
+            <span>Account Verification Pending • Credential review in progress by Administrator. Passport QR scanning & E-Prescriptions are restricted until verified.</span>
+          </div>
+          <button onClick={() => router.push('/onboarding/doctor')} className="underline text-amber-900 hover:text-amber-950">Check Status</button>
+        </div>
+      )}
+      <div className="flex-1 flex overflow-hidden">
       {/* ═══════════════════════ SIDEBAR ═══════════════════════ */}
       <nav className="bg-slate-50 rounded-r-[1.5rem] h-screen sticky left-0 flex flex-col w-72 p-6 gap-4 shrink-0 z-40 shadow-[4px_0_40px_-10px_rgba(25,28,29,0.06)]">
         <div className="mb-6 flex items-center gap-3">
@@ -1186,6 +1211,7 @@ export default function DoctorPortal() {
           </div>
         </div>
       )}
+      </div>
     </div>
   );
 }
