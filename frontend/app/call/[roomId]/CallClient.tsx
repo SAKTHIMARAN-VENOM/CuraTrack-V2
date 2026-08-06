@@ -8,22 +8,22 @@ const ICE_SERVERS: RTCConfiguration = {
   iceServers: [
     { urls: 'stun:stun.l.google.com:19302' },
     { urls: 'stun:stun1.l.google.com:19302' },
+    { urls: 'stun:stun2.l.google.com:19302' },
+    { urls: 'stun:stun3.l.google.com:19302' },
+    { urls: 'stun:stun4.l.google.com:19302' },
+    { urls: 'stun:global.stun.twilio.com:3478' },
+    { urls: 'stun:stun.services.mozilla.com' },
     {
-      urls: 'turn:openrelay.metered.ca:80',
-      username: 'openrelay',
-      credential: 'openrelay',
-    },
-    {
-      urls: 'turn:openrelay.metered.ca:443',
-      username: 'openrelay',
-      credential: 'openrelay',
-    },
-    {
-      urls: 'turns:openrelay.metered.ca:443?transport=tcp',
+      urls: [
+        'turn:openrelay.metered.ca:80',
+        'turn:openrelay.metered.ca:443',
+        'turns:openrelay.metered.ca:443?transport=tcp'
+      ],
       username: 'openrelay',
       credential: 'openrelay',
     },
   ],
+  iceCandidatePoolSize: 10,
 };
 
 type CallStatus = 'idle' | 'connecting' | 'connected' | 'ended';
@@ -323,7 +323,12 @@ export default function CallPage() {
           console.log('[WebRTC] Connection: Connected!');
           setCallStatus('connected');
         } else if (pc.connectionState === 'failed') {
-          console.warn('[WebRTC] Connection: Failed.');
+          console.warn('[WebRTC] Connection failed. Attempting automatic ICE restart...');
+          try {
+            if (pc.restartIce) pc.restartIce();
+          } catch (e) {
+            console.warn('ICE restart error:', e);
+          }
         }
       };
 
@@ -332,6 +337,13 @@ export default function CallPage() {
         if (pc.iceConnectionState === 'connected' || pc.iceConnectionState === 'completed') {
           console.log('[WebRTC] ICE: Connected');
           setCallStatus('connected');
+        } else if (pc.iceConnectionState === 'failed' || pc.iceConnectionState === 'disconnected') {
+          console.warn('[WebRTC] ICE state failed/disconnected. Attempting candidate re-gathering...');
+          try {
+            if (pc.restartIce) pc.restartIce();
+          } catch (e) {
+            console.warn('ICE restart error:', e);
+          }
         }
       };
 
