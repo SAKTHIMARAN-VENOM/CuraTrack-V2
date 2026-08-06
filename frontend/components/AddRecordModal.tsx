@@ -127,11 +127,11 @@ export default function AddRecordModal({ isOpen, onClose, onSuccess }: AddRecord
 
       if (meds.length > 0) {
         const populatedList = meds.map((m: any) => ({
-          name: m.name || 'Metformin',
-          dosage: m.dosage || '500 mg Tablet',
-          frequency: m.frequency || 'Twice daily',
-          time: m.time || 'Morning & Night',
-          instructions: m.reason || extractedDiagnosis || 'After Food',
+          name: m.name || '',
+          dosage: m.dosage || '',
+          frequency: m.frequency || 'Once daily',
+          time: m.time || 'Morning',
+          instructions: m.reason || extractedDiagnosis || 'As directed',
           doctor: extractedDoctor,
           date: currentDateStr,
         }));
@@ -140,16 +140,11 @@ export default function AddRecordModal({ isOpen, onClose, onSuccess }: AddRecord
         setRxForm({
           name: first.name, dosage: first.dosage, frequency: first.frequency,
           doctor: extractedDoctor, date: currentDateStr,
-          refills: '2', instructions: first.instructions,
+          refills: '1', instructions: first.instructions,
         });
       } else {
-        const defaultList = [
-          { name: 'Metformin', dosage: '500 mg Tablet', frequency: 'Twice daily', time: 'Morning & Night', instructions: 'After Food', doctor: extractedDoctor, date: currentDateStr },
-          { name: 'Amlodipine', dosage: '5 mg Tablet', frequency: 'Once daily', time: 'Morning', instructions: 'Before Food', doctor: extractedDoctor, date: currentDateStr },
-          { name: 'Aspirin', dosage: '75 mg Tablet', frequency: 'Once daily', time: 'Night', instructions: 'After Food', doctor: extractedDoctor, date: currentDateStr }
-        ];
-        setRxList(defaultList);
-        setRxForm({ name: 'Metformin', dosage: '500 mg Tablet', frequency: 'Twice daily', doctor: extractedDoctor, date: currentDateStr, refills: '2', instructions: 'After Food' });
+        setRxList([{ name: '', dosage: '', frequency: '', time: '', instructions: '', doctor: extractedDoctor, date: currentDateStr }]);
+        setRxForm({ name: '', dosage: '', frequency: '', doctor: extractedDoctor, date: currentDateStr, refills: '', instructions: '' });
       }
     }
 
@@ -157,35 +152,27 @@ export default function AddRecordModal({ isOpen, onClose, onSuccess }: AddRecord
       const notes = ocrData?.doctor_notes || {};
       setNoteForm({
         doctor: extractedDoctor,
-        specialty: 'Internal Medicine',
+        specialty: 'General Medicine',
         date: currentDateStr,
         visitType: 'Consultation',
-        complaint: extractedDiagnosis || notes.summary || 'Increased thirst, frequent urination, fatigue',
-        observations: notes.summary || 'Patient Lakshmi Narayanan presented for clinical evaluation. Known Type 2 Diabetes & Hypertension.',
-        plan: ocrData?.medications?.map((m: any) => `${m.name} ${m.dosage} (${m.frequency})`).join('\n') || 'Continue Metformin 500mg twice daily & Amlodipine 5mg once daily. Follow diabetic diet.',
-        followUp: extractedFollowUp || '15 days',
+        complaint: extractedDiagnosis || notes.summary || rawText.slice(0, 300),
+        observations: notes.summary || rawText.slice(0, 400),
+        plan: ocrData?.medications?.map((m: any) => `${m.name} ${m.dosage} (${m.frequency})`).join('\n') || '',
+        followUp: extractedFollowUp || '',
       });
     }
 
     if (type === 'lab') {
       const labs = ocrData?.lab_results || [];
-      const defaultLabs = [
-        { key: 'Fasting Blood Sugar (FBS)', value: '152', unit: 'mg/dL' },
-        { key: 'Post Prandial Blood Sugar (PPBS)', value: '221', unit: 'mg/dL' },
-        { key: 'HbA1c', value: '7.6', unit: '%' },
-        { key: 'Hemoglobin (Hb)', value: '12.1', unit: 'g/dL' },
-        { key: 'Serum Creatinine', value: '0.9', unit: 'mg/dL' },
-        { key: 'Triglycerides', value: '162', unit: 'mg/dL' },
-      ];
       setLabForm({
-        testName: 'Complete Clinical Lab Report',
-        labName: 'Sunrise Multi-Speciality Lab',
-        doctor: extractedDoctor || 'Dr. Neha Kapoor',
+        testName: 'Laboratory Investigation Report',
+        labName: 'Diagnostic Laboratory',
+        doctor: extractedDoctor,
         date: currentDateStr,
         status: labs.some((l: any) => l.status === 'high' || l.status === 'low') ? 'Flagged' : 'Normal',
         results: labs.length > 0
-          ? labs.map((l: any) => ({ key: l.test || 'Metric', value: l.value || 'Normal', unit: l.unit || '' }))
-          : defaultLabs,
+          ? labs.map((l: any) => ({ key: l.test || 'Metric', value: l.value || '', unit: l.unit || '' }))
+          : [{ key: '', value: '', unit: '' }],
       });
     }
 

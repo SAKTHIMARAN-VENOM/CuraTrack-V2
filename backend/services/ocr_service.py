@@ -14,6 +14,9 @@ import logging
 import platform
 import requests
 from datetime import datetime
+from dotenv import load_dotenv
+
+load_dotenv()
 
 logger = logging.getLogger("curatrack.ocr")
 
