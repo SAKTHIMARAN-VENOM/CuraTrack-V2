@@ -261,10 +261,27 @@ export default function DoctorPortal() {
   const selectedPatient = DEFAULT_PATIENTS[selectedPatientId] || DEFAULT_PATIENTS['elena'];
   const modalPatient = qrModalPatientId ? DEFAULT_PATIENTS[qrModalPatientId] || selectedPatient : null;
 
-  // Single entry point to navigate to existing WebRTC room
-  const handleStartConsultation = () => {
+  // Single entry point to navigate to WebRTC video room
+  const handleStartConsultation = async () => {
     if (latestAppointment?.room_id) {
       router.push(`/call/${latestAppointment.room_id}?role=doctor`);
+    } else {
+      const newRoomId = `room_doc_${Date.now()}`;
+      try {
+        const { data: { user } } = await supabase.auth.getUser();
+        if (user) {
+          await supabase.from('appointments').insert({
+            doctor_id: user.id,
+            client_id: selectedPatient.id,
+            room_id: newRoomId,
+            status: 'active',
+            scheduled_time: new Date().toISOString()
+          });
+        }
+      } catch (e) {
+        console.warn("Appointment creation skipped:", e);
+      }
+      router.push(`/call/${newRoomId}?role=doctor`);
     }
   };
 
@@ -424,17 +441,12 @@ export default function DoctorPortal() {
           {/* Start Consultation Button */}
           <button
             onClick={handleStartConsultation}
-            disabled={!hasActiveRoom}
-            className={`primary-gradient text-on-primary font-headline font-semibold text-sm py-3 rounded-xl w-full flex items-center justify-center gap-2 transition-all shadow-sm ${
-              hasActiveRoom
-                ? 'hover:opacity-90 cursor-pointer'
-                : 'opacity-50 cursor-not-allowed grayscale'
-            }`}
+            className="primary-gradient text-on-primary font-headline font-semibold text-sm py-3 rounded-xl w-full flex items-center justify-center gap-2 transition-all shadow-sm hover:opacity-90 cursor-pointer"
           >
             <span className="material-symbols-outlined fill-icon text-lg">
-              {hasActiveRoom ? 'video_camera_front' : 'hourglass_empty'}
+              video_camera_front
             </span>
-            {hasActiveRoom ? 'Start Consultation' : 'Waiting for patient...'}
+            {hasActiveRoom ? 'Join Active Call' : 'Start Consultation'}
           </button>
         </div>
       </nav>
@@ -682,13 +694,10 @@ export default function DoctorPortal() {
                       </button>
                       <button
                         onClick={handleStartConsultation}
-                        disabled={!hasActiveRoom}
-                        className={`primary-gradient text-on-primary px-6 py-3 rounded-xl font-headline font-semibold flex items-center gap-2 transition-all shadow-sm ${
-                          hasActiveRoom ? 'hover:opacity-90 cursor-pointer' : 'opacity-50 cursor-not-allowed'
-                        }`}
+                        className="primary-gradient text-on-primary px-6 py-3 rounded-xl font-headline font-semibold text-sm flex items-center gap-2 transition-all shadow-sm hover:opacity-90 cursor-pointer"
                       >
                         <span className="material-symbols-outlined fill-icon">videocam</span>
-                        {hasActiveRoom ? 'Initiate Telehealth' : 'Waiting for patient...'}
+                        {hasActiveRoom ? 'Join Active Call' : 'Start Consultation'}
                       </button>
                     </div>
                   </div>
