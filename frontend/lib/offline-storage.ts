@@ -8,10 +8,20 @@ const STORAGE_KEYS = {
   VITALS_HISTORY: 'curatrack_offline_vitals',
   EMERGENCY_QR: 'curatrack_offline_qr',
   INSURANCE_DATA: 'curatrack_offline_insurance',
+  HEALTH_RISKS: 'curatrack_offline_health_risks',
+  HEALTH_NEWS: 'curatrack_offline_health_news',
+  MEDICATIONS: 'curatrack_offline_medications',
+  INSIGHTS: 'curatrack_offline_insights',
   PENDING_SYNCS: 'curatrack_offline_pending_syncs',
 };
 
 export const offlineStorage = {
+  // --- Connection Check Helper ---
+  isOnline: (): boolean => {
+    if (typeof window === 'undefined') return true;
+    return navigator.onLine;
+  },
+
   // --- User Profile & Passport Caching ---
   saveProfile: (profile: any) => {
     if (typeof window === 'undefined') return;
@@ -29,6 +39,106 @@ export const offlineStorage = {
       return data ? JSON.parse(data) : null;
     } catch (e) {
       return null;
+    }
+  },
+
+  // --- Vitals & Fit Data Caching ---
+  saveFitData: (data: any) => {
+    if (typeof window === 'undefined') return;
+    try {
+      localStorage.setItem(STORAGE_KEYS.VITALS_HISTORY, JSON.stringify(data));
+    } catch (e) {
+      console.warn('Failed to save vitals offline:', e);
+    }
+  },
+
+  getFitData: (): any | null => {
+    if (typeof window === 'undefined') return null;
+    try {
+      const data = localStorage.getItem(STORAGE_KEYS.VITALS_HISTORY);
+      return data ? JSON.parse(data) : null;
+    } catch (e) {
+      return null;
+    }
+  },
+
+  // --- Seasonal Disease Risks & Health Alerts Caching ---
+  saveHealthRisks: (risksData: any) => {
+    if (typeof window === 'undefined') return;
+    try {
+      localStorage.setItem(STORAGE_KEYS.HEALTH_RISKS, JSON.stringify(risksData));
+    } catch (e) {
+      console.warn('Failed to save seasonal health risks offline:', e);
+    }
+  },
+
+  getHealthRisks: (): any | null => {
+    if (typeof window === 'undefined') return null;
+    try {
+      const data = localStorage.getItem(STORAGE_KEYS.HEALTH_RISKS);
+      return data ? JSON.parse(data) : null;
+    } catch (e) {
+      return null;
+    }
+  },
+
+  // --- Health News Caching ---
+  saveHealthNews: (newsData: any) => {
+    if (typeof window === 'undefined') return;
+    try {
+      localStorage.setItem(STORAGE_KEYS.HEALTH_NEWS, JSON.stringify(newsData));
+    } catch (e) {
+      console.warn('Failed to save health news offline:', e);
+    }
+  },
+
+  getHealthNews: (): any | null => {
+    if (typeof window === 'undefined') return null;
+    try {
+      const data = localStorage.getItem(STORAGE_KEYS.HEALTH_NEWS);
+      return data ? JSON.parse(data) : null;
+    } catch (e) {
+      return null;
+    }
+  },
+
+  // --- Medication Tracker Caching ---
+  saveMedications: (meds: any[]) => {
+    if (typeof window === 'undefined') return;
+    try {
+      localStorage.setItem(STORAGE_KEYS.MEDICATIONS, JSON.stringify(meds));
+    } catch (e) {
+      console.warn('Failed to save medications offline:', e);
+    }
+  },
+
+  getMedications: (): any[] => {
+    if (typeof window === 'undefined') return [];
+    try {
+      const data = localStorage.getItem(STORAGE_KEYS.MEDICATIONS);
+      return data ? JSON.parse(data) : [];
+    } catch (e) {
+      return [];
+    }
+  },
+
+  // --- AI Health Insights Caching ---
+  saveInsights: (insights: any[]) => {
+    if (typeof window === 'undefined') return;
+    try {
+      localStorage.setItem(STORAGE_KEYS.INSIGHTS, JSON.stringify(insights));
+    } catch (e) {
+      console.warn('Failed to save insights offline:', e);
+    }
+  },
+
+  getInsights: (): any[] => {
+    if (typeof window === 'undefined') return [];
+    try {
+      const data = localStorage.getItem(STORAGE_KEYS.INSIGHTS);
+      return data ? JSON.parse(data) : [];
+    } catch (e) {
+      return [];
     }
   },
 

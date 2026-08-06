@@ -1,9 +1,17 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import AddRecordModal from '@/components/AddRecordModal';
 import ReviewMedicationModal from '@/components/ReviewMedicationModal';
+import { offlineStorage } from '@/lib/offline-storage';
+
+const DEFAULT_MEDICATIONS = [
+  { name: 'Lisinopril', dosage: '10mg', frequency: 'Once daily', time: '8:00 AM (Morning)', status: 'TAKEN', color: '#d4f0fa', icon: 'pill', isError: false },
+  { name: 'Metformin', dosage: '500mg', frequency: 'Twice daily', time: '1:00 PM (Afternoon)', status: 'UPCOMING', color: '#d4f0fa', icon: 'pill', isError: false },
+  { name: 'Atorvastatin', dosage: '20mg', frequency: 'Once daily at bedtime', time: '9:00 PM (Night)', status: 'UPCOMING', color: '#e8def8', icon: 'medication', isError: false },
+  { name: 'Vitamin D3', dosage: '2000 IU', frequency: 'Once daily', time: '8:00 AM (Morning)', status: 'MISSED', color: '#ffe082', icon: 'capsule', isError: true },
+];
 
 export default function HealthRecordsPage() {
   const router = useRouter();
@@ -19,6 +27,41 @@ export default function HealthRecordsPage() {
   const [userNotes, setUserNotes] = useState<any[]>([]);
   const [userLabReports, setUserLabReports] = useState<any[]>([]);
   const [refillStatus, setRefillStatus] = useState<string | null>(null);
+  const [isOffline, setIsOffline] = useState(false);
+
+  useEffect(() => {
+    // Hydrate medications from offlineStorage
+    const cachedMeds = offlineStorage.getMedications();
+    if (cachedMeds && cachedMeds.length > 0) {
+      setActiveMedications(cachedMeds);
+    } else {
+      setActiveMedications(DEFAULT_MEDICATIONS);
+      offlineStorage.saveMedications(DEFAULT_MEDICATIONS);
+    }
+
+    if (!offlineStorage.isOnline()) {
+      setIsOffline(true);
+    }
+
+    const handleOnline = () => {
+      setIsOffline(false);
+      // Flush pending syncs when back online
+      const pending = offlineStorage.getPendingSyncs();
+      if (pending.length > 0) {
+        console.log('Online restored. Processing pending offline sync queue:', pending);
+        offlineStorage.clearPendingSyncs();
+      }
+    };
+    const handleOffline = () => setIsOffline(true);
+
+    window.addEventListener('online', handleOnline);
+    window.addEventListener('offline', handleOffline);
+
+    return () => {
+      window.removeEventListener('online', handleOnline);
+      window.removeEventListener('offline', handleOffline);
+    };
+  }, []);
 
   // Dynamic summary stats
   const takenCount = activeMedications.filter(m => m.status === 'TAKEN').length;
@@ -50,16 +93,31 @@ export default function HealthRecordsPage() {
   };
 
   const handleToggleMedicationStatus = (index: number) => {
-    setActiveMedications(prev => prev.map((med, idx) => {
-      if (idx !== index) return med;
-      const nextStatus: 'TAKEN' | 'MISSED' | 'UPCOMING' = 
-        med.status === 'TAKEN' ? 'MISSED' : med.status === 'MISSED' ? 'UPCOMING' : 'TAKEN';
-      return {
-        ...med,
-        status: nextStatus,
-        isError: nextStatus === 'MISSED'
-      };
-    }));
+    setActiveMedications(prev => {
+      const updated = prev.map((med, idx) => {
+        if (idx !== index) return med;
+        const nextStatus: 'TAKEN' | 'MISSED' | 'UPCOMING' = 
+          med.status === 'TAKEN' ? 'MISSED' : med.status === 'MISSED' ? 'UPCOMING' : 'TAKEN';
+        return {
+          ...med,
+          status: nextStatus,
+          isError: nextStatus === 'MISSED'
+        };
+      });
+
+      // Save to offline storage immediately
+      offlineStorage.saveMedications(updated);
+
+      if (!offlineStorage.isOnline()) {
+        offlineStorage.queueOfflineAction({
+          type: 'TOGGLE_MEDICATION',
+          payload: { index, medication: updated[index] },
+          timestamp: Date.now()
+        });
+      }
+
+      return updated;
+    });
   };
 
   const handleDownloadReport = (reportTitle: string) => {
@@ -94,7 +152,11 @@ export default function HealthRecordsPage() {
         icon: 'pill',
         isError: false,
       }));
-      setActiveMedications(prev => [...newActiveMeds, ...prev]);
+      setActiveMedications(prev => {
+        const updated = [...newActiveMeds, ...prev];
+        offlineStorage.saveMedications(updated);
+        return updated;
+      });
       setActiveTab('prescriptions');
       return;
     }
@@ -123,12 +185,16 @@ export default function HealthRecordsPage() {
 
   const handleReviewConfirm = (updatedMed: any) => {
     // Add to active medications
-    setActiveMedications(prev => [...prev, {
-        ...updatedMed,
-        status: 'UPCOMING', // Default status for new confirms
-        color: '#d4f0fa',
-        icon: 'pill'
-    }]);
+    setActiveMedications(prev => {
+      const updated = [...prev, {
+          ...updatedMed,
+          status: 'UPCOMING', // Default status for new confirms
+          color: '#d4f0fa',
+          icon: 'pill'
+      }];
+      offlineStorage.saveMedications(updated);
+      return updated;
+    });
     
     // Remove the item from the extracted list
     setExtractedMedications(prev => prev.filter((_, i) => i !== reviewIndex));
@@ -143,6 +209,12 @@ export default function HealthRecordsPage() {
 
   return (
     <div className="flex-1 p-8 lg:p-10 max-w-7xl mx-auto w-full space-y-8">
+      {isOffline && (
+        <div className="bg-amber-500/10 border border-amber-500/30 text-amber-900 px-4 py-3 rounded-2xl flex items-center gap-3 text-xs font-bold shadow-sm">
+          <span className="material-symbols-outlined text-amber-600">wifi_off</span>
+          <span>Offline Mode • Medication tracking and health records are saved locally</span>
+        </div>
+      )}
 
       {/* Page Header */}
       <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4">

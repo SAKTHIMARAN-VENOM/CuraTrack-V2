@@ -5,6 +5,7 @@ import { HeartRateChart } from '@/components/HeartRateChart';
 import { useRouter } from 'next/navigation';
 import { PassportQRModal } from '@/components/PassportQRModal';
 import { API_BASE } from '@/lib/api';
+import { offlineStorage } from '@/lib/offline-storage';
 
 export default function Dashboard() {
     const router = useRouter();
@@ -17,12 +18,12 @@ export default function Dashboard() {
     const [loadingInsights, setLoadingInsights] = useState(true);
     const [refreshing, setRefreshing] = useState(false);
     const [chartRange, setChartRange] = useState<'day' | 'week'>('day');
+    const [isOffline, setIsOffline] = useState(false);
 
     // Weekly trend data fallback when no weekly wearable logs exist
     const weeklyData: any[] = [];
 
     const chartData = chartRange === 'week' ? weeklyData : (data?.heartRateData || []);
-
 
     const fetchFitData = async () => {
         setRefreshing(true);
@@ -31,12 +32,26 @@ export default function Dashboard() {
             if (response.ok) {
                 const result = await response.json();
                 setData(result);
+                offlineStorage.saveFitData(result);
                 setIsDisconnected(false);
+                setIsOffline(false);
             } else if (response.status === 403) {
                 setIsDisconnected(true);
+            } else {
+                // Fall back to cached vitals if server response fails
+                const cached = offlineStorage.getFitData();
+                if (cached) {
+                    setData(cached);
+                    setIsOffline(true);
+                }
             }
         } catch (err) {
             console.error('Fit data fetch error:', err);
+            const cached = offlineStorage.getFitData();
+            if (cached) {
+                setData(cached);
+            }
+            setIsOffline(true);
         } finally {
             setLoading(false);
             setRefreshing(false);
@@ -44,11 +59,38 @@ export default function Dashboard() {
     };
 
     useEffect(() => {
+        // Load initial cached data for instant offline rendering
+        const cachedUser = offlineStorage.getProfile();
+        if (cachedUser) setUser(cachedUser);
+
+        const cachedFit = offlineStorage.getFitData();
+        if (cachedFit) {
+            setData(cachedFit);
+            setLoading(false);
+        }
+
+        const cachedInsights = offlineStorage.getInsights();
+        if (cachedInsights && cachedInsights.length > 0) {
+            setInsights(cachedInsights);
+            setLoadingInsights(false);
+        }
+
+        if (!offlineStorage.isOnline()) {
+            setIsOffline(true);
+        }
+
         // Fetch session info
         fetch('/api/auth-status')
             .then(r => r.json())
-            .then(d => { if (d.isAuthenticated) setUser(d.user); })
-            .catch(() => {});
+            .then(d => { 
+                if (d.isAuthenticated && d.user) {
+                    setUser(d.user);
+                    offlineStorage.saveProfile(d.user);
+                }
+            })
+            .catch(() => {
+                setIsOffline(true);
+            });
 
         fetchFitData();
 
@@ -56,21 +98,37 @@ export default function Dashboard() {
         const fetchInsights = async () => {
             try {
                 const res = await fetch(`${API_BASE}/api/health-insights`);
-                const result = await res.json();
-                setInsights(result.insights || []);
+                if (res.ok) {
+                    const result = await res.json();
+                    if (result.insights) {
+                        setInsights(result.insights);
+                        offlineStorage.saveInsights(result.insights);
+                    }
+                }
             } catch (err) {
                 console.error('Insights fetch error:', err);
+                const cached = offlineStorage.getInsights();
+                if (cached.length > 0) setInsights(cached);
             } finally {
                 setLoadingInsights(false);
             }
         };
         fetchInsights();
+
+        const handleOnline = () => setIsOffline(false);
+        const handleOffline = () => setIsOffline(true);
+        window.addEventListener('online', handleOnline);
+        window.addEventListener('offline', handleOffline);
+
+        return () => {
+            window.removeEventListener('online', handleOnline);
+            window.removeEventListener('offline', handleOffline);
+        };
     }, [router]);
 
     const handleConnectGoogle = () => {
         window.location.href = '/api/auth/google';
     };
-
 
     const userName = user?.name?.split(' ')[0] || 'there';
 
@@ -93,6 +151,12 @@ export default function Dashboard() {
 
     return (
         <section className="p-8 flex flex-col gap-8">
+            {isOffline && (
+                <div className="bg-amber-500/10 border border-amber-500/30 text-amber-900 px-4 py-3 rounded-2xl flex items-center gap-3 text-xs font-bold shadow-sm">
+                    <span className="material-symbols-outlined text-amber-600">wifi_off</span>
+                    <span>Offline Mode • Displaying cached health metrics and vitals</span>
+                </div>
+            )}
             {/* Hero Header */}
             <div className="flex justify-between items-end">
                 <div className="flex items-center gap-4">

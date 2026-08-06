@@ -2,6 +2,7 @@
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { apiFetch } from '@/lib/api';
+import { offlineStorage } from '@/lib/offline-storage';
 
 const MONTH_NAMES = [
   "January", "February", "March", "April", "May", "June",
@@ -13,6 +14,7 @@ export default function AlertsPage() {
     const [healthNews, setHealthNews] = useState<any[]>([]);
     const [loadingNews, setLoadingNews] = useState(true);
     const [activeFilter, setActiveFilter] = useState('All');
+    const [isOffline, setIsOffline] = useState(false);
     
     // Automatic month-based seasonal outbreak state
     const currentMonthNum = new Date().getMonth() + 1;
@@ -26,12 +28,42 @@ export default function AlertsPage() {
     const [loadingActivity, setLoadingActivity] = useState(true);
 
     useEffect(() => {
+        // Hydrate from offline storage first
+        const cachedRisks = offlineStorage.getHealthRisks();
+        if (cachedRisks) {
+            setHealthRisks(cachedRisks.risks || []);
+            setSeasonInfo({ season: cachedRisks.season, month_name: cachedRisks.month_name });
+            setLoadingRisks(false);
+        }
+
+        const cachedNews = offlineStorage.getHealthNews();
+        if (cachedNews && cachedNews.length > 0) {
+            setHealthNews(cachedNews);
+            setLoadingNews(false);
+        }
+
+        const cachedFit = offlineStorage.getFitData();
+        if (cachedFit) {
+            setActivityData(cachedFit);
+            setLoadingActivity(false);
+        }
+
+        if (!offlineStorage.isOnline()) {
+            setIsOffline(true);
+        }
+
         const fetchNews = async () => {
             try {
                 const data = await apiFetch('/api/health-news');
-                setHealthNews(data.articles || []);
+                if (data.articles) {
+                    setHealthNews(data.articles);
+                    offlineStorage.saveHealthNews(data.articles);
+                }
             } catch (err) {
                 console.error("Failed to fetch health news", err);
+                const cached = offlineStorage.getHealthNews();
+                if (cached) setHealthNews(cached);
+                setIsOffline(true);
             } finally {
                 setLoadingNews(false);
             }
@@ -41,8 +73,12 @@ export default function AlertsPage() {
              try {
                 const data = await apiFetch('/api/fit-data');
                 setActivityData(data);
+                offlineStorage.saveFitData(data);
              } catch (err) {
                  console.error("Failed to fetch activity data", err);
+                 const cached = offlineStorage.getFitData();
+                 if (cached) setActivityData(cached);
+                 setIsOffline(true);
              } finally {
                  setLoadingActivity(false);
              }
@@ -50,13 +86,19 @@ export default function AlertsPage() {
 
         // Fetch seasonal disease outbreaks based on current month
         const fetchRisks = async () => {
-             setLoadingRisks(true);
              try {
                 const data = await apiFetch('/api/health-risks');
                 setHealthRisks(data.risks || []);
                 setSeasonInfo({ season: data.season, month_name: data.month_name });
+                offlineStorage.saveHealthRisks(data);
              } catch (err) {
                  console.error("Failed to fetch seasonal health risks", err);
+                 const cached = offlineStorage.getHealthRisks();
+                 if (cached) {
+                     setHealthRisks(cached.risks || []);
+                     setSeasonInfo({ season: cached.season, month_name: cached.month_name });
+                 }
+                 setIsOffline(true);
              } finally {
                  setLoadingRisks(false);
              }
@@ -65,12 +107,28 @@ export default function AlertsPage() {
         fetchNews();
         fetchActivity();
         fetchRisks();
+
+        const handleOnline = () => setIsOffline(false);
+        const handleOffline = () => setIsOffline(true);
+        window.addEventListener('online', handleOnline);
+        window.addEventListener('offline', handleOffline);
+
+        return () => {
+            window.removeEventListener('online', handleOnline);
+            window.removeEventListener('offline', handleOffline);
+        };
     }, []);
 
     const activeAlertsCount = (healthRisks ? healthRisks.length : 0) + (activityData && activityData.steps < activityData.goal && activityData.steps > 0 ? 1 : 0);
 
     return (
         <div className="p-8 max-w-7xl mx-auto w-full space-y-8">
+            {isOffline && (
+                <div className="bg-amber-500/10 border border-amber-500/30 text-amber-900 px-4 py-3 rounded-2xl flex items-center gap-3 text-xs font-bold shadow-sm">
+                    <span className="material-symbols-outlined text-amber-600">wifi_off</span>
+                    <span>Offline Mode • Displaying cached seasonal disease outbreak alerts and health risks</span>
+                </div>
+            )}
             {/* Page Header */}
             <div className="flex flex-col md:flex-row md:items-end justify-between gap-4">
                 <div>
