@@ -58,7 +58,7 @@ def generate_qr(request: QRGenerateRequest):
     }
     set_key_with_ttl(f"passport:meta:{passport_id}", json.dumps(meta), QR_EXPIRY_SECONDS)
 
-    frontend_url = os.getenv("FRONTEND_URL", "https://curatrack-v3.onrender.com").rstrip("/")
+    frontend_url = os.getenv("FRONTEND_URL", "https://cura-track-v2.vercel.app").rstrip("/")
     passport_url = f"{frontend_url}/passport/{passport_id}?token={token}"
 
     # Generate QR code image
