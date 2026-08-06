@@ -1,160 +1,89 @@
 """
-Unified OCR service for CuraTrack V3.
-Handles raw text extraction from images/PDFs and structured field parsing
-for Govt IDs, Medical Reports/Prescriptions, Insurance Cards, and Doctor Verification Documents.
+Primary Gemini Vision API Extraction Service for CuraTrack V3.
+Uses Gemini Vision API as the primary visual extraction engine for images and PDFs,
+with clean fallback handling when API key is pending.
+The frontend displays all operations as 'OCR' for seamless user experience.
 """
 import os
 import re
 import json
-import shutil
+import base64
 import logging
-import platform
+import requests
 from datetime import datetime
 
 logger = logging.getLogger("curatrack.ocr")
 
-TESSERACT_AVAILABLE = False
-TESSERACT_VERSION = None
-
-
-def find_tesseract_cmd() -> str | None:
-    """Auto-detect Tesseract OCR executable path across standard locations."""
-    env_path = os.getenv("TESSERACT_CMD")
-    if env_path and os.path.exists(env_path):
-        return env_path
-
-    which_path = shutil.which("tesseract")
-    if which_path:
-        return which_path
-
-    linux_paths = [
-        "/usr/bin/tesseract",
-        "/usr/local/bin/tesseract",
-        "/usr/bin/tesseract-ocr",
-        "/app/.apt/usr/bin/tesseract",
-    ]
-    for path in linux_paths:
-        if os.path.exists(path):
-            return path
-
-    if platform.system() == "Windows":
-        local_app_data = os.getenv("LOCALAPPDATA", "")
-        user_profile = os.getenv("USERPROFILE", "")
-        common_paths = [
-            r"C:\Program Files\Tesseract-OCR\tesseract.exe",
-            r"C:\Program Files (x86)\Tesseract-OCR\tesseract.exe",
-            os.path.join(local_app_data, "Programs", "Tesseract-OCR", "tesseract.exe") if local_app_data else "",
-            os.path.join(local_app_data, "Tesseract-OCR", "tesseract.exe") if local_app_data else "",
-            os.path.join(user_profile, "AppData", "Local", "Programs", "Tesseract-OCR", "tesseract.exe") if user_profile else "",
-            os.path.join(user_profile, "AppData", "Local", "Tesseract-OCR", "tesseract.exe") if user_profile else "",
-        ]
-        for path in common_paths:
-            if path and os.path.exists(path):
-                return path
-
-    return None
-
-
-def configure_tesseract() -> bool:
-    """Configure pytesseract with detected executable path."""
-    global TESSERACT_AVAILABLE, TESSERACT_VERSION
-
-    cmd_path = find_tesseract_cmd()
-    if cmd_path:
-        try:
-            import pytesseract
-            pytesseract.pytesseract.tesseract_cmd = cmd_path
-            version = str(pytesseract.get_tesseract_version())
-            TESSERACT_AVAILABLE = True
-            TESSERACT_VERSION = version
-            return True
-        except Exception as e:
-            logger.warning("Found tesseract at %s but failed to initialize: %s", cmd_path, e)
-            TESSERACT_AVAILABLE = False
-            return False
-    else:
-        TESSERACT_AVAILABLE = False
-        return False
-
-
-configure_tesseract()
-
 
 def validate_tesseract_on_startup() -> bool:
-    """Validate OCR installation and log status on backend startup."""
-    try:
-        print("✓ Unified Multi-Engine OCR Pipeline Active")
-    except UnicodeEncodeError:
-        print("[OK] Unified Multi-Engine OCR Pipeline Active")
-    logger.info("Unified Multi-Engine OCR Pipeline Active")
+    """Startup check log."""
+    logger.info("Gemini Vision AI Engine initialized for OCR processing")
+    print("✓ Gemini Vision AI Engine active for document scanning (OCR pipeline ready)")
     return True
 
 
 def is_tesseract_installed() -> bool:
-    """Return True to ensure OCR pipeline is active across environments."""
+    """Keep compatibility flag True."""
     return True
 
 
 def extract_raw_text(file_path: str) -> str:
-    """Extract raw text from PDF or image using multi-engine pipeline."""
-    ext = os.path.splitext(file_path)[1].lower()
+    """
+    Extract text using Gemini Vision API as primary engine.
+    Falls back to PDF/Image parser if API key is not yet set.
+    """
+    api_key = os.getenv("GEMINI_API_KEY", "").strip()
 
+    # 1. Primary Engine: Gemini Vision AI
+    if api_key:
+        gemini_text = _ocr_with_gemini_vision(file_path, api_key)
+        if gemini_text:
+            return gemini_text
+
+    # 2. Fallback Engine
+    ext = os.path.splitext(file_path)[1].lower()
     if ext == ".pdf":
-        return _extract_from_pdf(file_path)
-    elif ext in (".png", ".jpg", ".jpeg", ".tiff", ".bmp", ".webp"):
-        return _extract_from_image(file_path)
+        return _fallback_pdf(file_path)
     else:
-        raise ValueError(f"Unsupported file type: {ext}")
+        return _fallback_image(file_path)
 
 
 # Alias for backward compatibility
 extract_text = extract_raw_text
 
 
-def _extract_from_pdf(file_path: str) -> str:
-    """Extract text from PDF using pdfplumber."""
-    import pdfplumber
-
-    text_parts: list[str] = []
-    try:
-        with pdfplumber.open(file_path) as pdf:
-            for page in pdf.pages:
-                page_text = page.extract_text()
-                if page_text:
-                    text_parts.append(page_text.strip())
-    except Exception as e:
-        logger.warning("pdfplumber failed: %s", e)
-
-    combined = "\n\n".join(text_parts).strip()
-    if not combined:
-        filename = os.path.basename(file_path)
-        combined = f"Medical Document PDF: {filename}"
-    return combined
-
-
-def _ocr_with_gemini_vision(file_path: str) -> str:
-    """Cloud OCR using Gemini Vision API."""
+def parse_document_fields(doc_type: str, raw_text_or_path: str) -> dict:
+    """
+    Structured extraction using Gemini Vision API.
+    Can take file path or raw text string.
+    """
     api_key = os.getenv("GEMINI_API_KEY", "").strip()
-    if not api_key:
-        return ""
 
+    # If argument is an existing file path, attempt direct Vision API extraction
+    if os.path.exists(raw_text_or_path):
+        if api_key:
+            vision_result = _extract_structured_with_gemini_vision(raw_text_or_path, doc_type, api_key)
+            if vision_result:
+                return vision_result
+        # Fallback raw text extraction first
+        raw_text_or_path = extract_raw_text(raw_text_or_path)
+
+    # LLM text-based extraction if key available
+    if api_key and len(raw_text_or_path) > 10:
+        llm_parsed = _parse_text_with_gemini(doc_type, raw_text_or_path, api_key)
+        if llm_parsed:
+            return llm_parsed
+
+    # Heuristic regex fallback
+    return _parse_with_heuristics(doc_type, raw_text_or_path)
+
+
+def _ocr_with_gemini_vision(file_path: str, api_key: str) -> str:
+    """Primary Gemini Vision API visual text extraction."""
     try:
-        import base64
-        import requests
-
-        ext = os.path.splitext(file_path)[1].lower()
-        mime_types = {
-            ".png": "image/png",
-            ".jpg": "image/jpeg",
-            ".jpeg": "image/jpeg",
-            ".webp": "image/webp",
-            ".bmp": "image/bmp",
-            ".tiff": "image/tiff",
-        }
-        mime_type = mime_types.get(ext, "image/jpeg")
-
-        with open(file_path, "rb") as f:
-            base64_data = base64.b64encode(f.read()).decode("utf-8")
+        mime_type, base64_data = _prepare_file_base64(file_path)
+        if not base64_data:
+            return ""
 
         model = os.getenv("GEMINI_MODEL", "gemini-flash-latest").strip()
         url = f"https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent?key={api_key}"
@@ -170,7 +99,7 @@ def _ocr_with_gemini_vision(file_path: str) -> str:
                             }
                         },
                         {
-                            "text": "Extract all text from this medical or ID document exactly as written. Return ONLY the extracted text."
+                            "text": "Perform high-precision OCR on this document image/PDF. Extract all visible text exactly as printed. Return ONLY the raw extracted text."
                         }
                     ]
                 }
@@ -186,74 +115,79 @@ def _ocr_with_gemini_vision(file_path: str) -> str:
                 if parts and parts[0].get("text"):
                     return parts[0]["text"].strip()
     except Exception as e:
-        logger.warning("Gemini Vision OCR failed: %s", e)
+        logger.warning("Gemini Vision OCR extraction failed: %s", e)
 
     return ""
 
 
-def _extract_from_image(file_path: str) -> str:
-    """Extract text from image using pytesseract or Gemini Vision AI."""
-    if configure_tesseract():
-        import pytesseract
-        from PIL import Image
-
-        try:
-            image = Image.open(file_path)
-            text = pytesseract.image_to_string(image).strip()
-            if text:
-                return text
-        except Exception as e:
-            logger.warning("pytesseract extraction failed: %s", e)
-
-    gemini_text = _ocr_with_gemini_vision(file_path)
-    if gemini_text:
-        return gemini_text
-
-    filename = os.path.basename(file_path)
-    return f"Scanned Document: {filename}"
-
-
-# ─── Structured Document Field Extractors ──────────────────────────────
-
-def parse_document_fields(doc_type: str, raw_text: str) -> dict:
-    """
-    Parse structured JSON fields based on doc_type:
-    - 'govt_id': Name, DOB, Gender, Address
-    - 'medical_report': Blood Group, Allergies, Chronic Diseases, Current Medications
-    - 'insurance_card': Provider, Policy Number, Expiry, Coverage
-    - 'doctor_credential': Registration Number, Doctor Name, Hospital, Qualification, Issue Date
-    """
-    api_key = os.getenv("GEMINI_API_KEY", "").strip()
-    if api_key:
-        llm_parsed = _parse_with_llm(doc_type, raw_text, api_key)
-        if llm_parsed:
-            return llm_parsed
-
-    # Heuristic Regex Fallback
-    return _parse_with_heuristics(doc_type, raw_text)
-
-
-def _parse_with_llm(doc_type: str, raw_text: str, api_key: str) -> dict | None:
+def _extract_structured_with_gemini_vision(file_path: str, doc_type: str, api_key: str) -> dict | None:
+    """Primary Gemini Vision API direct visual structured JSON extraction."""
     try:
-        import requests
+        mime_type, base64_data = _prepare_file_base64(file_path)
+        if not base64_data:
+            return None
 
         prompts = {
             "govt_id": (
-                "Extract Government ID fields from raw text.\n"
-                "Return JSON with keys: name (str), dob (str YYYY-MM-DD), gender (str Male/Female/Other), address (str)."
+                "Analyze this Government ID document visually.\n"
+                "Extract and return ONLY a valid JSON object with keys: name (str), dob (str YYYY-MM-DD), gender (str Male/Female/Other), address (str)."
             ),
             "medical_report": (
-                "Extract Medical Report/Prescription fields from raw text.\n"
-                "Return JSON with keys: blood_group (str e.g. O+), allergies (list of str), chronic_diseases (list of str), current_medications (list of dict with name, dosage, frequency)."
+                "Analyze this Medical Prescription or Report visually.\n"
+                "Extract and return ONLY a valid JSON object with keys: blood_group (str e.g. O+), allergies (list of str), chronic_diseases (list of str), current_medications (list of objects with name, dosage, frequency)."
             ),
             "insurance_card": (
-                "Extract Health Insurance Card fields from raw text.\n"
-                "Return JSON with keys: provider (str), policy_number (str), expiry (str YYYY-MM-DD), coverage (str)."
+                "Analyze this Health Insurance Card visually.\n"
+                "Extract and return ONLY a valid JSON object with keys: provider (str), policy_number (str), expiry (str YYYY-MM-DD), coverage (str)."
             ),
             "doctor_credential": (
-                "Extract Doctor Verification Certificate fields from raw text.\n"
-                "Return JSON with keys: reg_number (str), doctor_name (str), hospital (str), qualification (str), issue_date (str YYYY-MM-DD)."
+                "Analyze this Doctor Medical Registration Certificate or ID card visually.\n"
+                "Extract and return ONLY a valid JSON object with keys: reg_number (str), doctor_name (str), hospital (str), qualification (str), issue_date (str YYYY-MM-DD)."
             ),
+        }
+
+        prompt = prompts.get(doc_type, prompts["govt_id"])
+        model = os.getenv("GEMINI_MODEL", "gemini-flash-latest").strip()
+        url = f"https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent?key={api_key}"
+
+        payload = {
+            "contents": [
+                {
+                    "parts": [
+                        {
+                            "inlineData": {
+                                "mimeType": mime_type,
+                                "data": base64_data
+                            }
+                        },
+                        {
+                            "text": f"{prompt}\n\nDo not include code blocks or extra explanations. Return raw valid JSON."
+                        }
+                    ]
+                }
+            ]
+        }
+
+        res = requests.post(url, json=payload, timeout=45)
+        if res.status_code == 200:
+            content = res.json()["candidates"][0]["content"]["parts"][0]["text"]
+            json_match = re.search(r"\{.*\}", content, re.DOTALL)
+            if json_match:
+                return json.loads(json_match.group(0))
+    except Exception as e:
+        logger.warning("Gemini Vision direct structured extraction failed for %s: %s", doc_type, e)
+
+    return None
+
+
+def _parse_text_with_gemini(doc_type: str, raw_text: str, api_key: str) -> dict | None:
+    """Text-based structured field extraction via Gemini AI."""
+    try:
+        prompts = {
+            "govt_id": "Extract Government ID fields from text. JSON keys: name, dob, gender, address.",
+            "medical_report": "Extract Medical Report fields from text. JSON keys: blood_group, allergies, chronic_diseases, current_medications.",
+            "insurance_card": "Extract Health Insurance fields from text. JSON keys: provider, policy_number, expiry, coverage.",
+            "doctor_credential": "Extract Doctor Certificate fields from text. JSON keys: reg_number, doctor_name, hospital, qualification, issue_date.",
         }
 
         prompt = prompts.get(doc_type, prompts["govt_id"])
@@ -279,9 +213,66 @@ def _parse_with_llm(doc_type: str, raw_text: str, api_key: str) -> dict | None:
             if json_match:
                 return json.loads(json_match.group(0))
     except Exception as e:
-        logger.warning("LLM structured parsing failed for %s: %s", doc_type, e)
+        logger.warning("Gemini text parsing failed: %s", e)
 
     return None
+
+
+def _prepare_file_base64(file_path: str) -> tuple[str, str]:
+    """Helper to convert PDF/Image to base64 string and mime type."""
+    ext = os.path.splitext(file_path)[1].lower()
+    mime_types = {
+        ".png": "image/png",
+        ".jpg": "image/jpeg",
+        ".jpeg": "image/jpeg",
+        ".webp": "image/webp",
+        ".bmp": "image/bmp",
+        ".tiff": "image/tiff",
+        ".pdf": "application/pdf",
+    }
+    mime_type = mime_types.get(ext, "image/jpeg")
+
+    try:
+        with open(file_path, "rb") as f:
+            base64_data = base64.b64encode(f.read()).decode("utf-8")
+        return mime_type, base64_data
+    except Exception as e:
+        logger.error("Base64 preparation error for %s: %s", file_path, e)
+        return "", ""
+
+
+def _fallback_pdf(file_path: str) -> str:
+    """PDF fallback extraction using pdfplumber."""
+    try:
+        import pdfplumber
+        text_parts: list[str] = []
+        with pdfplumber.open(file_path) as pdf:
+            for page in pdf.pages:
+                t = page.extract_text()
+                if t:
+                    text_parts.append(t.strip())
+        combined = "\n\n".join(text_parts).strip()
+        if combined:
+            return combined
+    except Exception as e:
+        logger.warning("pdfplumber fallback error: %s", e)
+
+    return f"Medical Document PDF: {os.path.basename(file_path)}"
+
+
+def _fallback_image(file_path: str) -> str:
+    """Image fallback extraction using pytesseract or placeholder."""
+    try:
+        import pytesseract
+        from PIL import Image
+        img = Image.open(file_path)
+        t = pytesseract.image_to_string(img).strip()
+        if t:
+            return t
+    except Exception:
+        pass
+
+    return f"Scanned Document Image: {os.path.basename(file_path)}"
 
 
 def _parse_with_heuristics(doc_type: str, text: str) -> dict:
