@@ -9,6 +9,9 @@ import requests
 
 logger = logging.getLogger("curatrack.insights")
 
+GEMINI_API_KEY = os.getenv("GEMINI_API_KEY", "")
+GEMINI_MODEL = os.getenv("GEMINI_MODEL", "gemini-flash-latest")
+
 OLLAMA_URL = os.getenv("OLLAMA_URL", "http://localhost:11434")
 OLLAMA_MODEL = os.getenv("OLLAMA_MODEL", "llama3.1:8b")
 
@@ -22,8 +25,8 @@ CURRENT_VITALS = {
 
 def generate_health_insights() -> list[dict]:
     """
-    Send current vitals to Llama 3.1 and get back structured health insights.
-    Returns a list of insight dicts, or falls back to rule-based insights if LLM is unavailable.
+    Send current vitals to Gemini API (or Ollama) and get back structured health insights.
+    Returns a list of insight dicts, or falls back to rule-based insights.
     """
     vitals_summary = _format_vitals()
 
@@ -53,6 +56,37 @@ Rules:
 - tip: A specific, actionable health tip (1-2 sentences)
 
 Analyze each metric carefully. Be specific and medically accurate."""
+
+    api_key = os.getenv("GEMINI_API_KEY", GEMINI_API_KEY).strip()
+    if api_key:
+        try:
+            model = os.getenv("GEMINI_MODEL", GEMINI_MODEL).strip()
+            url = f"https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent?key={api_key}"
+            payload = {
+                "contents": [{"parts": [{"text": prompt}]}],
+                "generationConfig": {"temperature": 0.3, "responseMimeType": "application/json"}
+            }
+            res = requests.post(url, json=payload, timeout=30)
+            if res.status_code == 200:
+                data = res.json()
+                raw = data.get("candidates", [{}])[0].get("content", {}).get("parts", [{}])[0].get("text", "").strip()
+                if raw:
+                    json_str = raw
+                    if "```" in json_str:
+                        parts = json_str.split("```")
+                        for part in parts:
+                            stripped = part.strip()
+                            if stripped.startswith("json"):
+                                stripped = stripped[4:].strip()
+                            if stripped.startswith("["):
+                                json_str = stripped
+                                break
+                    insights = json.loads(json_str)
+                    if isinstance(insights, list) and len(insights) > 0:
+                        logger.info("Gemini generated %d health insights", len(insights))
+                        return insights[:3]
+        except Exception as e:
+            logger.warning("Gemini insights failed (%s), falling back to Ollama/Rule-based", e)
 
     try:
         response = requests.post(

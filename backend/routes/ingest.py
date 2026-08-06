@@ -9,9 +9,10 @@ import shutil
 import logging
 from datetime import datetime
 from fastapi import APIRouter, UploadFile, File, HTTPException, Form
+from fastapi.responses import JSONResponse
 from pydantic import BaseModel, Field
 
-from services.ocr_service import extract_text
+from services.ocr_service import extract_text, is_tesseract_installed
 from services.llm_service import extract_medical_data
 from services.parser_service import parse_llm_response, EMPTY_RESULT
 from services.save_service import save_confirmed_data
@@ -90,11 +91,31 @@ async def ingest_document(file: UploadFile = File(...)):
     # Step 1: OCR
     try:
         raw_text = extract_text(file_path)
-    except ValueError as e:
-        raise HTTPException(status_code=422, detail=f"OCR failed: {str(e)}")
+    except (RuntimeError, ValueError) as e:
+        err_msg = str(e)
+        if "tesseract" in err_msg.lower() or "not installed" in err_msg.lower() or not is_tesseract_installed():
+            return JSONResponse(
+                status_code=400,
+                content={
+                    "success": False,
+                    "message": "Tesseract OCR is not installed.",
+                    "solution": "Install Tesseract and restart the backend.",
+                },
+            )
+        raise HTTPException(status_code=422, detail=f"OCR failed: {err_msg}")
     except Exception as e:
+        err_msg = str(e)
+        if "tesseract" in err_msg.lower() or "not installed" in err_msg.lower() or not is_tesseract_installed():
+            return JSONResponse(
+                status_code=400,
+                content={
+                    "success": False,
+                    "message": "Tesseract OCR is not installed.",
+                    "solution": "Install Tesseract and restart the backend.",
+                },
+            )
         logger.error("OCR error: %s", e)
-        raise HTTPException(status_code=500, detail=f"OCR processing error: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"OCR processing error: {err_msg}")
 
     if not raw_text.strip():
         raise HTTPException(status_code=422, detail="OCR returned empty text — document may be blank or unreadable")

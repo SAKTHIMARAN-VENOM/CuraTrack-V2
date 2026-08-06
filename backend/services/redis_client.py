@@ -7,20 +7,25 @@ import logging
 
 logger = logging.getLogger("curatrack.redis")
 
-REDIS_URL = os.getenv("REDIS_URL", "redis://localhost:6379/0")
+REDIS_URL = os.getenv("REDIS_URL", "").strip()
 
 _fallback_store: dict[str, str] = {}
-_use_fallback = False
+_use_fallback = True
+_redis = None
 
-try:
-    import redis as _redis_lib
-    _redis = _redis_lib.from_url(REDIS_URL, decode_responses=True, socket_connect_timeout=2)
-    _redis.ping()
-    logger.info("Connected to Redis at %s", REDIS_URL)
-except Exception as e:
-    logger.warning("Redis unavailable (%s), using in-memory fallback. NOT for production.", e)
-    _redis = None
-    _use_fallback = True
+if REDIS_URL:
+    try:
+        import redis as _redis_lib
+        _redis_candidate = _redis_lib.from_url(REDIS_URL, decode_responses=True, socket_connect_timeout=1)
+        _redis_candidate.ping()
+        _redis = _redis_candidate
+        _use_fallback = False
+        logger.info("Connected to Redis at %s", REDIS_URL.split("@")[-1] if "@" in REDIS_URL else REDIS_URL)
+    except Exception as e:
+        logger.info("Redis not reachable at %s (%s). Using in-memory fallback.", REDIS_URL, e)
+        _use_fallback = True
+else:
+    logger.info("REDIS_URL not set. Using in-memory token blacklist.")
 
 
 def setnx_with_ttl(key: str, value: str, ttl_seconds: int) -> bool:

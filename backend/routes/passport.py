@@ -60,9 +60,9 @@ def generate_passport_qr(request: PassportGenerateRequest):
         scope=request.scope,
     )
 
-    # Build QR code with the passport URL (Using local IP for mobile access on same WiFi)
-    local_ip = "10.151.93.61"
-    passport_url = f"http://{local_ip}:3000/passport/{token_data['token']}"
+    # Build QR code with the passport URL
+    frontend_url = os.getenv("FRONTEND_URL", "http://localhost:3000").rstrip("/")
+    passport_url = f"{frontend_url}/passport/{token_data['token']}"
 
     qr = qrcode.QRCode(
         version=1,

@@ -8,8 +8,13 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from routes import insurance, government, health_news, health_risks, qr
 from routes import passport, ingest, activity, insights
+from services.ocr_service import validate_tesseract_on_startup
 
 app = FastAPI(title="CuraTrack API", version="2.0.0")
+
+@app.on_event("startup")
+def startup_event():
+    validate_tesseract_on_startup()
 
 # Enable CORS for Next.js frontend and Vercel deployments
 allowed_origins = os.getenv("ALLOWED_ORIGINS", "").split(",") + [

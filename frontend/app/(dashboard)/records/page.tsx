@@ -80,7 +80,21 @@ export default function HealthRecordsPage() {
   const handleRecordAdded = (data: any) => {
     // Handle new structured record types
     if (data && data.type === 'prescription') {
-      setUserPrescriptions(prev => [data.data, ...prev]);
+      const rxItems = Array.isArray(data.data) ? data.data : [data.data];
+      setUserPrescriptions(prev => [...rxItems, ...prev]);
+
+      // Automatically populate activeMedications schedule for today
+      const newActiveMeds = rxItems.map((m: any) => ({
+        name: m.name,
+        dosage: m.dosage,
+        frequency: m.frequency || 'Once daily',
+        time: m.time || 'Morning',
+        status: 'UPCOMING',
+        color: '#d4f0fa',
+        icon: 'pill',
+        isError: false,
+      }));
+      setActiveMedications(prev => [...newActiveMeds, ...prev]);
       setActiveTab('prescriptions');
       return;
     }
