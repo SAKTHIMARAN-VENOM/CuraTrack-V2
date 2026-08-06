@@ -1,0 +1,273 @@
+<!DOCTYPE html><html class="h-full" lang="en"><head>
+<meta charset="utf-8">
+<meta content="width=device-width, initial-scale=1.0" name="viewport">
+<title>CuraTrack - Emergency SOS</title>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&amp;display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet">
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    "colors": {
+                        "inverse-surface": "#213145",
+                        "surface-dim": "#cbdbf5",
+                        "on-secondary": "#ffffff",
+                        "primary-container": "#0052cc",
+                        "on-surface": "#0b1c30",
+                        "tertiary-fixed": "#e1e0ff",
+                        "surface-container-highest": "#d3e4fe",
+                        "on-secondary-fixed": "#002113",
+                        "on-tertiary-fixed": "#07006c",
+                        "on-error": "#ffffff",
+                        "on-surface-variant": "#434654",
+                        "outline": "#737685",
+                        "on-tertiary": "#ffffff",
+                        "primary-fixed-dim": "#b2c5ff",
+                        "surface": "#f8f9ff",
+                        "tertiary-container": "#4547d3",
+                        "on-secondary-fixed-variant": "#005236",
+                        "tertiary": "#2b29bb",
+                        "outline-variant": "#c3c6d6",
+                        "primary": "#003d9b",
+                        "surface-tint": "#0c56d0",
+                        "surface-container": "#e5eeff",
+                        "surface-bright": "#f8f9ff",
+                        "on-secondary-container": "#00714d",
+                        "on-tertiary-fixed-variant": "#2f2ebe",
+                        "on-primary-fixed-variant": "#0040a2",
+                        "inverse-on-surface": "#eaf1ff",
+                        "surface-container-lowest": "#ffffff",
+                        "on-primary-container": "#c4d2ff",
+                        "on-tertiary-container": "#d0cfff",
+                        "surface-variant": "#d3e4fe",
+                        "on-primary-fixed": "#001848",
+                        "on-error-container": "#93000a",
+                        "primary-fixed": "#dae2ff",
+                        "tertiary-fixed-dim": "#c0c1ff",
+                        "inverse-primary": "#b2c5ff",
+                        "error-container": "#ffdad6",
+                        "error": "#ba1a1a",
+                        "surface-container-low": "#eff4ff",
+                        "secondary-fixed": "#6ffbbe",
+                        "surface-container-high": "#dce9ff",
+                        "secondary": "#006c49",
+                        "secondary-container": "#6cf8bb",
+                        "on-background": "#0b1c30",
+                        "background": "#f8f9ff",
+                        "secondary-fixed-dim": "#4edea3",
+                        "on-primary": "#ffffff"
+                    },
+                    "borderRadius": {
+                        "DEFAULT": "0.25rem",
+                        "lg": "0.5rem",
+                        "xl": "0.75rem",
+                        "full": "9999px"
+                    },
+                    "spacing": {
+                        "xl": "32px",
+                        "md": "16px",
+                        "lg": "24px",
+                        "margin-mobile": "20px",
+                        "gutter": "16px",
+                        "baseline": "4px",
+                        "xs": "8px",
+                        "margin-tablet": "32px",
+                        "sm": "12px"
+                    },
+                    "fontFamily": {
+                        "headline-lg-mobile": ["Inter"],
+                        "headline-lg": ["Inter"],
+                        "body-md": ["Inter"],
+                        "title-lg": ["Inter"],
+                        "label-lg": ["Inter"],
+                        "headline-md": ["Inter"],
+                        "headline-sm": ["Inter"],
+                        "body-lg": ["Inter"]
+                    },
+                    "fontSize": {
+                        "headline-lg-mobile": ["28px", { "lineHeight": "36px", "fontWeight": "700" }],
+                        "headline-lg": ["32px", { "lineHeight": "40px", "letterSpacing": "-0.02em", "fontWeight": "700" }],
+                        "body-md": ["14px", { "lineHeight": "20px", "fontWeight": "400" }],
+                        "title-lg": ["18px", { "lineHeight": "24px", "fontWeight": "600" }],
+                        "label-lg": ["12px", { "lineHeight": "16px", "letterSpacing": "0.5px", "fontWeight": "600" }],
+                        "headline-md": ["24px", { "lineHeight": "32px", "letterSpacing": "-0.01em", "fontWeight": "600" }],
+                        "headline-sm": ["20px", { "lineHeight": "28px", "fontWeight": "600" }],
+                        "body-lg": ["16px", { "lineHeight": "24px", "fontWeight": "400" }]
+                    }
+                }
+            }
+        }
+    </script>
+<style>
+        .pulse-ring {
+            animation: pulse-ring 2s cubic-bezier(0.215, 0.61, 0.355, 1) infinite;
+        }
+        @keyframes pulse-ring {
+            0% { transform: scale(0.95); opacity: 1; }
+            100% { transform: scale(1.5); opacity: 0; }
+        }
+    </style>
+</head>
+<body class="bg-surface text-on-surface h-full flex flex-col items-center justify-start overflow-y-auto">
+<!-- Top Navigation (Hidden as per requirements for SOS screen, but keeping a simple close action for structural context if needed, though strictly suppressing full nav shell) -->
+<header class="w-full max-w-3xl mx-auto flex justify-between items-center px-margin-mobile h-16 z-50">
+<div class="font-headline-sm text-headline-sm font-bold text-error flex items-center gap-2">
+<span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1;">emergency</span>
+            Emergency SOS
+        </div>
+<button class="w-10 h-10 flex items-center justify-center rounded-full bg-surface-container hover:bg-surface-container-high transition-colors text-on-surface">
+<span class="material-symbols-outlined">close</span>
+</button>
+</header>
+<main class="w-full max-w-3xl mx-auto px-margin-mobile pb-xl flex-grow flex flex-col gap-lg">
+<!-- Hero SOS Area -->
+<section class="flex flex-col items-center justify-center py-lg text-center">
+<div class="relative mb-lg">
+<div class="absolute inset-0 bg-error rounded-full pulse-ring opacity-50"></div>
+<button class="relative w-40 h-40 md:w-48 md:h-48 rounded-full bg-error text-on-error flex flex-col items-center justify-center shadow-lg active:scale-95 transition-transform">
+<span class="material-symbols-outlined text-headline-lg" style="font-variation-settings: 'FILL' 1; font-size: 48px;">call</span>
+<span class="font-headline-md text-headline-md mt-sm">SOS</span>
+</button>
+</div>
+<div class="bg-error-container text-on-error-container rounded-xl p-md w-full border border-error/20 flex flex-col items-center gap-xs">
+<span class="font-title-lg text-title-lg">Auto-calling 911 in</span>
+<div class="font-headline-lg text-headline-lg font-bold">00:09</div>
+<button class="font-label-lg text-label-lg text-error underline mt-xs">Cancel</button>
+</div>
+</section>
+<!-- Medical ID Bento -->
+<section class="grid grid-cols-2 md:grid-cols-3 gap-md">
+<div class="col-span-2 md:col-span-3">
+<h2 class="font-title-lg text-title-lg text-on-surface mb-sm flex items-center gap-2">
+<span class="material-symbols-outlined text-primary">medical_information</span>
+                    Medical ID
+                </h2>
+</div>
+<div class="bg-surface-container-low rounded-xl p-md shadow-sm border border-outline-variant/30 flex flex-col gap-xs">
+<span class="font-label-lg text-label-lg text-on-surface-variant uppercase tracking-wider">Blood Group</span>
+<span class="font-headline-sm text-headline-sm font-bold text-error">A+</span>
+</div>
+<div class="bg-surface-container-low rounded-xl p-md shadow-sm border border-outline-variant/30 flex flex-col gap-xs">
+<span class="font-label-lg text-label-lg text-on-surface-variant uppercase tracking-wider">Allergies</span>
+<span class="font-body-md text-body-md font-semibold text-on-surface">Penicillin</span>
+</div>
+<div class="col-span-2 md:col-span-1 bg-surface-container-low rounded-xl p-md shadow-sm border border-outline-variant/30 flex flex-col gap-xs">
+<span class="font-label-lg text-label-lg text-on-surface-variant uppercase tracking-wider">Current Meds</span>
+<span class="font-body-md text-body-md font-semibold text-on-surface">Lisinopril</span>
+</div>
+</section>
+<!-- Emergency Contacts -->
+<section class="flex flex-col gap-sm">
+<h2 class="font-title-lg text-title-lg text-on-surface flex items-center gap-2">
+<span class="material-symbols-outlined text-primary">contacts</span>
+                Emergency Contacts
+            </h2>
+<div class="bg-surface-container-lowest rounded-xl shadow-sm border border-outline-variant/30 divide-y divide-outline-variant/20">
+<!-- Contact 1 -->
+<div class="p-md flex items-center justify-between hover:bg-surface-container-low transition-colors rounded-t-xl">
+<div class="flex items-center gap-md">
+<div class="w-12 h-12 rounded-full bg-secondary-container text-on-secondary-container flex items-center justify-center font-headline-sm text-headline-sm font-bold">
+                            SJ
+                        </div>
+<div class="flex flex-col">
+<span class="font-title-lg text-title-lg text-on-surface">Sarah Johnson</span>
+<span class="font-body-md text-body-md text-on-surface-variant">Spouse • 555-0102</span>
+</div>
+</div>
+<button class="w-12 h-12 rounded-full bg-primary-container text-on-primary flex items-center justify-center active:scale-95 transition-transform">
+<span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1;">call</span>
+</button>
+</div>
+<!-- Contact 2 -->
+<div class="p-md flex items-center justify-between hover:bg-surface-container-low transition-colors rounded-b-xl">
+<div class="flex items-center gap-md">
+<div class="w-12 h-12 rounded-full bg-tertiary-container text-on-tertiary-container flex items-center justify-center font-headline-sm text-headline-sm font-bold">
+                            MJ
+                        </div>
+<div class="flex flex-col">
+<span class="font-title-lg text-title-lg text-on-surface">Michael Johnson</span>
+<span class="font-body-md text-body-md text-on-surface-variant">Brother • 555-0199</span>
+</div>
+</div>
+<button class="w-12 h-12 rounded-full bg-primary-container text-on-primary flex items-center justify-center active:scale-95 transition-transform">
+<span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1;">call</span>
+</button>
+</div>
+</div>
+</section>
+<!-- Nearby Hospitals -->
+<section class="flex flex-col gap-sm pb-xl">
+<h2 class="font-title-lg text-title-lg text-on-surface flex items-center gap-2">
+<span class="material-symbols-outlined text-primary">local_hospital</span>
+                Nearby Hospitals
+            </h2>
+<div class="relative w-full h-48 rounded-xl overflow-hidden shadow-sm border border-outline-variant/30 mb-sm">
+<img class="w-full h-full object-cover" data-alt="A clean, modern light-mode map interface showing a city grid with medical blue pins indicating hospital locations. The map uses soft greys and whites for streets, with a subtle blue tint for water. The style is minimal, highly legible, and reassuring, typical of a high-end healthcare application." data-location="New York" src="https://lh3.googleusercontent.com/aida-public/AB6AXuAWZZXCyZdmVJWW9qkGjWOKXE4ycNRfJqNg1BQNGgfH7dD1zmdgDRliJ-zb6lXsZsGKdqVR77PnCughghJUYCQrrrGbRkSZuwMoXjWwPG2XnJ69UXTjK9sIZKOf_-MdwyuglltcrEKTONdFs_jvsWld62mhmZmoXKTJqnaAkdn5_1n1JsCc6eJr__t1bJdMo54tf4RZOOrHCr_juYWQWMt7IgSo1D6nlMlhXYVmqGXcFgPkOfUOzPICHw">
+<div class="absolute inset-0 bg-gradient-to-t from-surface/80 to-transparent"></div>
+</div>
+<div class="grid grid-cols-1 md:grid-cols-3 gap-md">
+<!-- Hospital 1 -->
+<div class="bg-surface-container-lowest p-md rounded-xl shadow-sm border border-outline-variant/30 flex flex-col justify-between hover:border-primary transition-colors">
+<div class="flex flex-col mb-sm">
+<span class="font-title-lg text-title-lg text-on-surface line-clamp-1">Mercy General</span>
+<span class="font-body-md text-body-md text-error font-semibold flex items-center gap-1">
+<span class="material-symbols-outlined" style="font-size: 16px;">near_me</span>
+                            0.8 mi
+                        </span>
+</div>
+<button class="w-full py-2 bg-surface-container-high text-primary font-label-lg text-label-lg rounded-lg hover:bg-surface-container-highest transition-colors flex items-center justify-center gap-2">
+<span class="material-symbols-outlined" style="font-size: 18px;">directions</span>
+                        Navigate
+                    </button>
+</div>
+<!-- Hospital 2 -->
+<div class="bg-surface-container-lowest p-md rounded-xl shadow-sm border border-outline-variant/30 flex flex-col justify-between hover:border-primary transition-colors">
+<div class="flex flex-col mb-sm">
+<span class="font-title-lg text-title-lg text-on-surface line-clamp-1">St. Jude's ER</span>
+<span class="font-body-md text-body-md text-error font-semibold flex items-center gap-1">
+<span class="material-symbols-outlined" style="font-size: 16px;">near_me</span>
+                            1.2 mi
+                        </span>
+</div>
+<button class="w-full py-2 bg-surface-container-high text-primary font-label-lg text-label-lg rounded-lg hover:bg-surface-container-highest transition-colors flex items-center justify-center gap-2">
+<span class="material-symbols-outlined" style="font-size: 18px;">directions</span>
+                        Navigate
+                    </button>
+</div>
+<!-- Hospital 3 -->
+<div class="bg-surface-container-lowest p-md rounded-xl shadow-sm border border-outline-variant/30 flex flex-col justify-between hover:border-primary transition-colors">
+<div class="flex flex-col mb-sm">
+<span class="font-title-lg text-title-lg text-on-surface line-clamp-1">City Medical</span>
+<span class="font-body-md text-body-md text-error font-semibold flex items-center gap-1">
+<span class="material-symbols-outlined" style="font-size: 16px;">near_me</span>
+                            2.5 mi
+                        </span>
+</div>
+<button class="w-full py-2 bg-surface-container-high text-primary font-label-lg text-label-lg rounded-lg hover:bg-surface-container-highest transition-colors flex items-center justify-center gap-2">
+<span class="material-symbols-outlined" style="font-size: 18px;">directions</span>
+                        Navigate
+                    </button>
+</div>
+</div>
+</section>
+</main>
+<script>
+        // Simple countdown logic for prototype fidelity
+        document.addEventListener('DOMContentLoaded', () => {
+            let timeLeft = 9;
+            const timerDisplay = document.querySelector('.font-headline-lg');
+            const interval = setInterval(() => {
+                if(timeLeft <= 0) {
+                    clearInterval(interval);
+                    timerDisplay.textContent = "Calling...";
+                } else {
+                    timeLeft--;
+                    timerDisplay.textContent = `00:0${timeLeft}`;
+                }
+            }, 1000);
+        });
+    </script>
+</body></html>
