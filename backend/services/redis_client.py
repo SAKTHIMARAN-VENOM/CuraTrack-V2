@@ -48,3 +48,23 @@ def exists(key: str) -> bool:
     if _use_fallback:
         return key in _fallback_store
     return bool(_redis.exists(key))  # type: ignore
+
+
+def set_key_with_ttl(key: str, value: str, ttl_seconds: int) -> None:
+    """
+    Set key with TTL.
+    """
+    if _use_fallback:
+        _fallback_store[key] = value
+    else:
+        _redis.set(key, value, ex=ttl_seconds)  # type: ignore
+
+
+def get_key(key: str) -> str | None:
+    """
+    Get value by key.
+    """
+    if _use_fallback:
+        return _fallback_store.get(key)
+    return _redis.get(key)  # type: ignore
+

@@ -27,22 +27,39 @@ class QRVerifyRequest(BaseModel):
 @router.post("/qr/generate")
 def generate_qr(request: QRGenerateRequest):
     """
-    Generate a secure QR code containing a full frontend URL pointing to the patient details page.
-    Token expires in 5 minutes. Encodes user ID and name.
-    Returns a base64-encoded PNG image and the target patient URL.
+    Generate a secure QR code containing a full frontend URL pointing to the patient passport page.
+    Token expires in 5 minutes.
+    Returns a base64-encoded PNG image and the target passport URL.
     """
-    payload = {
-        "sub": request.userId,
-        "name": request.userName,
-        "iat": int(time.time()),
-        "exp": int(time.time()) + QR_EXPIRY_SECONDS,
-        "type": "health_id_qr",
+    from services.jwt_helper import create_passport_token
+    from services.redis_client import set_key_with_ttl
+    import json
+
+    scopes = ["medications", "allergies", "vitals", "diagnoses", "insurance"]
+    token_data = create_passport_token(
+        patient_id=request.userId,
+        patient_name=request.userName,
+        scope=scopes,
+    )
+
+    passport_id = token_data["jti"]
+    token = token_data["token"]
+    expires_at = token_data["expires_at"]
+
+    # Cache passport metadata
+    meta = {
+        "passport_id": passport_id,
+        "token": token,
+        "patient_id": request.userId,
+        "patient_name": request.userName,
+        "scope": scopes,
+        "created_at": int(time.time()),
+        "expires_at": expires_at,
     }
+    set_key_with_ttl(f"passport:meta:{passport_id}", json.dumps(meta), QR_EXPIRY_SECONDS)
 
-    token = jwt.encode(payload, QR_SECRET, algorithm="HS256")
-
-    frontend_url = os.getenv("FRONTEND_URL", "http://localhost:3000").rstrip("/")
-    patient_url = f"{frontend_url}/patient/{request.userId}"
+    frontend_url = os.getenv("FRONTEND_URL", "https://curatrack-v3.onrender.com").rstrip("/")
+    passport_url = f"{frontend_url}/passport/{passport_id}?token={token}"
 
     # Generate QR code image
     qr = qrcode.QRCode(
@@ -51,7 +68,7 @@ def generate_qr(request: QRGenerateRequest):
         box_size=10,
         border=4,
     )
-    qr.add_data(patient_url)
+    qr.add_data(passport_url)
     qr.make(fit=True)
 
     img = qr.make_image(fill_color="#001f29", back_color="white")
@@ -64,10 +81,12 @@ def generate_qr(request: QRGenerateRequest):
 
     return {
         "qrImage": f"data:image/png;base64,{img_base64}",
-        "url": patient_url,
+        "url": passport_url,
+        "passportId": passport_id,
         "expiresInSeconds": QR_EXPIRY_SECONDS,
         "token": token,
     }
+
 
 
 @router.post("/qr/verify")

@@ -20,7 +20,8 @@ interface Props {
 export function PassportQRModal({ userId, userName, onClose }: Props) {
     const [selectedScopes, setSelectedScopes] = useState<string[]>(['medications', 'allergies']);
     const [loading, setLoading] = useState(false);
-    const [qrData, setQrData] = useState<{ qrImage: string; token: string; expiresInSeconds: number } | null>(null);
+    const [qrData, setQrData] = useState<{ qrImage: string; token: string; passportId?: string; url?: string; expiresInSeconds: number } | null>(null);
+    const [copied, setCopied] = useState(false);
     const [error, setError] = useState<string | null>(null);
     const [countdown, setCountdown] = useState(0);
 
@@ -200,12 +201,15 @@ export function PassportQRModal({ userId, userName, onClose }: Props) {
                         <div className="flex gap-3 w-full">
                             <button
                                 onClick={() => {
-                                    navigator.clipboard.writeText(`${window.location.origin}/passport/${qrData.token}`);
+                                    const copyUrl = qrData.url || `${window.location.origin}/passport/${qrData.passportId || qrData.token}?token=${qrData.token}`;
+                                    navigator.clipboard.writeText(copyUrl);
+                                    setCopied(true);
+                                    setTimeout(() => setCopied(false), 2000);
                                 }}
                                 className="flex-1 py-3 bg-surface-container-high text-on-surface font-bold text-sm rounded-xl hover:bg-surface-container-highest transition-colors flex items-center justify-center gap-1"
                             >
-                                <span className="material-symbols-outlined text-sm">content_copy</span>
-                                Copy Link
+                                <span className="material-symbols-outlined text-sm">{copied ? 'check' : 'content_copy'}</span>
+                                {copied ? 'Copied!' : 'Copy Link'}
                             </button>
                             <button
                                 onClick={() => { setQrData(null); }}

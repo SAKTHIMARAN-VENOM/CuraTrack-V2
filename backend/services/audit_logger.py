@@ -32,3 +32,24 @@ def log_passport_access(
     )
     _audit_logger.info(entry)
     logger.info("Passport access logged for patient %s", patient_id)
+
+
+def log_passport_generation(
+    patient_id: str,
+    scope: list[str],
+    jti: str,
+    ip_address: str = "unknown",
+) -> None:
+    """
+    Log a passport generation event for auditing.
+    """
+    entry = (
+        f"GENERATE | patient_id={patient_id} | "
+        f"scope={','.join(scope)} | "
+        f"jti={jti} | "
+        f"ip={ip_address} | "
+        f"timestamp={datetime.utcnow().isoformat()}Z"
+    )
+    _audit_logger.info(entry)
+    logger.info("Passport generation logged for patient %s", patient_id)
+
