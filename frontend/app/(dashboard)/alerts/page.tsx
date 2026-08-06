@@ -13,7 +13,6 @@ export default function AlertsPage() {
     const router = useRouter();
     const [healthNews, setHealthNews] = useState<any[]>([]);
     const [loadingNews, setLoadingNews] = useState(true);
-    const [activeFilter, setActiveFilter] = useState('All');
     const [isOffline, setIsOffline] = useState(false);
     
     // Automatic month-based seasonal outbreak state
@@ -146,23 +145,6 @@ export default function AlertsPage() {
                 </div>
             </div>
 
-            {/* Filter Tabs */}
-            <div className="flex gap-2 overflow-x-auto pb-1 no-scrollbar">
-                {[ 'All', 'Outbreaks', 'Goals', 'Medications' ].map((tab) => (
-                    <button
-                        key={tab}
-                        onClick={() => setActiveFilter(tab)}
-                        className={`px-5 py-2.5 rounded-full font-bold text-xs transition-all ${
-                            activeFilter === tab
-                                ? 'bg-primary text-white shadow-sm'
-                                : 'bg-surface-container-high text-on-surface-variant hover:bg-surface-container-highest'
-                        }`}
-                    >
-                        {tab}
-                    </button>
-                ))}
-            </div>
-
             {/* Two-Column Layout */}
             <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
                 {/* Left Column: Alerts List */}
@@ -232,10 +214,6 @@ export default function AlertsPage() {
                             });
                         }
 
-                        const filtered = activeFilter === 'All' 
-                            ? dynamicAlerts 
-                            : dynamicAlerts.filter(a => a.category === activeFilter);
-
                         if (loadingRisks) {
                             return (
                                 <div className="space-y-4">
@@ -246,7 +224,7 @@ export default function AlertsPage() {
                             );
                         }
 
-                        if (filtered.length === 0) {
+                        if (dynamicAlerts.length === 0) {
                             return (
                                 <div className="bg-white p-12 rounded-3xl text-center text-tertiary border border-surface-container shadow-sm space-y-3">
                                     <span className="material-symbols-outlined text-5xl text-secondary/60">notifications_off</span>
@@ -256,7 +234,7 @@ export default function AlertsPage() {
                             );
                         }
 
-                        return filtered.map((alertItem, idx) => (
+                        return dynamicAlerts.map((alertItem, idx) => (
                             <div key={idx} className="group relative bg-white p-6 rounded-3xl transition-all duration-300 hover:translate-y-[-2px] shadow-sm border border-surface-container space-y-4">
                                 <div className="flex flex-col sm:flex-row gap-5 items-start">
                                     <div className={`w-14 h-14 shrink-0 rounded-2xl flex items-center justify-center ${
