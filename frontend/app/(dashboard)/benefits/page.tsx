@@ -107,31 +107,47 @@ export default function BenefitsPage() {
     };
 
     const handleClaim = async (scheme: any) => {
-        setSubmittingClaim(scheme.id);
+        if (!scheme) return;
+        const schemeId = scheme.id || `scheme_${Date.now()}`;
+        const schemeName = scheme.name || scheme.schemeName || 'Healthcare Scheme Claim';
+        const reason = scheme.reason || scheme.recommendationReason || 'Eligible based on clinical and demographic profile.';
+        
+        let claimAmount = 50000;
+        if (typeof scheme.estimatedBenefit === 'number' && scheme.estimatedBenefit > 0) {
+            claimAmount = scheme.estimatedBenefit;
+        } else if (scheme.amount) {
+            const parsed = parseInt(String(scheme.amount).replace(/[^0-9]/g, ''));
+            if (!isNaN(parsed) && parsed > 0) claimAmount = parsed;
+        }
+
+        setSubmittingClaim(schemeId);
         try {
-            const res = await fetch(`${API_BASE}/api/patient/${patientId}/claims`, {
+            const cleanBase = API_BASE.replace(/\/$/, '');
+            const res = await fetch(`${cleanBase}/api/patient/${patientId}/claims`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
-                    schemeName: scheme.name,
-                    recommendationReason: scheme.reason
+                    schemeId: schemeId,
+                    schemeName: schemeName,
+                    recommendationReason: reason,
+                    amount: claimAmount
                 })
             });
             const data = await res.json();
             
-            // Append claim dynamically
             const newClaim = {
                 id: data.claimId || `CLM-${Math.floor(Math.random() * 90000 + 10000)}`,
-                title: scheme.name,
+                title: schemeName,
                 date: 'Just now',
-                amount: 2500,
+                amount: claimAmount,
                 status: 'Processing'
             };
             setUserClaims(prev => [newClaim, ...prev]);
 
             alert(`✅ ${data.message || 'Claim initiated successfully!'}`);
         } catch (err) {
-            alert("❌ Failed to auto-fill claim. Please try again.");
+            console.error("Claim action error:", err);
+            alert("❌ Failed to process application. Please check your network connection and try again.");
         } finally {
             setSubmittingClaim(null);
         }
@@ -433,7 +449,7 @@ export default function BenefitsPage() {
                                                 </div>
                                                 <button
                                                     className="px-5 py-2.5 bg-secondary text-white font-bold text-xs rounded-xl hover:bg-secondary/90 transition-colors disabled:opacity-50 active:scale-95"
-                                                    onClick={() => handleClaim({ id: gs.id, name: gs.schemeName, reason: gs.recommendationReason })}
+                                                    onClick={() => handleClaim(gs)}
                                                     disabled={submittingClaim === gs.id}
                                                 >
                                                     {submittingClaim === gs.id ? 'Filing...' : 'Apply Now'}

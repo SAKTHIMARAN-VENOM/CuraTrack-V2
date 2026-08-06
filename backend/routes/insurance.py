@@ -62,19 +62,26 @@ def recommend_schemes(patient_id: str):
         ]
     }
 
+import random
+
 class ClaimRequest(BaseModel):
     schemeName: str
     recommendationReason: str
+    amount: Optional[int] = None
+    schemeId: Optional[str] = None
 
 @router.post("/patient/{patient_id}/claims")
 def submit_claim(patient_id: str, request: ClaimRequest):
     """
-    [TEMPORARY MOCK] Submit a claim request for a recommended scheme.
+    Submit a claim / application request for a recommended scheme or government benefit.
     """
+    claim_num = random.randint(10000, 99999)
+    claim_id = f"CLM-{claim_num}"
     return {
         "status": "success",
-        "message": f"Claim for {request.schemeName} initiated successfully.",
-        "claimId": "CLM-99992"
+        "message": f"Claim for '{request.schemeName}' initiated successfully! Tracking ID: {claim_id}",
+        "claimId": claim_id,
+        "amount": request.amount or 50000
     }
 
 @router.post("/patient/{patient_id}/insurance")
