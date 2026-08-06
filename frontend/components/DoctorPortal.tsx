@@ -280,44 +280,59 @@ export default function DoctorPortal() {
         .select('*')
         .order('created_at', { ascending: false });
 
-      const patientMap = new Map();
-
+      const profsMap = new Map();
       if (profs && profs.length > 0) {
         profs.forEach(p => {
           if (p.role !== 'doctor') {
-            const patientName = p.name || (p.email ? p.email.split('@')[0] : 'Registered Patient');
-            patientMap.set(p.id, {
-              id: p.id,
-              name: patientName,
-              meta: p.email || 'Registered Patient',
-              photo: null,
-              time: 'Active Patient',
-              type: 'General Care',
-              status: 'Registered',
-              vitals: { bp: '120/80', hr: '72 bpm' }
-            });
+            profsMap.set(p.id, p);
           }
         });
       }
 
+      const patientMap = new Map();
+
+      // Add registered patient profiles
+      profsMap.forEach((p, id) => {
+        const patientName = p.name || (p.email ? p.email.split('@')[0] : `Patient #${id.slice(0, 4)}`);
+        patientMap.set(id, {
+          id: p.id,
+          name: patientName,
+          meta: p.email || 'Registered Patient',
+          photo: null,
+          time: 'Active Patient',
+          type: 'General Care',
+          status: 'Registered',
+          vitals: { bp: '120/80', hr: '72 bpm' }
+        });
+      });
+
+      // Incorporate appointment bookings with profile details
       if (appts && appts.length > 0) {
         appts.forEach(a => {
-          if (a.client_id && !patientMap.has(a.client_id)) {
-            patientMap.set(a.client_id, {
-              id: a.client_id,
-              name: 'Connected Patient',
-              meta: 'Active Appointment',
-              photo: null,
-              time: 'Appointment Booked',
-              type: 'Telehealth Consult',
-              status: 'Active',
-              room_id: a.room_id,
-              vitals: { bp: '120/80', hr: '72 bpm' }
-            });
-          } else if (a.client_id && patientMap.has(a.client_id)) {
-            const existing = patientMap.get(a.client_id);
-            existing.room_id = a.room_id;
-            existing.status = 'Appointment Booked';
+          if (a.client_id) {
+            const prof = profsMap.get(a.client_id);
+            const patientName = prof?.name || (prof?.email ? prof.email.split('@')[0] : `Patient #${a.client_id.slice(0, 4)}`);
+            const patientEmail = prof?.email || 'Active Appointment';
+
+            if (!patientMap.has(a.client_id)) {
+              patientMap.set(a.client_id, {
+                id: a.client_id,
+                name: patientName,
+                meta: patientEmail,
+                photo: null,
+                time: 'Appointment Booked',
+                type: 'Telehealth Consult',
+                status: 'Active',
+                room_id: a.room_id,
+                vitals: { bp: '120/80', hr: '72 bpm' }
+              });
+            } else {
+              const existing = patientMap.get(a.client_id);
+              existing.name = patientName;
+              existing.meta = patientEmail;
+              existing.room_id = a.room_id;
+              existing.status = 'Appointment Booked';
+            }
           }
         });
       }
@@ -345,7 +360,7 @@ export default function DoctorPortal() {
   }, []);
 
   const basePatient = DEFAULT_PATIENTS[selectedPatientId] || DEFAULT_PATIENTS['elena'];
-  const selectedPatient = (realPatientData && latestAppointment) ? {
+  const selectedPatient = (realPatientData) ? {
     ...basePatient,
     id: realPatientData.id,
     name: realPatientData.name,
