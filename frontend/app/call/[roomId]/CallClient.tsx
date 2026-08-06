@@ -32,10 +32,33 @@ export default function CallPage() {
   const params = useParams();
   const router = useRouter();
   const roomId = (params?.roomId as string) || 'demo';
-  const isDoctorRole = typeof window !== 'undefined' ? new URLSearchParams(window.location.search).get('role') === 'doctor' : false;
+  const [isDoctorRole, setIsDoctorRole] = useState<boolean>(() => {
+    if (typeof window !== 'undefined') {
+      return new URLSearchParams(window.location.search).get('role') === 'doctor';
+    }
+    return false;
+  });
   const isOfferer = !isDoctorRole; // Patient is ALWAYS Offerer, Doctor is ALWAYS Answerer
 
   const supabase = useMemo(() => createClient(), []);
+
+  useEffect(() => {
+    async function verifyUserRole() {
+      try {
+        const { data: { user } } = await supabase.auth.getUser();
+        if (user) {
+          const { data: prof } = await supabase.from('profiles').select('role').eq('id', user.id).single();
+          const isDoc = prof?.role === 'doctor' || user.user_metadata?.role === 'doctor' || user.email?.toLowerCase().includes('doctor') || user.email?.toLowerCase().includes('dr.');
+          if (isDoc) {
+            setIsDoctorRole(true);
+          }
+        }
+      } catch (e) {
+        console.warn("Error verifying user role in call:", e);
+      }
+    }
+    verifyUserRole();
+  }, [supabase]);
 
   const localVideoRef = useRef<HTMLVideoElement>(null);
   const remoteVideoRef = useRef<HTMLVideoElement>(null);
