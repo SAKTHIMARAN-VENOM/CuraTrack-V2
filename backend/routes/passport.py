@@ -2,6 +2,7 @@
 Patient Passport endpoints — secure, scoped, one-time-access medical summary.
 Does NOT modify existing QR endpoints.
 """
+import os
 import io
 import base64
 import time
