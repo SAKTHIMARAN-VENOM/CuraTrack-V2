@@ -15,6 +15,7 @@ export default function LoginPage() {
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
     const [name, setName] = useState('');
+    const [doctorLicenseKey, setDoctorLicenseKey] = useState('');
     const [showPassword, setShowPassword] = useState(false);
     const [error, setError] = useState('');
     const [loading, setLoading] = useState(false);
@@ -58,7 +59,7 @@ export default function LoginPage() {
             const endpoint = mode === 'login' ? '/api/auth/login' : '/api/auth/signup';
             const body = mode === 'login'
                 ? { email, password }
-                : { email, password, name };
+                : { email, password, name, doctorLicenseKey };
 
             const res = await fetch(endpoint, {
                 method: 'POST',
@@ -208,6 +209,26 @@ export default function LoginPage() {
                                     />
                                 </div>
                             </div>
+
+                            {/* Doctor License Key (Optional for Patients, Required for Doctors) */}
+                            {mode === 'signup' && (
+                                <div className="space-y-2">
+                                    <div className="flex justify-between items-center">
+                                        <label className="block text-sm font-semibold text-on-surface-variant">Doctor License Key</label>
+                                        <span className="text-[10px] text-tertiary font-bold uppercase tracking-wider">Required for Doctors</span>
+                                    </div>
+                                    <div className="relative">
+                                        <span className="material-symbols-outlined absolute left-4 top-1/2 -translate-y-1/2 text-outline text-xl">badge</span>
+                                        <input
+                                            className="outline-none w-full pl-12 pr-4 py-4 bg-surface-container-low border-none rounded-xl focus:ring-2 focus:ring-primary/20 text-on-surface placeholder:text-outline-variant"
+                                            placeholder="e.g. DOC-KEY-2025 (Leave blank for Patient)"
+                                            type="text"
+                                            value={doctorLicenseKey}
+                                            onChange={e => setDoctorLicenseKey(e.target.value)}
+                                        />
+                                    </div>
+                                </div>
+                            )}
 
                             {/* Password */}
                             <div className="space-y-2">
