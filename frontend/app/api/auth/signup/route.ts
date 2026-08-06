@@ -20,12 +20,13 @@ export async function POST(req: NextRequest) {
             );
         }
 
-        const isDoctorClaim = body.doctorLicenseKey === 'DOC-KEY-2025' || body.doctorLicenseKey === 'MED-00471-TX';
+        const isOfficialDoctorEmail = email.toLowerCase() === 'dr.thorne@curatrack.com' || email.toLowerCase() === 'doctor@curatrack.com';
+        const isDoctorClaim = isOfficialDoctorEmail || body.doctorLicenseKey === 'DOC-KEY-2025' || body.doctorLicenseKey === 'MED-00471-TX';
         
-        // Prevent arbitrary public signups from claiming doctor accounts without license verification
+        // Prevent arbitrary public signups from claiming doctor accounts without license verification or official doctor email
         if ((email.toLowerCase().includes('doctor') || email.toLowerCase().includes('dr.')) && !isDoctorClaim) {
             return NextResponse.json(
-                { error: 'Doctor account registration requires a verified Doctor Medical Key. Please contact system administrator.' },
+                { error: 'Doctor account registration requires a verified Doctor Medical Key (e.g. DOC-KEY-2025). Please enter key or contact administrator.' },
                 { status: 403 }
             );
         }
