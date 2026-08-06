@@ -162,6 +162,26 @@ export const offlineStorage = {
     }
   },
 
+  // --- Insurance Claims Caching ---
+  saveClaims: (claims: any[]) => {
+    if (typeof window === 'undefined') return;
+    try {
+      localStorage.setItem(STORAGE_KEYS.INSURANCE_DATA, JSON.stringify(claims));
+    } catch (e) {
+      console.warn('Failed to save claims offline:', e);
+    }
+  },
+
+  getClaims: (): any[] => {
+    if (typeof window === 'undefined') return [];
+    try {
+      const data = localStorage.getItem(STORAGE_KEYS.INSURANCE_DATA);
+      return data ? JSON.parse(data) : [];
+    } catch (e) {
+      return [];
+    }
+  },
+
   // --- Offline Action Queue ---
   queueOfflineAction: (action: { type: string; payload: any; timestamp: number }) => {
     if (typeof window === 'undefined') return;

@@ -1,6 +1,7 @@
 'use client';
 import { useState, useEffect } from 'react';
 import { API_BASE, apiFetch } from '@/lib/api';
+import { offlineStorage } from '@/lib/offline-storage';
 
 export default function BenefitsPage() {
     const [selectedService, setSelectedService] = useState('consultation');
@@ -17,6 +18,12 @@ export default function BenefitsPage() {
     const [userClaims, setUserClaims] = useState<any[]>([]);
 
     useEffect(() => {
+        // Hydrate saved claims from persistent storage
+        const savedClaims = offlineStorage.getClaims();
+        if (savedClaims && savedClaims.length > 0) {
+            setUserClaims(savedClaims);
+        }
+
         const initData = async () => {
             let pid = "PAT-123";
             try {
@@ -142,7 +149,11 @@ export default function BenefitsPage() {
                 amount: claimAmount,
                 status: 'Processing'
             };
-            setUserClaims(prev => [newClaim, ...prev]);
+            setUserClaims(prev => {
+                const updated = [newClaim, ...prev];
+                offlineStorage.saveClaims(updated);
+                return updated;
+            });
 
             alert(`✅ ${data.message || 'Claim initiated successfully!'}`);
         } catch (err) {
@@ -151,6 +162,15 @@ export default function BenefitsPage() {
         } finally {
             setSubmittingClaim(null);
         }
+    };
+
+    const handleRevokeClaim = (claimId: string) => {
+        if (!confirm("Are you sure you want to revoke/withdraw this claim?")) return;
+        setUserClaims(prev => {
+            const updated = prev.filter(c => c.id !== claimId);
+            offlineStorage.saveClaims(updated);
+            return updated;
+        });
     };
 
     const bestScheme = schemes.length > 0 ? schemes.reduce((prev, current) => (prev.match_percentage > current.match_percentage) ? prev : current) : null;
@@ -490,22 +510,39 @@ export default function BenefitsPage() {
                             Active Claims ({userClaims.length})
                         </h4>
                         <div className="space-y-4">
-                            {userClaims.map((claim, cIdx) => (
-                                <div key={claim.id || cIdx} className="flex items-center justify-between p-3 rounded-xl bg-surface-container-low">
-                                    <div className="flex items-center gap-3">
-                                        <div className="w-8 h-8 rounded-full bg-secondary-container flex items-center justify-center text-secondary">
-                                            <span className="material-symbols-outlined text-sm">assignment_turned_in</span>
+                            {userClaims.length === 0 ? (
+                                <div className="p-4 text-center text-xs text-tertiary border border-dashed border-surface-container rounded-xl">
+                                    No active claims. Select a scheme to apply or auto-fill a claim.
+                                </div>
+                            ) : (
+                                userClaims.map((claim, cIdx) => (
+                                    <div key={claim.id || cIdx} className="flex items-center justify-between p-3 rounded-xl bg-surface-container-low group hover:bg-surface-container-high transition-colors">
+                                        <div className="flex items-center gap-3">
+                                            <div className="w-8 h-8 rounded-full bg-secondary-container flex items-center justify-center text-secondary shrink-0">
+                                                <span className="material-symbols-outlined text-sm">assignment_turned_in</span>
+                                            </div>
+                                            <div>
+                                                <p className="text-sm font-bold text-on-surface line-clamp-1">{claim.title}</p>
+                                                <p className="text-[10px] text-tertiary">
+                                                    {claim.date} · {claim.id} · <span className="font-bold text-primary">₹{(claim.amount || 0).toLocaleString('en-IN')}</span>
+                                                </p>
+                                            </div>
                                         </div>
-                                        <div>
-                                            <p className="text-sm font-bold">{claim.title}</p>
-                                            <p className="text-[10px] text-tertiary">{claim.date} · {claim.id}</p>
+                                        <div className="flex items-center gap-2">
+                                            <span className="text-xs font-bold text-secondary bg-secondary-container/50 px-2 py-1 rounded w-fit">
+                                                {claim.status}
+                                            </span>
+                                            <button
+                                                onClick={() => handleRevokeClaim(claim.id)}
+                                                className="p-1 rounded-lg text-error hover:bg-error-container/50 transition-colors flex items-center justify-center"
+                                                title="Revoke / Withdraw Claim"
+                                            >
+                                                <span className="material-symbols-outlined text-base">delete</span>
+                                            </button>
                                         </div>
                                     </div>
-                                    <span className="text-xs font-bold text-secondary bg-secondary-container/50 px-2 py-1 rounded w-fit">
-                                        {claim.status}
-                                    </span>
-                                </div>
-                            ))}
+                                ))
+                            )}
                         </div>
                     </div>
                 </div>
