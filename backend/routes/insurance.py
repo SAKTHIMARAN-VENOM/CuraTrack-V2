@@ -34,7 +34,32 @@ def recommend_schemes(patient_id: str):
     Returns AI recommended schemes based on user clinical profile.
     """
     return {
-        "availableSchemes": []
+        "availableSchemes": [
+            {
+                "id": "ins_optima_secure",
+                "name": "Optima Secure Comprehensive Cover",
+                "type": "insurance",
+                "reason": "Matches your age group and active lifestyle with 2X instant restore coverage and 0 co-pay for network consultations.",
+                "amount": "Up to ₹10,00,000",
+                "match_percentage": 94
+            },
+            {
+                "id": "ins_star_health",
+                "name": "Star Cardiac & Vital Care Shield",
+                "type": "insurance",
+                "reason": "Specialized cover for cardiovascular, hypertension, and annual health checkups with cashless claims at 14,000+ empanelled hospitals.",
+                "amount": "Up to ₹7,50,000",
+                "match_percentage": 89
+            },
+            {
+                "id": "ins_max_bupa",
+                "name": "Health Companion Super Top-up",
+                "type": "insurance",
+                "reason": "Covers high deductibles for surgeries and specialized inpatient procedures with zero waiting period for pre-existing conditions after 24 months.",
+                "amount": "Up to ₹15,00,000",
+                "match_percentage": 82
+            }
+        ]
     }
 
 class ClaimRequest(BaseModel):

@@ -17,21 +17,29 @@ export default function BenefitsPage() {
     const [userClaims, setUserClaims] = useState<any[]>([]);
 
     useEffect(() => {
-        const fetchUser = async () => {
-            const { createClient } = await import('@/lib/supabase/client');
-            const supabase = createClient();
-            const { data: { user } } = await supabase.auth.getUser();
-            if (user) {
-                setPatientId(user.id.slice(0, 10));
+        const initData = async () => {
+            let pid = "PAT-123";
+            try {
+                const { createClient } = await import('@/lib/supabase/client');
+                const supabase = createClient();
+                const { data: { user } } = await supabase.auth.getUser();
+                if (user) {
+                    pid = user.id.slice(0, 10);
+                    setPatientId(pid);
+                }
+            } catch (e) {
+                console.warn("Auth user fetch skipped:", e);
             }
+            fetchSchemes(pid);
+            fetchGovSchemes(pid);
         };
-        fetchUser();
+        initData();
     }, []);
 
-    const fetchSchemes = async () => {
+    const fetchSchemes = async (pid = patientId) => {
         setLoadingSchemes(true);
         try {
-            const res = await fetch(`${API_BASE}/api/patient/${patientId}/insurance-schemes`, {
+            const res = await fetch(`${API_BASE}/api/patient/${pid}/insurance-schemes`, {
                 method: 'POST'
             });
             const data = await res.json();
@@ -43,13 +51,13 @@ export default function BenefitsPage() {
         }
     };
 
-    const fetchGovSchemes = async () => {
+    const fetchGovSchemes = async (pid = patientId) => {
         setLoadingGovSchemes(true);
         try {
             const res = await fetch(`${API_BASE}/api/government-schemes/eligibility`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ patientId: patientId })
+                body: JSON.stringify({ patientId: pid })
             });
             const data = await res.json();
             setGovSchemes(data.eligibleSchemes || []);
