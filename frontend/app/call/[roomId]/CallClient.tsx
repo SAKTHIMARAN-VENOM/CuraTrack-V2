@@ -444,14 +444,24 @@ export default function CallPage() {
             await pc.setRemoteDescription(new RTCSessionDescription(payload.sdp));
             console.log('[WebRTC] Doctor: Remote Description Applied. SignalingState:', pc.signalingState);
 
-            await drainPendingIceCandidates(pc);
+            if ((pc.signalingState as string) !== 'have-remote-offer') {
+              console.warn(`[WebRTC] Doctor: Expected signalingState 'have-remote-offer', got '${pc.signalingState}'. Skipping answer.`);
+              return;
+            }
 
             console.log('[WebRTC] Doctor: Creating Answer...');
             const answer = await pc.createAnswer();
             
+            if ((pc.signalingState as string) !== 'have-remote-offer') {
+              console.warn(`[WebRTC] Doctor: Cannot setLocalDescription because signalingState changed to '${pc.signalingState}'.`);
+              return;
+            }
+
             console.log('[WebRTC] Doctor: Setting Local Description for Answer...');
             await pc.setLocalDescription(answer);
             console.log('[WebRTC] Doctor: Local Answer Description Set. SignalingState:', pc.signalingState);
+
+            await drainPendingIceCandidates(pc);
 
             console.log('[Signaling] Doctor: Sending Answer SDP');
             channel.send({
@@ -460,7 +470,7 @@ export default function CallPage() {
               payload: { senderId: myPeerIdRef.current, sdp: answer },
             });
           } catch (err) {
-            console.error('[Signaling] Doctor: Failed to handle remote offer:', err);
+            console.warn('[Signaling] Doctor: Handled offer error:', err);
           }
         });
 
