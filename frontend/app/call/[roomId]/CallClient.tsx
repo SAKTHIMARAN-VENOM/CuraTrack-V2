@@ -62,6 +62,34 @@ export default function CallPage() {
   const [transcriptHistory, setTranscriptHistory] = useState<{ text: string; timestamp: string }[]>([]);
   const [isTranscribing, setIsTranscribing] = useState(false);
   const [isInsecureContext, setIsInsecureContext] = useState(false);
+  const [remoteUserName, setRemoteUserName] = useState<string>(isDoctorRole ? 'Patient' : 'Doctor');
+
+  useEffect(() => {
+    async function fetchRemoteUser() {
+      try {
+        const { data: appt } = await supabase
+          .from('appointments')
+          .select('client_id, doctor_id')
+          .eq('room_id', roomId)
+          .single();
+
+        if (appt) {
+          const targetId = isDoctorRole ? appt.client_id : appt.doctor_id;
+          if (targetId) {
+            const { data: prof } = await supabase.from('profiles').select('name, email').eq('id', targetId).single();
+            if (prof?.name) {
+              setRemoteUserName(prof.name);
+            } else if (prof?.email) {
+              setRemoteUserName(prof.email.split('@')[0]);
+            }
+          }
+        }
+      } catch (err) {
+        console.warn('Could not fetch remote user details:', err);
+      }
+    }
+    fetchRemoteUser();
+  }, [roomId, isDoctorRole, supabase]);
 
   // Timer for call duration
   useEffect(() => {
@@ -594,7 +622,9 @@ export default function CallPage() {
           <button onClick={leaveRoom} className="p-2 rounded-xl text-white/40 hover:text-primary hover:bg-white/5 transition-all">
             <span className="material-symbols-outlined">arrow_back</span>
           </button>
-          <h1 className="text-white font-headline font-bold text-xl tracking-tight">Consult Room</h1>
+          <h1 className="text-white font-headline font-bold text-xl tracking-tight">
+            Consult Room · {remoteUserName}
+          </h1>
         </div>
         <div className="flex items-center gap-3">
           {callStatus === 'connected' && (
@@ -732,7 +762,7 @@ export default function CallPage() {
                   </div>
                 )}
                 <div className="absolute bottom-3 left-3 px-3 py-1 bg-black/50 backdrop-blur rounded-lg">
-                  <span className="text-white/80 text-xs font-bold">Remote</span>
+                  <span className="text-white/80 text-xs font-bold">{remoteUserName}</span>
                 </div>
               </div>
 

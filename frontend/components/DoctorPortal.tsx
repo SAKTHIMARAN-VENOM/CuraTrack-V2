@@ -247,6 +247,24 @@ export default function DoctorPortal() {
     };
   }, [supabase, fetchLatestRoom]);
 
+  const [realPatientData, setRealPatientData] = useState<{ id: string; name: string; email?: string } | null>(null);
+
+  useEffect(() => {
+    async function loadRealPatient() {
+      if (!latestAppointment?.client_id) return;
+      try {
+        const { data: prof } = await supabase.from('profiles').select('id, name, email').eq('id', latestAppointment.client_id).single();
+        if (prof) {
+          const name = prof.name || (prof.email ? prof.email.split('@')[0] : 'Connected Patient');
+          setRealPatientData({ id: prof.id, name, email: prof.email });
+        }
+      } catch (err) {
+        console.warn("Could not fetch real patient name:", err);
+      }
+    }
+    loadRealPatient();
+  }, [latestAppointment, supabase]);
+
   // Handle escape key for modal
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -258,7 +276,14 @@ export default function DoctorPortal() {
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, []);
 
-  const selectedPatient = DEFAULT_PATIENTS[selectedPatientId] || DEFAULT_PATIENTS['elena'];
+  const basePatient = DEFAULT_PATIENTS[selectedPatientId] || DEFAULT_PATIENTS['elena'];
+  const selectedPatient = (realPatientData && latestAppointment) ? {
+    ...basePatient,
+    id: realPatientData.id,
+    name: realPatientData.name,
+    meta: realPatientData.email ? `Live Patient · ${realPatientData.email}` : basePatient.meta,
+  } : basePatient;
+
   const modalPatient = qrModalPatientId ? DEFAULT_PATIENTS[qrModalPatientId] || selectedPatient : null;
 
   // Single entry point to navigate to WebRTC video room
