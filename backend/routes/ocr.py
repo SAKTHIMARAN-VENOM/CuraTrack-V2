@@ -41,11 +41,11 @@ async def parse_document(
         with open(temp_path, "wb") as f:
             shutil.copyfileobj(file.file, f)
 
-        # 1. Extract raw text via Gemini Vision AI
+        # 1. Extract raw text via Tesseract OCR
         raw_text = extract_raw_text(temp_path)
 
-        # 2. Extract structured fields via Gemini Vision AI
-        parsed_fields = parse_document_fields(doc_type, temp_path)
+        # 2. Analyze raw text string via Gemini Text API
+        parsed_fields = parse_document_fields(doc_type, raw_text)
 
         return JSONResponse(
             status_code=200,
