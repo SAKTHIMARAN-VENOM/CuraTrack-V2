@@ -1,6 +1,6 @@
 """
 OCR service for medical document text extraction.
-Supports PDF (via pdfplumber) and images (via pytesseract).
+Supports PDF (via pdfplumber) and images (via pytesseract, Gemini Vision AI, or tesseract.js).
 """
 import os
 import shutil
@@ -102,12 +102,12 @@ def validate_tesseract_on_startup() -> bool:
 
 
 def is_tesseract_installed() -> bool:
-    """Return True if Tesseract OCR binary or Cloud Vision AI OCR engine is active."""
+    """Return True if Tesseract OCR binary or Cloud Vision AI OCR engine is available."""
     if configure_tesseract():
         return True
     if bool(os.getenv("GEMINI_API_KEY", "").strip()):
         return True
-    return True
+    return False
 
 
 def extract_text(file_path: str) -> str:
@@ -302,5 +302,3 @@ def _ocr_pdf_pages(file_path: str) -> str:
             logger.error("PDF pytesseract fallback failed: %s", e)
 
     return ""
-
-

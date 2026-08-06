@@ -88,21 +88,37 @@ async def ingest_document(file: UploadFile = File(...)):
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to save file: {str(e)}")
 
-    # Step 1: OCR (Multi-engine: Native Tesseract, Gemini Vision AI, or PDF text)
+    # Step 1: OCR
     try:
         raw_text = extract_text(file_path)
+    except (RuntimeError, ValueError) as e:
+        err_msg = str(e)
+        if "tesseract" in err_msg.lower() or "not installed" in err_msg.lower() or not is_tesseract_installed():
+            return JSONResponse(
+                status_code=400,
+                content={
+                    "success": False,
+                    "message": "Tesseract OCR is not installed.",
+                    "solution": "Install Tesseract and restart the backend.",
+                },
+            )
+        raise HTTPException(status_code=422, detail=f"OCR failed: {err_msg}")
     except Exception as e:
-        logger.warning("Primary OCR extraction exception: %s. Attempting fallback.", e)
-        raw_text = ""
+        err_msg = str(e)
+        if "tesseract" in err_msg.lower() or "not installed" in err_msg.lower() or not is_tesseract_installed():
+            return JSONResponse(
+                status_code=400,
+                content={
+                    "success": False,
+                    "message": "Tesseract OCR is not installed.",
+                    "solution": "Install Tesseract and restart the backend.",
+                },
+            )
+        logger.error("OCR error: %s", e)
+        raise HTTPException(status_code=500, detail=f"OCR processing error: {err_msg}")
 
-    if not raw_text or not raw_text.strip():
-        # Provide structured document placeholder so upload & manual verification always succeeds
-        raw_text = (
-            "Medical Prescription & Record\n"
-            f"Filename: {file.filename}\n"
-            f"Processed Date: {datetime.utcnow().strftime('%Y-%m-%d %H:%M:%S')} UTC\n"
-            "Document uploaded for medical history tracking."
-        )
+    if not raw_text.strip():
+        raise HTTPException(status_code=422, detail="OCR returned empty text — document may be blank or unreadable")
 
     # Step 2: LLM extraction
     try:
