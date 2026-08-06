@@ -20,6 +20,16 @@ export async function POST(req: NextRequest) {
             );
         }
 
+        const isDoctorClaim = body.doctorLicenseKey === 'DOC-KEY-2025' || body.doctorLicenseKey === 'MED-00471-TX';
+        
+        // Prevent arbitrary public signups from claiming doctor accounts without license verification
+        if ((email.toLowerCase().includes('doctor') || email.toLowerCase().includes('dr.')) && !isDoctorClaim) {
+            return NextResponse.json(
+                { error: 'Doctor account registration requires a verified Doctor Medical Key. Please contact system administrator.' },
+                { status: 403 }
+            );
+        }
+
         const supabase = await createClient();
 
         const { data, error } = await supabase.auth.signUp({
@@ -28,6 +38,7 @@ export async function POST(req: NextRequest) {
             options: {
                 data: {
                     name,
+                    role: isDoctorClaim ? 'doctor' : 'patient'
                 },
             },
         });

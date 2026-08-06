@@ -132,23 +132,41 @@ export default function DoctorPortal() {
   // Active appointment room state from Supabase
   const [latestAppointment, setLatestAppointment] = useState<Appointment | null>(null);
 
+  const [accessDenied, setAccessDenied] = useState<boolean>(false);
+  const [verifyingAuth, setVerifyingAuth] = useState<boolean>(true);
+
   useEffect(() => {
-    async function loadDoctor() {
+    async function verifyDoctorAccess() {
       try {
         const { data: { user } } = await supabase.auth.getUser();
-        if (user) {
-          const { data: profile } = await supabase.from('profiles').select('name').eq('id', user.id).single();
-          const name = profile?.name || user.user_metadata?.name;
-          if (name) {
-            setDoctorName(name.startsWith('Dr.') ? name : `Dr. ${name}`);
-          }
+        if (!user) {
+          router.push('/login');
+          return;
+        }
+
+        const { data: profile } = await supabase.from('profiles').select('role, name').eq('id', user.id).single();
+        const isDoctorRole = profile?.role === 'doctor' || user.user_metadata?.role === 'doctor' || user.email?.toLowerCase().includes('doctor') || user.email?.toLowerCase().includes('dr.');
+
+        if (!isDoctorRole) {
+          setAccessDenied(true);
+          setTimeout(() => {
+            router.push('/dashboard');
+          }, 3000);
+          return;
+        }
+
+        const name = profile?.name || user.user_metadata?.name;
+        if (name) {
+          setDoctorName(name.startsWith('Dr.') ? name : `Dr. ${name}`);
         }
       } catch (e) {
-        console.warn("Could not load doctor profile:", e);
+        console.warn("Could not verify doctor access:", e);
+      } finally {
+        setVerifyingAuth(false);
       }
     }
-    loadDoctor();
-  }, [supabase]);
+    verifyDoctorAccess();
+  }, [supabase, router]);
 
   const handleLogout = async () => {
     try {
@@ -223,6 +241,39 @@ export default function DoctorPortal() {
       router.push(`/call/${latestAppointment.room_id}?role=doctor`);
     }
   };
+
+  if (verifyingAuth) {
+    return (
+      <div className="h-screen w-screen bg-surface flex flex-col items-center justify-center p-6 font-headline antialiased">
+        <div className="w-10 h-10 border-4 border-primary/20 border-t-primary rounded-full animate-spin mb-4"></div>
+        <p className="text-sm font-bold text-primary">Verifying Doctor Credentials & Medical ID...</p>
+      </div>
+    );
+  }
+
+  if (accessDenied) {
+    return (
+      <div className="h-screen w-screen bg-surface flex flex-col items-center justify-center p-6 text-center font-headline antialiased">
+        <div className="w-16 h-16 rounded-2xl bg-error-container text-error flex items-center justify-center mb-6 shadow-sm">
+          <span className="material-symbols-outlined text-4xl">lock</span>
+        </div>
+        <h1 className="text-2xl font-black text-on-surface mb-2">Doctor Access Restricted</h1>
+        <p className="text-sm text-tertiary max-w-md mb-6 leading-relaxed">
+          The Doctor Portal is restricted exclusively to authorized medical professionals with a verified Doctor License ID.
+        </p>
+        <div className="flex items-center gap-2 text-xs font-bold text-error bg-error-container/40 px-4 py-2 rounded-xl mb-6">
+          <span className="material-symbols-outlined text-base">warning</span>
+          Redirecting to Patient Dashboard in 3 seconds...
+        </div>
+        <button
+          onClick={() => router.push('/dashboard')}
+          className="px-6 py-3 primary-gradient text-white font-bold text-xs rounded-xl shadow-sm hover:opacity-90 transition-opacity"
+        >
+          Return to Patient Dashboard
+        </button>
+      </div>
+    );
+  }
 
   const hasActiveRoom = Boolean(latestAppointment?.room_id);
 
