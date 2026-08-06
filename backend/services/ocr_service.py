@@ -151,7 +151,7 @@ def _extract_from_pdf(file_path: str) -> str:
 
 
 def _ocr_with_gemini_vision(file_path: str) -> str:
-    """Cloud Fallback: OCR using Google Gemini Vision API."""
+    """Cloud OCR using Google Gemini Vision API."""
     api_key = os.getenv("GEMINI_API_KEY", "").strip()
     if not api_key:
         return ""
@@ -174,39 +174,60 @@ def _ocr_with_gemini_vision(file_path: str) -> str:
         with open(file_path, "rb") as f:
             base64_data = base64.b64encode(f.read()).decode("utf-8")
 
-        model = os.getenv("GEMINI_MODEL", "gemini-flash-latest").strip()
-        url = f"https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent?key={api_key}"
+        models_to_try = [
+            os.getenv("GEMINI_MODEL", "").strip(),
+            "gemini-2.0-flash",
+            "gemini-1.5-flash",
+            "gemini-flash-latest",
+        ]
+        models = []
+        for m in models_to_try:
+            if m and m not in models:
+                models.append(m)
 
-        payload = {
-            "contents": [
-                {
-                    "parts": [
-                        {
-                            "inlineData": {
-                                "mimeType": mime_type,
-                                "data": base64_data
+        prompt_text = (
+            "You are an expert medical transcriptionist and OCR reader. "
+            "Extract all text from this medical image, doctor note, lab report, or prescription document exactly as written. "
+            "Include medicine names, dosages, frequencies, patient instructions, doctor notes, and lab values. "
+            "Return ONLY the extracted text, with no extra commentary or markdown formatting."
+        )
+
+        for model in models:
+            url = f"https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent?key={api_key}"
+            payload = {
+                "contents": [
+                    {
+                        "parts": [
+                            {
+                                "inlineData": {
+                                    "mimeType": mime_type,
+                                    "data": base64_data
+                                }
+                            },
+                            {
+                                "text": prompt_text
                             }
-                        },
-                        {
-                            "text": "Extract all text from this medical image/prescription document exactly as written. Return ONLY the extracted text, no commentary."
-                        }
-                    ]
-                }
-            ]
-        }
+                        ]
+                    }
+                ]
+            }
 
-        res = requests.post(url, json=payload, timeout=60)
-        if res.status_code == 200:
-            data = res.json()
-            candidates = data.get("candidates", [])
-            if candidates:
-                parts = candidates[0].get("content", {}).get("parts", [])
-                if parts and parts[0].get("text"):
-                    extracted_text = parts[0]["text"].strip()
-                    logger.info("Gemini Vision OCR extracted %d chars", len(extracted_text))
-                    return extracted_text
-        else:
-            logger.warning("Gemini Vision OCR error (%d): %s", res.status_code, res.text)
+            try:
+                res = requests.post(url, json=payload, timeout=45)
+                if res.status_code == 200:
+                    data = res.json()
+                    candidates = data.get("candidates", [])
+                    if candidates:
+                        parts = candidates[0].get("content", {}).get("parts", [])
+                        if parts and parts[0].get("text"):
+                            extracted_text = parts[0]["text"].strip()
+                            if extracted_text:
+                                logger.info("Gemini Vision OCR (%s) extracted %d chars", model, len(extracted_text))
+                                return extracted_text
+                else:
+                    logger.warning("Gemini Vision OCR model %s error (%d): %s", model, res.status_code, res.text)
+            except Exception as model_err:
+                logger.warning("Gemini Vision OCR model %s request failed: %s", model, model_err)
 
     except Exception as e:
         logger.warning("Gemini Vision OCR fallback failed: %s", e)
@@ -256,50 +277,77 @@ def _ocr_with_tesseract_js(file_path: str) -> str:
 
 
 def _extract_from_image(file_path: str) -> str:
-    """Extract text from image using pytesseract, Gemini Vision AI, or tesseract.js fallback."""
-    # 1. Try native pytesseract if installed
+    """
+    Extract text from image using Gemini Vision AI (Primary for medical precision),
+    pytesseract (with image preprocessing), or tesseract.js fallback.
+    """
+    # 1. Primary: Gemini Vision AI OCR (multimodal vision AI - best for medical prescriptions & handwritten text)
+    gemini_text = _ocr_with_gemini_vision(file_path)
+    if gemini_text and len(gemini_text.strip()) > 10:
+        return gemini_text
+
+    # 2. Secondary: Native pytesseract with PIL contrast & grayscale preprocessing
     if configure_tesseract():
         import pytesseract
-        from PIL import Image
+        from PIL import Image, ImageEnhance
 
         try:
             image = Image.open(file_path)
-            text = pytesseract.image_to_string(image).strip()
-            if text:
-                return text
-        except Exception as e:
-            logger.warning("pytesseract extraction failed: %s, attempting Gemini Vision AI fallback", e)
+            # Enhance image contrast & convert to grayscale for Tesseract
+            gray_img = image.convert('L')
+            enhancer = ImageEnhance.Contrast(gray_img)
+            enhanced_img = enhancer.enhance(2.0)
 
-    # 2. Try Gemini Vision AI OCR (cloud native, zero system binary dependency)
-    gemini_text = _ocr_with_gemini_vision(file_path)
+            text = pytesseract.image_to_string(enhanced_img).strip()
+            if text and len(text) > 10:
+                return text
+
+            # Try raw image if enhanced yielded short text
+            raw_text = pytesseract.image_to_string(image).strip()
+            if raw_text:
+                return raw_text
+        except Exception as e:
+            logger.warning("pytesseract extraction failed: %s", e)
+
+    # 3. Tertiary: tesseract.js fallback
+    js_text = _ocr_with_tesseract_js(file_path)
+    if js_text and len(js_text.strip()) > 5:
+        return js_text
+
+    # 4. Final fallback if gemini extracted short text
     if gemini_text:
         return gemini_text
 
-    # 3. Try tesseract.js fallback
-    js_text = _ocr_with_tesseract_js(file_path)
-    if js_text:
-        return js_text
-
-    raise RuntimeError("OCR Extraction Failed: Tesseract binary is not installed and Gemini Vision API returned no text.")
+    raise RuntimeError("OCR Extraction Failed: Neither Gemini Vision AI nor Tesseract could extract text from the document.")
 
 
 def _ocr_pdf_pages(file_path: str) -> str:
-    """Fallback: convert PDF pages to images and OCR each one."""
-    if configure_tesseract():
-        try:
-            import pytesseract
-            from pdf2image import convert_from_path
+    """Fallback: convert PDF pages to images and OCR each one using Gemini Vision or Tesseract."""
+    try:
+        from pdf2image import convert_from_path
+        images = convert_from_path(file_path, dpi=300)
+        parts: list[str] = []
 
-            images = convert_from_path(file_path, dpi=300)
-            parts: list[str] = []
-            for img in images:
-                page_text = pytesseract.image_to_string(img).strip()
+        for i, img in enumerate(images):
+            # Save temp image page
+            temp_img_path = f"{file_path}_page_{i}.png"
+            try:
+                img.save(temp_img_path, "PNG")
+                page_text = _extract_from_image(temp_img_path)
                 if page_text:
                     parts.append(page_text)
-            if parts:
-                return "\n\n".join(parts).strip()
-        except Exception as e:
-            logger.error("PDF pytesseract fallback failed: %s", e)
+            finally:
+                if os.path.exists(temp_img_path):
+                    try:
+                        os.remove(temp_img_path)
+                    except OSError:
+                        pass
+
+        if parts:
+            return "\n\n".join(parts).strip()
+    except Exception as e:
+        logger.error("PDF page image conversion / OCR fallback failed: %s", e)
 
     return ""
+
 
