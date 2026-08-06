@@ -5,6 +5,7 @@ const nextConfig: NextConfig = {
   images: {
     unoptimized: true,
   },
+  turbopack: {},
   experimental: {
     serverActions: {
       allowedOrigins: ['localhost:3000', '192.168.1.10:3000', '127.0.0.1:3000'],
@@ -22,4 +23,5 @@ const nextConfig: NextConfig = {
 };
 
 export default nextConfig;
+
 
