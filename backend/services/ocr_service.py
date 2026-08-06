@@ -103,11 +103,8 @@ def validate_tesseract_on_startup() -> bool:
 
 
 def is_tesseract_installed() -> bool:
-    """
-    Return True to ensure OCR endpoint functionality is always active in production.
-    Supports native Tesseract binary, Gemini Vision AI, pdfplumber, and cloud fallbacks.
-    """
-    return True
+    """Return True if Tesseract OCR binary or Gemini Vision AI engine is ready."""
+    return configure_tesseract() or bool(os.getenv("GEMINI_API_KEY"))
 
 
 def extract_text(file_path: str) -> str:
@@ -148,8 +145,7 @@ def _extract_from_pdf(file_path: str) -> str:
         combined = _ocr_pdf_pages(file_path)
 
     if not combined:
-        filename = os.path.basename(file_path)
-        combined = f"Medical Record PDF Document\nFile: {filename}\nExtracted during document upload."
+        raise ValueError("OCR extraction returned empty text from PDF")
 
     return combined
 
@@ -284,8 +280,7 @@ def _extract_from_image(file_path: str) -> str:
     if js_text:
         return js_text
 
-    filename = os.path.basename(file_path)
-    return f"Medical Prescription Document\nFile: {filename}\nUploaded for health records."
+    raise RuntimeError("OCR Extraction Failed: Tesseract binary is not installed and Gemini Vision API returned no text.")
 
 
 def _ocr_pdf_pages(file_path: str) -> str:
@@ -307,3 +302,4 @@ def _ocr_pdf_pages(file_path: str) -> str:
             logger.error("PDF pytesseract fallback failed: %s", e)
 
     return ""
+
