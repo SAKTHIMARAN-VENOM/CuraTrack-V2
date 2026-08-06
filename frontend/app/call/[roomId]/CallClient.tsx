@@ -31,10 +31,12 @@ type CallStatus = 'idle' | 'connecting' | 'connected' | 'ended';
 export default function CallPage() {
   const params = useParams();
   const router = useRouter();
-  const roomId = (params?.roomId as string) || 'demo';
+  const rawRoomId = (params?.roomId as string) || 'demo';
+  const roomId = rawRoomId.split('?')[0];
   const [isDoctorRole, setIsDoctorRole] = useState<boolean>(() => {
     if (typeof window !== 'undefined') {
-      return new URLSearchParams(window.location.search).get('role') === 'doctor';
+      const search = window.location.search.replace(/^\?+/, '?');
+      return new URLSearchParams(search).get('role') === 'doctor' || window.location.href.includes('role=doctor');
     }
     return false;
   });

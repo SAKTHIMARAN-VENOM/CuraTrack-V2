@@ -357,7 +357,8 @@ export default function DoctorPortal() {
   // Single entry point to navigate to WebRTC video room
   const handleStartConsultation = async () => {
     if (latestAppointment?.room_id) {
-      router.push(`/call/${latestAppointment.room_id}?role=doctor`);
+      const cleanRoomId = latestAppointment.room_id.split('?')[0];
+      router.push(`/call/${cleanRoomId}?role=doctor`);
     } else {
       const newRoomId = `room_doc_${Date.now()}`;
       try {
