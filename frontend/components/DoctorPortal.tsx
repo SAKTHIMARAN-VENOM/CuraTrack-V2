@@ -1182,72 +1182,87 @@ export default function DoctorPortal() {
               <div className="flex items-center justify-between">
                 <div>
                   <h2 className="font-headline font-bold text-2xl text-on-surface">Patient Directory</h2>
-                  <p className="text-xs text-tertiary">All active patients registered in your clinical practice</p>
+                  <p className="text-xs text-tertiary">Registered patients from database</p>
                 </div>
                 <div className="flex items-center gap-3">
                   <span className="text-xs font-bold text-primary bg-primary/10 px-3 py-1.5 rounded-full">
-                    {(registeredPatients.length > 0 ? registeredPatients : Object.values(DEFAULT_PATIENTS)).length} Patients
+                    {registeredPatients.length} Real Patients Registered
                   </span>
                 </div>
               </div>
 
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
-                {(registeredPatients.length > 0 ? registeredPatients : Object.values(DEFAULT_PATIENTS))
-                  .filter(p => p.name.toLowerCase().includes(searchQuery.toLowerCase()) || p.meta.toLowerCase().includes(searchQuery.toLowerCase()))
-                  .map((p) => (
-                    <div key={p.id} className="bg-surface-container-lowest rounded-2xl p-6 shadow-sm border border-surface-container hover:shadow-md transition-all flex flex-col justify-between">
-                      <div>
-                        <div className="flex items-start justify-between mb-4">
-                          <div className="flex items-center gap-3">
-                            {p.photo ? (
-                              <img src={p.photo} className="w-12 h-12 rounded-xl object-cover" alt={p.name} />
-                            ) : (
-                              <div className="w-12 h-12 rounded-xl bg-surface-container flex items-center justify-center text-tertiary">
-                                <span className="material-symbols-outlined text-2xl">person</span>
+              {registeredPatients.length === 0 ? (
+                <div className="bg-surface-container-lowest rounded-3xl p-12 text-center border border-surface-container space-y-3">
+                  <div className="w-16 h-16 rounded-full bg-primary/10 text-primary flex items-center justify-center mx-auto">
+                    <span className="material-symbols-outlined text-3xl">group</span>
+                  </div>
+                  <h3 className="font-headline font-bold text-lg text-on-surface">No Registered Patients Yet</h3>
+                  <p className="text-xs text-tertiary max-w-sm mx-auto">
+                    When new patients sign up or book consultations, their profile will appear here in real time.
+                  </p>
+                </div>
+              ) : (
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
+                  {registeredPatients
+                    .filter(p => p.name.toLowerCase().includes(searchQuery.toLowerCase()) || p.meta.toLowerCase().includes(searchQuery.toLowerCase()))
+                    .map((p) => (
+                      <div key={p.id} className="bg-surface-container-lowest rounded-2xl p-6 shadow-sm border border-surface-container hover:shadow-md transition-all flex flex-col justify-between">
+                        <div>
+                          <div className="flex items-start justify-between mb-4">
+                            <div className="flex items-center gap-3">
+                              {p.photo ? (
+                                <img src={p.photo} className="w-12 h-12 rounded-xl object-cover" alt={p.name} />
+                              ) : (
+                                <div className="w-12 h-12 rounded-xl bg-primary/10 text-primary flex items-center justify-center font-bold text-lg">
+                                  {p.name.charAt(0).toUpperCase()}
+                                </div>
+                              )}
+                              <div>
+                                <h3 className="font-headline font-bold text-on-surface text-base">{p.name}</h3>
+                                <p className="text-xs text-tertiary truncate max-w-[150px]">{p.meta}</p>
                               </div>
-                            )}
-                            <div>
-                              <h3 className="font-headline font-bold text-on-surface text-base">{p.name}</h3>
-                              <p className="text-xs text-tertiary">{p.meta}</p>
+                            </div>
+                            <span className="text-[10px] font-bold bg-green-500/10 text-green-700 px-2 py-0.5 rounded-full">Database</span>
+                          </div>
+
+                          <div className="space-y-2 mb-4">
+                            <div className="flex justify-between text-xs">
+                              <span className="text-tertiary">Status:</span>
+                              <span className="font-bold text-on-surface">{p.status}</span>
+                            </div>
+                            <div className="flex justify-between text-xs">
+                              <span className="text-tertiary">Registered Email:</span>
+                              <span className="font-bold text-on-surface truncate max-w-[130px]">{p.meta}</span>
                             </div>
                           </div>
                         </div>
 
-                        <div className="space-y-2 mb-4">
-                          <div className="flex justify-between text-xs">
-                            <span className="text-tertiary">BP:</span>
-                            <span className="font-bold text-on-surface">{p.vitals?.bp || '120/80'}</span>
-                          </div>
-                          <div className="flex justify-between text-xs">
-                            <span className="text-tertiary">Heart Rate:</span>
-                            <span className="font-bold text-on-surface">{p.vitals?.hr || '72 bpm'}</span>
-                          </div>
+                        <div className="flex items-center gap-2 pt-3 border-t border-surface-container-low">
+                          <button
+                            onClick={() => {
+                              setRealPatientData({ id: p.id, name: p.name, email: p.meta });
+                              setSelectedPatientId(p.id);
+                              setCurrentView('schedule');
+                            }}
+                            className="flex-1 py-2 bg-primary/10 text-primary text-xs font-bold rounded-xl hover:bg-primary/20 transition-colors"
+                          >
+                            Review Patient
+                          </button>
+                          <button
+                            onClick={() => {
+                              setRealPatientData({ id: p.id, name: p.name, email: p.meta });
+                              setSelectedPatientId(p.id);
+                              setShowPrescriptionModal(true);
+                            }}
+                            className="py-2 px-3 bg-secondary text-white text-xs font-bold rounded-xl hover:bg-secondary/90 transition-colors"
+                          >
+                            Prescribe
+                          </button>
                         </div>
                       </div>
-
-                      <div className="flex items-center gap-2 pt-3 border-t border-surface-container-low">
-                        <button
-                          onClick={() => {
-                            setSelectedPatientId(p.id);
-                            setCurrentView('schedule');
-                          }}
-                          className="flex-1 py-2 bg-primary/10 text-primary text-xs font-bold rounded-xl hover:bg-primary/20 transition-colors"
-                        >
-                          Review Patient
-                        </button>
-                        <button
-                          onClick={() => {
-                            setSelectedPatientId(p.id);
-                            setShowPrescriptionModal(true);
-                          }}
-                          className="py-2 px-3 bg-secondary text-white text-xs font-bold rounded-xl hover:bg-secondary/90 transition-colors"
-                        >
-                          Prescribe
-                        </button>
-                      </div>
-                    </div>
-                  ))}
-              </div>
+                    ))}
+                </div>
+              )}
             </div>
           </div>
         )}
