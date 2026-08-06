@@ -28,7 +28,10 @@ export default function AdminPortalPage() {
     }, []);
 
     const handleVerifyAction = async (doctorId: string, status: 'verified' | 'rejected') => {
-        setActionStatus(`Updating status for doctor ${doctorId}...`);
+        setActionStatus(`Updating status...`);
+        // Optimistic UI state update
+        setDoctors(prev => prev.map(d => (d.doctor_id === doctorId || !d.doctor_id) ? { ...d, verification_status: status } : d));
+
         try {
             const res = await fetch(`${API_BASE}/api/admin/verify-doctor`, {
                 method: 'POST',
@@ -38,12 +41,13 @@ export default function AdminPortalPage() {
 
             if (res.ok) {
                 setActionStatus(`Successfully set status to ${status.toUpperCase()}`);
-                fetchPendingDoctors();
             }
         } catch (err) {
             setActionStatus('Failed to update verification status.');
         }
     };
+
+    const pendingCount = doctors.filter(d => (d.verification_status || 'pending') === 'pending').length;
 
     return (
         <div className="min-h-screen bg-surface p-6 lg:p-10 max-w-7xl mx-auto space-y-8">
@@ -74,8 +78,10 @@ export default function AdminPortalPage() {
                         <h2 className="font-headline text-xl font-bold text-on-surface">Doctor Verification Queue</h2>
                         <p className="text-xs text-tertiary">Practitioners awaiting registration approval for full clinical access.</p>
                     </div>
-                    <span className="px-3 py-1 bg-amber-100 text-amber-800 rounded-full text-xs font-bold">
-                        {doctors.length} Applications Pending
+                    <span className={`px-3 py-1 rounded-full text-xs font-bold ${
+                        pendingCount > 0 ? 'bg-amber-100 text-amber-800' : 'bg-emerald-100 text-emerald-800'
+                    }`}>
+                        {pendingCount} Applications Pending
                     </span>
                 </div>
 
@@ -84,7 +90,7 @@ export default function AdminPortalPage() {
                 ) : doctors.length === 0 ? (
                     <div className="text-center py-12 space-y-2 text-tertiary">
                         <span className="material-symbols-outlined text-4xl opacity-40">verified</span>
-                        <p className="font-bold text-sm text-on-surface">No Pending Doctor Applications</p>
+                        <p className="font-bold text-sm text-on-surface">No Doctor Applications</p>
                         <p className="text-xs">All doctor credentials have been processed and verified.</p>
                     </div>
                 ) : (
@@ -98,7 +104,7 @@ export default function AdminPortalPage() {
                                             doc.verification_status === 'verified' ? 'bg-emerald-100 text-emerald-800' :
                                             doc.verification_status === 'rejected' ? 'bg-red-100 text-red-800' : 'bg-amber-100 text-amber-800'
                                         }`}>
-                                            {doc.verification_status.toUpperCase()}
+                                            {doc.verification_status ? doc.verification_status.toUpperCase() : 'PENDING'}
                                         </span>
                                     </div>
                                     <p className="text-xs text-tertiary">
@@ -113,18 +119,30 @@ export default function AdminPortalPage() {
                                 </div>
 
                                 <div className="flex items-center gap-3 shrink-0">
-                                    <button
-                                        onClick={() => handleVerifyAction(doc.doctor_id, 'rejected')}
-                                        className="px-4 py-2 bg-red-100 hover:bg-red-200 text-red-800 text-xs font-bold rounded-xl transition-colors"
-                                    >
-                                        Reject
-                                    </button>
-                                    <button
-                                        onClick={() => handleVerifyAction(doc.doctor_id, 'verified')}
-                                        className="px-5 py-2 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold rounded-xl shadow-md transition-colors"
-                                    >
-                                        ✓ Approve & Verify
-                                    </button>
+                                    {doc.verification_status === 'verified' ? (
+                                        <span className="inline-flex items-center gap-1.5 px-4 py-2 bg-emerald-100 text-emerald-800 text-xs font-bold rounded-xl border border-emerald-200">
+                                            ✓ Approved & Verified
+                                        </span>
+                                    ) : doc.verification_status === 'rejected' ? (
+                                        <span className="inline-flex items-center gap-1.5 px-4 py-2 bg-red-100 text-red-800 text-xs font-bold rounded-xl border border-red-200">
+                                            ❌ Rejected
+                                        </span>
+                                    ) : (
+                                        <>
+                                            <button
+                                                onClick={() => handleVerifyAction(doc.doctor_id, 'rejected')}
+                                                className="px-4 py-2 bg-red-100 hover:bg-red-200 text-red-800 text-xs font-bold rounded-xl transition-colors"
+                                            >
+                                                Reject
+                                            </button>
+                                            <button
+                                                onClick={() => handleVerifyAction(doc.doctor_id, 'verified')}
+                                                className="px-5 py-2 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold rounded-xl shadow-md transition-colors"
+                                            >
+                                                ✓ Approve & Verify
+                                            </button>
+                                        </>
+                                    )}
                                 </div>
                             </div>
                         ))}
