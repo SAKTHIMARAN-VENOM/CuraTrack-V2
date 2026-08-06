@@ -9,7 +9,7 @@ router = APIRouter()
 
 GOOGLE_CLIENT_ID = os.getenv("EXPO_PUBLIC_GOOGLE_CLIENT_ID", "496846855834-k0enh50secfddbn70bhrhum81qgd6c8j.apps.googleusercontent.com")
 GOOGLE_CLIENT_SECRET = os.getenv("GOOGLE_CLIENT_SECRET", "")
-BACKEND_CALLBACK = os.getenv("GOOGLE_BACKEND_CALLBACK", "http://172.16.10.171:8000/api/fit/callback")
+BACKEND_CALLBACK = os.getenv("GOOGLE_BACKEND_CALLBACK", "https://curatrack-v3.onrender.com/api/fit/callback")
 
 SCOPES = [
     "https://www.googleapis.com/auth/fitness.heart_rate.read",

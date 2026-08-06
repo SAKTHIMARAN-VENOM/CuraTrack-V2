@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { API_BASE } from '@/lib/api';
 
 interface ReviewMedicationModalProps {
   isOpen: boolean;
@@ -40,7 +41,7 @@ export default function ReviewMedicationModal({ isOpen, onClose, medication, onC
     };
 
     try {
-      const response = await fetch("http://localhost:8000/api/confirm-ingestion", {
+      const response = await fetch(`${API_BASE}/api/confirm-ingestion`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload),

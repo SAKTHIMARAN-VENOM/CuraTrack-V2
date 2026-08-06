@@ -66,3 +66,5 @@ yarn-error.log*
 next-env.d.ts
 backend/uploads/
 *.traineddata
+curaTrack-mobile/
+

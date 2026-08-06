@@ -1,3 +1,4 @@
+export const dynamic = 'force-static';
 import { getOAuth2Client, getTokensForUser } from '@/lib/google';
 import { NextRequest, NextResponse } from 'next/server';
 import { google } from 'googleapis';

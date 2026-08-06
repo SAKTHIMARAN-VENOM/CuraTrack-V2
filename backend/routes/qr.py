@@ -41,7 +41,7 @@ def generate_qr(request: QRGenerateRequest):
 
     token = jwt.encode(payload, QR_SECRET, algorithm="HS256")
 
-    frontend_url = os.getenv("FRONTEND_URL", "http://localhost:3000").rstrip("/")
+    frontend_url = os.getenv("FRONTEND_URL", "https://cura-track-v2.vercel.app").rstrip("/")
     patient_url = f"{frontend_url}/patient/{request.userId}"
 
     # Generate QR code image

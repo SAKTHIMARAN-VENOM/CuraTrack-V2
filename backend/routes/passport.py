@@ -62,7 +62,7 @@ def generate_passport_qr(request: PassportGenerateRequest):
     )
 
     # Build QR code with the passport URL
-    frontend_url = os.getenv("FRONTEND_URL", "http://localhost:3000").rstrip("/")
+    frontend_url = os.getenv("FRONTEND_URL", "https://cura-track-v2.vercel.app").rstrip("/")
     passport_url = f"{frontend_url}/passport/{token_data['token']}"
 
     qr = qrcode.QRCode(
@@ -77,7 +77,7 @@ def generate_passport_qr(request: PassportGenerateRequest):
     img = qr.make_image(fill_color="#001f29", back_color="white")
 
     buffer = io.BytesIO()
-    img.save(buffer, format="PNG")
+    img.save(buffer)
     buffer.seek(0)
     img_base64 = base64.b64encode(buffer.read()).decode("utf-8")
 

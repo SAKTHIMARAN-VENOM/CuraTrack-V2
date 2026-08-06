@@ -11,7 +11,10 @@ WebBrowser.maybeCompleteAuthSession();
 export function useGoogleFitAuth() {
   const promptAsync = async () => {
     try {
-      const redirectUrl = 'curatrackmobile://';
+      const redirectUrl = AuthSession.makeRedirectUri({
+        scheme: 'curatrackmobile',
+      });
+      console.log('[Google Fit Auth] Generated Redirect URI:', redirectUrl);
 
       const { data, error } = await supabase.auth.signInWithOAuth({
         provider: 'google',
@@ -60,7 +63,7 @@ export function useGoogleFitAuth() {
     return { type: 'cancel' };
   };
 
-  return { request: true, response: null, promptAsync };
+  return { request: true, response: null as { type: string; params?: { code?: string } } | null, promptAsync };
 }
 
 /**

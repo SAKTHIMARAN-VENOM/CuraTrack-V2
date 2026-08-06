@@ -4,7 +4,7 @@ import { createClient } from '@/lib/supabase/client';
  * Central API configuration for FastAPI backend communication.
  * All frontend API calls to the backend MUST use this module.
  */
-export const API_BASE = process.env.NEXT_PUBLIC_FASTAPI_URL || 'http://localhost:8000';
+export const API_BASE = process.env.NEXT_PUBLIC_FASTAPI_URL || 'https://curatrack-v3.onrender.com';
 
 /**
  * Authenticated fetch wrapper that auto-attaches the Supabase session token

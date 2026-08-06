@@ -1,3 +1,4 @@
+export const dynamic = 'force-static';
 import { getOAuth2Client } from '@/lib/google';
 import { NextRequest, NextResponse } from 'next/server';
 import { cookies } from 'next/headers';
