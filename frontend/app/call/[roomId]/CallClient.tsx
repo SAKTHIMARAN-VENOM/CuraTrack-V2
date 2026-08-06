@@ -555,7 +555,11 @@ export default function CallPage() {
 
   const leaveRoom = () => {
     cleanup();
-    router.push('/telemedicine');
+    if (isDoctorRole) {
+      router.push('/doctor');
+    } else {
+      router.push('/telemedicine');
+    }
   };
 
   const downloadTranscript = () => {
@@ -704,7 +708,7 @@ export default function CallPage() {
               onClick={leaveRoom}
               className="w-full py-4 bg-white/5 border border-white/10 text-white font-bold rounded-2xl hover:bg-white/10 transition-all shadow-sm"
             >
-              Return to Telemedicine
+              {isDoctorRole ? 'Return to Doctor Portal' : 'Return to Telemedicine'}
             </button>
           </div>
         ) : (
