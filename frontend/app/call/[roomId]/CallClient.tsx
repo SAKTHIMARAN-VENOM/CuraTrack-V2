@@ -90,6 +90,9 @@ export default function CallPage() {
   useEffect(() => {
     async function fetchRemoteUser() {
       try {
+        const { data: { user } } = await supabase.auth.getUser();
+        const currentUserId = user?.id;
+
         const { data: appt } = await supabase
           .from('appointments')
           .select('client_id, doctor_id')
@@ -97,15 +100,25 @@ export default function CallPage() {
           .single();
 
         if (appt) {
-          const targetId = isDoctorRole ? appt.client_id : appt.doctor_id;
-          if (targetId) {
+          let targetId = isDoctorRole ? appt.client_id : appt.doctor_id;
+          if (targetId === currentUserId) {
+            targetId = isDoctorRole ? appt.doctor_id : appt.client_id;
+          }
+
+          if (targetId && targetId !== currentUserId) {
             const { data: prof } = await supabase.from('profiles').select('name, email').eq('id', targetId).single();
             if (prof?.name) {
               setRemoteUserName(prof.name);
             } else if (prof?.email) {
               setRemoteUserName(prof.email.split('@')[0]);
+            } else {
+              setRemoteUserName(isDoctorRole ? 'Patient' : 'Doctor');
             }
+          } else {
+            setRemoteUserName(isDoctorRole ? 'Patient' : 'Doctor');
           }
+        } else {
+          setRemoteUserName(isDoctorRole ? 'Patient' : 'Doctor');
         }
       } catch (err) {
         console.warn('Could not fetch remote user details:', err);
