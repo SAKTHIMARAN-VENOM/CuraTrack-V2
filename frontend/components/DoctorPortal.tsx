@@ -664,101 +664,67 @@ export default function DoctorPortal() {
                 <div className="flex items-center justify-between">
                   <h2 className="font-headline font-semibold text-lg text-on-surface">Upcoming Patients</h2>
                   <span className="primary-gradient text-on-primary text-xs px-2.5 py-1 rounded-full font-bold">
-                    8 in queue
+                    {registeredPatients.length} live
                   </span>
                 </div>
 
                 <div className="flex flex-col gap-3 overflow-y-auto pr-1" style={{ maxHeight: 'calc(100vh - 200px)' }}>
-                  {/* Active / Current Patient (Elena Rodriguez) */}
-                  <div
-                    className={`bg-surface-container-lowest rounded-2xl p-5 shadow-[0_4px_24px_-4px_rgba(25,28,29,0.07)] relative overflow-hidden cursor-pointer transition-all border ${
-                      selectedPatientId === 'elena' ? 'border-primary/40 ring-1 ring-primary/20' : 'border-outline-variant/10'
-                    }`}
-                    onClick={() => setSelectedPatientId('elena')}
-                  >
-                    <div className="absolute left-0 top-0 bottom-0 w-1 rounded-l-2xl bg-primary"></div>
-                    <div className="flex justify-between items-start mb-3 pl-2">
-                      <div>
-                        <span className="text-xs text-primary font-bold tracking-wider uppercase mb-1 flex items-center gap-1">
-                          <span className="w-1.5 h-1.5 rounded-full bg-primary animate-pulse inline-block"></span> 09:00 AM · Active
-                        </span>
-                        <h3 className="font-headline font-bold text-on-surface">Elena Rodriguez</h3>
-                        <p className="text-xs text-tertiary mt-0.5">Follow-up · F, 34</p>
-                      </div>
-                      <span className="bg-secondary-container text-on-secondary-container text-[10px] px-2 py-0.5 rounded-full font-bold uppercase tracking-wide">
-                        Follow-up
-                      </span>
+                  {registeredPatients.length === 0 ? (
+                    <div className="bg-surface-container-low rounded-2xl p-6 text-center text-xs text-tertiary border border-surface-container">
+                      No registered patients in database yet.
                     </div>
-                    <div className="flex items-center gap-2 mt-3 pl-2">
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          setQrModalPatientId('elena');
+                  ) : (
+                    registeredPatients.map((p) => (
+                      <div
+                        key={p.id}
+                        onClick={() => {
+                          setRealPatientData({ id: p.id, name: p.name, email: p.meta });
+                          setSelectedPatientId(p.id);
                         }}
-                        className="flex-1 bg-surface-container-high text-on-surface text-xs font-bold py-2 rounded-lg hover:bg-surface-container transition-colors flex items-center justify-center gap-1"
-                      >
-                        <span className="material-symbols-outlined text-sm">qr_code_2</span> View Details
-                      </button>
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          handleStartConsultation();
-                        }}
-                        disabled={!hasActiveRoom}
-                        className={`flex-1 primary-gradient text-on-primary text-xs font-bold py-2 rounded-lg flex items-center justify-center gap-1 transition-opacity ${
-                          hasActiveRoom ? 'hover:opacity-90 cursor-pointer' : 'opacity-50 cursor-not-allowed'
+                        className={`bg-surface-container-lowest rounded-2xl p-5 hover:bg-surface-container-low transition-all cursor-pointer border ${
+                          selectedPatient?.id === p.id ? 'border-primary/40 ring-1 ring-primary/20 shadow-sm' : 'border-outline-variant/10'
                         }`}
                       >
-                        <span className="material-symbols-outlined text-sm fill-icon">call</span> Join
-                      </button>
-                    </div>
-                  </div>
-
-                  {/* Queued Patients List */}
-                  {[
-                    { id: 'marcus', name: 'Marcus Chen', time: '09:30 AM', desc: 'Cardiology Consult · M, 58', badge: 'Queued' },
-                    { id: 'sarah', name: 'Sarah Jenkins', time: '10:15 AM', desc: 'Post-Op Review · F, 45', badge: 'Queued' },
-                    { id: 'james', name: 'James Okafor', time: '11:00 AM', desc: 'Diabetes Check-in · M, 62' },
-                    { id: 'priya', name: 'Priya Nair', time: '11:45 AM', desc: 'Neurology Referral · F, 29' },
-                    { id: 'robert', name: 'Robert Kim', time: '01:30 PM', desc: 'Annual Physical · M, 51' },
-                    { id: 'amara', name: 'Amara Diallo', time: '02:15 PM', desc: 'Prenatal Check · F, 31', isPriority: true },
-                    { id: 'tom', name: 'Tom Brewer', time: '03:00 PM', desc: 'Orthopedic Review · M, 44' },
-                  ].map((p) => (
-                    <div
-                      key={p.id}
-                      onClick={() => setSelectedPatientId(p.id)}
-                      className={`bg-surface-container-low rounded-2xl p-5 hover:bg-surface-container-lowest transition-all cursor-pointer hover:shadow-[0_4px_20px_-4px_rgba(25,28,29,0.06)] border ${
-                        selectedPatientId === p.id ? 'border-primary/40 bg-surface-container-lowest shadow-sm' : 'border-transparent'
-                      }`}
-                    >
-                      <div className="flex justify-between items-start mb-1">
-                        <div>
-                          <span className="text-xs text-tertiary mb-1 block">{p.time}</span>
-                          <h3 className="font-headline font-semibold text-on-surface">{p.name}</h3>
-                          <p className="text-xs text-tertiary mt-0.5">{p.desc}</p>
+                        <div className="flex justify-between items-start mb-2">
+                          <div>
+                            <span className="text-xs text-primary font-bold tracking-wider uppercase mb-1 block">
+                              {p.status === 'Active' || p.status === 'Appointment Booked' ? '● Active' : 'Registered'}
+                            </span>
+                            <h3 className="font-headline font-bold text-on-surface">{p.name}</h3>
+                            <p className="text-xs text-tertiary mt-0.5 truncate max-w-[180px]">{p.meta}</p>
+                          </div>
+                          <span className="bg-secondary-container text-on-secondary-container text-[10px] px-2 py-0.5 rounded-full font-bold uppercase">
+                            Database
+                          </span>
                         </div>
-                        {p.badge && (
-                          <span className="bg-surface-container-high text-on-surface-variant text-[10px] px-2 py-0.5 rounded-full font-bold">
-                            {p.badge}
-                          </span>
-                        )}
-                        {p.isPriority && (
-                          <span className="bg-error-container text-on-error-container text-[10px] px-2 py-0.5 rounded-full font-bold">
-                            Priority
-                          </span>
-                        )}
+                        <div className="flex items-center gap-2 mt-3">
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setRealPatientData({ id: p.id, name: p.name, email: p.meta });
+                              setSelectedPatientId(p.id);
+                              setShowPrescriptionModal(true);
+                            }}
+                            className="flex-1 bg-surface-container-high hover:bg-surface-container text-on-surface text-xs font-bold py-2 rounded-lg transition-colors flex items-center justify-center gap-1"
+                          >
+                            <span className="material-symbols-outlined text-sm">edit_note</span> Prescribe
+                          </button>
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleStartConsultation();
+                            }}
+                            disabled={!hasActiveRoom}
+                            className={`flex-1 primary-gradient text-on-primary text-xs font-bold py-2 rounded-lg flex items-center justify-center gap-1 transition-opacity ${
+                              hasActiveRoom ? 'hover:opacity-90 cursor-pointer' : 'opacity-50 cursor-not-allowed'
+                            }`}
+                          >
+                            <span className="material-symbols-outlined text-sm fill-icon">call</span> Join
+                          </button>
+                        </div>
                       </div>
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          setQrModalPatientId(p.id);
-                        }}
-                        className="mt-3 w-full bg-surface-container text-on-surface-variant text-xs font-bold py-2 rounded-lg hover:bg-surface-container-high transition-colors flex items-center justify-center gap-1"
-                      >
-                        <span className="material-symbols-outlined text-sm">qr_code_2</span> View Details
-                      </button>
-                    </div>
-                  ))}
+                    ))
+                  )}
                 </div>
               </div>
 
