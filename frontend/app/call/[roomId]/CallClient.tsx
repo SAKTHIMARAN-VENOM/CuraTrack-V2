@@ -4,6 +4,10 @@ import { useEffect, useRef, useState, useMemo, useCallback } from 'react';
 import { createClient } from '@/lib/supabase/client';
 import { useParams, useRouter } from 'next/navigation';
 
+const meteredDomain = process.env.NEXT_PUBLIC_METERED_DOMAIN || 'global.relay.metered.ca';
+const turnUsername = process.env.NEXT_PUBLIC_METERED_USERNAME || '03a1db9bf4ce4bf36b4139e2';
+const turnCredential = process.env.NEXT_PUBLIC_METERED_PASSWORD || 'NtSyJgBZFzb9J6tI';
+
 const ICE_SERVERS: RTCConfiguration = {
   iceServers: [
     { urls: 'stun:stun.l.google.com:19302' },
@@ -14,13 +18,13 @@ const ICE_SERVERS: RTCConfiguration = {
     { urls: 'stun:stun.services.mozilla.com' },
     {
       urls: [
-        'turn:openrelay.metered.ca:80',
-        'turn:openrelay.metered.ca:443',
-        'turn:openrelay.metered.ca:443?transport=tcp',
-        'turns:openrelay.metered.ca:443?transport=tcp',
+        `turn:${meteredDomain}:80`,
+        `turn:${meteredDomain}:443`,
+        `turn:${meteredDomain}:443?transport=tcp`,
+        `turns:${meteredDomain}:443?transport=tcp`,
       ],
-      username: 'openrelay',
-      credential: 'openrelay',
+      username: turnUsername,
+      credential: turnCredential,
     },
   ],
   iceTransportPolicy: 'all',
