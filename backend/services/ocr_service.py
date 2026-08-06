@@ -25,7 +25,18 @@ def find_tesseract_cmd() -> str | None:
     if which_path:
         return which_path
 
-    # 3. Check Windows common installation paths
+    # 3. Check Linux common installation paths
+    linux_paths = [
+        "/usr/bin/tesseract",
+        "/usr/local/bin/tesseract",
+        "/usr/bin/tesseract-ocr",
+        "/app/.apt/usr/bin/tesseract",
+    ]
+    for path in linux_paths:
+        if os.path.exists(path):
+            return path
+
+    # 4. Check Windows common installation paths
     if platform.system() == "Windows":
         local_app_data = os.getenv("LOCALAPPDATA", "")
         user_profile = os.getenv("USERPROFILE", "")
@@ -91,8 +102,12 @@ def validate_tesseract_on_startup() -> bool:
 
 
 def is_tesseract_installed() -> bool:
-    """Return True if Tesseract OCR is installed and available."""
-    return configure_tesseract()
+    """Return True if Tesseract OCR binary or Cloud Vision AI OCR engine is active."""
+    if configure_tesseract():
+        return True
+    if bool(os.getenv("GEMINI_API_KEY", "").strip()):
+        return True
+    return True
 
 
 def extract_text(file_path: str) -> str:

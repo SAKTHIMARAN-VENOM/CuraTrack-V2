@@ -10,7 +10,7 @@ const DEFAULT_MEDICATIONS = [
   { name: 'Lisinopril', dosage: '10mg', frequency: 'Once daily', time: '8:00 AM (Morning)', status: 'TAKEN', color: '#d4f0fa', icon: 'pill', isError: false },
   { name: 'Metformin', dosage: '500mg', frequency: 'Twice daily', time: '1:00 PM (Afternoon)', status: 'UPCOMING', color: '#d4f0fa', icon: 'pill', isError: false },
   { name: 'Atorvastatin', dosage: '20mg', frequency: 'Once daily at bedtime', time: '9:00 PM (Night)', status: 'UPCOMING', color: '#e8def8', icon: 'medication', isError: false },
-  { name: 'Vitamin D3', dosage: '2000 IU', frequency: 'Once daily', time: '8:00 AM (Morning)', status: 'MISSED', color: '#ffe082', icon: 'capsule', isError: true },
+  { name: 'Vitamin D3', dosage: '2000 IU', frequency: 'Once daily', time: '8:00 AM (Morning)', status: 'MISSED', color: '#ffe082', icon: 'pill', isError: true },
 ];
 
 export default function HealthRecordsPage() {
@@ -292,7 +292,9 @@ export default function HealthRecordsPage() {
                 activeMedications.map((med, idx) => (
                   <div key={`active-${idx}`} className={`flex items-center gap-5 p-4 ${med.isError ? 'bg-error-container/40' : 'bg-surface-container-low'} rounded-2xl group hover:bg-surface-container transition-colors`}>
                     <div className={`w-12 h-12 rounded-2xl flex items-center justify-center shrink-0 ${med.isError ? 'bg-error-container' : ''}`} style={!med.isError ? { background: med.color } : {}}>
-                      <span className={`material-symbols-outlined fill-icon ${med.isError ? 'text-error' : 'text-primary'}`}>{med.icon}</span>
+                      <span className={`material-symbols-outlined fill-icon ${med.isError ? 'text-error' : 'text-primary'}`}>
+                        {(!med.icon || med.icon === 'capsule') ? 'pill' : med.icon}
+                      </span>
                     </div>
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-2 mb-0.5">
