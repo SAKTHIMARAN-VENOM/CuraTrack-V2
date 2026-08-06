@@ -207,7 +207,12 @@ export default function AlertsPage() {
                                     color: risk.risk === 'HIGH' ? 'red' : 'amber',
                                     icon: risk.icon || 'bug_report',
                                     actionText: 'WHO Guidelines',
-                                    action: () => window.open('https://www.who.int/emergencies/diseases/en/', '_blank')
+                                    action: () => {
+                                        const targetUrl = (risk.who_url && !risk.who_url.includes('/diseases/en/'))
+                                            ? risk.who_url 
+                                            : 'https://www.who.int/emergencies/disease-outbreak-news';
+                                        window.open(targetUrl, '_blank');
+                                    }
                                 });
                             });
                         }

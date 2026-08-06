@@ -467,6 +467,7 @@ def get_health_risks(month: Optional[int] = Query(default=None, ge=1, le=12)):
                 **r,
                 "category": "Outbreaks",
                 "month": month_name,
+                "who_url": r.get("who_url") or "https://www.who.int/emergencies/disease-outbreak-news",
             }
             for r in month_data["risks"]
         ],
