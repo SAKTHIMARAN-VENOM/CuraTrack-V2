@@ -88,7 +88,6 @@ def generate_qr(request: QRGenerateRequest):
     }
 
 
-
 @router.post("/qr/verify")
 def verify_qr(request: QRVerifyRequest):
     """
@@ -137,4 +136,3 @@ def get_patient_by_id(patient_id: str):
         "vitals": scoped_data.get("last_lab_values", {}),
         "insurance": scoped_data.get("insurance_status", {}),
     }
-

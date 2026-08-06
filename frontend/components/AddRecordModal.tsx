@@ -1,4 +1,5 @@
 import React, { useState, useRef } from 'react';
+import { API_BASE } from '@/lib/api';
 
 type RecordType = 'select' | 'prescription' | 'notes' | 'lab';
 type ModalStep = 'upload' | 'classifying' | 'form';
@@ -73,7 +74,7 @@ export default function AddRecordModal({ isOpen, onClose, onSuccess }: AddRecord
     const formData = new FormData();
     formData.append("file", file);
     try {
-      const response = await fetch("http://localhost:8000/api/ingest-document", { method: "POST", body: formData });
+      const response = await fetch(`${API_BASE}/api/ingest-document`, { method: "POST", body: formData });
       if (!response.ok) {
         const d = await response.json().catch(() => ({}));
         const msg = d.message ? `${d.message} ${d.solution || ''}` : (d.detail || "Upload failed");

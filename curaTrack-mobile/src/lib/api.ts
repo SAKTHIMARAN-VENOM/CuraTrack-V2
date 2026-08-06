@@ -5,7 +5,7 @@
 import { supabase } from './supabase';
 
 export const API_BASE =
-  process.env.EXPO_PUBLIC_API_BASE_URL || 'https://curatrack-backend.onrender.com';
+  process.env.EXPO_PUBLIC_API_BASE_URL || 'https://curatrack-v3.onrender.com';
 
 /**
  * Authenticated fetch wrapper that auto-attaches the Supabase session token

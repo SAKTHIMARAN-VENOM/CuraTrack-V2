@@ -25,9 +25,10 @@ export default function ProfileScreen() {
   // Handle Google Fit OAuth code exchange response
   useEffect(() => {
     if (response?.type === 'success' && response.params?.code) {
+      const code = response.params.code;
       (async () => {
         setConnectingFit(true);
-        const success = await exchangeGoogleCode(response.params.code);
+        const success = await exchangeGoogleCode(code);
         setGoogleFitConnected(success);
         setConnectingFit(false);
         if (success) {

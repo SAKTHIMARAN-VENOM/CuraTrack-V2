@@ -88,7 +88,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const signInWithGoogle = async () => {
     try {
-      const redirectUrl = AuthSession.makeRedirectUri({ scheme: 'curatrack' });
+      const redirectUrl = AuthSession.makeRedirectUri({ scheme: 'curatrackmobile' });
+      console.log('[Google Auth] Generated Redirect URI:', redirectUrl);
       const { data, error } = await supabase.auth.signInWithOAuth({
         provider: 'google',
         options: {
@@ -101,12 +102,31 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       if (data?.url) {
         const result = await WebBrowser.openAuthSessionAsync(data.url, redirectUrl);
         if (result.type === 'success' && result.url) {
-          const urlObj = new URL(result.url);
-          const params = new URLSearchParams(urlObj.hash.substring(1) || urlObj.search);
-          const accessToken = params.get('access_token');
-          const refreshToken = params.get('refresh_token');
+          const rawUrl = result.url;
+          let accessToken: string | null = null;
+          let refreshToken: string | null = null;
+          let code: string | null = null;
+
+          if (rawUrl.includes('#')) {
+            const hash = rawUrl.split('#')[1];
+            const params = new URLSearchParams(hash);
+            accessToken = params.get('access_token');
+            refreshToken = params.get('refresh_token');
+          }
+          if (rawUrl.includes('?')) {
+            const query = rawUrl.split('?')[1]?.split('#')[0];
+            const params = new URLSearchParams(query);
+            code = params.get('code');
+            if (!accessToken) {
+              accessToken = params.get('access_token');
+              refreshToken = params.get('refresh_token');
+            }
+          }
+
           if (accessToken && refreshToken) {
             await supabase.auth.setSession({ access_token: accessToken, refresh_token: refreshToken });
+          } else if (code) {
+            await supabase.auth.exchangeCodeForSession(code);
           }
         }
       }

@@ -34,7 +34,7 @@ export default function TelemedicineCallScreen() {
 
   // Call duration counter
   useEffect(() => {
-    let interval: NodeJS.Timeout;
+    let interval: ReturnType<typeof setInterval>;
     if (callStatus === 'connected') {
       interval = setInterval(() => {
         setElapsedTime((prev) => prev + 1);
