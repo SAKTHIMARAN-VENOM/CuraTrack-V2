@@ -17,6 +17,7 @@ drop table if exists public.allergies cascade;
 drop table if exists public.vitals cascade;
 drop table if exists public.insurance cascade;
 drop table if exists public.appointments cascade;
+drop view if exists public.doctors cascade;
 drop table if exists public.doctors cascade;
 drop table if exists public.patient_profile cascade;
 drop table if exists public.doctor_profile cascade;
