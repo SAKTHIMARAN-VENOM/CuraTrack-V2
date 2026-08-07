@@ -268,6 +268,26 @@ export default function DoctorPortal() {
     }
   };
 
+  const handleClearAllAppointments = async () => {
+    try {
+      const { error } = await supabase
+        .from('appointments')
+        .delete()
+        .neq('id', '00000000-0000-0000-0000-000000000000');
+
+      if (error) {
+        await supabase
+          .from('appointments')
+          .update({ status: 'ended' })
+          .neq('id', '00000000-0000-0000-0000-000000000000');
+      }
+      setScheduledAppointments([]);
+      fetchScheduledAppointments();
+    } catch (err) {
+      console.warn('Error flushing appointments:', err);
+    }
+  };
+
   const [realPatientData, setRealPatientData] = useState<{ id: string; name: string; email?: string } | null>(null);
 
   useEffect(() => {
@@ -718,9 +738,18 @@ export default function DoctorPortal() {
                   <>
                     <div className="flex items-center justify-between">
                       <h2 className="font-headline font-semibold text-lg text-on-surface">Scheduled Appointments</h2>
-                      <span className="bg-secondary text-white text-xs px-2.5 py-1 rounded-full font-bold">
-                        {scheduledAppointments.length} pending
-                      </span>
+                      <div className="flex items-center gap-2">
+                        <span className="bg-secondary text-white text-xs px-2.5 py-1 rounded-full font-bold">
+                          {scheduledAppointments.length} pending
+                        </span>
+                        <button
+                          onClick={handleClearAllAppointments}
+                          className="text-[11px] font-bold text-error hover:underline px-2 py-0.5"
+                          title="Flush all appointments"
+                        >
+                          Clear All
+                        </button>
+                      </div>
                     </div>
 
                     <div className="flex flex-col gap-3 overflow-y-auto" style={{ maxHeight: '45vh' }}>

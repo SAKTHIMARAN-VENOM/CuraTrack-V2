@@ -214,6 +214,26 @@ export default function TelemedicinePage() {
     }
   };
 
+  const handleClearAllPatientAppointments = async () => {
+    if (!user) return;
+    try {
+      const { error } = await supabase
+        .from('appointments')
+        .delete()
+        .eq('client_id', user.id);
+
+      if (error) {
+        await supabase
+          .from('appointments')
+          .update({ status: 'ended' })
+          .eq('client_id', user.id);
+      }
+      setPatientAppointments([]);
+    } catch (err) {
+      console.warn('Error clearing patient appointments:', err);
+    }
+  };
+
   const isDoctor = profile?.role === 'doctor';
   const availableDoctors = doctors.length;
   const activeRequests = activeAppointments.length;
@@ -584,8 +604,16 @@ export default function TelemedicinePage() {
                     Join your virtual room when your appointment time arrives.
                   </p>
                 </div>
-                <div className="px-4 py-2 rounded-2xl bg-primary/10 text-primary text-sm font-extrabold">
-                  {patientAppointments.length} Booked
+                <div className="flex items-center gap-3">
+                  <div className="px-4 py-2 rounded-2xl bg-primary/10 text-primary text-sm font-extrabold">
+                    {patientAppointments.length} Booked
+                  </div>
+                  <button
+                    onClick={handleClearAllPatientAppointments}
+                    className="px-3 py-2 rounded-2xl bg-error-container/30 text-error text-xs font-bold hover:bg-error-container/60 transition-colors"
+                  >
+                    Clear All
+                  </button>
                 </div>
               </div>
 
