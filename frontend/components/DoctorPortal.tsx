@@ -1723,7 +1723,7 @@ export default function DoctorPortal() {
               <div className="relative bg-surface-container-low p-6 rounded-2xl border border-surface-container text-center">
                 <img
                   src={`https://api.qrserver.com/v1/create-qr-code/?size=220x220&data=${encodeURIComponent(
-                    `https://curatrack.vercel.app/passport/demo?patient=${encodeURIComponent(modalPatient.name)}`
+                    `${typeof window !== 'undefined' ? window.location.origin : ''}/passport/demo?token=demo&patient=${encodeURIComponent(modalPatient.name)}`
                   )}`}
                   alt="Scannable Health Passport QR Code"
                   className="w-48 h-48 mx-auto rounded-xl shadow-sm border border-white"
