@@ -29,10 +29,22 @@ interface Appointment {
   scheduled_time: string;
   room_id: string;
   status: string;
-  created_at?: string;
 }
 
-
+function getCleanPatientName(prof?: any, fallbackId?: string): string {
+  if (prof?.name && prof.name.trim().length > 0) {
+    return prof.name;
+  }
+  if (prof?.email && prof.email.trim().length > 0) {
+    const username = prof.email.split('@')[0].replace(/[._-]/g, ' ');
+    return username
+      .split(' ')
+      .filter(Boolean)
+      .map((w: string) => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase())
+      .join(' ');
+  }
+  return fallbackId ? `Patient (${fallbackId.slice(0, 6)})` : 'Registered Patient';
+}
 
 export default function DoctorPortal() {
   const router = useRouter();
@@ -169,7 +181,7 @@ export default function DoctorPortal() {
       try {
         const { data: prof } = await supabase.from('profiles').select('id, name, email').eq('id', latestAppointment.client_id).single();
         if (prof) {
-          const name = prof.name || (prof.email ? prof.email.split('@')[0] : 'Connected Patient');
+          const name = getCleanPatientName(prof, prof.id);
           setRealPatientData({ id: prof.id, name, email: prof.email });
         }
       } catch (err) {
@@ -207,7 +219,7 @@ export default function DoctorPortal() {
 
       // Add registered patient profiles
       profsMap.forEach((p, id) => {
-        const patientName = p.name || (p.email ? p.email.split('@')[0] : `Patient #${id.slice(0, 4)}`);
+        const patientName = getCleanPatientName(p, id);
         patientMap.set(id, {
           id: p.id,
           name: patientName,
@@ -225,7 +237,7 @@ export default function DoctorPortal() {
         appts.forEach(a => {
           if (a.client_id) {
             const prof = profsMap.get(a.client_id);
-            const patientName = prof?.name || (prof?.email ? prof.email.split('@')[0] : `Patient #${a.client_id.slice(0, 4)}`);
+            const patientName = getCleanPatientName(prof, a.client_id);
             const patientEmail = prof?.email || 'Active Appointment';
 
             if (!patientMap.has(a.client_id)) {
