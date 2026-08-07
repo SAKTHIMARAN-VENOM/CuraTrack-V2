@@ -39,6 +39,38 @@ export default function HealthRecordsPage() {
       offlineStorage.saveMedications(DEFAULT_MEDICATIONS);
     }
 
+    // Hydrate doctor-issued e-prescriptions into patient health records
+    try {
+      const savedRx = localStorage.getItem('curatrack_prescriptions');
+      if (savedRx) {
+        const parsedRx = JSON.parse(savedRx);
+        setUserPrescriptions(parsedRx);
+        
+        // Auto-merge doctor issued e-prescriptions into active medications schedule
+        const newMeds = parsedRx.map((rx: any) => ({
+          name: rx.medication,
+          dosage: rx.dosage,
+          frequency: rx.frequency || 'Once daily',
+          time: 'Morning',
+          status: 'UPCOMING',
+          color: '#d4f0fa',
+          icon: 'pill',
+          isDoctorIssued: true,
+          doctorName: rx.doctorName || 'Dr. David Ross',
+          isError: false
+        }));
+
+        if (newMeds.length > 0) {
+          const combined = [...newMeds, ...(cachedMeds && cachedMeds.length > 0 ? cachedMeds : DEFAULT_MEDICATIONS)];
+          // Remove duplicate names if any
+          const uniqueMeds = Array.from(new Map(combined.map(item => [item.name, item])).values());
+          setActiveMedications(uniqueMeds);
+        }
+      }
+    } catch (err) {
+      console.warn('Could not load doctor e-prescriptions:', err);
+    }
+
     if (!offlineStorage.isOnline()) {
       setIsOffline(true);
     }

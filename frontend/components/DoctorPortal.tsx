@@ -1423,12 +1423,20 @@ export default function DoctorPortal() {
                 const newRx = {
                   ...prescriptionData,
                   patientName: selectedPatient.name,
-                  date: 'Today'
+                  patientId: selectedPatient.id,
+                  date: new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }),
+                  doctorName: doctorName || 'Dr. David Ross'
                 };
-                setPrescriptionsList([newRx, ...prescriptionsList]);
+                const updatedList = [newRx, ...prescriptionsList];
+                setPrescriptionsList(updatedList);
+                try {
+                  localStorage.setItem('curatrack_prescriptions', JSON.stringify(updatedList));
+                } catch (err) {
+                  console.warn('Could not persist prescription:', err);
+                }
                 setShowPrescriptionModal(false);
                 setPrescriptionData({ medication: '', dosage: '', frequency: 'Twice daily after meals', notes: '' });
-                alert(`✅ E-Prescription for ${selectedPatient.name} issued successfully!`);
+                alert(`✅ E-Prescription for ${selectedPatient.name} issued successfully and added to patient health records!`);
               }}
               className="space-y-4"
             >
