@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect, useCallback } from 'react';
 import {
   View,
   Text,
@@ -73,6 +73,9 @@ export default function TelemedicineHubScreen() {
   const [scheduleNotes, setScheduleNotes] = useState('');
   const [isBooking, setIsBooking] = useState(false);
 
+  // Patient appointments state
+  const [patientAppointments, setPatientAppointments] = useState<any[]>([]);
+
   const nextDays = useMemo(() => getNextDays(14), []);
 
   const doctors: DoctorInfo[] = [
@@ -107,6 +110,58 @@ export default function TelemedicineHubScreen() {
       avatar: '👩‍⚕️',
     },
   ];
+
+  const fetchPatientAppointments = useCallback(async () => {
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+
+      const { data: appts } = await supabase
+        .from('appointments')
+        .select('*')
+        .eq('client_id', user.id)
+        .in('status', ['ringing', 'scheduled', 'active'])
+        .order('scheduled_time', { ascending: true });
+
+      if (appts) {
+        const enriched = appts.map((a: any) => {
+          const doc = doctors.find((d) => d.id === a.doctor_id);
+          return {
+            ...a,
+            doctor_name: doc?.name || 'Dr. Medical Specialist',
+            specialty: doc?.specialty || 'General Specialist',
+            avatar: doc?.avatar || '👨‍⚕️',
+          };
+        });
+        setPatientAppointments(enriched);
+      }
+    } catch (err) {
+      console.warn('Error loading patient appointments:', err);
+    }
+  }, [doctors]);
+
+  useEffect(() => {
+    fetchPatientAppointments();
+
+    const channel = supabase
+      .channel('mobile_patient_appts')
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'appointments',
+        },
+        () => {
+          fetchPatientAppointments();
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [fetchPatientAppointments]);
 
   const handleStartCall = (roomId: string) => {
     router.push({
@@ -171,6 +226,7 @@ export default function TelemedicineHubScreen() {
         Alert.alert('Booking Error', error.message);
       } else {
         closeScheduleModal();
+        fetchPatientAppointments();
         Alert.alert(
           '✅ Appointment Scheduled',
           `Your consultation with ${scheduleDoctor.name} is confirmed for ${selectedDate} at ${selectedTime}.\n\nRoom Code: ${roomId.slice(0, 16)}…`,
@@ -225,6 +281,43 @@ export default function TelemedicineHubScreen() {
             </TouchableOpacity>
           </View>
         </View>
+
+        {/* Scheduled Consultations for Patient */}
+        {patientAppointments.length > 0 && (
+          <View style={{ gap: 12 }}>
+            <Text style={[styles.sectionHeader, { color: theme.text }]}>📅 Your Scheduled Consultations</Text>
+            {patientAppointments.map((appt) => {
+              const schedDate = appt.scheduled_time ? new Date(appt.scheduled_time) : null;
+              const dateStr = schedDate ? schedDate.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' }) : 'Scheduled';
+              const timeStr = schedDate ? schedDate.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' }) : '';
+              const isCallActive = appt.status === 'active';
+
+              return (
+                <View key={appt.id} style={[styles.doctorCard, { backgroundColor: theme.surface, borderColor: theme.primary, borderWidth: 1.5 }]}>
+                  <View style={styles.doctorHeader}>
+                    <View style={[styles.avatarCircle, { backgroundColor: theme.primaryLight }]}>
+                      <Text style={styles.avatarEmoji}>{appt.avatar}</Text>
+                    </View>
+                    <View style={styles.doctorMeta}>
+                      <Text style={[styles.doctorName, { color: theme.text }]}>{appt.doctor_name}</Text>
+                      <Text style={[styles.doctorSpecialty, { color: theme.textSecondary }]}>{appt.specialty}</Text>
+                      <Text style={{ fontSize: 13, fontWeight: '700', color: theme.primary, marginTop: 4 }}>
+                        {isCallActive ? '🟢 Active Call Room' : `🕒 ${dateStr} at ${timeStr}`}
+                      </Text>
+                    </View>
+                  </View>
+                  <TouchableOpacity
+                    style={[styles.callBtn, { backgroundColor: theme.primary }]}
+                    onPress={() => handleStartCall(appt.room_id)}
+                  >
+                    <Text style={styles.callBtnIcon}>📹</Text>
+                    <Text style={styles.callBtnText}>Join Video Call Room</Text>
+                  </TouchableOpacity>
+                </View>
+              );
+            })}
+          </View>
+        )}
 
         {/* Available Doctors List */}
         <Text style={[styles.sectionHeader, { color: theme.text }]}>👨‍⚕️ Available Doctors</Text>

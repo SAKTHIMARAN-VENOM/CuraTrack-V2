@@ -53,6 +53,7 @@ export default function TelemedicinePage() {
   const [profile, setProfile] = useState<any>(null);
   const [doctors, setDoctors] = useState<Doctor[]>([]);
   const [activeAppointments, setActiveAppointments] = useState<Appointment[]>([]);
+  const [patientAppointments, setPatientAppointments] = useState<any[]>([]);
   const [bookingDoctorId, setBookingDoctorId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
 
@@ -63,6 +64,33 @@ export default function TelemedicinePage() {
   const [schedNotes, setSchedNotes] = useState<string>('');
   const [schedBooking, setSchedBooking] = useState(false);
   const [schedSuccess, setSchedSuccess] = useState<string | null>(null);
+
+  // Fetch patient's own scheduled and active appointments
+  const fetchPatientAppointments = useCallback(async (userId: string, doctorsList: Doctor[]) => {
+    try {
+      const { data: appts } = await supabase
+        .from('appointments')
+        .select('*')
+        .eq('client_id', userId)
+        .in('status', ['ringing', 'scheduled', 'active'])
+        .order('scheduled_time', { ascending: true });
+
+      if (appts) {
+        const enriched = appts.map((a: any) => {
+          const doc = doctorsList.find((d) => d.id === a.doctor_id);
+          return {
+            ...a,
+            doctor_name: doc?.name || 'Dr. Medical Specialist',
+            specialty: doc?.specialty || 'General Specialist',
+            doctor_picture: doc?.picture || null,
+          };
+        });
+        setPatientAppointments(enriched);
+      }
+    } catch (err) {
+      console.warn('Error fetching patient appointments:', err);
+    }
+  }, [supabase]);
 
   useEffect(() => {
     async function fetchData() {
@@ -96,13 +124,15 @@ export default function TelemedicinePage() {
           .eq('status', 'active');
 
         setActiveAppointments(appts || []);
+      } else {
+        await fetchPatientAppointments(authUser.id, doctorsData || []);
       }
 
       setLoading(false);
     }
 
     fetchData();
-  }, [router, supabase]);
+  }, [router, supabase, fetchPatientAppointments]);
 
   useEffect(() => {
     if (profile?.role !== 'doctor' || !user) return;
@@ -135,6 +165,44 @@ export default function TelemedicinePage() {
       supabase.removeChannel(channel);
     };
   }, [profile?.role, supabase, user]);
+
+  useEffect(() => {
+    if (profile?.role === 'doctor' || !user) return;
+
+    const channel = supabase
+      .channel('patient_appointments_realtime')
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'appointments',
+          filter: `client_id=eq.${user.id}`,
+        },
+        () => {
+          fetchPatientAppointments(user.id, doctors);
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [profile?.role, supabase, user, doctors, fetchPatientAppointments]);
+
+  const cancelAppointment = async (apptId: string) => {
+    try {
+      await supabase
+        .from('appointments')
+        .update({ status: 'ended' })
+        .eq('id', apptId);
+      if (user) {
+        fetchPatientAppointments(user.id, doctors);
+      }
+    } catch (err) {
+      console.warn('Error cancelling appointment:', err);
+    }
+  };
 
   const isDoctor = profile?.role === 'doctor';
   const availableDoctors = doctors.length;
@@ -207,6 +275,9 @@ export default function TelemedicinePage() {
         setSchedSuccess(`Appointment with ${docName} confirmed for ${schedDate} at ${schedTime}`);
         setSchedTime('');
         setSchedNotes('');
+        if (user) {
+          fetchPatientAppointments(user.id, doctors);
+        }
       }
     } catch (err: any) {
       alert(`Error: ${err.message}`);
@@ -486,7 +557,97 @@ export default function TelemedicinePage() {
           </div>
         </section>
       ) : (
-        <section className="space-y-6">
+        <section className="space-y-8">
+          {/* ── Patient Scheduled & Active Consultations Section ── */}
+          {patientAppointments.length > 0 && (
+            <div className="bg-white rounded-[2rem] border border-primary/20 shadow-md p-6 lg:p-8 space-y-6">
+              <div className="flex items-center justify-between">
+                <div>
+                  <span className="inline-flex items-center gap-2 px-3 py-1 bg-primary/10 text-primary text-[11px] font-bold rounded-full uppercase tracking-widest">
+                    <span className="material-symbols-outlined text-sm">event</span>
+                    Your Appointments
+                  </span>
+                  <h2 className="mt-2 font-headline text-2xl font-extrabold text-on-surface">
+                    Your Scheduled & Active Consultations
+                  </h2>
+                  <p className="text-sm text-tertiary mt-1">
+                    Join your virtual room when your appointment time arrives.
+                  </p>
+                </div>
+                <div className="px-4 py-2 rounded-2xl bg-primary/10 text-primary text-sm font-extrabold">
+                  {patientAppointments.length} Booked
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {patientAppointments.map((appt) => {
+                  const schedDate = appt.scheduled_time
+                    ? new Date(appt.scheduled_time)
+                    : null;
+                  const dateStr = schedDate
+                    ? schedDate.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })
+                    : 'Scheduled';
+                  const timeStr = schedDate
+                    ? schedDate.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })
+                    : '';
+
+                  const isCallActive = appt.status === 'active';
+
+                  return (
+                    <div
+                      key={appt.id}
+                      className="rounded-[1.5rem] border border-outline-variant/20 bg-surface-container-lowest p-5 flex flex-col justify-between space-y-4 hover:border-primary/30 transition-all shadow-sm"
+                    >
+                      <div className="flex items-start gap-4">
+                        <div className="w-14 h-14 rounded-2xl bg-surface-container-high overflow-hidden flex items-center justify-center text-primary font-bold text-xl shrink-0">
+                          {appt.doctor_picture ? (
+                            <img src={appt.doctor_picture} alt={appt.doctor_name} className="w-full h-full object-cover" />
+                          ) : (
+                            <span>{appt.doctor_name?.charAt(0) || 'D'}</span>
+                          )}
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-2 mb-1">
+                            <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider ${
+                              isCallActive ? 'bg-green-100 text-green-700 animate-pulse' : 'bg-secondary-container text-on-secondary-container'
+                            }`}>
+                              {isCallActive ? '● Active Room' : '📅 Scheduled'}
+                            </span>
+                          </div>
+                          <h3 className="font-headline font-bold text-lg text-on-surface truncate">{appt.doctor_name}</h3>
+                          <p className="text-xs text-primary font-semibold uppercase tracking-wider">{appt.specialty}</p>
+                        </div>
+                      </div>
+
+                      <div className="flex items-center gap-2 p-3 rounded-xl bg-surface-container-low text-xs text-on-surface">
+                        <span className="material-symbols-outlined text-secondary text-base">schedule</span>
+                        <span className="font-bold">{dateStr}</span>
+                        {timeStr && <span className="text-tertiary">at {timeStr}</span>}
+                      </div>
+
+                      <div className="flex items-center gap-3 pt-1">
+                        <button
+                          onClick={() => router.push(`/call/${appt.room_id}`)}
+                          className="flex-1 py-3 rounded-xl font-bold text-white primary-gradient hover:shadow-md transition-all flex items-center justify-center gap-2 text-sm"
+                        >
+                          <span className="material-symbols-outlined text-base">videocam</span>
+                          Join Call Room
+                        </button>
+                        <button
+                          onClick={() => cancelAppointment(appt.id)}
+                          className="px-4 py-3 rounded-xl font-bold text-error bg-error-container/20 hover:bg-error-container/40 transition-colors text-xs"
+                          title="Cancel appointment"
+                        >
+                          Cancel
+                        </button>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+
           <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4">
             <div>
               <h2 className="font-headline text-2xl lg:text-3xl font-extrabold tracking-tight text-on-surface">
