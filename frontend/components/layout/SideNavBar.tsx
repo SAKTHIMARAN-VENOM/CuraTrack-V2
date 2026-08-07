@@ -9,7 +9,6 @@ import { twMerge } from 'tailwind-merge';
 
 const NAV_ITEMS = [
     { href: '/dashboard', icon: 'dashboard', label: 'Dashboard' },
-    { href: '/mobile-app', icon: 'smartphone', label: 'Mobile App View' },
     { href: '/records', icon: 'folder_shared', label: 'Health Records' },
     { href: '/alerts', icon: 'notifications_active', label: 'Alerts' },
     { href: '/telemedicine', icon: 'video_chat', label: 'Telemedicine' },
