@@ -15,9 +15,9 @@ interface DoctorBookingModalProps {
 export default function DoctorBookingModal({
   isOpen,
   onClose,
-  doctorName = "Dr. Rajesh Sharma",
+  doctorName = "Dr. Practitioner",
   specialty = "Cardiologist",
-  fee = "₹399",
+  fee = "₹299",
   doctorId = "doc-001"
 }: DoctorBookingModalProps) {
   const [selectedDate, setSelectedDate] = useState("Today, 4:30 PM");
