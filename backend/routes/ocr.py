@@ -5,6 +5,7 @@ import os
 import uuid
 import shutil
 import logging
+import traceback
 from fastapi import APIRouter, UploadFile, File, Form, HTTPException
 from fastapi.responses import JSONResponse
 from services.ocr_service import extract_raw_text, parse_document_fields
@@ -26,6 +27,7 @@ async def parse_document(
     """
     Upload a document (Image or PDF) and perform structured field extraction based on doc_type.
     Returns raw extracted text AND parsed field JSON for user review & editing.
+    NEVER returns mock data — returns empty fields + error on failure.
     """
     ext = os.path.splitext(file.filename or "")[1].lower()
     if ext not in ALLOWED_EXTENSIONS:
@@ -44,6 +46,20 @@ async def parse_document(
         # 1. Extract raw text via Tesseract OCR
         raw_text = extract_raw_text(temp_path)
 
+        if not raw_text or not raw_text.strip():
+            logger.warning("OCR extracted no text from %s (doc_type=%s)", file.filename, doc_type)
+            return JSONResponse(
+                status_code=200,
+                content={
+                    "success": False,
+                    "doc_type": doc_type,
+                    "filename": file.filename,
+                    "raw_text": "",
+                    "extracted_data": {},
+                    "error": "OCR could not extract any text from this document. Please try a clearer image or enter data manually."
+                }
+            )
+
         # 2. Analyze raw text string via Gemini Text API
         parsed_fields = parse_document_fields(doc_type, raw_text)
 
@@ -58,17 +74,17 @@ async def parse_document(
             }
         )
     except Exception as e:
-        logger.error("OCR parse error: %s", e)
-        # Fallback structured response
-        fallback_fields = parse_document_fields(doc_type, f"Uploaded file: {file.filename}")
+        logger.error("OCR parse error for %s: %s\n%s", file.filename, e, traceback.format_exc())
+        # Return real error — NOT mock data
         return JSONResponse(
-            status_code=200,
+            status_code=500,
             content={
-                "success": True,
+                "success": False,
                 "doc_type": doc_type,
                 "filename": file.filename,
-                "raw_text": f"Uploaded document: {file.filename}",
-                "extracted_data": fallback_fields
+                "raw_text": "",
+                "extracted_data": {},
+                "error": f"OCR processing failed: {str(e)}"
             }
         )
     finally:

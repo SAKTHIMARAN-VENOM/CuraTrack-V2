@@ -94,7 +94,7 @@ export default function AddRecordModal({ isOpen, onClose, onSuccess }: AddRecord
 
     // Regex extractors from rawText
     const docMatch = rawText.match(/(?:Dr\.|Doctor)\s+([A-Za-z\s\.]+)(?:,|\n|$)/i);
-    const extractedDoctor = docMatch ? docMatch[0].trim().replace(/,\s*$/, '') : 'Dr. Arjun Mehta';
+    const extractedDoctor = docMatch ? docMatch[0].trim().replace(/,\s*$/, '') : '';
 
     const diagMatch = rawText.match(/Diagnosis:\s*([^\n]+)/i);
     const extractedDiagnosis = diagMatch ? diagMatch[1].trim() : '';

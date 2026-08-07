@@ -34,19 +34,19 @@ export default function PatientOnboardingPage() {
     // Step 2: Medical Info
     const [medicalMode, setMedicalMode] = useState<'manual' | 'scan'>('manual');
     const [medicalInfo, setMedicalInfo] = useState({
-        blood_group: 'O+',
-        allergies: 'Penicillin, Dust Mites',
-        chronic_diseases: 'Hypertension',
-        current_medications: 'Lisinopril 10mg (Once daily), Metformin 500mg (Twice daily)',
+        blood_group: '',
+        allergies: '',
+        chronic_diseases: '',
+        current_medications: '',
     });
 
     // Step 3: Insurance
     const [insuranceMode, setInsuranceMode] = useState<'manual' | 'scan'>('manual');
     const [insuranceInfo, setInsuranceInfo] = useState({
-        provider: 'Blue Cross Blue Shield',
-        policy_number: 'BCBS-991823',
-        expiry: '2027-12-31',
-        coverage: 'Full OPD & Inpatient Coverage',
+        provider: '',
+        policy_number: '',
+        expiry: '',
+        coverage: '',
     });
 
     // Step 4: Emergency Contact

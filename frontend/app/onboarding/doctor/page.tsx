@@ -16,19 +16,19 @@ export default function DoctorOnboardingPage() {
 
     // Step 1: Personal Details
     const [personalDetails, setPersonalDetails] = useState({
-        name: 'Dr. Sarah Jenkins',
-        email: 'sarah.jenkins@hospital.org',
-        phone: '+1 (555) 019-2831',
+        name: '',
+        email: '',
+        phone: '',
     });
 
     // Step 2: Professional Details
     const [profDetails, setProfDetails] = useState({
-        reg_number: 'MED-00471-TX',
-        qualification: 'MBBS, MD Cardiology',
-        specialization: 'Cardiology',
-        experience_years: 12,
-        hospital_name: 'Metropolitan Health System',
-        department: 'Cardiovascular Sciences',
+        reg_number: '',
+        qualification: '',
+        specialization: '',
+        experience_years: 0,
+        hospital_name: '',
+        department: '',
     });
 
     // Step 3: Verification Documents
