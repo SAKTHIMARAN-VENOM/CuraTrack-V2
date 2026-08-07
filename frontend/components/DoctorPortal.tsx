@@ -1720,127 +1720,15 @@ export default function DoctorPortal() {
 
             {/* QR Code */}
             <div className="flex justify-center mb-6">
-              <div className="relative bg-surface-container-low p-6 rounded-2xl">
-                <svg width="200" height="200" viewBox="0 0 21 21" xmlns="http://www.w3.org/2000/svg" shapeRendering="crispEdges">
-                  <rect x="0" y="0" width="7" height="7" fill="#191c1d" rx="0.5" />
-                  <rect x="1" y="1" width="5" height="5" fill="#f8f9fa" />
-                  <rect x="2" y="2" width="3" height="3" fill="#00647e" />
-
-                  <rect x="14" y="0" width="7" height="7" fill="#191c1d" rx="0.5" />
-                  <rect x="15" y="1" width="5" height="5" fill="#f8f9fa" />
-                  <rect x="16" y="2" width="3" height="3" fill="#00647e" />
-
-                  <rect x="0" y="14" width="7" height="7" fill="#191c1d" rx="0.5" />
-                  <rect x="1" y="15" width="5" height="5" fill="#f8f9fa" />
-                  <rect x="2" y="16" width="3" height="3" fill="#00647e" />
-
-                  <rect x="8" y="0" fill="#191c1d" width="1" height="1" />
-                  <rect x="10" y="0" fill="#191c1d" width="1" height="1" />
-                  <rect x="12" y="0" fill="#191c1d" width="1" height="1" />
-                  <rect x="9" y="1" fill="#191c1d" width="1" height="1" />
-                  <rect x="11" y="1" fill="#191c1d" width="1" height="1" />
-                  <rect x="13" y="1" fill="#191c1d" width="1" height="1" />
-                  <rect x="8" y="2" fill="#191c1d" width="1" height="1" />
-                  <rect x="10" y="2" fill="#191c1d" width="1" height="1" />
-                  <rect x="12" y="2" fill="#191c1d" width="1" height="1" />
-                  <rect x="9" y="3" fill="#191c1d" width="1" height="1" />
-                  <rect x="11" y="3" fill="#191c1d" width="1" height="1" />
-                  <rect x="8" y="4" fill="#191c1d" width="1" height="1" />
-                  <rect x="10" y="4" fill="#191c1d" width="1" height="1" />
-                  <rect x="12" y="4" fill="#191c1d" width="1" height="1" />
-                  <rect x="9" y="5" fill="#191c1d" width="1" height="1" />
-                  <rect x="13" y="5" fill="#191c1d" width="1" height="1" />
-                  <rect x="8" y="6" fill="#191c1d" width="1" height="1" />
-                  <rect x="11" y="6" fill="#191c1d" width="1" height="1" />
-                  <rect x="0" y="8" fill="#191c1d" width="1" height="1" />
-                  <rect x="2" y="8" fill="#191c1d" width="1" height="1" />
-                  <rect x="4" y="8" fill="#191c1d" width="1" height="1" />
-                  <rect x="6" y="8" fill="#191c1d" width="1" height="1" />
-                  <rect x="8" y="8" fill="#191c1d" width="1" height="1" />
-                  <rect x="10" y="8" fill="#191c1d" width="1" height="1" />
-                  <rect x="12" y="8" fill="#191c1d" width="1" height="1" />
-                  <rect x="14" y="8" fill="#191c1d" width="1" height="1" />
-                  <rect x="16" y="8" fill="#191c1d" width="1" height="1" />
-                  <rect x="18" y="8" fill="#191c1d" width="1" height="1" />
-                  <rect x="20" y="8" fill="#191c1d" width="1" height="1" />
-                  <rect x="1" y="9" fill="#191c1d" width="1" height="1" />
-                  <rect x="3" y="9" fill="#191c1d" width="1" height="1" />
-                  <rect x="5" y="9" fill="#191c1d" width="1" height="1" />
-                  <rect x="9" y="9" fill="#191c1d" width="1" height="1" />
-                  <rect x="11" y="9" fill="#191c1d" width="1" height="1" />
-                  <rect x="13" y="9" fill="#191c1d" width="1" height="1" />
-                  <rect x="15" y="9" fill="#191c1d" width="1" height="1" />
-                  <rect x="17" y="9" fill="#191c1d" width="1" height="1" />
-                  <rect x="19" y="9" fill="#191c1d" width="1" height="1" />
-                  <rect x="0" y="10" fill="#191c1d" width="1" height="1" />
-                  <rect x="2" y="10" fill="#191c1d" width="1" height="1" />
-                  <rect x="6" y="10" fill="#191c1d" width="1" height="1" />
-                  <rect x="8" y="10" fill="#191c1d" width="1" height="1" />
-                  <rect x="12" y="10" fill="#191c1d" width="1" height="1" />
-                  <rect x="16" y="10" fill="#191c1d" width="1" height="1" />
-                  <rect x="20" y="10" fill="#191c1d" width="1" height="1" />
-                  <rect x="1" y="11" fill="#191c1d" width="1" height="1" />
-                  <rect x="3" y="11" fill="#191c1d" width="1" height="1" />
-                  <rect x="5" y="11" fill="#191c1d" width="1" height="1" />
-                  <rect x="9" y="11" fill="#191c1d" width="1" height="1" />
-                  <rect x="11" y="11" fill="#191c1d" width="1" height="1" />
-                  <rect x="13" y="11" fill="#191c1d" width="1" height="1" />
-                  <rect x="17" y="11" fill="#191c1d" width="1" height="1" />
-                  <rect x="19" y="11" fill="#191c1d" width="1" height="1" />
-                  <rect x="0" y="12" fill="#191c1d" width="1" height="1" />
-                  <rect x="4" y="12" fill="#191c1d" width="1" height="1" />
-                  <rect x="6" y="12" fill="#191c1d" width="1" height="1" />
-                  <rect x="8" y="12" fill="#191c1d" width="1" height="1" />
-                  <rect x="10" y="12" fill="#191c1d" width="1" height="1" />
-                  <rect x="14" y="12" fill="#191c1d" width="1" height="1" />
-                  <rect x="18" y="12" fill="#191c1d" width="1" height="1" />
-                  <rect x="20" y="12" fill="#191c1d" width="1" height="1" />
-                  <rect x="8" y="14" fill="#191c1d" width="1" height="1" />
-                  <rect x="10" y="14" fill="#191c1d" width="1" height="1" />
-                  <rect x="12" y="14" fill="#191c1d" width="1" height="1" />
-                  <rect x="9" y="15" fill="#191c1d" width="1" height="1" />
-                  <rect x="11" y="15" fill="#191c1d" width="1" height="1" />
-                  <rect x="13" y="15" fill="#191c1d" width="1" height="1" />
-                  <rect x="8" y="16" fill="#191c1d" width="1" height="1" />
-                  <rect x="12" y="16" fill="#191c1d" width="1" height="1" />
-                  <rect x="9" y="17" fill="#191c1d" width="1" height="1" />
-                  <rect x="11" y="17" fill="#191c1d" width="1" height="1" />
-                  <rect x="13" y="17" fill="#191c1d" width="1" height="1" />
-                  <rect x="8" y="18" fill="#191c1d" width="1" height="1" />
-                  <rect x="10" y="18" fill="#191c1d" width="1" height="1" />
-                  <rect x="9" y="19" fill="#191c1d" width="1" height="1" />
-                  <rect x="11" y="19" fill="#191c1d" width="1" height="1" />
-                  <rect x="13" y="19" fill="#191c1d" width="1" height="1" />
-                  <rect x="8" y="20" fill="#191c1d" width="1" height="1" />
-                  <rect x="12" y="20" fill="#191c1d" width="1" height="1" />
-                  <rect x="14" y="14" fill="#191c1d" width="1" height="1" />
-                  <rect x="16" y="14" fill="#191c1d" width="1" height="1" />
-                  <rect x="18" y="14" fill="#191c1d" width="1" height="1" />
-                  <rect x="20" y="14" fill="#191c1d" width="1" height="1" />
-                  <rect x="15" y="15" fill="#191c1d" width="1" height="1" />
-                  <rect x="17" y="15" fill="#191c1d" width="1" height="1" />
-                  <rect x="19" y="15" fill="#191c1d" width="1" height="1" />
-                  <rect x="14" y="16" fill="#191c1d" width="1" height="1" />
-                  <rect x="18" y="16" fill="#191c1d" width="1" height="1" />
-                  <rect x="20" y="16" fill="#191c1d" width="1" height="1" />
-                  <rect x="15" y="17" fill="#191c1d" width="1" height="1" />
-                  <rect x="17" y="17" fill="#191c1d" width="1" height="1" />
-                  <rect x="14" y="18" fill="#191c1d" width="1" height="1" />
-                  <rect x="16" y="18" fill="#191c1d" width="1" height="1" />
-                  <rect x="20" y="18" fill="#191c1d" width="1" height="1" />
-                  <rect x="15" y="19" fill="#191c1d" width="1" height="1" />
-                  <rect x="19" y="19" fill="#191c1d" width="1" height="1" />
-                  <rect x="14" y="20" fill="#191c1d" width="1" height="1" />
-                  <rect x="16" y="20" fill="#191c1d" width="1" height="1" />
-                  <rect x="18" y="20" fill="#191c1d" width="1" height="1" />
-                </svg>
-                <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-                  <div className="bg-white rounded-lg p-1 shadow-sm">
-                    <div className="w-7 h-7 rounded primary-gradient flex items-center justify-center">
-                      <span className="material-symbols-outlined fill-icon text-white text-sm">health_and_safety</span>
-                    </div>
-                  </div>
-                </div>
+              <div className="relative bg-surface-container-low p-6 rounded-2xl border border-surface-container text-center">
+                <img
+                  src={`https://api.qrserver.com/v1/create-qr-code/?size=220x220&data=${encodeURIComponent(
+                    `https://curatrack.vercel.app/passport/demo?patient=${encodeURIComponent(modalPatient.name)}`
+                  )}`}
+                  alt="Scannable Health Passport QR Code"
+                  className="w-48 h-48 mx-auto rounded-xl shadow-sm border border-white"
+                />
+                <p className="text-[10px] text-tertiary mt-2 font-bold uppercase tracking-wider">Scan with mobile camera for Health Passport</p>
               </div>
             </div>
 
@@ -1850,7 +1738,7 @@ export default function DoctorPortal() {
               <div className="grid grid-cols-3 gap-2">
                 <div className="p-3 bg-surface-container-low rounded-xl text-center">
                   <span className="material-symbols-outlined fill-icon text-primary text-xl">medication</span>
-                  <p className="text-[11px] font-bold text-on-surface mt-1">4 Active Rx</p>
+                  <p className="text-[11px] font-bold text-on-surface mt-1">Active Rx</p>
                 </div>
                 <div className="p-3 bg-surface-container-low rounded-xl text-center">
                   <span className="material-symbols-outlined fill-icon text-secondary text-xl">biotech</span>
@@ -1858,7 +1746,7 @@ export default function DoctorPortal() {
                 </div>
                 <div className="p-3 bg-surface-container-low rounded-xl text-center">
                   <span className="material-symbols-outlined fill-icon text-tertiary text-xl">description</span>
-                  <p className="text-[11px] font-bold text-on-surface mt-1">5 Notes</p>
+                  <p className="text-[11px] font-bold text-on-surface mt-1">EHR Notes</p>
                 </div>
               </div>
             </div>
@@ -1867,16 +1755,50 @@ export default function DoctorPortal() {
             <div className="flex items-center gap-2 p-3 bg-surface-container-low rounded-xl mb-5">
               <span className="material-symbols-outlined fill-icon text-secondary text-base">lock</span>
               <p className="text-xs text-on-surface-variant">
-                <span className="font-bold text-secondary">Dynamic encryption active</span> · Refreshes in 02:45 · All scans are logged
+                <span className="font-bold text-secondary">Dynamic encryption active</span> · Refreshes in 02:45 · All scans logged
               </p>
             </div>
 
             {/* Actions */}
             <div className="flex gap-3">
-              <button className="flex-1 py-3 bg-surface-container-high text-on-surface font-bold text-sm rounded-xl hover:bg-surface-container-highest transition-colors flex items-center justify-center gap-2">
+              <button
+                onClick={() => {
+                  const fhirBundle = {
+                    resourceType: "Bundle",
+                    type: "collection",
+                    timestamp: new Date().toISOString(),
+                    entry: [{
+                      resource: {
+                        resourceType: "Patient",
+                        id: modalPatient.id,
+                        name: [{ text: modalPatient.name }],
+                        telecom: [{ system: "email", value: modalPatient.meta }],
+                        vitals: modalPatient.vitals || { bp: '120/80', hr: '72 bpm', spo2: '98%', weight: '145 lbs' },
+                        active: true
+                      }
+                    }]
+                  };
+                  const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(fhirBundle, null, 2));
+                  const downloadAnchor = document.createElement('a');
+                  downloadAnchor.setAttribute("href", dataStr);
+                  downloadAnchor.setAttribute("download", `FHIR_Record_${modalPatient.name.replace(/\s+/g, '_')}_${Date.now()}.json`);
+                  document.body.appendChild(downloadAnchor);
+                  downloadAnchor.click();
+                  downloadAnchor.remove();
+                }}
+                className="flex-1 py-3 bg-surface-container-high text-on-surface font-bold text-sm rounded-xl hover:bg-surface-container-highest transition-colors flex items-center justify-center gap-2 cursor-pointer"
+              >
                 <span className="material-symbols-outlined text-base">download</span> Download
               </button>
-              <button className="flex-1 py-3 primary-gradient text-on-primary font-bold text-sm rounded-xl hover:opacity-90 transition-opacity flex items-center justify-center gap-2">
+              <button
+                onClick={() => {
+                  setQrModalPatientId(null);
+                  setRealPatientData({ id: modalPatient.id, name: modalPatient.name, email: modalPatient.meta });
+                  setSelectedPatientId(modalPatient.id);
+                  setCurrentView('records');
+                }}
+                className="flex-1 py-3 primary-gradient text-white font-bold text-sm rounded-xl hover:opacity-90 transition-opacity flex items-center justify-center gap-2 cursor-pointer shadow-sm"
+              >
                 <span className="material-symbols-outlined fill-icon text-base">folder_shared</span> Open Full Record
               </button>
             </div>
