@@ -72,6 +72,9 @@ export default function DoctorPortal() {
   // Active appointment room state from Supabase
   const [latestAppointment, setLatestAppointment] = useState<Appointment | null>(null);
 
+  // Scheduled appointments state
+  const [scheduledAppointments, setScheduledAppointments] = useState<any[]>([]);
+
   const [accessDenied, setAccessDenied] = useState<boolean>(false);
   const [verifyingAuth, setVerifyingAuth] = useState<boolean>(true);
   const [isPendingVerification, setIsPendingVerification] = useState<boolean>(false);
@@ -175,6 +178,95 @@ export default function DoctorPortal() {
       supabase.removeChannel(channel);
     };
   }, [supabase, fetchLatestRoom]);
+
+  // Fetch scheduled appointments for this doctor
+  const fetchScheduledAppointments = useCallback(async () => {
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+
+      const { data, error } = await supabase
+        .from('appointments')
+        .select('*')
+        .eq('status', 'scheduled')
+        .order('scheduled_time', { ascending: true });
+
+      if (data) {
+        // Enrich with patient profile names
+        const enriched = await Promise.all(
+          data.map(async (appt: any) => {
+            try {
+              const { data: prof } = await supabase
+                .from('profiles')
+                .select('name, email')
+                .eq('id', appt.client_id)
+                .single();
+              return {
+                ...appt,
+                patient_name: getCleanPatientName(prof, appt.client_id),
+                patient_email: prof?.email || '',
+              };
+            } catch {
+              return { ...appt, patient_name: `Patient (${appt.client_id?.slice(0, 6)})`, patient_email: '' };
+            }
+          })
+        );
+        setScheduledAppointments(enriched);
+      }
+    } catch (err) {
+      console.warn('Error fetching scheduled appointments:', err);
+    }
+  }, [supabase]);
+
+  useEffect(() => {
+    fetchScheduledAppointments();
+
+    const channel = supabase
+      .channel('doctor_scheduled_appointments')
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'appointments',
+        },
+        () => {
+          // Refetch on any appointment change
+          fetchScheduledAppointments();
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [supabase, fetchScheduledAppointments]);
+
+  const handleAcceptScheduled = async (appt: any) => {
+    try {
+      await supabase
+        .from('appointments')
+        .update({ status: 'active' })
+        .eq('id', appt.id);
+
+      const cleanRoomId = appt.room_id?.split('?')[0];
+      router.push(`/call/${cleanRoomId}?role=doctor`);
+    } catch (err) {
+      console.warn('Error accepting appointment:', err);
+    }
+  };
+
+  const handleDismissScheduled = async (apptId: string) => {
+    try {
+      await supabase
+        .from('appointments')
+        .update({ status: 'cancelled' })
+        .eq('id', apptId);
+      fetchScheduledAppointments();
+    } catch (err) {
+      console.warn('Error dismissing appointment:', err);
+    }
+  };
 
   const [realPatientData, setRealPatientData] = useState<{ id: string; name: string; email?: string } | null>(null);
 
@@ -443,6 +535,11 @@ export default function DoctorPortal() {
           >
             <span className="material-symbols-outlined">calendar_month</span>
             <span>Clinical Schedule</span>
+            {scheduledAppointments.length > 0 && (
+              <span className="ml-auto bg-primary text-white text-[10px] font-black w-5 h-5 rounded-full flex items-center justify-center">
+                {scheduledAppointments.length}
+              </span>
+            )}
           </div>
 
           <div
@@ -521,10 +618,10 @@ export default function DoctorPortal() {
         <header className="bg-white/80 backdrop-blur-xl flex items-center justify-between px-10 h-20 shrink-0 z-30 shadow-[0_8px_40px_-10px_rgba(25,28,29,0.06)]">
           <div>
             <h1 className="font-headline font-bold text-xl text-on-surface">
-              {currentView === 'dashboard' ? 'Doctor Dashboard' : 'Clinical Schedule'}
+              {currentView === 'dashboard' ? 'Doctor Dashboard' : currentView === 'schedule' ? 'Clinical Schedule' : currentView === 'directory' ? 'Patient Directory' : currentView === 'records' ? 'Medical Records' : 'Settings'}
             </h1>
             <p className="text-xs text-tertiary">
-              {currentView === 'dashboard' ? 'Dr. Adrian Thorne · Overview' : 'Today, Oct 24'}
+              {currentView === 'dashboard' ? `${doctorName} · Overview` : currentView === 'schedule' ? (scheduledAppointments.length > 0 ? `${scheduledAppointments.length} scheduled appointment${scheduledAppointments.length > 1 ? 's' : ''} pending` : 'Today\'s appointments') : ''}
             </p>
           </div>
           <div className="flex items-center gap-4 relative">
@@ -616,6 +713,81 @@ export default function DoctorPortal() {
             <div className="max-w-7xl mx-auto flex gap-8 h-full">
               {/* Left: Patient Queue */}
               <div className="w-80 shrink-0 flex flex-col gap-5">
+                {/* ── Scheduled Appointments Panel ── */}
+                {scheduledAppointments.length > 0 && (
+                  <>
+                    <div className="flex items-center justify-between">
+                      <h2 className="font-headline font-semibold text-lg text-on-surface">Scheduled Appointments</h2>
+                      <span className="bg-secondary text-white text-xs px-2.5 py-1 rounded-full font-bold">
+                        {scheduledAppointments.length} pending
+                      </span>
+                    </div>
+
+                    <div className="flex flex-col gap-3 overflow-y-auto" style={{ maxHeight: '45vh' }}>
+                      {scheduledAppointments.map((appt) => {
+                        const schedDate = appt.scheduled_time
+                          ? new Date(appt.scheduled_time)
+                          : null;
+                        const dateStr = schedDate
+                          ? schedDate.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })
+                          : 'TBD';
+                        const timeStr = schedDate
+                          ? schedDate.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })
+                          : '';
+
+                        return (
+                          <div
+                            key={appt.id}
+                            className="bg-surface-container-lowest rounded-2xl p-5 border border-secondary/20 shadow-sm hover:shadow-md transition-all"
+                          >
+                            <div className="flex items-start justify-between mb-2">
+                              <div>
+                                <span className="text-[10px] text-secondary font-bold tracking-wider uppercase block mb-1">
+                                  📅 Scheduled
+                                </span>
+                                <h3 className="font-headline font-bold text-on-surface">
+                                  {appt.patient_name || 'Patient'}
+                                </h3>
+                                {appt.patient_email && (
+                                  <p className="text-xs text-tertiary mt-0.5 truncate max-w-[180px]">{appt.patient_email}</p>
+                                )}
+                              </div>
+                              <span className="bg-secondary-container text-on-secondary-container text-[10px] px-2 py-0.5 rounded-full font-bold uppercase">
+                                Pending
+                              </span>
+                            </div>
+
+                            <div className="flex items-center gap-2 mt-2 mb-3">
+                              <span className="material-symbols-outlined text-secondary text-sm">schedule</span>
+                              <span className="text-sm font-bold text-on-surface">{dateStr}</span>
+                              {timeStr && (
+                                <span className="text-sm text-tertiary">at {timeStr}</span>
+                              )}
+                            </div>
+
+                            <div className="flex items-center gap-2">
+                              <button
+                                onClick={() => handleAcceptScheduled(appt)}
+                                className="flex-1 primary-gradient text-on-primary text-xs font-bold py-2 rounded-lg flex items-center justify-center gap-1 hover:opacity-90 transition-opacity"
+                              >
+                                <span className="material-symbols-outlined text-sm fill-icon">call</span> Accept & Join
+                              </button>
+                              <button
+                                onClick={() => handleDismissScheduled(appt.id)}
+                                className="flex-1 bg-surface-container-high hover:bg-error/10 text-on-surface hover:text-error text-xs font-bold py-2 rounded-lg transition-colors flex items-center justify-center gap-1"
+                              >
+                                <span className="material-symbols-outlined text-sm">close</span> Dismiss
+                              </button>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+
+                    <hr className="border-outline-variant/20" />
+                  </>
+                )}
+
                 <div className="flex items-center justify-between">
                   <h2 className="font-headline font-semibold text-lg text-on-surface">Upcoming Patients</h2>
                   <span className="primary-gradient text-on-primary text-xs px-2.5 py-1 rounded-full font-bold">

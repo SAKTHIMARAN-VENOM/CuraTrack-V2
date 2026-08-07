@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useState, useCallback } from 'react';
 import { createClient } from '@/lib/supabase/client';
 import { useRouter } from 'next/navigation';
 
@@ -17,6 +17,32 @@ interface Appointment {
   doctor_id: string;
   status: string;
   room_id: string;
+  scheduled_time?: string;
+}
+
+const TIME_SLOTS = [
+  '09:00 AM', '09:30 AM', '10:00 AM', '10:30 AM',
+  '11:00 AM', '11:30 AM', '12:00 PM', '12:30 PM',
+  '01:00 PM', '01:30 PM', '02:00 PM', '02:30 PM',
+  '03:00 PM', '03:30 PM', '04:00 PM', '04:30 PM',
+];
+
+function parseTimeSlot(slot: string): { hours: number; minutes: number } {
+  const [time, ampm] = slot.split(' ');
+  let [hours, minutes] = time.split(':').map(Number);
+  if (ampm === 'PM' && hours !== 12) hours += 12;
+  if (ampm === 'AM' && hours === 12) hours = 0;
+  return { hours, minutes };
+}
+
+function getMinDateStr(): string {
+  return new Date().toISOString().split('T')[0];
+}
+
+function getMaxDateStr(): string {
+  const d = new Date();
+  d.setDate(d.getDate() + 30);
+  return d.toISOString().split('T')[0];
 }
 
 export default function TelemedicinePage() {
@@ -29,6 +55,14 @@ export default function TelemedicinePage() {
   const [activeAppointments, setActiveAppointments] = useState<Appointment[]>([]);
   const [bookingDoctorId, setBookingDoctorId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
+
+  // Scheduling state
+  const [schedulingDoctorId, setSchedulingDoctorId] = useState<string | null>(null);
+  const [schedDate, setSchedDate] = useState<string>(getMinDateStr());
+  const [schedTime, setSchedTime] = useState<string>('');
+  const [schedNotes, setSchedNotes] = useState<string>('');
+  const [schedBooking, setSchedBooking] = useState(false);
+  const [schedSuccess, setSchedSuccess] = useState<string | null>(null);
 
   useEffect(() => {
     async function fetchData() {
@@ -129,6 +163,56 @@ export default function TelemedicinePage() {
     }
 
     router.push(`/call/${roomId}`);
+  };
+
+  const toggleSchedulePanel = (doctorId: string) => {
+    if (schedulingDoctorId === doctorId) {
+      setSchedulingDoctorId(null);
+      setSchedTime('');
+      setSchedNotes('');
+      setSchedSuccess(null);
+    } else {
+      setSchedulingDoctorId(doctorId);
+      setSchedDate(getMinDateStr());
+      setSchedTime('');
+      setSchedNotes('');
+      setSchedSuccess(null);
+    }
+  };
+
+  const scheduleAppointment = async (doctorId: string) => {
+    if (!user || !schedDate || !schedTime) return;
+
+    setSchedBooking(true);
+    setSchedSuccess(null);
+
+    try {
+      const { hours, minutes } = parseTimeSlot(schedTime);
+      const scheduledDate = new Date(schedDate);
+      scheduledDate.setHours(hours, minutes, 0, 0);
+
+      const roomId = crypto.randomUUID();
+      const { error } = await supabase.from('appointments').insert({
+        client_id: user.id,
+        doctor_id: doctorId,
+        scheduled_time: scheduledDate.toISOString(),
+        room_id: roomId,
+        status: 'scheduled',
+      });
+
+      if (error) {
+        alert(`Scheduling error: ${error.message}`);
+      } else {
+        const docName = doctors.find(d => d.id === doctorId)?.name || 'Doctor';
+        setSchedSuccess(`Appointment with ${docName} confirmed for ${schedDate} at ${schedTime}`);
+        setSchedTime('');
+        setSchedNotes('');
+      }
+    } catch (err: any) {
+      alert(`Error: ${err.message}`);
+    } finally {
+      setSchedBooking(false);
+    }
   };
 
   if (loading) {
@@ -500,16 +584,105 @@ export default function TelemedicinePage() {
                         </div>
                       </div>
 
-                      <button
-                        onClick={() => bookAppointment(doc.id)}
-                        disabled={isBooking}
-                        className="w-full py-3.5 rounded-2xl font-bold text-white primary-gradient hover:shadow-lg hover:shadow-primary/20 transition-all flex items-center justify-center gap-2 disabled:opacity-70 disabled:cursor-not-allowed"
-                      >
-                        <span className="material-symbols-outlined">
-                          {isBooking ? 'hourglass_top' : 'video_call'}
-                        </span>
-                        {isBooking ? 'Booking...' : 'Book Instant Call'}
-                      </button>
+                      <div className="flex gap-3">
+                        <button
+                          onClick={() => bookAppointment(doc.id)}
+                          disabled={isBooking}
+                          className="flex-1 py-3.5 rounded-2xl font-bold text-white primary-gradient hover:shadow-lg hover:shadow-primary/20 transition-all flex items-center justify-center gap-2 disabled:opacity-70 disabled:cursor-not-allowed"
+                        >
+                          <span className="material-symbols-outlined">
+                            {isBooking ? 'hourglass_top' : 'video_call'}
+                          </span>
+                          {isBooking ? 'Booking...' : 'Instant Call'}
+                        </button>
+
+                        <button
+                          onClick={() => toggleSchedulePanel(doc.id)}
+                          className={`py-3.5 px-5 rounded-2xl font-bold border-2 transition-all flex items-center justify-center gap-2 ${
+                            schedulingDoctorId === doc.id
+                              ? 'border-primary bg-primary/10 text-primary'
+                              : 'border-outline-variant/30 text-on-surface-variant hover:border-primary/40 hover:text-primary'
+                          }`}
+                        >
+                          <span className="material-symbols-outlined">
+                            {schedulingDoctorId === doc.id ? 'close' : 'calendar_month'}
+                          </span>
+                          {schedulingDoctorId === doc.id ? 'Close' : 'Schedule'}
+                        </button>
+                      </div>
+
+                      {/* ── Inline Scheduling Panel ── */}
+                      {schedulingDoctorId === doc.id && (
+                        <div className="mt-4 rounded-[1.75rem] border border-outline-variant/20 bg-surface-container-lowest p-6 space-y-5 animate-in fade-in slide-in-from-top-2">
+                          {schedSuccess && (
+                            <div className="flex items-center gap-3 p-4 rounded-2xl bg-secondary-container/40 border border-secondary/20">
+                              <span className="material-symbols-outlined text-secondary">check_circle</span>
+                              <p className="text-sm font-bold text-on-surface">{schedSuccess}</p>
+                            </div>
+                          )}
+
+                          {/* Date Picker */}
+                          <div>
+                            <label className="text-[11px] uppercase tracking-widest font-bold text-tertiary mb-2 block">Select Date</label>
+                            <input
+                              type="date"
+                              min={getMinDateStr()}
+                              max={getMaxDateStr()}
+                              value={schedDate}
+                              onChange={(e) => setSchedDate(e.target.value)}
+                              className="w-full rounded-xl border border-outline-variant/30 bg-white px-4 py-3 text-sm font-bold text-on-surface focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all"
+                            />
+                          </div>
+
+                          {/* Time Slot Grid */}
+                          <div>
+                            <label className="text-[11px] uppercase tracking-widest font-bold text-tertiary mb-3 block">Select Time Slot</label>
+                            <div className="grid grid-cols-4 gap-2">
+                              {TIME_SLOTS.map((slot) => (
+                                <button
+                                  key={slot}
+                                  onClick={() => setSchedTime(slot)}
+                                  className={`py-2.5 px-2 rounded-xl text-xs font-bold transition-all border ${
+                                    schedTime === slot
+                                      ? 'bg-primary text-white border-primary shadow-md shadow-primary/20'
+                                      : 'bg-white border-outline-variant/20 text-on-surface hover:border-primary/30 hover:text-primary'
+                                  }`}
+                                >
+                                  {slot}
+                                </button>
+                              ))}
+                            </div>
+                          </div>
+
+                          {/* Optional Reason */}
+                          <div>
+                            <label className="text-[11px] uppercase tracking-widest font-bold text-tertiary mb-2 block">Reason (Optional)</label>
+                            <textarea
+                              value={schedNotes}
+                              onChange={(e) => setSchedNotes(e.target.value)}
+                              placeholder="e.g. Follow-up on lab results"
+                              rows={2}
+                              className="w-full rounded-xl border border-outline-variant/30 bg-white px-4 py-3 text-sm text-on-surface placeholder:text-tertiary/50 focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary resize-none transition-all"
+                            />
+                          </div>
+
+                          {/* Confirm */}
+                          <button
+                            onClick={() => scheduleAppointment(doc.id)}
+                            disabled={!schedDate || !schedTime || schedBooking}
+                            className="w-full py-3.5 rounded-2xl font-bold text-white bg-secondary hover:bg-secondary/90 hover:shadow-lg hover:shadow-secondary/20 transition-all flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+                          >
+                            <span className="material-symbols-outlined">
+                              {schedBooking ? 'hourglass_top' : 'event_available'}
+                            </span>
+                            {schedBooking ? 'Scheduling...' : 'Confirm Scheduled Appointment'}
+                          </button>
+
+                          <p className="text-[11px] text-tertiary text-center leading-relaxed">
+                            🔒 Your appointment will be sent to the doctor's schedule and confirmed in real time.
+                          </p>
+                        </div>
+                      )}
                     </div>
                   </article>
                 );
