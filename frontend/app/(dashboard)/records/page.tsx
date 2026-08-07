@@ -255,13 +255,20 @@ export default function HealthRecordsPage() {
       }
     };
     const handleOffline = () => setIsOffline(true);
+    const handleStorageChange = () => {
+      loadSupabaseData();
+    };
 
     window.addEventListener('online', handleOnline);
     window.addEventListener('offline', handleOffline);
+    window.addEventListener('storage', handleStorageChange);
+    window.addEventListener('curatrack-prescription-issued', handleStorageChange);
 
     return () => {
       window.removeEventListener('online', handleOnline);
       window.removeEventListener('offline', handleOffline);
+      window.removeEventListener('storage', handleStorageChange);
+      window.removeEventListener('curatrack-prescription-issued', handleStorageChange);
     };
   }, []);
 
