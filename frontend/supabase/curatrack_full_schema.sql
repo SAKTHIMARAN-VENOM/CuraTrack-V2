@@ -207,9 +207,12 @@ create table public.appointments (
   client_id text not null,
   doctor_id text,
   doctor_name text,
+  room_id text,
+  scheduled_time text,
   date text,
   time text,
-  status text default 'scheduled',
+  notes text,
+  status text default 'active',
   type text default 'video',
   created_at timestamp with time zone default now()
 );
