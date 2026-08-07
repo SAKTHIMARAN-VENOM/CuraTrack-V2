@@ -4,8 +4,8 @@ Inspect and clear Supabase tables for fresh start.
 import os
 from supabase import create_client
 
-url = "https://jouwxykvjjtdgmsfzkgw.supabase.co"
-key = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImpvdXd4eWt2amp0ZGdtc2Z6a2d3Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzY0MDY4MDEsImV4cCI6MjA5MTk4MjgwMX0.yzxj2oBpaa4tIMGUTpBAVlZrqqeNZuhDRnUVV7cTYeo"
+url = os.getenv("SUPABASE_URL", "")
+key = os.getenv("SUPABASE_SERVICE_ROLE_KEY", "") or os.getenv("SUPABASE_ANON_KEY", "")
 
 client = create_client(url, key)
 
