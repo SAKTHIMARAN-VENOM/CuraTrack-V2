@@ -31,7 +31,7 @@ interface Appointment {
   status: string;
 }
 
-function getCleanPatientName(prof?: any, fallbackId?: string): string {
+function getCleanPatientName(prof?: any, fallbackId?: string, queueIndex?: number): string {
   if (prof?.name && prof.name.trim().length > 0) {
     return prof.name;
   }
@@ -42,6 +42,9 @@ function getCleanPatientName(prof?: any, fallbackId?: string): string {
       .filter(Boolean)
       .map((w: string) => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase())
       .join(' ');
+  }
+  if (typeof queueIndex === 'number') {
+    return `Patient Queue #${queueIndex + 1}`;
   }
   return fallbackId ? `Patient (${fallbackId.slice(0, 6)})` : 'Registered Patient';
 }
@@ -181,7 +184,7 @@ export default function DoctorPortal() {
       try {
         const { data: prof } = await supabase.from('profiles').select('id, name, email').eq('id', latestAppointment.client_id).single();
         if (prof) {
-          const name = getCleanPatientName(prof, prof.id);
+          const name = getCleanPatientName(prof, prof.id, 0);
           setRealPatientData({ id: prof.id, name, email: prof.email });
         }
       } catch (err) {
@@ -234,11 +237,11 @@ export default function DoctorPortal() {
 
       // Incorporate appointment bookings with profile details
       if (appts && appts.length > 0) {
-        appts.forEach(a => {
+        appts.forEach((a, aIdx) => {
           if (a.client_id) {
             const prof = profsMap.get(a.client_id);
-            const patientName = getCleanPatientName(prof, a.client_id);
-            const patientEmail = prof?.email || 'Active Appointment';
+            const patientName = getCleanPatientName(prof, a.client_id, aIdx);
+            const patientEmail = prof?.email || 'Active Telehealth Appointment';
 
             if (!patientMap.has(a.client_id)) {
               patientMap.set(a.client_id, {
@@ -246,7 +249,7 @@ export default function DoctorPortal() {
                 name: patientName,
                 meta: patientEmail,
                 photo: null,
-                time: 'Appointment Booked',
+                time: `09:${(aIdx * 30).toString().padStart(2, '0')} AM`,
                 type: 'Telehealth Consult',
                 status: 'Active',
                 room_id: a.room_id,
@@ -254,8 +257,12 @@ export default function DoctorPortal() {
               });
             } else {
               const existing = patientMap.get(a.client_id);
-              existing.name = patientName;
-              existing.meta = patientEmail;
+              if (prof?.name || prof?.email) {
+                existing.name = patientName;
+                existing.meta = patientEmail;
+              } else if (existing.name.includes('(') || existing.name.includes('#')) {
+                existing.name = `Patient Queue #${aIdx + 1}`;
+              }
               existing.room_id = a.room_id;
               existing.status = 'Appointment Booked';
             }
