@@ -66,7 +66,7 @@ export default function TelemedicinePage() {
   const [schedSuccess, setSchedSuccess] = useState<string | null>(null);
 
   // Fetch patient's own scheduled and active appointments
-  const fetchPatientAppointments = useCallback(async (userId: string, _doctorsList: Doctor[]) => {
+  const fetchPatientAppointments = useCallback(async (userId: string, doctorsList: Doctor[]) => {
     try {
       const { data: appts } = await supabase
         .from('appointments')
@@ -77,14 +77,17 @@ export default function TelemedicinePage() {
 
       if (appts) {
         const enriched = appts.map((a: any) => {
+          const doc = (doctorsList || []).find((d: any) => d.id === a.doctor_id);
           return {
             ...a,
-            doctor_name: 'Dr. David Ross',
-            specialty: 'Cardiology & Internal Medicine Specialist',
-            doctor_picture: null,
+            doctor_name: doc?.name || a.doctor_name || 'Dr. David Ross',
+            specialty: doc?.specialty || a.specialty || 'Cardiology & Internal Medicine Specialist',
+            doctor_picture: doc?.picture || null,
           };
         });
         setPatientAppointments(enriched);
+      } else {
+        setPatientAppointments([]);
       }
     } catch (err) {
       console.warn('Error fetching patient appointments:', err);
@@ -135,7 +138,7 @@ export default function TelemedicinePage() {
 
         setActiveAppointments(appts || []);
       } else {
-        await fetchPatientAppointments(authUser.id, doctorsData || []);
+        await fetchPatientAppointments(authUser.id, doctorsData || finalDoctors);
       }
 
       setLoading(false);
@@ -202,10 +205,19 @@ export default function TelemedicinePage() {
 
   const cancelAppointment = async (apptId: string) => {
     try {
-      await supabase
+      setPatientAppointments(prev => prev.filter(a => a.id !== apptId));
+      const { error } = await supabase
         .from('appointments')
         .delete()
         .eq('id', apptId);
+
+      if (error) {
+        await supabase
+          .from('appointments')
+          .update({ status: 'ended' })
+          .eq('id', apptId);
+      }
+
       if (user) {
         fetchPatientAppointments(user.id, doctors);
       }
@@ -217,6 +229,7 @@ export default function TelemedicinePage() {
   const handleClearAllPatientAppointments = async () => {
     if (!user) return;
     try {
+      setPatientAppointments([]);
       const { error } = await supabase
         .from('appointments')
         .delete()
