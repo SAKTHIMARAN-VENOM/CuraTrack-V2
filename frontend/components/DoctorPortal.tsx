@@ -1196,21 +1196,124 @@ export default function DoctorPortal() {
               <div className="flex items-center justify-between">
                 <div>
                   <h2 className="font-headline font-bold text-2xl text-on-surface">Clinical Medical Records (EHR)</h2>
-                  <p className="text-xs text-tertiary">Interoperable FHIR health records repository</p>
+                  <p className="text-xs text-tertiary">Interoperable FHIR R4 health records repository & prescription ledger</p>
                 </div>
                 <button
-                  onClick={() => alert("✅ Clinical records exported to FHIR R4 JSON format!")}
-                  className="primary-gradient text-white px-4 py-2 rounded-xl text-xs font-bold hover:opacity-90 transition-opacity flex items-center gap-2"
+                  onClick={() => {
+                    const fhirBundle = {
+                      resourceType: "Bundle",
+                      type: "collection",
+                      timestamp: new Date().toISOString(),
+                      entry: registeredPatients.map(p => ({
+                        resource: {
+                          resourceType: "Patient",
+                          id: p.id,
+                          name: [{ text: p.name }],
+                          telecom: [{ system: "email", value: p.meta }],
+                          active: true
+                        }
+                      }))
+                    };
+                    const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(fhirBundle, null, 2));
+                    const downloadAnchor = document.createElement('a');
+                    downloadAnchor.setAttribute("href", dataStr);
+                    downloadAnchor.setAttribute("download", `CuraTrack_FHIR_Bundle_${Date.now()}.json`);
+                    document.body.appendChild(downloadAnchor);
+                    downloadAnchor.click();
+                    downloadAnchor.remove();
+                  }}
+                  className="primary-gradient text-white px-4 py-2 rounded-xl text-xs font-bold hover:opacity-90 transition-opacity flex items-center gap-2 cursor-pointer shadow-sm"
                 >
-                  <span className="material-symbols-outlined text-base">download</span> Export FHIR Bundle
+                  <span className="material-symbols-outlined text-base">download</span> Export FHIR Bundle (JSON)
                 </button>
               </div>
 
+              {/* Patient EHR Summary Explorer */}
+              <div className="bg-surface-container-lowest rounded-3xl p-6 shadow-sm border border-surface-container space-y-5">
+                <div className="flex justify-between items-center pb-4 border-b border-surface-container">
+                  <div>
+                    <h3 className="font-headline font-bold text-lg text-on-surface">Electronic Health Record (EHR) Summary</h3>
+                    <p className="text-xs text-tertiary">Select patient to view clinical chart & active medical history</p>
+                  </div>
+                  <button
+                    onClick={() => setShowPrescriptionModal(true)}
+                    className="bg-primary/10 text-primary text-xs font-bold px-3 py-1.5 rounded-xl hover:bg-primary/20 transition-colors flex items-center gap-1"
+                  >
+                    <span className="material-symbols-outlined text-sm">edit_note</span> Issue E-Prescription
+                  </button>
+                </div>
+
+                {/* Patient Selector Tabs */}
+                <div className="flex gap-2 overflow-x-auto pb-2">
+                  {registeredPatients.length === 0 ? (
+                    <span className="text-xs text-tertiary">No registered patient charts found.</span>
+                  ) : (
+                    registeredPatients.map(p => (
+                      <button
+                        key={p.id}
+                        onClick={() => {
+                          setRealPatientData({ id: p.id, name: p.name, email: p.meta });
+                          setSelectedPatientId(p.id);
+                        }}
+                        className={`px-4 py-2 rounded-xl text-xs font-bold transition-all shrink-0 border ${
+                          selectedPatient?.id === p.id
+                            ? 'bg-primary text-white border-primary shadow-sm'
+                            : 'bg-surface-container-low text-on-surface hover:bg-surface-container border-transparent'
+                        }`}
+                      >
+                        {p.name}
+                      </button>
+                    ))
+                  )}
+                </div>
+
+                {/* Active Patient EHR Sheet */}
+                <div className="bg-surface-container-low rounded-2xl p-6 space-y-6">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-4">
+                      <div className="w-14 h-14 rounded-2xl bg-primary/10 text-primary flex items-center justify-center font-bold text-xl">
+                        {selectedPatient.name.charAt(0).toUpperCase()}
+                      </div>
+                      <div>
+                        <h4 className="font-headline font-bold text-lg text-on-surface">{selectedPatient.name}</h4>
+                        <p className="text-xs text-tertiary">{selectedPatient.meta}</p>
+                      </div>
+                    </div>
+                    <span className="text-xs font-bold bg-green-500/10 text-green-700 px-3 py-1 rounded-full">
+                      ● Active Chart
+                    </span>
+                  </div>
+
+                  {/* Vitals Grid */}
+                  <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                    <div className="bg-white p-4 rounded-xl border border-surface-container">
+                      <p className="text-[11px] font-bold text-tertiary uppercase">Blood Pressure</p>
+                      <p className="font-headline text-lg font-bold text-on-surface mt-1">{selectedPatient.vitals?.bp || '120/80'}</p>
+                    </div>
+                    <div className="bg-white p-4 rounded-xl border border-surface-container">
+                      <p className="text-[11px] font-bold text-tertiary uppercase">Heart Rate</p>
+                      <p className="font-headline text-lg font-bold text-on-surface mt-1">{selectedPatient.vitals?.hr || '72 bpm'}</p>
+                    </div>
+                    <div className="bg-white p-4 rounded-xl border border-surface-container">
+                      <p className="text-[11px] font-bold text-tertiary uppercase">Blood Oxygen</p>
+                      <p className="font-headline text-lg font-bold text-on-surface mt-1">{selectedPatient.vitals?.spo2 || '98%'}</p>
+                    </div>
+                    <div className="bg-white p-4 rounded-xl border border-surface-container">
+                      <p className="text-[11px] font-bold text-tertiary uppercase">Weight</p>
+                      <p className="font-headline text-lg font-bold text-on-surface mt-1">{selectedPatient.vitals?.weight || '145 lbs'}</p>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Prescription History Section */}
               <div className="bg-surface-container-lowest rounded-3xl p-6 shadow-sm border border-surface-container space-y-4">
                 <h3 className="font-headline font-bold text-base text-on-surface">Prescription History ({prescriptionsList.length})</h3>
                 <div className="space-y-3">
                   {prescriptionsList.length === 0 ? (
-                    <p className="text-xs text-tertiary p-4">No e-prescriptions issued yet. Click "Prescribe" on any patient card to issue a digital prescription.</p>
+                    <div className="p-6 bg-surface-container-low rounded-2xl text-center text-xs text-tertiary border border-surface-container">
+                      No e-prescriptions issued yet. Click "Issue E-Prescription" above or on any patient card to create a digital rx.
+                    </div>
                   ) : (
                     prescriptionsList.map((rx, rIdx) => (
                       <div key={rIdx} className="p-4 bg-surface-container-low rounded-2xl flex items-center justify-between">
