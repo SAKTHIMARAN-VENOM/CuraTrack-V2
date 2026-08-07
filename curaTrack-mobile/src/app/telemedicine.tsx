@@ -218,6 +218,27 @@ export default function TelemedicineHubScreen() {
       setIsBooking(false);
     }
   };
+  const handleClearMobileAppointments = async () => {
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+
+      const { error } = await supabase
+        .from('appointments')
+        .delete()
+        .eq('client_id', user.id);
+
+      if (error) {
+        await supabase
+          .from('appointments')
+          .update({ status: 'ended' })
+          .eq('client_id', user.id);
+      }
+      setPatientAppointments([]);
+    } catch (err) {
+      console.warn('Error clearing mobile appointments:', err);
+    }
+  };
 
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: theme.background }]}>
@@ -264,7 +285,12 @@ export default function TelemedicineHubScreen() {
         {/* Scheduled Consultations for Patient */}
         {patientAppointments.length > 0 && (
           <View style={{ gap: 12 }}>
-            <Text style={[styles.sectionHeader, { color: theme.text }]}>📅 Your Scheduled Consultations</Text>
+            <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+              <Text style={[styles.sectionHeader, { color: theme.text }]}>📅 Your Scheduled Consultations</Text>
+              <TouchableOpacity onPress={handleClearMobileAppointments}>
+                <Text style={{ color: '#DC2626', fontWeight: '700', fontSize: 12 }}>Clear All</Text>
+              </TouchableOpacity>
+            </View>
             {patientAppointments.map((appt) => {
               const schedDate = appt.scheduled_time ? new Date(appt.scheduled_time) : null;
               const dateStr = schedDate ? schedDate.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' }) : 'Scheduled';

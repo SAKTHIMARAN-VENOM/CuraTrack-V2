@@ -214,6 +214,26 @@ export default function TelemedicinePage() {
     }
   };
 
+  const handleClearAllPatientAppointments = async () => {
+    if (!user) return;
+    try {
+      const { error } = await supabase
+        .from('appointments')
+        .delete()
+        .eq('client_id', user.id);
+
+      if (error) {
+        await supabase
+          .from('appointments')
+          .update({ status: 'ended' })
+          .eq('client_id', user.id);
+      }
+      setPatientAppointments([]);
+    } catch (err) {
+      console.warn('Error clearing patient appointments:', err);
+    }
+  };
+
   const isDoctor = profile?.role === 'doctor';
   const availableDoctors = doctors.length;
   const activeRequests = activeAppointments.length;
@@ -589,15 +609,7 @@ export default function TelemedicinePage() {
                     {patientAppointments.length} Booked
                   </div>
                   <button
-                    onClick={async () => {
-                      if (!user) return;
-                      try {
-                        await supabase.from('appointments').delete().eq('client_id', user.id);
-                        setPatientAppointments([]);
-                      } catch (err) {
-                        console.warn('Error clearing appointments:', err);
-                      }
-                    }}
+                    onClick={handleClearAllPatientAppointments}
                     className="px-4 py-2 rounded-2xl bg-error-container/20 text-error hover:bg-error-container/40 text-xs font-extrabold transition-colors cursor-pointer"
                   >
                     Clear All
