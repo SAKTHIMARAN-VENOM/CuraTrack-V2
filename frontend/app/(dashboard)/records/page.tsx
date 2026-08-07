@@ -32,7 +32,7 @@ export default function HealthRecordsPage() {
   const [isOffline, setIsOffline] = useState<boolean>(false);
 
   useEffect(() => {
-    // 1. Check logged-in user and fetch data from Supabase
+    // 1. Check logged-in user and fetch user-scoped data from Supabase
     const loadSupabaseData = async () => {
       try {
         const supabase = createClient();
@@ -40,7 +40,7 @@ export default function HealthRecordsPage() {
         if (user) {
           setUserId(user.id);
 
-          // Fetch medications
+          // Fetch user-scoped medications
           const { data: dbMeds } = await supabase.from('medications').select('*').eq('patient_id', user.id);
           if (dbMeds && dbMeds.length > 0) {
             const mapped = dbMeds.map((m: any) => ({
@@ -55,52 +55,34 @@ export default function HealthRecordsPage() {
               isError: false,
             }));
             setActiveMedications(mapped);
-            offlineStorage.saveMedications(mapped);
+            offlineStorage.saveMedications(mapped, user.id);
+          } else {
+            // Check offline storage for this specific user
+            const cachedMeds = offlineStorage.getMedications(user.id);
+            setActiveMedications(cachedMeds || []);
           }
 
-          // Fetch prescriptions
+          // Fetch user-scoped prescriptions
           const { data: dbRx } = await supabase.from('prescriptions').select('*').eq('patient_id', user.id);
-          if (dbRx && dbRx.length > 0) {
-            setUserPrescriptions(dbRx);
-          }
+          setUserPrescriptions(dbRx || []);
 
-          // Fetch doctor notes
+          // Fetch user-scoped doctor notes
           const { data: dbNotes } = await supabase.from('doctor_notes').select('*').eq('patient_id', user.id);
-          if (dbNotes && dbNotes.length > 0) {
-            setUserNotes(dbNotes);
-          }
+          setUserNotes(dbNotes || []);
 
-          // Fetch lab reports
+          // Fetch user-scoped lab reports
           const { data: dbLabs } = await supabase.from('lab_results').select('*').eq('patient_id', user.id);
-          if (dbLabs && dbLabs.length > 0) {
-            setUserLabReports(dbLabs);
-          }
+          setUserLabReports(dbLabs || []);
+        } else {
+          // Unauthenticated demo fallback
+          const cachedMeds = offlineStorage.getMedications();
+          setActiveMedications(cachedMeds.length > 0 ? cachedMeds : DEFAULT_MEDICATIONS);
         }
       } catch (e) {
         console.warn('Could not load records from Supabase:', e);
       }
     };
     loadSupabaseData();
-
-    // Hydrate medications from offlineStorage fallback
-    const cachedMeds = offlineStorage.getMedications();
-    if (cachedMeds && cachedMeds.length > 0) {
-      setActiveMedications(prev => prev.length > 0 ? prev : cachedMeds);
-    } else {
-      setActiveMedications(prev => prev.length > 0 ? prev : DEFAULT_MEDICATIONS);
-      offlineStorage.saveMedications(DEFAULT_MEDICATIONS);
-    }
-
-    // Hydrate doctor-issued e-prescriptions into patient health records
-    try {
-      const savedRx = localStorage.getItem('curatrack_prescriptions');
-      if (savedRx) {
-        const parsedRx = JSON.parse(savedRx);
-        setUserPrescriptions(prev => prev.length > 0 ? prev : parsedRx);
-      }
-    } catch (err) {
-      console.warn('Could not load doctor e-prescriptions:', err);
-    }
 
     if (!offlineStorage.isOnline()) {
       setIsOffline(true);
@@ -206,7 +188,7 @@ export default function HealthRecordsPage() {
       }));
       setActiveMedications(prev => {
         const updated = [...newActiveMeds, ...prev];
-        offlineStorage.saveMedications(updated);
+        offlineStorage.saveMedications(updated, userId);
         return updated;
       });
 

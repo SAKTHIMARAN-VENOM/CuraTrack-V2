@@ -103,19 +103,21 @@ export const offlineStorage = {
   },
 
   // --- Medication Tracker Caching ---
-  saveMedications: (meds: any[]) => {
+  saveMedications: (meds: any[], userId?: string) => {
     if (typeof window === 'undefined') return;
     try {
-      localStorage.setItem(STORAGE_KEYS.MEDICATIONS, JSON.stringify(meds));
+      const key = userId ? `${STORAGE_KEYS.MEDICATIONS}_${userId}` : STORAGE_KEYS.MEDICATIONS;
+      localStorage.setItem(key, JSON.stringify(meds));
     } catch (e) {
       console.warn('Failed to save medications offline:', e);
     }
   },
 
-  getMedications: (): any[] => {
+  getMedications: (userId?: string): any[] => {
     if (typeof window === 'undefined') return [];
     try {
-      const data = localStorage.getItem(STORAGE_KEYS.MEDICATIONS);
+      const key = userId ? `${STORAGE_KEYS.MEDICATIONS}_${userId}` : STORAGE_KEYS.MEDICATIONS;
+      const data = localStorage.getItem(key);
       return data ? JSON.parse(data) : [];
     } catch (e) {
       return [];

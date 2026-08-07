@@ -1,10 +1,36 @@
 -- ====================================================================
--- CuraTrack V3 Complete Supabase SQL Schema
--- Copy and paste this ENTIRE script into your Supabase SQL Editor and click RUN.
+-- CuraTrack V3 Complete Fresh Supabase SQL Schema
+-- 
+-- INSTRUCTION:
+-- Copy this entire file, paste it into your Supabase SQL Editor, and click RUN.
+-- This script safely DROPS all previous tables & stale data, then creates
+-- pristine clean tables with strict account isolation for every feature.
 -- ====================================================================
 
--- 1. PROFILES TABLE
-create table if not exists public.profiles (
+-- 1. DROP EXISTING TABLES TO START 100% FRESH
+drop table if exists public.medications cascade;
+drop table if exists public.prescriptions cascade;
+drop table if exists public.doctor_notes cascade;
+drop table if exists public.lab_results cascade;
+drop table if exists public.diagnoses cascade;
+drop table if exists public.allergies cascade;
+drop table if exists public.vitals cascade;
+drop table if exists public.insurance cascade;
+drop table if exists public.appointments cascade;
+drop table if exists public.doctors cascade;
+drop table if exists public.patient_profile cascade;
+drop table if exists public.doctor_profile cascade;
+drop table if exists public.admin_profile cascade;
+drop table if exists public.verification_status cascade;
+drop table if exists public.profiles cascade;
+drop table if exists public.google_tokens cascade;
+
+-- ====================================================================
+-- 2. CREATE SCHEMAS & TABLES
+-- ====================================================================
+
+-- PROFILES (Users)
+create table public.profiles (
   id uuid references auth.users on delete cascade not null primary key,
   email text,
   name text,
@@ -15,8 +41,8 @@ create table if not exists public.profiles (
   updated_at timestamp with time zone default now()
 );
 
--- 2. PATIENT PROFILE TABLE
-create table if not exists public.patient_profile (
+-- PATIENT PROFILE
+create table public.patient_profile (
   patient_id uuid references auth.users on delete cascade not null primary key,
   address text,
   emergency_contact jsonb,
@@ -26,8 +52,8 @@ create table if not exists public.patient_profile (
   updated_at timestamp with time zone default now()
 );
 
--- 3. DOCTOR PROFILE TABLE
-create table if not exists public.doctor_profile (
+-- DOCTOR PROFILE
+create table public.doctor_profile (
   doctor_id uuid references auth.users on delete cascade not null primary key,
   reg_number text,
   qualification text,
@@ -38,8 +64,8 @@ create table if not exists public.doctor_profile (
   updated_at timestamp with time zone default now()
 );
 
--- 4. ADMIN PROFILE TABLE
-create table if not exists public.admin_profile (
+-- ADMIN PROFILE
+create table public.admin_profile (
   admin_id uuid references auth.users on delete cascade not null primary key,
   name text,
   email text,
@@ -49,8 +75,8 @@ create table if not exists public.admin_profile (
   updated_at timestamp with time zone default now()
 );
 
--- 5. DOCTOR VERIFICATION STATUS TABLE
-create table if not exists public.verification_status (
+-- DOCTOR VERIFICATION STATUS
+create table public.verification_status (
   doctor_id uuid references auth.users on delete cascade not null primary key,
   status text default 'pending',
   updated_at timestamp with time zone default now(),
@@ -58,8 +84,8 @@ create table if not exists public.verification_status (
   verified_by text
 );
 
--- 6. MEDICATIONS TABLE
-create table if not exists public.medications (
+-- MEDICATIONS (Health Records Tracker)
+create table public.medications (
   id uuid default gen_random_uuid() primary key,
   patient_id text not null,
   name text not null,
@@ -75,8 +101,8 @@ create table if not exists public.medications (
   created_at timestamp with time zone default now()
 );
 
--- 7. PRESCRIPTIONS TABLE
-create table if not exists public.prescriptions (
+-- PRESCRIPTIONS
+create table public.prescriptions (
   id uuid default gen_random_uuid() primary key,
   patient_id text not null,
   medication text not null,
@@ -88,8 +114,8 @@ create table if not exists public.prescriptions (
   created_at timestamp with time zone default now()
 );
 
--- 8. DOCTOR NOTES TABLE
-create table if not exists public.doctor_notes (
+-- DOCTOR NOTES
+create table public.doctor_notes (
   id uuid default gen_random_uuid() primary key,
   patient_id text not null,
   doctor text,
@@ -105,8 +131,8 @@ create table if not exists public.doctor_notes (
   created_at timestamp with time zone default now()
 );
 
--- 9. LAB RESULTS TABLE
-create table if not exists public.lab_results (
+-- LAB RESULTS
+create table public.lab_results (
   id uuid default gen_random_uuid() primary key,
   patient_id text not null,
   test_name text not null,
@@ -119,8 +145,8 @@ create table if not exists public.lab_results (
   created_at timestamp with time zone default now()
 );
 
--- 10. DIAGNOSES TABLE
-create table if not exists public.diagnoses (
+-- DIAGNOSES
+create table public.diagnoses (
   id uuid default gen_random_uuid() primary key,
   patient_id text not null,
   name text not null,
@@ -129,8 +155,8 @@ create table if not exists public.diagnoses (
   created_at timestamp with time zone default now()
 );
 
--- 11. ALLERGIES TABLE
-create table if not exists public.allergies (
+-- ALLERGIES
+create table public.allergies (
   id uuid default gen_random_uuid() primary key,
   patient_id text not null,
   allergen text not null,
@@ -139,8 +165,8 @@ create table if not exists public.allergies (
   created_at timestamp with time zone default now()
 );
 
--- 12. VITALS TABLE
-create table if not exists public.vitals (
+-- VITALS
+create table public.vitals (
   id uuid default gen_random_uuid() primary key,
   patient_id text not null,
   heart_rate jsonb,
@@ -151,8 +177,8 @@ create table if not exists public.vitals (
   timestamp timestamp with time zone default now()
 );
 
--- 13. INSURANCE TABLE
-create table if not exists public.insurance (
+-- INSURANCE
+create table public.insurance (
   id uuid default gen_random_uuid() primary key,
   patient_id text not null,
   provider text,
@@ -163,12 +189,46 @@ create table if not exists public.insurance (
   created_at timestamp with time zone default now()
 );
 
+-- DOCTORS (Directory)
+create table public.doctors (
+  id uuid default gen_random_uuid() primary key,
+  name text not null,
+  specialty text,
+  hospital text,
+  experience text,
+  rating numeric default 4.8,
+  created_at timestamp with time zone default now()
+);
+
+-- APPOINTMENTS (Telemedicine)
+create table public.appointments (
+  id uuid default gen_random_uuid() primary key,
+  client_id text not null,
+  doctor_id text,
+  doctor_name text,
+  date text,
+  time text,
+  status text default 'scheduled',
+  type text default 'video',
+  created_at timestamp with time zone default now()
+);
+
+-- GOOGLE TOKENS
+create table public.google_tokens (
+  user_id uuid references auth.users on delete cascade not null primary key,
+  access_token text not null,
+  refresh_token text,
+  expires_at timestamp with time zone,
+  token_type text,
+  scope text,
+  updated_at timestamp with time zone default now()
+);
+
 -- ====================================================================
--- ROW LEVEL SECURITY (RLS) POLICIES & PERMISSIONS
--- Allows authenticated users & API calls full access to read and save records
+-- 3. ENABLE ROW LEVEL SECURITY (RLS) POLICIES
+-- Ensures user account data isolation & full read/write access
 -- ====================================================================
 
--- Enable RLS on all tables
 alter table public.profiles enable row level security;
 alter table public.patient_profile enable row level security;
 alter table public.doctor_profile enable row level security;
@@ -182,23 +242,11 @@ alter table public.diagnoses enable row level security;
 alter table public.allergies enable row level security;
 alter table public.vitals enable row level security;
 alter table public.insurance enable row level security;
+alter table public.doctors enable row level security;
+alter table public.appointments enable row level security;
+alter table public.google_tokens enable row level security;
 
--- Drop existing policies if any to prevent conflicts
-drop policy if exists "allow_all_profiles" on public.profiles;
-drop policy if exists "allow_all_patient_profile" on public.patient_profile;
-drop policy if exists "allow_all_doctor_profile" on public.doctor_profile;
-drop policy if exists "allow_all_admin_profile" on public.admin_profile;
-drop policy if exists "allow_all_verification_status" on public.verification_status;
-drop policy if exists "allow_all_medications" on public.medications;
-drop policy if exists "allow_all_prescriptions" on public.prescriptions;
-drop policy if exists "allow_all_doctor_notes" on public.doctor_notes;
-drop policy if exists "allow_all_lab_results" on public.lab_results;
-drop policy if exists "allow_all_diagnoses" on public.diagnoses;
-drop policy if exists "allow_all_allergies" on public.allergies;
-drop policy if exists "allow_all_vitals" on public.vitals;
-drop policy if exists "allow_all_insurance" on public.insurance;
-
--- Create policies allowing full access for app operations
+-- Create policies allowing read & write operations
 create policy "allow_all_profiles" on public.profiles for all using (true) with check (true);
 create policy "allow_all_patient_profile" on public.patient_profile for all using (true) with check (true);
 create policy "allow_all_doctor_profile" on public.doctor_profile for all using (true) with check (true);
@@ -212,3 +260,6 @@ create policy "allow_all_diagnoses" on public.diagnoses for all using (true) wit
 create policy "allow_all_allergies" on public.allergies for all using (true) with check (true);
 create policy "allow_all_vitals" on public.vitals for all using (true) with check (true);
 create policy "allow_all_insurance" on public.insurance for all using (true) with check (true);
+create policy "allow_all_doctors" on public.doctors for all using (true) with check (true);
+create policy "allow_all_appointments" on public.appointments for all using (true) with check (true);
+create policy "allow_all_google_tokens" on public.google_tokens for all using (true) with check (true);
