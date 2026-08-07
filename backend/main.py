@@ -8,6 +8,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from routes import insurance, government, health_news, health_risks, qr
 from routes import passport, ingest, activity, insights, ocr, onboarding
+from routes import google_fit_auth, drug_checker, sdoh, vitals_alerts
 from services.ocr_service import validate_tesseract_on_startup
 
 app = FastAPI(title="CuraTrack API", version="2.0.0")
@@ -44,6 +45,10 @@ app.include_router(activity.router, prefix="/api", tags=["Activity & Fit"])
 app.include_router(insights.router, prefix="/api", tags=["AI Health Insights"])
 app.include_router(ocr.router, prefix="/api", tags=["OCR Extraction"])
 app.include_router(onboarding.router, prefix="/api", tags=["Role Onboarding"])
+app.include_router(google_fit_auth.router, prefix="/api", tags=["Google Fit Auth"])
+app.include_router(drug_checker.router, prefix="/api", tags=["Drug Checker"])
+app.include_router(sdoh.router, prefix="/api", tags=["SDOH Assessment"])
+app.include_router(vitals_alerts.router, prefix="/api", tags=["Vitals Alerts"])
 
 @app.get("/")
 def read_root():
