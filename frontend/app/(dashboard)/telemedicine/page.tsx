@@ -221,18 +221,20 @@ export default function TelemedicinePage() {
 
   const cancelAppointment = async (apptId: string) => {
     try {
+      // 1. Optimistic UI update
       setPatientAppointments(prev => prev.filter(a => a.id !== apptId));
-      const { error } = await supabase
+
+      // 2. Mark status as ended in Supabase (bypasses RLS delete restrictions)
+      await supabase
+        .from('appointments')
+        .update({ status: 'ended' })
+        .eq('id', apptId);
+
+      // 3. Attempt physical delete
+      await supabase
         .from('appointments')
         .delete()
         .eq('id', apptId);
-
-      if (error) {
-        await supabase
-          .from('appointments')
-          .update({ status: 'ended' })
-          .eq('id', apptId);
-      }
 
       if (user) {
         fetchPatientAppointments(user.id, doctors);
@@ -245,18 +247,21 @@ export default function TelemedicinePage() {
   const handleClearAllPatientAppointments = async () => {
     if (!user) return;
     try {
+      // 1. Optimistic UI update
       setPatientAppointments([]);
-      const { error } = await supabase
+
+      // 2. Mark all user appointments as ended in Supabase
+      await supabase
+        .from('appointments')
+        .update({ status: 'ended' })
+        .eq('client_id', user.id);
+
+      // 3. Attempt physical delete
+      await supabase
         .from('appointments')
         .delete()
         .eq('client_id', user.id);
 
-      if (error) {
-        await supabase
-          .from('appointments')
-          .update({ status: 'ended' })
-          .eq('client_id', user.id);
-      }
       setPatientAppointments([]);
     } catch (err) {
       console.warn('Error clearing patient appointments:', err);
@@ -273,6 +278,13 @@ export default function TelemedicinePage() {
     if (!user) return;
 
     setBookingDoctorId(doctorId);
+
+    // Reuse existing active room if already booked with doctor
+    const existing = patientAppointments.find(a => a.doctor_id === doctorId && a.status === 'active');
+    if (existing && existing.room_id) {
+      router.push(`/call/${existing.room_id}`);
+      return;
+    }
 
     const roomId = crypto.randomUUID();
     const { error } = await supabase.from('appointments').insert({
