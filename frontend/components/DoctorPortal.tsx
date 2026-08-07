@@ -952,9 +952,9 @@ export default function DoctorPortal() {
                     <div className="w-11 h-11 rounded-xl bg-primary/10 flex items-center justify-center">
                       <span className="material-symbols-outlined fill-icon text-primary">group</span>
                     </div>
-                    <span className="text-xs font-bold text-secondary bg-secondary-container px-2 py-0.5 rounded-full">+2 today</span>
+                    <span className="text-xs font-bold text-secondary bg-secondary-container px-2 py-0.5 rounded-full">+ live</span>
                   </div>
-                  <p className="font-headline text-3xl font-extrabold text-on-surface">8</p>
+                  <p className="font-headline text-3xl font-extrabold text-on-surface">{registeredPatients.length}</p>
                   <p className="text-xs text-tertiary mt-1 font-semibold">Patients Today</p>
                 </div>
 
@@ -963,10 +963,12 @@ export default function DoctorPortal() {
                     <div className="w-11 h-11 rounded-xl bg-secondary/10 flex items-center justify-center">
                       <span className="material-symbols-outlined fill-icon text-secondary">check_circle</span>
                     </div>
-                    <span className="text-xs font-bold text-primary bg-primary-fixed px-2 py-0.5 rounded-full">92%</span>
+                    <span className="text-xs font-bold text-primary bg-primary-fixed px-2 py-0.5 rounded-full">100%</span>
                   </div>
-                  <p className="font-headline text-3xl font-extrabold text-on-surface">3</p>
-                  <p className="text-xs text-tertiary mt-1 font-semibold">Completed Today</p>
+                  <p className="font-headline text-3xl font-extrabold text-on-surface">
+                    {registeredPatients.filter(p => p.status === 'Active' || p.status === 'Appointment Booked').length}
+                  </p>
+                  <p className="text-xs text-tertiary mt-1 font-semibold">Active Bookings</p>
                 </div>
 
                 <div className="bg-surface-container-lowest rounded-2xl p-6 shadow-[0_4px_24px_-4px_rgba(25,28,29,0.05)] hover:shadow-lg transition-all">
@@ -974,9 +976,11 @@ export default function DoctorPortal() {
                     <div className="w-11 h-11 rounded-xl bg-error/10 flex items-center justify-center">
                       <span className="material-symbols-outlined fill-icon text-error">warning</span>
                     </div>
-                    <span className="text-xs font-bold text-error bg-error-container px-2 py-0.5 rounded-full">Urgent</span>
+                    <span className="text-xs font-bold text-error bg-error-container px-2 py-0.5 rounded-full">Live</span>
                   </div>
-                  <p className="font-headline text-3xl font-extrabold text-on-surface">2</p>
+                  <p className="font-headline text-3xl font-extrabold text-on-surface">
+                    {registeredPatients.filter(p => p.isPriority).length}
+                  </p>
                   <p className="text-xs text-tertiary mt-1 font-semibold">Critical Alerts</p>
                 </div>
 
@@ -986,7 +990,7 @@ export default function DoctorPortal() {
                       <span className="material-symbols-outlined fill-icon text-primary">history</span>
                     </div>
                   </div>
-                  <p className="font-headline text-3xl font-extrabold text-on-surface">127</p>
+                  <p className="font-headline text-3xl font-extrabold text-on-surface">{registeredPatients.length}</p>
                   <p className="text-xs text-tertiary mt-1 font-semibold">Patients This Month</p>
                 </div>
               </div>
@@ -1005,66 +1009,28 @@ export default function DoctorPortal() {
                     </button>
                   </div>
                   <div className="space-y-3">
-                    <div className="flex items-center gap-4 p-4 bg-primary/5 rounded-xl border-l-4 border-primary">
-                      <div className="text-center w-14 shrink-0">
-                        <p className="text-xs text-tertiary font-bold">09:00</p>
-                        <p className="text-[10px] text-primary font-bold">ACTIVE</p>
-                      </div>
-                      <img
-                        src="https://lh3.googleusercontent.com/aida-public/AB6AXuDCj9o_UDGxKFcKLMIjml0dU6q3Xobb-ueTMaR832uTseMKdm-v6d8kxFrYfDtIq-1tGyMn7kMnzdqYm6Pifw17pStqf3qJtPGQCY_6PUey0M4a22u8KEldKinYEQn33tRCFRmM4YLKGp7HFDMlERNqbbUfGdMWWBHQNh95W4SdhfNX9ZwRMHiEUkGF0Te_q4KPja0C777L0QYMKF-fQ2-sA39f1oGGKYtcqk5g-Ud_DnrHxk2n4GIe2bacrYSt5XME4RHwn3RpG6k"
-                        className="w-9 h-9 rounded-full object-cover shrink-0"
-                        alt="Elena"
-                      />
-                      <div className="flex-1">
-                        <p className="font-headline font-bold text-on-surface text-sm">Elena Rodriguez</p>
-                        <p className="text-xs text-tertiary">Follow-up · F, 34</p>
-                      </div>
-                      <span className="text-[10px] font-bold bg-secondary-container text-on-secondary-container px-2 py-0.5 rounded-full">
-                        Follow-up
-                      </span>
-                    </div>
-
-                    <div className="flex items-center gap-4 p-4 bg-surface-container-low rounded-xl">
-                      <div className="text-center w-14 shrink-0">
-                        <p className="text-xs text-tertiary font-bold">09:30</p>
-                      </div>
-                      <div className="w-9 h-9 rounded-full bg-surface-container flex items-center justify-center shrink-0">
-                        <span className="material-symbols-outlined text-tertiary fill-icon text-sm">person</span>
-                      </div>
-                      <div className="flex-1">
-                        <p className="font-headline font-bold text-on-surface text-sm">Marcus Chen</p>
-                        <p className="text-xs text-tertiary">Cardiology Consult · M, 58</p>
-                      </div>
-                    </div>
-
-                    <div className="flex items-center gap-4 p-4 bg-surface-container-low rounded-xl">
-                      <div className="text-center w-14 shrink-0">
-                        <p className="text-xs text-tertiary font-bold">10:15</p>
-                      </div>
-                      <div className="w-9 h-9 rounded-full bg-surface-container flex items-center justify-center shrink-0">
-                        <span className="material-symbols-outlined text-tertiary fill-icon text-sm">person</span>
-                      </div>
-                      <div className="flex-1">
-                        <p className="font-headline font-bold text-on-surface text-sm">Sarah Jenkins</p>
-                        <p className="text-xs text-tertiary">Post-Op Review · F, 45</p>
-                      </div>
-                    </div>
-
-                    <div className="flex items-center gap-4 p-4 bg-error-container/30 rounded-xl border-l-4 border-error">
-                      <div className="text-center w-14 shrink-0">
-                        <p className="text-xs text-tertiary font-bold">02:15</p>
-                      </div>
-                      <div className="w-9 h-9 rounded-full bg-error-container flex items-center justify-center shrink-0">
-                        <span className="material-symbols-outlined text-error fill-icon text-sm">priority_high</span>
-                      </div>
-                      <div className="flex-1">
-                        <p className="font-headline font-bold text-on-surface text-sm">Amara Diallo</p>
-                        <p className="text-xs text-tertiary">Prenatal Check · Priority</p>
-                      </div>
-                      <span className="text-[10px] font-bold bg-error-container text-error px-2 py-0.5 rounded-full">
-                        Urgent
-                      </span>
-                    </div>
+                    {registeredPatients.length === 0 ? (
+                      <p className="text-xs text-tertiary p-4">No registered patient bookings yet.</p>
+                    ) : (
+                      registeredPatients.slice(0, 4).map((p, idx) => (
+                        <div key={p.id} className="flex items-center gap-4 p-4 bg-primary/5 rounded-xl border-l-4 border-primary">
+                          <div className="text-center w-14 shrink-0">
+                            <p className="text-xs text-tertiary font-bold">{`09:${(idx * 30).toString().padStart(2, '0')}`}</p>
+                            <p className="text-[10px] text-primary font-bold">{p.status === 'Active' ? 'ACTIVE' : 'QUEUED'}</p>
+                          </div>
+                          <div className="w-9 h-9 rounded-full bg-primary/10 text-primary flex items-center justify-center font-bold shrink-0">
+                            {p.name.charAt(0).toUpperCase()}
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <p className="font-headline font-bold text-on-surface text-sm truncate">{p.name}</p>
+                            <p className="text-xs text-tertiary truncate">{p.meta}</p>
+                          </div>
+                          <span className="text-[10px] font-bold bg-secondary-container text-on-secondary-container px-2 py-0.5 rounded-full shrink-0">
+                            {p.status || 'Active'}
+                          </span>
+                        </div>
+                      ))
+                    )}
                   </div>
                 </div>
 
@@ -1305,48 +1271,26 @@ export default function DoctorPortal() {
               </div>
 
               <div className="bg-surface-container-lowest rounded-3xl p-6 shadow-sm border border-surface-container space-y-4">
-                <h3 className="font-headline font-bold text-base text-on-surface">Prescription History ({prescriptionsList.length + 2})</h3>
+                <h3 className="font-headline font-bold text-base text-on-surface">Prescription History ({prescriptionsList.length})</h3>
                 <div className="space-y-3">
-                  <div className="p-4 bg-surface-container-low rounded-2xl flex items-center justify-between">
-                    <div className="flex items-center gap-3">
-                      <div className="w-10 h-10 rounded-xl bg-primary/10 text-primary flex items-center justify-center font-bold">
-                        <span className="material-symbols-outlined">pill</span>
-                      </div>
-                      <div>
-                        <p className="text-sm font-bold text-on-surface">Amoxicillin 500mg — Elena Rodriguez</p>
-                        <p className="text-xs text-tertiary">Issued Oct 20, 2025 · 3 times daily for 7 days</p>
-                      </div>
-                    </div>
-                    <span className="text-xs font-bold bg-green-500/10 text-green-700 px-3 py-1 rounded-full">Active</span>
-                  </div>
-
-                  <div className="p-4 bg-surface-container-low rounded-2xl flex items-center justify-between">
-                    <div className="flex items-center gap-3">
-                      <div className="w-10 h-10 rounded-xl bg-secondary/10 text-secondary flex items-center justify-center font-bold">
-                        <span className="material-symbols-outlined">pill</span>
-                      </div>
-                      <div>
-                        <p className="text-sm font-bold text-on-surface">Atorvastatin 20mg — Marcus Chen</p>
-                        <p className="text-xs text-tertiary">Issued Oct 15, 2025 · Once daily at bedtime</p>
-                      </div>
-                    </div>
-                    <span className="text-xs font-bold bg-green-500/10 text-green-700 px-3 py-1 rounded-full">Active</span>
-                  </div>
-
-                  {prescriptionsList.map((rx, rIdx) => (
-                    <div key={rIdx} className="p-4 bg-surface-container-low rounded-2xl flex items-center justify-between">
-                      <div className="flex items-center gap-3">
-                        <div className="w-10 h-10 rounded-xl bg-primary/10 text-primary flex items-center justify-center font-bold">
-                          <span className="material-symbols-outlined">pill</span>
+                  {prescriptionsList.length === 0 ? (
+                    <p className="text-xs text-tertiary p-4">No e-prescriptions issued yet. Click "Prescribe" on any patient card to issue a digital prescription.</p>
+                  ) : (
+                    prescriptionsList.map((rx, rIdx) => (
+                      <div key={rIdx} className="p-4 bg-surface-container-low rounded-2xl flex items-center justify-between">
+                        <div className="flex items-center gap-3">
+                          <div className="w-10 h-10 rounded-xl bg-primary/10 text-primary flex items-center justify-center font-bold">
+                            <span className="material-symbols-outlined">pill</span>
+                          </div>
+                          <div>
+                            <p className="text-sm font-bold text-on-surface">{rx.medication} ({rx.dosage}) — {rx.patientName}</p>
+                            <p className="text-xs text-tertiary">{rx.date} · {rx.frequency}</p>
+                          </div>
                         </div>
-                        <div>
-                          <p className="text-sm font-bold text-on-surface">{rx.medication} ({rx.dosage}) — {rx.patientName}</p>
-                          <p className="text-xs text-tertiary">{rx.date} · {rx.frequency}</p>
-                        </div>
+                        <span className="text-xs font-bold bg-green-500/10 text-green-700 px-3 py-1 rounded-full">Issued</span>
                       </div>
-                      <span className="text-xs font-bold bg-green-500/10 text-green-700 px-3 py-1 rounded-full">Issued Just Now</span>
-                    </div>
-                  ))}
+                    ))
+                  )}
                 </div>
               </div>
             </div>
