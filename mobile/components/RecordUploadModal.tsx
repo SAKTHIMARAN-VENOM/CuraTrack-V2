@@ -33,17 +33,16 @@ export default function RecordUploadModal({ isOpen, onClose, onUploadSuccess }: 
     setOcrStatus("Processing with Tesseract OCR + RapidOCR & Llama 3.1...");
 
     try {
-      let res;
-      if (file) {
-        res = await ingestDocument(file);
-      } else {
-        const dummyFile = new File(["dummy prescription text"], "prescription.pdf", { type: "application/pdf" });
-        res = await ingestDocument(dummyFile);
+      if (!file) {
+        setOcrStatus("Please select a valid document file.");
+        setIsUploading(false);
+        return;
       }
+      let res = await ingestDocument(file);
 
       setOcrStatus("Confirming medications in Supabase record...");
       await confirmIngestion({
-        doc_name: docName || "Uploaded Prescription",
+        doc_name: docName || file.name,
         category,
         extracted_text: res.extracted_text,
         medications: res.medications,

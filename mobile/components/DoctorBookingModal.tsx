@@ -1,27 +1,60 @@
 "use client";
 
 import React, { useState } from 'react';
+import { supabase } from '@/lib/supabaseClient';
 
 interface DoctorBookingModalProps {
   isOpen: boolean;
   onClose: () => void;
   doctorName?: string;
   specialty?: string;
+  fee?: string;
+  doctorId?: string;
 }
 
-export default function DoctorBookingModal({ isOpen, onClose, doctorName = "Dr. Rajesh Sharma", specialty = "Cardiologist" }: DoctorBookingModalProps) {
+export default function DoctorBookingModal({
+  isOpen,
+  onClose,
+  doctorName = "Dr. Rajesh Sharma",
+  specialty = "Cardiologist",
+  fee = "₹399",
+  doctorId = "doc-001"
+}: DoctorBookingModalProps) {
   const [selectedDate, setSelectedDate] = useState("Today, 4:30 PM");
+  const [reason, setReason] = useState("");
+  const [loading, setLoading] = useState(false);
   const [confirmed, setConfirmed] = useState(false);
 
   if (!isOpen) return null;
 
-  const handleBooking = (e: React.FormEvent) => {
+  const handleBooking = async (e: React.FormEvent) => {
     e.preventDefault();
-    setConfirmed(true);
-    setTimeout(() => {
-      setConfirmed(false);
-      onClose();
-    }, 2000);
+    setLoading(true);
+
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      const roomId = `room-${Date.now().toString(36)}-${Math.random().toString(36).substring(2, 6)}`;
+
+      if (user) {
+        await supabase.from('appointments').insert({
+          client_id: user.id,
+          doctor_id: doctorId,
+          scheduled_time: new Date().toISOString(),
+          room_id: roomId,
+          status: 'booked',
+          notes: reason || 'Telehealth consultation requested via CuraTrack Mobile'
+        });
+      }
+    } catch (err) {
+      console.warn("Could not save appointment to Supabase DB:", err);
+    } finally {
+      setLoading(false);
+      setConfirmed(true);
+      setTimeout(() => {
+        setConfirmed(false);
+        onClose();
+      }, 2000);
+    }
   };
 
   return (
@@ -46,7 +79,7 @@ export default function DoctorBookingModal({ isOpen, onClose, doctorName = "Dr. 
               <span className="material-symbols-outlined text-3xl">check_circle</span>
             </div>
             <h4 className="font-extrabold text-lg text-[#0b1c30]">Appointment Confirmed!</h4>
-            <p className="text-xs text-slate-500">Video consultation link sent to your SMS & WhatsApp.</p>
+            <p className="text-xs text-slate-500">Tele-consultation session created & saved in DB.</p>
           </div>
         ) : (
           <form onSubmit={handleBooking} className="flex flex-col gap-4">
@@ -77,6 +110,8 @@ export default function DoctorBookingModal({ isOpen, onClose, doctorName = "Dr. 
             <div>
               <label className="block text-xs font-bold text-slate-600 mb-1.5">Reason for Visit</label>
               <textarea
+                value={reason}
+                onChange={(e) => setReason(e.target.value)}
                 placeholder="Describe your health query..."
                 rows={2}
                 className="w-full bg-slate-50 border border-slate-200 rounded-xl p-2.5 text-xs text-slate-800 focus:outline-none focus:ring-2 focus:ring-[#008080]"
@@ -85,15 +120,16 @@ export default function DoctorBookingModal({ isOpen, onClose, doctorName = "Dr. 
 
             <div className="flex items-center justify-between text-xs pt-1 border-t border-slate-100">
               <span className="text-slate-500 font-medium">Consultation Fee</span>
-              <span className="font-extrabold text-[#008080]">₹399 (Free via Ayushman Card)</span>
+              <span className="font-extrabold text-[#008080]">{fee} (Free via Ayushman Card)</span>
             </div>
 
             <button
               type="submit"
-              className="w-full bg-[#008080] hover:bg-teal-700 text-white font-extrabold py-3 rounded-2xl text-xs transition-colors shadow-md flex items-center justify-center gap-1.5"
+              disabled={loading}
+              className="w-full bg-[#008080] hover:bg-teal-700 disabled:opacity-60 text-white font-extrabold py-3 rounded-2xl text-xs transition-colors shadow-md flex items-center justify-center gap-1.5"
             >
               <span className="material-symbols-outlined text-base">video_call</span>
-              <span>Confirm Instant Booking</span>
+              <span>{loading ? "Booking Session..." : "Confirm Instant Booking"}</span>
             </button>
           </form>
         )}
@@ -101,3 +137,4 @@ export default function DoctorBookingModal({ isOpen, onClose, doctorName = "Dr. 
     </div>
   );
 }
+

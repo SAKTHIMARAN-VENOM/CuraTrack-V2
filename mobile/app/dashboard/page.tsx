@@ -52,7 +52,18 @@ export default function DashboardPage() {
       }
 
       if (insightRes.status === 'fulfilled' && insightRes.value) {
-        setAiNudge(insightRes.value.ai_nudge || (insightRes.value.insights ? insightRes.value.insights.join(" • ") : null));
+        const resVal = insightRes.value as any;
+        let nudgeStr = "";
+        if (typeof resVal.ai_nudge === 'string') {
+          nudgeStr = resVal.ai_nudge;
+        } else if (resVal.ai_nudge && typeof resVal.ai_nudge === 'object') {
+          nudgeStr = resVal.ai_nudge.summary || resVal.ai_nudge.text || resVal.ai_nudge.nudge || JSON.stringify(resVal.ai_nudge);
+        } else if (Array.isArray(resVal.insights) && resVal.insights.length > 0) {
+          nudgeStr = resVal.insights
+            .map((item: any) => (typeof item === 'string' ? item : (item.summary || item.text || item.title || item.nudge || 'Health vital updated')))
+            .join(" • ");
+        }
+        setAiNudge(nudgeStr || "Optimal activity detected. Maintain consistent hydration and regular movement throughout the day.");
       }
     } catch (err: any) {
       console.warn("Render Backend waking up or error:", err);

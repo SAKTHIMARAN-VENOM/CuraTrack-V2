@@ -11,34 +11,69 @@ export default function RecordsPage() {
   const [records, setRecords] = useState<any[]>([]);
 
   React.useEffect(() => {
-    try {
-      const saved = localStorage.getItem("curatrack_user_records");
-      if (saved) {
-        setRecords(JSON.parse(saved));
-      } else {
-        setRecords([]);
+    async function loadRecords() {
+      try {
+        const { supabase } = await import('@/lib/supabaseClient');
+        const { data: { user } } = await supabase.auth.getUser();
+
+        let dbRecords: any[] = [];
+        if (user) {
+          const { data } = await supabase
+            .from('medical_records')
+            .select('*')
+            .eq('patient_id', user.id)
+            .order('created_at', { ascending: false });
+
+          if (data && data.length > 0) {
+            dbRecords = data.map((r: any) => ({
+              title: r.title || r.doc_name || 'Medical Document',
+              category: r.category || 'Lab Reports',
+              date: r.created_at ? new Date(r.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : 'Recent',
+              doctor: r.doctor_name || 'Uploaded & OCR Verified',
+              ocrText: r.ocr_text || r.summary,
+            }));
+          }
+        }
+
+        const saved = localStorage.getItem("curatrack_user_records");
+        const localRecs = saved ? JSON.parse(saved) : [];
+        const combined = [...dbRecords, ...localRecs.filter((l: any) => !dbRecords.some((d: any) => d.title === l.title))];
+        setRecords(combined);
+      } catch (err) {
+        console.warn("Could not fetch records from Supabase DB:", err);
       }
-    } catch {
-      setRecords([]);
     }
+    loadRecords();
   }, []);
 
-  const handleNewRecord = (newDoc: { title: string; category: string; date: string }) => {
-    const updated = [
-      {
-        title: newDoc.title,
-        category: newDoc.category,
-        date: newDoc.date,
-        doctor: "Uploaded by User • Tesseract & RapidOCR Verified",
-        size: "2.1 MB PDF",
-      },
-      ...records,
-    ];
+  const handleNewRecord = async (newDoc: { title: string; category: string; date: string; ocrText?: string }) => {
+    const item = {
+      title: newDoc.title,
+      category: newDoc.category,
+      date: newDoc.date,
+      doctor: "Uploaded by User • RapidOCR Verified",
+      ocrText: newDoc.ocrText || "",
+      size: "2.1 MB PDF",
+    };
+
+    const updated = [item, ...records];
     setRecords(updated);
+
     try {
       localStorage.setItem("curatrack_user_records", JSON.stringify(updated));
+      const { supabase } = await import('@/lib/supabaseClient');
+      const { data: { user } } = await supabase.auth.getUser();
+      if (user) {
+        await supabase.from('medical_records').insert({
+          patient_id: user.id,
+          title: newDoc.title,
+          category: newDoc.category,
+          ocr_text: newDoc.ocrText || "",
+          status: 'verified'
+        });
+      }
     } catch (e) {
-      console.warn("LocalStorage save error:", e);
+      console.warn("Save error:", e);
     }
   };
 
