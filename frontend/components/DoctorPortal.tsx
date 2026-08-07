@@ -106,16 +106,29 @@ export default function DoctorPortal() {
 
         // Fetch verification status
         try {
-          const { API_BASE } = await import('@/lib/api');
-          const statusRes = await fetch(`${API_BASE}/api/onboarding/status/${user.id}`);
-          if (statusRes.ok) {
-            const statusData = await statusRes.json();
-            if (statusData.verification_status && statusData.verification_status !== 'verified') {
-              setIsPendingVerification(true);
+          // Check Supabase verification_status table first
+          const { data: verRow } = await supabase
+            .from('verification_status')
+            .select('status')
+            .eq('doctor_id', user.id)
+            .maybeSingle();
+
+          if (verRow) {
+            setIsPendingVerification(verRow.status !== 'verified');
+          } else {
+            // Fallback to API endpoint check
+            const { API_BASE } = await import('@/lib/api');
+            const statusRes = await fetch(`${API_BASE}/api/onboarding/status/${user.id}`);
+            if (statusRes.ok) {
+              const statusData = await statusRes.json();
+              setIsPendingVerification(Boolean(statusData.verification_status && statusData.verification_status !== 'verified'));
+            } else {
+              setIsPendingVerification(false);
             }
           }
         } catch (err) {
           console.warn('Could not fetch doctor verification status:', err);
+          setIsPendingVerification(false);
         }
       } catch (e) {
         console.warn("Could not verify doctor access:", e);

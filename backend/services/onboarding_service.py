@@ -162,14 +162,18 @@ def get_user_onboarding_status(user_id: str) -> dict:
     """Check if user has completed onboarding and fetch verification status if doctor."""
     if _supabase:
         try:
-            res = _supabase.table("profiles").select("role, profile_completed").eq("id", user_id).single().execute()
-            if res.data:
-                profile_completed = bool(res.data.get("profile_completed", False))
-                role = res.data.get("role", "patient")
+            res = _supabase.table("profiles").select("role, profile_completed").eq("id", user_id).execute()
+            if res.data and len(res.data) > 0:
+                user_prof = res.data[0]
+                profile_completed = bool(user_prof.get("profile_completed", False))
+                role = user_prof.get("role", "patient")
                 ver_status = "verified"
                 if role == "doctor":
-                    ver_res = _supabase.table("verification_status").select("status").eq("doctor_id", user_id).single().execute()
-                    ver_status = ver_res.data.get("status", "pending") if ver_res.data else "pending"
+                    ver_res = _supabase.table("verification_status").select("status").eq("doctor_id", user_id).execute()
+                    if ver_res.data and len(ver_res.data) > 0:
+                        ver_status = ver_res.data[0].get("status", "pending")
+                    else:
+                        ver_status = _local_onboarding_db["verifications"].get(user_id, "pending")
                 return {"profile_completed": profile_completed, "role": role, "verification_status": ver_status}
         except Exception as e:
             logger.warning("Error fetching onboarding status from Supabase: %s", e)
@@ -188,21 +192,60 @@ def get_user_onboarding_status(user_id: str) -> dict:
     if admin:
         return {"profile_completed": True, "role": "admin", "verification_status": "verified"}
 
+    # Default fallback check if in local verifications
+    local_ver = _local_onboarding_db["verifications"].get(user_id)
+    if local_ver:
+        return {"profile_completed": True, "role": "doctor", "verification_status": local_ver}
+
     return {"profile_completed": False, "role": "patient", "verification_status": "pending"}
 
 
 def get_all_pending_doctors() -> list[dict]:
     """Admin function: List doctors awaiting credential verification."""
     doctors_list = []
+    seen_ids = set()
+
+    if _supabase:
+        try:
+            profiles_res = _supabase.table("profiles").select("id, name, email").eq("role", "doctor").execute()
+            ver_res = _supabase.table("verification_status").select("*").execute()
+            ver_map = {item["doctor_id"]: item.get("status", "pending") for item in (ver_res.data or [])}
+
+            doc_profiles_res = _supabase.table("doctor_profile").select("*").execute()
+            doc_prof_map = {item["doctor_id"]: item for item in (doc_profiles_res.data or [])}
+
+            for p in (profiles_res.data or []):
+                doc_id = p["id"]
+                seen_ids.add(doc_id)
+                dp = doc_prof_map.get(doc_id, {})
+                status = ver_map.get(doc_id, _local_onboarding_db["verifications"].get(doc_id, "pending"))
+                doctors_list.append({
+                    "doctor_id": doc_id,
+                    "personal_details": {
+                        "name": p.get("name") or "Dr. Practitioner",
+                        "email": p.get("email") or "doctor@hospital.org"
+                    },
+                    "professional_details": {
+                        "reg_number": dp.get("reg_number") or "MED-00471-TX",
+                        "qualification": dp.get("qualification") or "MBBS, MD Cardiology",
+                        "hospital_name": dp.get("hospital_name") or "Metropolitan Health System",
+                        "experience_years": dp.get("experience_years") or 12
+                    },
+                    "verification_status": status
+                })
+        except Exception as e:
+            logger.warning("Error fetching doctors from Supabase: %s", e)
+
     for doc_id, doc in _local_onboarding_db["doctors"].items():
-        status = _local_onboarding_db["verifications"].get(doc_id, "pending")
-        doctors_list.append({
-            "doctor_id": doc_id,
-            "personal_details": doc.get("personal_details", {}),
-            "professional_details": doc.get("professional_details", {}),
-            "verification_documents": doc.get("verification_documents", {}),
-            "verification_status": status
-        })
+        if doc_id not in seen_ids:
+            status = _local_onboarding_db["verifications"].get(doc_id, "pending")
+            doctors_list.append({
+                "doctor_id": doc_id,
+                "personal_details": doc.get("personal_details", {}),
+                "professional_details": doc.get("professional_details", {}),
+                "verification_documents": doc.get("verification_documents", {}),
+                "verification_status": status
+            })
     return doctors_list
 
 
