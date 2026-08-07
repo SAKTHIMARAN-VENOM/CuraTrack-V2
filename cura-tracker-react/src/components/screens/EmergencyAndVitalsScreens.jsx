@@ -165,7 +165,7 @@ export function EmergencySOSScreen({ userProfile, onNavigate }) {
 }
 
 
-// 15. Health Reports Screen Component (Exact template match to health_reports/code.html)
+// 15. Health Reports Screen Component
 export function HealthReportsScreen({ vitals, onNavigate }) {
   return (
     <div className="bg-background text-on-background font-body-md flex-1 flex flex-col p-margin-mobile">
@@ -177,95 +177,103 @@ export function HealthReportsScreen({ vitals, onNavigate }) {
       {/* Bento Grid Layout */}
       <div className="grid grid-cols-1 gap-lg">
         
-        {/* Primary Metric: Blood Pressure */}
+        {/* Primary Metric: Daily Steps Calculated */}
         <div className="bg-surface rounded-2xl border border-outline-variant shadow-sm p-lg flex flex-col justify-between">
           <div className="flex justify-between items-start mb-md">
-            <div className="flex items-center gap-xs text-primary">
-              <span className="material-symbols-outlined">favorite</span>
-              <h2 className="font-title-lg text-title-lg text-on-surface">Blood Pressure</h2>
+            <div className="flex items-center gap-xs text-[#006c49]">
+              <span className="material-symbols-outlined fill text-2xl">directions_walk</span>
+              <h2 className="font-title-lg text-title-lg text-on-surface">Daily Steps Calculated</h2>
             </div>
-            <span className="bg-secondary-container text-on-secondary-container font-label-lg text-label-lg px-3 py-1 rounded-full flex items-center gap-1">
-              <span className="material-symbols-outlined text-[16px]">trending_down</span>
-              Optimal
+            <span className="bg-emerald-100 text-emerald-800 font-label-lg text-xs px-3 py-1 rounded-full font-bold flex items-center gap-1">
+              <span className="material-symbols-outlined text-[16px]">bolt</span>
+              64% Goal Achieved
             </span>
           </div>
 
-          <div className="flex flex-col gap-sm mb-lg">
+          <div className="flex flex-col gap-sm">
             <div>
               <div className="flex items-baseline gap-xs">
                 <span className="text-5xl font-headline-lg font-bold text-on-background tracking-tighter">
-                  {vitals?.bloodPressure || '118/76'}
+                  {vitals?.steps?.toLocaleString() || '6,420'}
                 </span>
-                <span className="text-outline text-xl font-normal">mmHg</span>
+                <span className="text-outline text-xl font-normal">/ 10,000 steps</span>
               </div>
-              <p className="font-body-md text-body-md text-on-surface-variant mt-1">Last reading 2 hrs ago</p>
+              <p className="font-body-md text-body-md text-on-surface-variant mt-1">
+                ~2.8 miles walked • 195 kcal burned today
+              </p>
             </div>
 
-            {/* SVG Chart */}
-            <div className="w-full h-24 bg-surface-container-low rounded-lg relative overflow-hidden flex items-end pt-2">
-              <svg className="w-full h-full text-primary" preserveAspectRatio="none" viewBox="0 0 100 100">
-                <path d="M0,80 Q10,70 20,85 T40,60 T60,75 T80,50 T100,65 L100,100 L0,100 Z" fill="currentColor" fillOpacity="0.15"></path>
-                <path d="M0,80 Q10,70 20,85 T40,60 T60,75 T80,50 T100,65" fill="none" stroke="currentColor" strokeWidth="2.5"></path>
-                <circle cx="100" cy="65" fill="currentColor" r="4"></circle>
+            {/* Steps Progress Bar */}
+            <div className="w-full bg-slate-100 rounded-full h-3.5 mt-2 overflow-hidden p-0.5 border border-slate-200">
+              <div className="bg-[#006c49] h-full rounded-full transition-all duration-500" style={{ width: '64.2%' }}></div>
+            </div>
+            <div className="flex justify-between text-xs text-on-surface-variant mt-1 font-semibold">
+              <span>0 steps</span>
+              <span className="text-[#006c49] font-bold">3,580 steps remaining</span>
+              <span>10,000 goal</span>
+            </div>
+          </div>
+        </div>
+
+        {/* Heart Rate & Oxygen Level (SpO2) Grid */}
+        <div className="grid grid-cols-1 gap-md">
+          {/* Heart Rate Card with ECG Graph */}
+          <div className="bg-surface rounded-2xl border border-outline-variant shadow-sm p-lg flex flex-col justify-between">
+            <div className="flex justify-between items-start mb-xs">
+              <div className="flex items-center gap-xs text-red-600">
+                <span className="material-symbols-outlined fill">ecg</span>
+                <h2 className="font-title-lg text-title-lg text-on-background">Heart Rate</h2>
+              </div>
+              <span className="bg-red-100 text-red-700 font-label-lg text-xs px-2.5 py-0.5 rounded-full font-bold">
+                Normal Resting
+              </span>
+            </div>
+
+            <div className="my-sm">
+              <div className="flex items-baseline gap-xs">
+                <span className="text-4xl font-headline-lg font-bold text-on-background">{vitals?.heartRate || 72}</span>
+                <span className="font-body-md text-body-md text-on-surface-variant">bpm</span>
+              </div>
+              <p className="font-body-md text-xs text-on-surface-variant mt-1">Resting avg: 68 bpm</p>
+            </div>
+
+            {/* Heart Rate SVG Graph */}
+            <div className="w-full h-24 bg-red-50/50 rounded-xl relative overflow-hidden flex items-end pt-2 border border-red-100 mt-2">
+              <svg className="w-full h-full text-red-500" preserveAspectRatio="none" viewBox="0 0 100 100">
+                <path d="M0,75 L15,75 L20,40 L25,90 L30,20 L35,80 L40,75 L55,75 L60,35 L65,85 L70,25 L75,80 L80,75 L100,75 L100,100 L0,100 Z" fill="currentColor" fillOpacity="0.12"></path>
+                <path d="M0,75 L15,75 L20,40 L25,90 L30,20 L35,80 L40,75 L55,75 L60,35 L65,85 L70,25 L75,80 L80,75 L100,75" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"></path>
+                <circle cx="80" cy="75" fill="currentColor" r="4"></circle>
               </svg>
             </div>
           </div>
 
-          <div className="flex gap-sm">
-            <button 
-              onClick={() => alert("Log reading feature...")}
-              className="bg-primary text-on-primary font-label-lg text-label-lg px-4 py-2 rounded-full hover:bg-on-primary-fixed-variant transition-colors flex items-center gap-2"
-            >
-              <span className="material-symbols-outlined text-[18px]">add</span>
-              Log Reading
-            </button>
-            <button 
-              onClick={() => alert("Showing history...")}
-              className="border border-outline text-on-surface font-label-lg text-label-lg px-4 py-2 rounded-full hover:bg-surface-container transition-colors"
-            >
-              History
-            </button>
-          </div>
-        </div>
-
-        {/* Heart Rate & Blood Sugar Grid */}
-        <div className="grid grid-cols-2 gap-md">
-          {/* Heart Rate */}
-          <div className="bg-surface rounded-2xl border border-outline-variant shadow-sm p-md flex flex-col justify-between">
+          {/* Oxygen Level (SpO2) Card */}
+          <div className="bg-surface rounded-2xl border border-outline-variant shadow-sm p-lg flex flex-col justify-between">
             <div className="flex justify-between items-start mb-xs">
-              <div className="flex items-center gap-xs text-error">
-                <span className="material-symbols-outlined fill">ecg</span>
-                <h2 className="font-title-lg text-title-lg text-on-background">Heart Rate</h2>
+              <div className="flex items-center gap-xs text-sky-600">
+                <span className="material-symbols-outlined">pulmonology</span>
+                <h2 className="font-title-lg text-title-lg text-on-background">Oxygen (SpO2)</h2>
               </div>
+              <span className="bg-sky-100 text-sky-700 font-label-lg text-xs px-2.5 py-0.5 rounded-full font-bold">
+                Excellent
+              </span>
             </div>
-            <div className="my-sm text-center">
-              <span className="text-4xl font-headline-lg font-bold text-on-background">{vitals?.heartRate || 72}</span>
-              <span className="font-body-md text-body-md text-on-surface-variant ml-1">bpm</span>
-            </div>
-            <div className="flex justify-between items-center text-xs">
-              <span className="text-on-surface-variant font-body-md">Resting avg</span>
-              <span className="font-title-lg text-title-lg font-bold">68 bpm</span>
-            </div>
-          </div>
 
-          {/* Blood Sugar */}
-          <div className="bg-surface rounded-2xl border border-outline-variant shadow-sm p-md flex flex-col justify-between">
-            <div className="flex justify-between items-start mb-xs">
-              <div className="flex items-center gap-xs text-secondary">
-                <span className="material-symbols-outlined">water_drop</span>
-                <h2 className="font-title-lg text-title-lg text-on-background">Blood Sugar</h2>
+            <div className="my-sm">
+              <div className="flex items-baseline gap-xs">
+                <span className="text-4xl font-headline-lg font-bold text-on-background">{vitals?.spo2 || 98}%</span>
               </div>
+              <p className="font-body-md text-xs text-on-surface-variant mt-1">Normal Range: 95% - 100%</p>
             </div>
-            <div className="my-sm text-center">
-              <span className="text-4xl font-headline-lg font-bold text-on-background">95</span>
-              <span className="font-body-md text-body-md text-on-surface-variant ml-1">mg/dL</span>
+
+            {/* Progress Bar */}
+            <div className="w-full bg-slate-100 rounded-full h-3 mt-3 overflow-hidden p-0.5 border border-slate-200">
+              <div className="bg-sky-500 h-full rounded-full transition-all duration-500" style={{ width: `${vitals?.spo2 || 98}%` }}></div>
             </div>
-            <div className="w-full bg-surface-container-high rounded-full h-2 mt-auto">
-              <div className="bg-secondary h-2 rounded-full" style={{ width: '45%' }}></div>
-            </div>
-            <div className="flex justify-between text-xs text-on-surface-variant mt-1 font-label-lg">
-              <span>70</span>
-              <span>140</span>
+            <div className="flex justify-between text-xs text-on-surface-variant mt-2 font-semibold">
+              <span>90%</span>
+              <span className="text-emerald-600 font-bold">98% (Optimal)</span>
+              <span>100%</span>
             </div>
           </div>
         </div>

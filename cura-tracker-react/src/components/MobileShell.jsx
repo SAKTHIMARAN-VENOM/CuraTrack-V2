@@ -55,7 +55,7 @@ export default function MobileShell({
   const navItems = [
     { id: 'home_dashboard', label: 'Home', icon: 'home' },
     { id: 'appointments', label: 'Appointments', icon: 'calendar_month' },
-    { id: 'medications', label: 'Meds', icon: 'pill' },
+    { id: 'benefits_schemes', label: 'Schemes', icon: 'account_balance_wallet' },
     { id: 'medical_records', label: 'Records', icon: 'folder_shared' },
     { id: 'user_profile', label: 'Profile', icon: 'person' },
   ];
@@ -73,9 +73,9 @@ export default function MobileShell({
       case 'upload_success': return 'Record Uploaded';
       case 'emergency_sos': return 'Emergency SOS';
       case 'health_reports': return 'Health Vitals & Reports';
-      case 'notifications_updated': return 'Notifications';
+      case 'notifications_updated': return 'Alerts';
       case 'user_profile': return 'Profile & Settings';
-      case 'curatrack_clinical': return 'Clinical Provider Mode';
+      case 'benefits_schemes': return 'Benefits & Schemes';
       default: return 'CuraTrack';
     }
   };
@@ -128,9 +128,9 @@ export default function MobileShell({
             </optgroup>
             <optgroup label="Emergency & Utility">
               <option value="emergency_sos">15. Emergency SOS</option>
-              <option value="notifications_updated">16. Notifications</option>
+              <option value="notifications_updated">16. Alerts</option>
               <option value="user_profile">17. User Profile</option>
-              <option value="curatrack_clinical">18. Clinical Provider Mode</option>
+              <option value="benefits_schemes">18. Benefits & Schemes</option>
             </optgroup>
           </select>
         </div>
@@ -194,11 +194,17 @@ export default function MobileShell({
                 </button>
               )}
               {currentScreen === 'home_dashboard' && (
-                <img 
-                  src={userProfile?.avatar} 
-                  alt={userProfile?.name} 
-                  className="w-9 h-9 rounded-full object-cover ring-2 ring-blue-500/20"
-                />
+                <button
+                  onClick={() => setCurrentScreen('user_profile')}
+                  className="rounded-full ring-2 ring-blue-500/20 hover:scale-105 active:scale-95 transition-all cursor-pointer"
+                  title="View Profile"
+                >
+                  <img 
+                    src={userProfile?.avatar} 
+                    alt={userProfile?.name} 
+                    className="w-9 h-9 rounded-full object-cover"
+                  />
+                </button>
               )}
               <h2 className="font-bold text-lg text-[#003d9b] tracking-tight">{getHeaderTitle()}</h2>
             </div>

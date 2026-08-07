@@ -19,9 +19,9 @@ import {
 import { EmergencySOSScreen, HealthReportsScreen } from './components/screens/EmergencyAndVitalsScreens';
 import { 
   NotificationsScreen, 
-  UserProfileScreen, 
-  ClinicalScreen 
+  UserProfileScreen 
 } from './components/screens/NotificationsAndProfileScreens';
+import { BenefitsAndSchemesScreen } from './components/screens/BenefitsAndSchemesScreens';
 
 import { 
   initialUserData, 
@@ -116,6 +116,7 @@ export default function App() {
             onNavigate={setCurrentScreen}
             onCancelAppointment={handleCancelAppointment}
             onRescheduleAppointment={handleRescheduleAppointment}
+            onBook={handleBookAppointment}
           />
         );
 
@@ -190,10 +191,9 @@ export default function App() {
           />
         );
 
-      // 18. Clinical Provider View
-      case 'curatrack_clinical':
-        return <ClinicalScreen onNavigate={setCurrentScreen} />;
-
+      // 18. Benefits & Schemes
+      case 'benefits_schemes':
+        return <BenefitsAndSchemesScreen onNavigate={setCurrentScreen} />;
       default:
         return (
           <HomeDashboardScreen

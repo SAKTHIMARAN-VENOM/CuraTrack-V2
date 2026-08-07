@@ -21,12 +21,9 @@ export function HomeDashboardScreen({
           </h1>
           <p className="text-xs text-[#434654] font-medium">Here is your daily health summary</p>
         </div>
-        <button 
-          onClick={() => onNavigate('user_profile')}
-          className="w-11 h-11 rounded-2xl overflow-hidden ring-2 ring-[#003d9b]/20 hover:scale-105 transition-all shadow-sm"
-        >
+        <div className="w-11 h-11 rounded-2xl overflow-hidden ring-2 ring-[#003d9b]/20 shadow-sm select-none">
           <img src={userProfile?.avatar} alt={userProfile?.name} className="w-full h-full object-cover" />
-        </button>
+        </div>
       </div>
 
       {/* Emergency SOS Banner Callout */}
@@ -62,6 +59,29 @@ export function HomeDashboardScreen({
 
         <div className="grid grid-cols-2 gap-3">
           
+          {/* Steps (Spans 2 columns) */}
+          <div className="col-span-2 bg-white p-4 rounded-3xl border border-[#c3c6d6]/50 shadow-sm flex flex-col justify-between">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2 text-[#006c49]">
+                <span className="material-symbols-outlined fill text-xl">directions_walk</span>
+                <span className="text-xs font-bold text-[#0b1c30]">Daily Steps</span>
+              </div>
+              <span className="text-[10px] bg-emerald-100 text-emerald-800 font-bold px-2 py-0.5 rounded-full">
+                64% Goal Achieved
+              </span>
+            </div>
+            <div className="mt-2 flex items-baseline justify-between">
+              <div>
+                <span className="text-2xl font-extrabold text-[#0b1c30]">{vitals?.steps?.toLocaleString() || '6,420'}</span>
+                <span className="text-xs text-[#434654] font-medium ml-1">/ 10,000 steps</span>
+              </div>
+              <span className="text-xs text-[#434654] font-medium">3,580 remaining</span>
+            </div>
+            <div className="w-full bg-slate-100 h-2 rounded-full mt-2.5 overflow-hidden">
+              <div className="bg-[#006c49] h-full rounded-full w-[64%]"></div>
+            </div>
+          </div>
+
           {/* Heart Rate */}
           <div className="bg-white p-4 rounded-3xl border border-[#c3c6d6]/50 shadow-sm flex flex-col justify-between">
             <div className="flex items-center gap-2 text-red-600">
@@ -73,34 +93,6 @@ export function HomeDashboardScreen({
               <span className="text-xs text-[#434654] font-medium ml-1">bpm</span>
             </div>
             <span className="text-[10px] text-emerald-600 font-semibold mt-1">Normal Resting</span>
-          </div>
-
-          {/* Steps */}
-          <div className="bg-white p-4 rounded-3xl border border-[#c3c6d6]/50 shadow-sm flex flex-col justify-between">
-            <div className="flex items-center gap-2 text-[#006c49]">
-              <span className="material-symbols-outlined fill text-xl">directions_walk</span>
-              <span className="text-xs font-bold text-[#0b1c30]">Daily Steps</span>
-            </div>
-            <div className="mt-3">
-              <span className="text-2xl font-extrabold text-[#0b1c30]">{vitals?.steps?.toLocaleString() || '6,420'}</span>
-              <span className="text-xs text-[#434654] font-medium ml-1">/ 10k</span>
-            </div>
-            <div className="w-full bg-slate-100 h-1.5 rounded-full mt-2 overflow-hidden">
-              <div className="bg-[#006c49] h-full rounded-full w-[64%]"></div>
-            </div>
-          </div>
-
-          {/* Blood Pressure */}
-          <div className="bg-white p-4 rounded-3xl border border-[#c3c6d6]/50 shadow-sm flex flex-col justify-between">
-            <div className="flex items-center gap-2 text-[#003d9b]">
-              <span className="material-symbols-outlined text-xl">blood_pressure</span>
-              <span className="text-xs font-bold text-[#0b1c30]">Blood Pressure</span>
-            </div>
-            <div className="mt-3">
-              <span className="text-xl font-extrabold text-[#0b1c30]">{vitals?.bloodPressure || '120/80'}</span>
-              <span className="text-xs text-[#434654] font-medium ml-1">mmHg</span>
-            </div>
-            <span className="text-[10px] text-blue-600 font-semibold mt-1">Optimal Range</span>
           </div>
 
           {/* SpO2 */}
@@ -123,7 +115,7 @@ export function HomeDashboardScreen({
         <h2 className="text-sm font-bold text-[#0b1c30] mb-3">Quick Actions</h2>
         <div className="grid grid-cols-4 gap-2 text-center">
           <button 
-            onClick={() => onNavigate('book_appointment')}
+            onClick={() => onNavigate('appointments')}
             className="flex flex-col items-center gap-1.5 p-3 rounded-2xl bg-white border border-[#c3c6d6]/40 shadow-sm hover:bg-blue-50 active:scale-95 transition-all"
           >
             <div className="w-10 h-10 rounded-xl bg-[#dae2ff] text-[#003d9b] flex items-center justify-center">
@@ -153,13 +145,13 @@ export function HomeDashboardScreen({
           </button>
 
           <button 
-            onClick={() => onNavigate('curatrack_clinical')}
-            className="flex flex-col items-center gap-1.5 p-3 rounded-2xl bg-white border border-[#c3c6d6]/40 shadow-sm hover:bg-amber-50 active:scale-95 transition-all"
+            onClick={() => onNavigate('benefits_schemes')}
+            className="flex flex-col items-center gap-1.5 p-3 rounded-2xl bg-white border border-[#c3c6d6]/40 shadow-sm hover:bg-teal-50 active:scale-95 transition-all"
           >
-            <div className="w-10 h-10 rounded-xl bg-amber-100 text-amber-800 flex items-center justify-center">
-              <span className="material-symbols-outlined text-2xl">clinical_notes</span>
+            <div className="w-10 h-10 rounded-xl bg-[#e0f2fe] text-[#008080] flex items-center justify-center">
+              <span className="material-symbols-outlined text-2xl">account_balance_wallet</span>
             </div>
-            <span className="text-[11px] font-bold text-[#0b1c30] leading-tight">Clinical</span>
+            <span className="text-[11px] font-bold text-[#0b1c30] leading-tight">Schemes</span>
           </button>
         </div>
       </div>
