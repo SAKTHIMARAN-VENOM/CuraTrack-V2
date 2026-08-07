@@ -114,7 +114,18 @@ export default function TelemedicinePage() {
       setProfile(fetchedProfile);
 
       const { data: doctorsData } = await supabase.from('doctors').select('*');
-      setDoctors(doctorsData || []);
+      const filteredDocs = (doctorsData || []).filter((d: any) =>
+        d.name?.toLowerCase().includes('david ross') || d.name?.toLowerCase().includes('ross')
+      );
+      const finalDoctors = filteredDocs.length > 0 ? filteredDocs : [
+        {
+          id: 'doc-david-ross',
+          name: 'Dr. David Ross',
+          specialty: 'Cardiology & Internal Medicine Specialist',
+          picture: null,
+        }
+      ];
+      setDoctors(finalDoctors);
 
       if (fetchedProfile?.role === 'doctor') {
         const { data: appts } = await supabase

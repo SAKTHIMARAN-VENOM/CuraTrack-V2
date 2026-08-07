@@ -80,34 +80,14 @@ export default function TelemedicineHubScreen() {
 
   const doctors: DoctorInfo[] = [
     {
-      id: 'doc-1',
-      name: 'Dr. Sarah Jenkins',
-      specialty: 'Cardiology & Internal Medicine',
-      experience: '12+ yrs exp',
-      status: 'Available Now',
-      rating: '4.9 ★',
-      roomId: 'cardiology-room-101',
-      avatar: '👩‍⚕️',
-    },
-    {
-      id: 'doc-2',
-      name: 'Dr. Rajesh Kumar',
-      specialty: 'Endocrinology & Diabetes Specialist',
+      id: 'doc-david-ross',
+      name: 'Dr. David Ross',
+      specialty: 'Cardiology & Internal Medicine Specialist',
       experience: '15+ yrs exp',
       status: 'Available Now',
       rating: '4.9 ★',
-      roomId: 'endocrinology-room-202',
+      roomId: 'cardiology-room-101',
       avatar: '👨‍⚕️',
-    },
-    {
-      id: 'doc-3',
-      name: 'Dr. Ananya Sharma',
-      specialty: 'General Pediatrics & Wellness',
-      experience: '9+ yrs exp',
-      status: 'In Consultation',
-      rating: '4.8 ★',
-      roomId: 'pediatrics-room-303',
-      avatar: '👩‍⚕️',
     },
   ];
 

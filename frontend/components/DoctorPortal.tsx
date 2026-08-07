@@ -56,7 +56,7 @@ export default function DoctorPortal() {
   const [currentView, setCurrentView] = useState<'schedule' | 'dashboard' | 'directory' | 'records' | 'settings'>('schedule');
   const [selectedPatientId, setSelectedPatientId] = useState<string>('elena');
   const [qrModalPatientId, setQrModalPatientId] = useState<string | null>(null);
-  const [doctorName, setDoctorName] = useState<string>('Dr. Adrian Thorne');
+  const [doctorName, setDoctorName] = useState<string>('Dr. David Ross');
   const [searchQuery, setSearchQuery] = useState<string>('');
   const [showNotifications, setShowNotifications] = useState<boolean>(false);
   const [showChatPopover, setShowChatPopover] = useState<boolean>(false);

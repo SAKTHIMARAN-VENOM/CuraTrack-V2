@@ -49,7 +49,7 @@ export default function DoctorOnboardingPage() {
             if (user) {
                 setUserId(user.id);
                 const docEmail = user.email || 'doctor@hospital.org';
-                const docName = user.user_metadata?.name || 'Dr. Sarah Jenkins';
+                const docName = user.user_metadata?.name || 'Dr. David Ross';
                 setPersonalDetails(prev => ({ ...prev, email: docEmail, name: docName }));
             }
         };

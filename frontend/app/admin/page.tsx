@@ -99,7 +99,7 @@ export default function AdminPortalPage() {
                             <div key={idx} className="p-6 bg-surface-container-low rounded-2xl border border-surface-container flex flex-col lg:flex-row lg:items-center justify-between gap-6">
                                 <div className="space-y-2">
                                     <div className="flex items-center gap-3">
-                                        <h3 className="font-headline font-bold text-lg text-on-surface">{doc.personal_details?.name || 'Dr. Sarah Jenkins'}</h3>
+                                        <h3 className="font-headline font-bold text-lg text-on-surface">{doc.personal_details?.name || 'Dr. David Ross'}</h3>
                                         <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-bold ${
                                             doc.verification_status === 'verified' ? 'bg-emerald-100 text-emerald-800' :
                                             doc.verification_status === 'rejected' ? 'bg-red-100 text-red-800' : 'bg-amber-100 text-amber-800'
