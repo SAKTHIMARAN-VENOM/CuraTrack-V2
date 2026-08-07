@@ -197,7 +197,7 @@ export default function TelemedicinePage() {
         doctor_id: doctorId,
         scheduled_time: scheduledDate.toISOString(),
         room_id: roomId,
-        status: 'scheduled',
+        status: 'ringing',
       });
 
       if (error) {

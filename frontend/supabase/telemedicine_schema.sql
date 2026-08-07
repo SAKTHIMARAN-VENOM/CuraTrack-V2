@@ -9,7 +9,7 @@ create table if not exists public.appointments (
     doctor_id uuid references auth.users(id) not null,
     scheduled_time timestamp with time zone not null,
     room_id text unique not null,
-    status text check (status in ('active', 'ringing', 'ongoing', 'ended')) default 'active',
+    status text check (status in ('active', 'ringing', 'ongoing', 'ended', 'scheduled', 'cancelled')) default 'active',
     created_at timestamp with time zone default now()
 );
 

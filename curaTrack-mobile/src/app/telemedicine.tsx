@@ -164,7 +164,7 @@ export default function TelemedicineHubScreen() {
         doctor_id: scheduleDoctor.id,
         scheduled_time: scheduledDate.toISOString(),
         room_id: roomId,
-        status: 'scheduled',
+        status: 'ringing',
       });
 
       if (error) {

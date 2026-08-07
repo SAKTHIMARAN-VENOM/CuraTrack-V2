@@ -188,7 +188,7 @@ export default function DoctorPortal() {
       const { data, error } = await supabase
         .from('appointments')
         .select('*')
-        .eq('status', 'scheduled')
+        .in('status', ['ringing', 'scheduled'])
         .order('scheduled_time', { ascending: true });
 
       if (data) {
@@ -260,7 +260,7 @@ export default function DoctorPortal() {
     try {
       await supabase
         .from('appointments')
-        .update({ status: 'cancelled' })
+        .update({ status: 'ended' })
         .eq('id', apptId);
       fetchScheduledAppointments();
     } catch (err) {
