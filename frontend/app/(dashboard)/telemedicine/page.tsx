@@ -204,7 +204,7 @@ export default function TelemedicinePage() {
     try {
       await supabase
         .from('appointments')
-        .update({ status: 'ended' })
+        .delete()
         .eq('id', apptId);
       if (user) {
         fetchPatientAppointments(user.id, doctors);
@@ -584,8 +584,24 @@ export default function TelemedicinePage() {
                     Join your virtual room when your appointment time arrives.
                   </p>
                 </div>
-                <div className="px-4 py-2 rounded-2xl bg-primary/10 text-primary text-sm font-extrabold">
-                  {patientAppointments.length} Booked
+                <div className="flex items-center gap-3">
+                  <div className="px-4 py-2 rounded-2xl bg-primary/10 text-primary text-sm font-extrabold">
+                    {patientAppointments.length} Booked
+                  </div>
+                  <button
+                    onClick={async () => {
+                      if (!user) return;
+                      try {
+                        await supabase.from('appointments').delete().eq('client_id', user.id);
+                        setPatientAppointments([]);
+                      } catch (err) {
+                        console.warn('Error clearing appointments:', err);
+                      }
+                    }}
+                    className="px-4 py-2 rounded-2xl bg-error-container/20 text-error hover:bg-error-container/40 text-xs font-extrabold transition-colors cursor-pointer"
+                  >
+                    Clear All
+                  </button>
                 </div>
               </div>
 
