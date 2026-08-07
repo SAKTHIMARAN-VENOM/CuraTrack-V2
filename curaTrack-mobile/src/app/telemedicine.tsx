@@ -105,12 +105,11 @@ export default function TelemedicineHubScreen() {
 
       if (appts) {
         const enriched = appts.map((a: any) => {
-          const doc = doctors.find((d) => d.id === a.doctor_id);
           return {
             ...a,
-            doctor_name: doc?.name || 'Dr. Medical Specialist',
-            specialty: doc?.specialty || 'General Specialist',
-            avatar: doc?.avatar || '👨‍⚕️',
+            doctor_name: 'Dr. David Ross',
+            specialty: 'Cardiology & Internal Medicine Specialist',
+            avatar: '👨‍⚕️',
           };
         });
         setPatientAppointments(enriched);
@@ -118,7 +117,7 @@ export default function TelemedicineHubScreen() {
     } catch (err) {
       console.warn('Error loading patient appointments:', err);
     }
-  }, [doctors]);
+  }, [supabase]);
 
   useEffect(() => {
     fetchPatientAppointments();

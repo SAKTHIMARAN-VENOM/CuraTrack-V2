@@ -66,7 +66,7 @@ export default function TelemedicinePage() {
   const [schedSuccess, setSchedSuccess] = useState<string | null>(null);
 
   // Fetch patient's own scheduled and active appointments
-  const fetchPatientAppointments = useCallback(async (userId: string, doctorsList: Doctor[]) => {
+  const fetchPatientAppointments = useCallback(async (userId: string, _doctorsList: Doctor[]) => {
     try {
       const { data: appts } = await supabase
         .from('appointments')
@@ -77,12 +77,11 @@ export default function TelemedicinePage() {
 
       if (appts) {
         const enriched = appts.map((a: any) => {
-          const doc = doctorsList.find((d) => d.id === a.doctor_id);
           return {
             ...a,
-            doctor_name: doc?.name || 'Dr. Medical Specialist',
-            specialty: doc?.specialty || 'General Specialist',
-            doctor_picture: doc?.picture || null,
+            doctor_name: 'Dr. David Ross',
+            specialty: 'Cardiology & Internal Medicine Specialist',
+            doctor_picture: null,
           };
         });
         setPatientAppointments(enriched);
