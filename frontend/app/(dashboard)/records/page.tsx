@@ -29,6 +29,7 @@ export default function HealthRecordsPage() {
   const [userLabReports, setUserLabReports] = useState<any[]>([]);
   const [refillStatus, setRefillStatus] = useState<string | null>(null);
   const [userId, setUserId] = useState<string>('demo-patient-001');
+  const [isOffline, setIsOffline] = useState<boolean>(false);
 
   useEffect(() => {
     // 1. Check logged-in user and fetch data from Supabase
