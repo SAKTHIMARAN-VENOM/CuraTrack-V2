@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import AddRecordModal from '@/components/AddRecordModal';
 import ReviewMedicationModal from '@/components/ReviewMedicationModal';
 import { offlineStorage } from '@/lib/offline-storage';
+import { createClient } from '@/lib/supabase/client';
 
 const DEFAULT_MEDICATIONS = [
   { name: 'Lisinopril', dosage: '10mg', frequency: 'Once daily', time: '8:00 AM (Morning)', status: 'TAKEN', color: '#d4f0fa', icon: 'pill', isError: false },
@@ -27,15 +28,65 @@ export default function HealthRecordsPage() {
   const [userNotes, setUserNotes] = useState<any[]>([]);
   const [userLabReports, setUserLabReports] = useState<any[]>([]);
   const [refillStatus, setRefillStatus] = useState<string | null>(null);
-  const [isOffline, setIsOffline] = useState(false);
+  const [userId, setUserId] = useState<string>('demo-patient-001');
 
   useEffect(() => {
-    // Hydrate medications from offlineStorage
+    // 1. Check logged-in user and fetch data from Supabase
+    const loadSupabaseData = async () => {
+      try {
+        const supabase = createClient();
+        const { data: { user } } = await supabase.auth.getUser();
+        if (user) {
+          setUserId(user.id);
+
+          // Fetch medications
+          const { data: dbMeds } = await supabase.from('medications').select('*').eq('patient_id', user.id);
+          if (dbMeds && dbMeds.length > 0) {
+            const mapped = dbMeds.map((m: any) => ({
+              id: m.id,
+              name: m.name,
+              dosage: m.dosage,
+              frequency: m.frequency || 'Once daily',
+              time: m.time || 'Morning',
+              status: m.status || 'UPCOMING',
+              color: '#d4f0fa',
+              icon: 'pill',
+              isError: false,
+            }));
+            setActiveMedications(mapped);
+            offlineStorage.saveMedications(mapped);
+          }
+
+          // Fetch prescriptions
+          const { data: dbRx } = await supabase.from('prescriptions').select('*').eq('patient_id', user.id);
+          if (dbRx && dbRx.length > 0) {
+            setUserPrescriptions(dbRx);
+          }
+
+          // Fetch doctor notes
+          const { data: dbNotes } = await supabase.from('doctor_notes').select('*').eq('patient_id', user.id);
+          if (dbNotes && dbNotes.length > 0) {
+            setUserNotes(dbNotes);
+          }
+
+          // Fetch lab reports
+          const { data: dbLabs } = await supabase.from('lab_results').select('*').eq('patient_id', user.id);
+          if (dbLabs && dbLabs.length > 0) {
+            setUserLabReports(dbLabs);
+          }
+        }
+      } catch (e) {
+        console.warn('Could not load records from Supabase:', e);
+      }
+    };
+    loadSupabaseData();
+
+    // Hydrate medications from offlineStorage fallback
     const cachedMeds = offlineStorage.getMedications();
     if (cachedMeds && cachedMeds.length > 0) {
-      setActiveMedications(cachedMeds);
+      setActiveMedications(prev => prev.length > 0 ? prev : cachedMeds);
     } else {
-      setActiveMedications(DEFAULT_MEDICATIONS);
+      setActiveMedications(prev => prev.length > 0 ? prev : DEFAULT_MEDICATIONS);
       offlineStorage.saveMedications(DEFAULT_MEDICATIONS);
     }
 
@@ -44,28 +95,7 @@ export default function HealthRecordsPage() {
       const savedRx = localStorage.getItem('curatrack_prescriptions');
       if (savedRx) {
         const parsedRx = JSON.parse(savedRx);
-        setUserPrescriptions(parsedRx);
-        
-        // Auto-merge doctor issued e-prescriptions into active medications schedule
-        const newMeds = parsedRx.map((rx: any) => ({
-          name: rx.medication,
-          dosage: rx.dosage,
-          frequency: rx.frequency || 'Once daily',
-          time: 'Morning',
-          status: 'UPCOMING',
-          color: '#d4f0fa',
-          icon: 'pill',
-          isDoctorIssued: true,
-          doctorName: rx.doctorName || 'Dr. David Ross',
-          isError: false
-        }));
-
-        if (newMeds.length > 0) {
-          const combined = [...newMeds, ...(cachedMeds && cachedMeds.length > 0 ? cachedMeds : DEFAULT_MEDICATIONS)];
-          // Remove duplicate names if any
-          const uniqueMeds = Array.from(new Map(combined.map(item => [item.name, item])).values());
-          setActiveMedications(uniqueMeds);
-        }
+        setUserPrescriptions(prev => prev.length > 0 ? prev : parsedRx);
       }
     } catch (err) {
       console.warn('Could not load doctor e-prescriptions:', err);
@@ -77,10 +107,8 @@ export default function HealthRecordsPage() {
 
     const handleOnline = () => {
       setIsOffline(false);
-      // Flush pending syncs when back online
       const pending = offlineStorage.getPendingSyncs();
       if (pending.length > 0) {
-        console.log('Online restored. Processing pending offline sync queue:', pending);
         offlineStorage.clearPendingSyncs();
       }
     };
@@ -137,17 +165,7 @@ export default function HealthRecordsPage() {
         };
       });
 
-      // Save to offline storage immediately
       offlineStorage.saveMedications(updated);
-
-      if (!offlineStorage.isOnline()) {
-        offlineStorage.queueOfflineAction({
-          type: 'TOGGLE_MEDICATION',
-          payload: { index, medication: updated[index] },
-          timestamp: Date.now()
-        });
-      }
-
       return updated;
     });
   };
@@ -167,13 +185,14 @@ export default function HealthRecordsPage() {
     router.push(`/telemedicine?doctor=${encodeURIComponent(doctorName)}`);
   };
 
-  const handleRecordAdded = (data: any) => {
+  const handleRecordAdded = async (data: any) => {
+    const supabase = createClient();
+
     // Handle new structured record types
     if (data && data.type === 'prescription') {
       const rxItems = Array.isArray(data.data) ? data.data : [data.data];
       setUserPrescriptions(prev => [...rxItems, ...prev]);
 
-      // Automatically populate activeMedications schedule for today
       const newActiveMeds = rxItems.map((m: any) => ({
         name: m.name,
         dosage: m.dosage,
@@ -189,23 +208,79 @@ export default function HealthRecordsPage() {
         offlineStorage.saveMedications(updated);
         return updated;
       });
+
+      // Persist to Supabase
+      try {
+        await supabase.from('prescriptions').insert(
+          rxItems.map((m: any) => ({
+            patient_id: userId,
+            medication: m.name,
+            dosage: m.dosage,
+            frequency: m.frequency,
+            doctor_name: m.doctor,
+            date: m.date,
+            instructions: m.instructions,
+          }))
+        );
+        await supabase.from('medications').insert(
+          rxItems.map((m: any) => ({
+            patient_id: userId,
+            name: m.name,
+            dosage: m.dosage,
+            frequency: m.frequency,
+            time: m.time,
+            reason: m.instructions,
+            source: 'ocr_record',
+            active: true,
+          }))
+        );
+      } catch (err) {
+        console.warn('Failed to insert prescription to Supabase:', err);
+      }
+
       setActiveTab('prescriptions');
       return;
     }
     if (data && data.type === 'notes') {
       setUserNotes(prev => [data.data, ...prev]);
+      try {
+        await supabase.from('doctor_notes').insert({
+          patient_id: userId,
+          doctor: data.data.doctor,
+          specialty: data.data.specialty,
+          date: data.data.date,
+          visit_type: data.data.visitType,
+          complaint: data.data.complaint,
+          observations: data.data.observations,
+          plan: data.data.plan,
+          follow_up: data.data.followUp,
+          summary: data.data.complaint || data.data.observations,
+          source: 'ocr_record',
+        });
+      } catch (err) {
+        console.warn('Failed to insert doctor note to Supabase:', err);
+      }
       setActiveTab('notes');
       return;
     }
     if (data && data.type === 'lab') {
       setUserLabReports(prev => [data.data, ...prev]);
+      try {
+        await supabase.from('lab_results').insert({
+          patient_id: userId,
+          test_name: data.data.testName,
+          lab_name: data.data.labName,
+          doctor: data.data.doctor,
+          date: data.data.date,
+          status: data.data.status,
+          results: data.data.results,
+          source: 'ocr_record',
+        });
+      } catch (err) {
+        console.warn('Failed to insert lab result to Supabase:', err);
+      }
       setActiveTab('lab');
       return;
-    }
-    // Legacy: AI-extracted medications
-    if (data && data.medications && data.medications.length > 0) {
-      setExtractedMedications(prev => [...prev, ...data.medications]);
-      setActiveTab('prescriptions');
     }
   };
 
