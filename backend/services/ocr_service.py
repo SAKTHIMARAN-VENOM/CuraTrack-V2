@@ -147,25 +147,42 @@ extract_text = extract_raw_text
 
 
 def _extract_from_image_tesseract(file_path: str) -> str:
-    """Extract text from image using Tesseract OCR via pytesseract."""
+    """Extract text from image using Tesseract OCR (or RapidOCR fallback)."""
+    text = ""
+
+    # 1. Try pytesseract if binary is available
     if not TESSERACT_AVAILABLE:
         configure_tesseract()
 
-    if not TESSERACT_AVAILABLE:
-        logger.error("Tesseract OCR is not installed. Cannot extract text from image: %s", file_path)
-        return ""
+    if TESSERACT_AVAILABLE:
+        try:
+            import pytesseract
+            from PIL import Image
 
+            image = Image.open(file_path)
+            text = pytesseract.image_to_string(image).strip()
+            if text:
+                logger.info("Tesseract extracted %d chars from image %s", len(text), os.path.basename(file_path))
+                return text
+        except Exception as e:
+            logger.warning("Tesseract image extraction failed for %s: %s", file_path, e)
+
+    # 2. Try RapidOCR engine (pure Python/ONNX — requires no system binary)
     try:
-        import pytesseract
-        from PIL import Image
-
-        image = Image.open(file_path)
-        text = pytesseract.image_to_string(image).strip()
-        logger.info("Tesseract extracted %d chars from image %s", len(text), os.path.basename(file_path))
-        return text
+        from rapidocr_onnxruntime import RapidOCR
+        engine = RapidOCR()
+        result, elapse = engine(file_path)
+        if result:
+            txts = [box[1] for box in result]
+            text = "\n".join(txts).strip()
+            if text:
+                logger.info("RapidOCR extracted %d chars from image %s", len(text), os.path.basename(file_path))
+                return text
     except Exception as e:
-        logger.error("Tesseract image extraction failed for %s: %s\n%s", file_path, e, traceback.format_exc())
-        return ""
+        logger.warning("RapidOCR extraction failed for %s: %s", file_path, e)
+
+    logger.error("All OCR engines failed or extracted no text for image: %s", os.path.basename(file_path))
+    return ""
 
 
 def _extract_from_pdf_tesseract(file_path: str) -> str:
