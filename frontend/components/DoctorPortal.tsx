@@ -32,93 +32,7 @@ interface Appointment {
   created_at?: string;
 }
 
-const DEFAULT_PATIENTS: Record<string, PatientData> = {
-  elena: {
-    id: 'elena',
-    name: 'Elena Rodriguez',
-    meta: 'F · 34 yrs · ID: #MR-8492',
-    photo:
-      'https://lh3.googleusercontent.com/aida-public/AB6AXuDCj9o_UDGxKFcKLMIjml0dU6q3Xobb-ueTMaR832uTseMKdm-v6d8kxFrYfDtIq-1tGyMn7kMnzdqYm6Pifw17pStqf3qJtPGQCY_6PUey0M4a22u8KEldKinYEQn33tRCFRmM4YLKGp7HFDMlERNqbbUfGdMWWBHQNh95W4SdhfNX9ZwRMHiEUkGF0Te_q4KPja0C777L0QYMKF-fQ2-sA39f1oGGKYtcqk5g-Ud_DnrHxk2n4GIe2bacrYSt5XME4RHwn3RpG6k',
-    time: '09:00 AM',
-    type: 'Follow-up',
-    status: 'Active',
-    vitals: { bp: '120/80', hr: '72 bpm', weight: '145 lbs', spo2: '98%' },
-    allergies: [
-      { name: 'Penicillin', severity: 'Severe', isError: true },
-      { name: 'Seasonal Pollen', severity: 'Mild', isError: false },
-    ],
-  },
-  marcus: {
-    id: 'marcus',
-    name: 'Marcus Chen',
-    meta: 'M · 58 yrs · ID: #MR-3201',
-    photo: null,
-    time: '09:30 AM',
-    type: 'Cardiology Consult',
-    status: 'Queued',
-    vitals: { bp: '135/88', hr: '78 bpm', weight: '182 lbs', spo2: '97%' },
-    allergies: [{ name: 'Sulfa Drugs', severity: 'Moderate', isError: true }],
-  },
-  sarah: {
-    id: 'sarah',
-    name: 'Sarah Jenkins',
-    meta: 'F · 45 yrs · ID: #MR-7744',
-    photo: null,
-    time: '10:15 AM',
-    type: 'Post-Op Review',
-    status: 'Queued',
-    vitals: { bp: '118/76', hr: '68 bpm', weight: '138 lbs', spo2: '99%' },
-    allergies: [{ name: 'Latex', severity: 'Mild', isError: false }],
-  },
-  james: {
-    id: 'james',
-    name: 'James Okafor',
-    meta: 'M · 62 yrs · ID: #MR-5519',
-    photo: null,
-    time: '11:00 AM',
-    type: 'Diabetes Check-in',
-    status: 'Scheduled',
-    vitals: { bp: '128/82', hr: '74 bpm', weight: '195 lbs', spo2: '96%' },
-  },
-  priya: {
-    id: 'priya',
-    name: 'Priya Nair',
-    meta: 'F · 29 yrs · ID: #MR-9031',
-    photo: null,
-    time: '11:45 AM',
-    type: 'Neurology Referral',
-    status: 'Scheduled',
-    vitals: { bp: '112/72', hr: '65 bpm', weight: '124 lbs', spo2: '99%' },
-  },
-  robert: {
-    id: 'robert',
-    name: 'Robert Kim',
-    meta: 'M · 51 yrs · ID: #MR-4488',
-    photo: null,
-    time: '01:30 PM',
-    type: 'Annual Physical',
-    status: 'Scheduled',
-  },
-  amara: {
-    id: 'amara',
-    name: 'Amara Diallo',
-    meta: 'F · 31 yrs · ID: #MR-6620',
-    photo: null,
-    time: '02:15 PM',
-    type: 'Prenatal Check',
-    status: 'Priority',
-    isPriority: true,
-  },
-  tom: {
-    id: 'tom',
-    name: 'Tom Brewer',
-    meta: 'M · 44 yrs · ID: #MR-2277',
-    photo: null,
-    time: '03:00 PM',
-    type: 'Orthopedic Review',
-    status: 'Scheduled',
-  },
-};
+
 
 export default function DoctorPortal() {
   const router = useRouter();
@@ -359,15 +273,37 @@ export default function DoctorPortal() {
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, []);
 
-  const basePatient = DEFAULT_PATIENTS[selectedPatientId] || DEFAULT_PATIENTS['elena'];
-  const selectedPatient = (realPatientData) ? {
-    ...basePatient,
+  const activePatientFromList = registeredPatients.find(p => p.id === selectedPatientId) || registeredPatients[0];
+  const selectedPatient: PatientData = realPatientData ? {
     id: realPatientData.id,
     name: realPatientData.name,
-    meta: realPatientData.email ? `Live Patient · ${realPatientData.email}` : basePatient.meta,
-  } : basePatient;
+    meta: realPatientData.email ? `Live Patient · ${realPatientData.email}` : 'Registered Patient',
+    photo: null,
+    vitals: { bp: '120/80', hr: '72 bpm', weight: '145 lbs', spo2: '98%' },
+    allergies: [
+      { name: 'No known drug allergies', severity: 'None', isError: false }
+    ]
+  } : (activePatientFromList ? {
+    id: activePatientFromList.id,
+    name: activePatientFromList.name,
+    meta: activePatientFromList.meta ? `Live Patient · ${activePatientFromList.meta}` : 'Registered Patient',
+    photo: activePatientFromList.photo || null,
+    vitals: activePatientFromList.vitals || { bp: '120/80', hr: '72 bpm', weight: '145 lbs', spo2: '98%' },
+    allergies: [
+      { name: 'No known drug allergies', severity: 'None', isError: false }
+    ]
+  } : {
+    id: 'pending-patient',
+    name: 'Select a Registered Patient',
+    meta: 'No registered patient selected yet',
+    photo: null,
+    vitals: { bp: '120/80', hr: '72 bpm', weight: '145 lbs', spo2: '98%' },
+    allergies: [
+      { name: 'No known drug allergies', severity: 'None', isError: false }
+    ]
+  });
 
-  const modalPatient = qrModalPatientId ? DEFAULT_PATIENTS[qrModalPatientId] || selectedPatient : null;
+  const modalPatient = selectedPatient;
 
   // Single entry point to navigate to WebRTC video room
   const handleStartConsultation = async () => {
