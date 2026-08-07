@@ -1,94 +1,127 @@
-# 🧬 CuraTrack V2 — Unified Health Ecosystem
+# 🧬 CuraTrack V2 — Unified Healthcare Ecosystem (Web & Mobile Suite)
 
-**CuraTrack V2** is a modular, high-performance healthcare management platform designed with "Empathetic Precision." It unifies patient wearables, medical records, and telemedicine into a single, secure environment powered by AI-driven insights.
-
----
-
-## 🚀 Core Features
-
-### 🧠 AI Health Intelligence (Ollama + Llama 3.1)
-- **Clinical Ingestion**: Automated health record processing using **Tesseract OCR**. Parses prescriptions and lab results from images/PDFs directly into your digital history.
-- **Dynamic Risk Radar**: An AI engine that analyzes seasonal and localized data to provide context-aware health precautions and disease outbreak alerts.
-- **Intelligent Schemes**: AI-driven eligibility check for government and private insurance schemes based on demographic and medical profiles.
-
-### 🎥 Telemedicine Hub (WebRTC + P2P)
-- **Instant Video Consults**: Secure, room-based video calling with zero-infrastructure signaling via **Supabase Realtime Broadcast**.
-- **Real-time Vitals Sync**: Doctors can view live heart rate and activity metrics from the patient during the call for more accurate remote diagnosis.
-- **Professional Lobby**: A clinical-grade lobby system for patients and doctors to manage consultations seamlessly.
-
-### 🔐 Security & Privacy (The "PASSPORT" System)
-- **Patient Passport**: Scoped, one-time-use access tokens that allow clinicians to view specific segments of medical history without full record exposure.
-- **Dynamic QR Health ID**: Expiring QR codes for secure, transient access in emergency or clinical settings.
-- **End-to-End Encryption**: All sensitive medical documents and vitals are encrypted at rest and in transit using industry-standard protocols.
-
-### 📱 Unified Patient Dashboard
-- **Activity & Fit Dashboard**: Real-time tracking of **Heart Rate**, **Steps**, and **Sleep Quality** with visual trend analysis using Recharts.
-- **Smart Wellness Nudges**: AI-interpreted wellness advice: *"Your HRV is lower than usual. We recommend a 5-minute breathing session."*
-- **Clinical Design System**: A premium, accessibility-focused UI built with a refined teal-clinical color palette.
+**CuraTrack V2** is a modular, high-performance healthcare management platform built with **Empathetic Precision**. It unifies real-time patient wearable analytics, OCR medical record ingestion, AI-driven clinical insights, and instant/scheduled peer-to-peer telemedicine into a seamless web and mobile suite.
 
 ---
 
-## 🛠️ Technical Architecture
+## 🌟 Architecture Overview
 
-### Tech Stack
-| Layer | Technology |
-| :--- | :--- |
-| **Frontend** | Next.js 15+ (App Router), React 19, Tailwind CSS (V4), TypeScript |
-| **Backend** | Python 3.10+, FastAPI, Uvicorn, Pydantic |
-| **AI/OCR** | Llama 3.1:8b (via Ollama), Tesseract OCR |
-| **Database/Auth** | Supabase (PostgreSQL), Supabase Auth |
-| **Video/Signaling** | WebRTC (P2P), Supabase Realtime (Signaling) |
-
-### System Integration
-```mermaid
-graph TD
-    A[Patient Wearables] --> B[FastAPI Backend]
-    C[Medical Documents] --> D[Tesseract OCR]
-    D --> E[Llama 3.1 Analysis]
-    E --> B
-    B --> F[Supabase Database]
-    G[Next.js Dashboard] <--> B
-    G <--> H[WebRTC Video Stream]
-    I[Doctor Portal] <--> G
+```
+                          ┌───────────────────────────┐
+                          │   CuraTrack V2 Platform    │
+                          └─────────────┬─────────────┘
+                                        │
+         ┌──────────────────────────────┼──────────────────────────────┐
+         ▼                              ▼                              ▼
+┌──────────────────┐          ┌──────────────────┐          ┌──────────────────┐
+│  Next.js Web App │          │ Expo Mobile App  │          │ Python FastAPI   │
+│   (frontend/)    │          │(curaTrack-mobile)│          │    (backend/)    │
+└────────┬─────────┘          └────────┬─────────┘          └────────┬─────────┘
+         │                             │                             │
+         └─────────────────────────────┼─────────────────────────────┘
+                                       ▼
+                       ┌──────────────────────────────┐
+                       │  Supabase (PostgreSQL & RLS) │
+                       │    + Llama 3.1 AI + WebRTC   │
+                       └──────────────────────────────┘
 ```
 
 ---
 
-## 🎨 Clinical Design System
-CuraTrack V2 uses a custom design system optimized for clarity and trust:
-- **Primary**: `#006782` (Deep Clinical Teal)
-- **Secondary**: `#35B0AB` (Aquamarine Accent)
-- **Neutral**: `#F8F9FA` (Clean Clinical White)
-- **Typography**: `Manrope` for Headlines, `Inter` for Body/Labels.
+## 🚀 Key Modules & Capabilities
+
+### 🎥 Telemedicine & Clinical Scheduling
+- **Instant & Scheduled Consultations**: Patients can book consultations with fixed time slots or initiate instant calls.
+- **Supabase Realtime Sync**: Doctor and patient portals update dynamically with pending appointments, status alerts (`ringing`, `active`, `ongoing`, `ended`), and badge counters.
+- **Dedicated Doctor Portal**: Single-doctor clinical management suite assigned to **Dr. David Ross**, featuring appointment management, instant call joining, and schedule management.
+- **Zero-Latency WebRTC P2P**: Peer-to-peer audio/video calling using room-based WebRTC signaling.
+
+### 🧠 AI & OCR Intelligence (Llama 3.1 + Tesseract OCR)
+- **OCR Prescription Ingestion**: Converts uploaded medical documents, lab reports, and prescriptions into structured digital medical histories using Tesseract OCR and Llama 3.1.
+- **Context-Aware Health Insights**: Analyzes heart rate trends, daily steps, and sleep patterns to generate personalized recommendations.
+- **Government Scheme Matching**: AI-matched eligibility exploration for Ayushman Bharat (ABHA) and health insurance schemes.
+
+### 🔐 Patient Passport System
+- **Transient QR Health ID**: Generates expiring QR codes and scoped access tokens for emergency clinicians to view vital medical history without exposing full records.
+- **256-bit Scoped Access**: Role-based access control (RLS) enforcing strict patient and doctor permissions.
+
+### 📱 Native Mobile App (`curaTrack-mobile`)
+- **React Native + Expo**: Native mobile experience with full Android Studio project output (`curaTrack-mobile/android`).
+- **Smartwatch & Google Fit Sync**: Direct sync for heart rate, step count, and sleep telemetry.
+- **Camera OCR Scanner**: Native document capture and processing for immediate prescription ingestion.
 
 ---
 
-## ⚙️ Local Setup
+## 🛠️ Tech Stack
 
-### 1. Prerequisites
-- **Ollama**: [Download](https://ollama.com/) and run `ollama pull llama3.1`
-- **Tesseract OCR**: Install the engine on your system ([Guide](https://github.com/tesseract-ocr/tesseract))
-- **Environment**: Node.js 18+ and Python 3.10+
+| Layer | Technologies |
+| :--- | :--- |
+| **Web Frontend** | Next.js 15+, React 19, Tailwind CSS v4, TypeScript, Lucide Icons |
+| **Mobile App** | Expo SDK 54, React Native 0.81, Expo Router, Android Studio Native (`/android`) |
+| **Backend Service** | Python 3.10+, FastAPI, Uvicorn, Pydantic |
+| **AI Engine & OCR** | Ollama (Llama 3.1:8b model), Tesseract OCR |
+| **Database & Auth** | Supabase PostgreSQL, Supabase Auth, Row Level Security (RLS) |
+| **Realtime & Video** | WebRTC (Peer-to-Peer), Supabase Realtime Channels |
 
-### 2. Backend Installation
+---
+
+## 📁 Repository Structure
+
+```
+curatrack/
+├── frontend/                   # Next.js Web Frontend & Doctor Portal
+│   ├── app/                    # Next.js App Router pages (Dashboard, Telemedicine, Records, Admin)
+│   ├── components/             # React UI components (DoctorPortal, HeartRateChart, PassportQRModal)
+│   └── supabase/               # Complete V3 Supabase SQL Schema & Flush Scripts
+├── curaTrack-mobile/           # Expo React Native Mobile Application
+│   ├── android/                # Prebuilt Android Studio native Gradle project
+│   └── src/                    # Mobile screens, tabs, telemedicine, and hooks
+├── backend/                    # Python FastAPI Backend
+│   ├── routes/                 # API endpoints (OCR ingestion, fit data, health insights)
+│   └── services/               # OCR parser & LLM integration services
+└── README.md                   # Project documentation
+```
+
+---
+
+## ⚙️ Quick Start & Setup
+
+### 1. Database Setup (Supabase)
+Run the master schema script located in `frontend/supabase/complete_v3_schema.sql` in your Supabase SQL Editor to set up all tables and RLS policies.
+
+### 2. Backend Engine (FastAPI)
 ```bash
 cd backend
 python -m venv .venv
-source .venv/bin/activate  # Windows: .venv\Scripts\activate
+# On Windows: .venv\Scripts\activate
+# On Unix: source .venv/bin/activate
 pip install -r requirements.txt
-python -m uvicorn main:app --reload
+python -m uvicorn main:app --reload --port 8000
 ```
 
-### 3. Frontend Installation
+### 3. Web Frontend (Next.js)
 ```bash
 cd frontend
 npm install
 npm run dev
 ```
+Open `http://localhost:3000` in your browser.
+
+### 4. Mobile App (Expo & Android Studio)
+```bash
+cd curaTrack-mobile
+npm install
+npx expo start
+```
+To open in **Android Studio**:
+Open `curaTrack-mobile/android` in Android Studio and click **Run ▶**.
 
 ---
 
-## 📜 Privacy & Compliance
-CuraTrack adheres to HIPAA-inspired data isolation principles. All peer-to-peer video sessions are encrypted, and medical record access is enforced via short-lived Row-Level Security (RLS) policies in Supabase.
+## 📜 Security & Compliance
+CuraTrack is built with privacy-first principles inspired by HIPAA standards:
+- All video streams are peer-to-peer and encrypted.
+- Data access is governed by strict Supabase Row-Level Security (RLS) policies.
+- Patient Passport QR tokens expire automatically to prevent unauthorized access.
 
-**"CuraTrack: Empathetic Precision in Modern Care"**
+**CuraTrack V2 — Empathetic Precision in Modern Healthcare.**
