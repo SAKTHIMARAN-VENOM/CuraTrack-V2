@@ -116,17 +116,33 @@ export default function TelemedicinePage() {
       setProfile(fetchedProfile);
 
       const { data: doctorsData } = await supabase.from('doctors').select('*');
-      const filteredDocs = (doctorsData || []).filter((d: any) =>
-        d.name?.toLowerCase().includes('david ross') || d.name?.toLowerCase().includes('ross')
-      );
-      const finalDoctors = filteredDocs.length > 0 ? filteredDocs : [
+      const defaultDoctorsList: Doctor[] = [
         {
           id: 'doc-david-ross',
           name: 'Dr. David Ross',
           specialty: 'Cardiology & Internal Medicine Specialist',
-          picture: null,
+          picture: undefined,
+        },
+        {
+          id: 'doc-sarah-jenkins',
+          name: 'Dr. Sarah Jenkins',
+          specialty: 'Neurology & Brain Health Specialist',
+          picture: undefined,
+        },
+        {
+          id: 'doc-michael-chang',
+          name: 'Dr. Michael Chang',
+          specialty: 'Pediatric Care & Adolescent Medicine',
+          picture: undefined,
+        },
+        {
+          id: 'doc-elena-rostova',
+          name: 'Dr. Elena Rostova',
+          specialty: 'General Practice & Preventive Health',
+          picture: undefined,
         }
       ];
+      const finalDoctors = (doctorsData && doctorsData.length > 0) ? doctorsData : defaultDoctorsList;
       setDoctors(finalDoctors);
 
       if (fetchedProfile?.role === 'doctor') {
@@ -602,21 +618,21 @@ export default function TelemedicinePage() {
       ) : (
         <section className="space-y-8">
           {/* ── Patient Scheduled & Active Consultations Section ── */}
-          {patientAppointments.length > 0 && (
-            <div className="bg-white rounded-[2rem] border border-primary/20 shadow-md p-6 lg:p-8 space-y-6">
-              <div className="flex items-center justify-between">
-                <div>
-                  <span className="inline-flex items-center gap-2 px-3 py-1 bg-primary/10 text-primary text-[11px] font-bold rounded-full uppercase tracking-widest">
-                    <span className="material-symbols-outlined text-sm">event</span>
-                    Your Appointments
-                  </span>
-                  <h2 className="mt-2 font-headline text-2xl font-extrabold text-on-surface">
-                    Your Scheduled & Active Consultations
-                  </h2>
-                  <p className="text-sm text-tertiary mt-1">
-                    Join your virtual room when your appointment time arrives.
-                  </p>
-                </div>
+          <div className="bg-white rounded-[2rem] border border-primary/20 shadow-md p-6 lg:p-8 space-y-6">
+            <div className="flex items-center justify-between">
+              <div>
+                <span className="inline-flex items-center gap-2 px-3 py-1 bg-primary/10 text-primary text-[11px] font-bold rounded-full uppercase tracking-widest">
+                  <span className="material-symbols-outlined text-sm">event</span>
+                  Your Appointments
+                </span>
+                <h2 className="mt-2 font-headline text-2xl font-extrabold text-on-surface">
+                  Your Scheduled & Active Consultations
+                </h2>
+                <p className="text-sm text-tertiary mt-1">
+                  Join your virtual room when your appointment time arrives.
+                </p>
+              </div>
+              {patientAppointments.length > 0 && (
                 <div className="flex items-center gap-3">
                   <div className="px-4 py-2 rounded-2xl bg-primary/10 text-primary text-sm font-extrabold">
                     {patientAppointments.length} Booked
@@ -628,8 +644,20 @@ export default function TelemedicinePage() {
                     Clear All
                   </button>
                 </div>
-              </div>
+              )}
+            </div>
 
+            {patientAppointments.length === 0 ? (
+              <div className="p-8 bg-surface-container-low rounded-2xl text-center border border-dashed border-outline-variant/30 space-y-3">
+                <div className="w-12 h-12 rounded-2xl bg-primary/10 text-primary flex items-center justify-center mx-auto font-bold text-xl">
+                  <span className="material-symbols-outlined">calendar_today</span>
+                </div>
+                <h4 className="font-headline font-bold text-on-surface text-base">No Active Consultations Scheduled</h4>
+                <p className="text-xs text-tertiary max-w-md mx-auto">
+                  Select any available specialist below to instantly launch or schedule a virtual care session.
+                </p>
+              </div>
+            ) : (
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 {patientAppointments.map((appt) => {
                   const schedDate = appt.scheduled_time
@@ -696,8 +724,8 @@ export default function TelemedicinePage() {
                   );
                 })}
               </div>
-            </div>
-          )}
+            )}
+          </div>
 
           <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4">
             <div>
