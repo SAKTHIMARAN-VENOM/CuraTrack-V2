@@ -3,7 +3,7 @@ import time
 import io
 import base64
 import os
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Request
 from pydantic import BaseModel
 import qrcode
 
@@ -25,7 +25,7 @@ class QRVerifyRequest(BaseModel):
 
 
 @router.post("/qr/generate")
-def generate_qr(request: QRGenerateRequest):
+def generate_qr(request: QRGenerateRequest, http_request: Request):
     """
     Generate a secure QR code containing a full frontend URL pointing to the patient passport page.
     Token expires in 5 minutes.
@@ -58,7 +58,11 @@ def generate_qr(request: QRGenerateRequest):
     }
     set_key_with_ttl(f"passport:meta:{passport_id}", json.dumps(meta), QR_EXPIRY_SECONDS)
 
-    frontend_url = os.getenv("FRONTEND_URL", "https://cura-track-v2.vercel.app").rstrip("/")
+    origin_header = http_request.headers.get("origin") or http_request.headers.get("referer")
+    if origin_header:
+        frontend_url = origin_header.split("/passport")[0].split("/api")[0].rstrip("/")
+    else:
+        frontend_url = os.getenv("FRONTEND_URL", "https://moblie-ui-curatrack.vercel.app").rstrip("/")
     passport_url = f"{frontend_url}/passport/{passport_id}?token={token}"
 
     # Generate QR code image

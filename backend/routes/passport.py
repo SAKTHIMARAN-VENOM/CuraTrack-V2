@@ -82,8 +82,13 @@ def generate_passport_qr(request: PassportGenerateRequest, http_request: Request
     }
     set_key_with_ttl(f"passport:meta:{passport_id}", json.dumps(meta), PASSPORT_EXPIRY_SECONDS)
 
-    # Build QR code with the deployed frontend passport URL
-    frontend_url = os.getenv("FRONTEND_URL", "https://cura-track-v2.vercel.app").rstrip("/")
+    # Build QR code with the deployed frontend passport URL (supports both portals dynamically)
+    origin_header = http_request.headers.get("origin") or http_request.headers.get("referer")
+    if origin_header:
+        frontend_url = origin_header.split("/passport")[0].split("/api")[0].rstrip("/")
+    else:
+        frontend_url = os.getenv("FRONTEND_URL", "https://moblie-ui-curatrack.vercel.app").rstrip("/")
+    
     passport_url = f"{frontend_url}/passport/{passport_id}?token={token}"
 
     qr = qrcode.QRCode(

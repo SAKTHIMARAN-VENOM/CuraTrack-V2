@@ -5,13 +5,13 @@ const config: CapacitorConfig = {
   appName: 'CuraTrack',
   webDir: 'out',
   server: {
-    // url: 'https://cura-track-v2.vercel.app/login',
+    // url: 'https://moblie-ui-curatrack.vercel.app/login',
     cleartext: true,
     allowNavigation: [
       '*.google.com',
       '*.googleapis.com',
       '*.supabase.co',
-      'cura-track-v2.vercel.app'
+      'moblie-ui-curatrack.vercel.app'
     ]
   }
 };
