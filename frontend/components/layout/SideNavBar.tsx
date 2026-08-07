@@ -33,7 +33,16 @@ export function SideNavBar() {
                 .eq('id', user.id)
                 .single();
 
-            setProfile(data);
+            const displayName = data?.name || 
+                                user.user_metadata?.full_name || 
+                                user.user_metadata?.name || 
+                                (user.email ? user.email.split('@')[0].replace(/[._-]/g, ' ').replace(/\b\w/g, (c: string) => c.toUpperCase()) : 'Patient User');
+
+            setProfile({
+                ...data,
+                name: displayName,
+                role: data?.role || user.user_metadata?.role || 'patient'
+            });
         }
         fetchProfile();
     }, [supabase]);
