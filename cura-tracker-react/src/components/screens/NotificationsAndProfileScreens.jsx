@@ -356,8 +356,25 @@ export function UserProfileScreen({ userProfile, onLogout, onNavigate }) {
     language: "English (US)"
   });
 
+  // Google Fit & Smartwatch sync state
+  const [googleFitConnected, setGoogleFitConnected] = useState(false);
+  const [toastMessage, setToastMessage] = useState('');
+
+  const handleConnectGoogleFit = () => {
+    setGoogleFitConnected(true);
+    setToastMessage('✓ Google Fit connected! Smartwatch vitals & daily steps synced.');
+    setTimeout(() => setToastMessage(''), 4000);
+    setActiveModal(null);
+  };
+
+  const handleDisconnectGoogleFit = () => {
+    setGoogleFitConnected(false);
+    setToastMessage('Google Fit disconnected.');
+    setTimeout(() => setToastMessage(''), 3500);
+  };
+
   // Modal active states
-  const [activeModal, setActiveModal] = useState(null); // 'medical_id' | 'insurance_card' | 'edit_insurance' | 'add_contact' | 'privacy'
+  const [activeModal, setActiveModal] = useState(null); // 'medical_id' | 'google_fit' | 'add_contact' | 'privacy'
 
   // Disable scroll down when entering details in any modal
   useEffect(() => {
@@ -476,14 +493,90 @@ export function UserProfileScreen({ userProfile, onLogout, onNavigate }) {
 
       </section>
 
+      {/* Toast Notification */}
+      {toastMessage && (
+        <div className="bg-[#008080] text-white text-xs font-bold px-4 py-3 rounded-2xl shadow-lg flex items-center justify-between animate-in fade-in slide-in-from-top-2 duration-300 z-50">
+          <span>{toastMessage}</span>
+          <button onClick={() => setToastMessage('')} className="ml-2 text-white/80 hover:text-white">
+            <span className="material-symbols-outlined text-sm">close</span>
+          </button>
+        </div>
+      )}
+
       {/* Vertical Stack Layout for Insurance, Contacts & Settings */}
       <div className="flex flex-col gap-lg">
-
 
         {/* Left Column */}
         <div className="flex flex-col gap-lg">
 
+          {/* Google Fit & Smartwatch Integration Section */}
+          <section className="bg-white rounded-3xl p-5 border border-slate-200 shadow-sm flex flex-col gap-3">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2.5">
+                <div className="w-10 h-10 rounded-2xl bg-[#ea4335]/10 text-[#ea4335] flex items-center justify-center font-bold">
+                  <span className="material-symbols-outlined text-2xl">watch</span>
+                </div>
+                <div>
+                  <h3 className="font-extrabold text-sm text-[#0b1c30]">Google Fit & Smartwatch</h3>
+                  <p className="text-[11px] text-slate-500 font-medium">Sync vitals, heart rate & steps</p>
+                </div>
+              </div>
 
+              {googleFitConnected ? (
+                <span className="bg-emerald-100 text-emerald-800 text-[10px] font-extrabold px-2.5 py-1 rounded-full flex items-center gap-1">
+                  <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
+                  CONNECTED
+                </span>
+              ) : (
+                <span className="bg-slate-100 text-slate-600 text-[10px] font-bold px-2.5 py-1 rounded-full">
+                  NOT CONNECTED
+                </span>
+              )}
+            </div>
+
+            <p className="text-xs text-[#434654] font-medium leading-relaxed">
+              Connect your Google Fit account or wearable smartwatch to auto-sync daily steps, heart rate ECG, and SpO2 oxygen levels.
+            </p>
+
+            {/* Supported Devices Badge Pills */}
+            <div className="flex items-center gap-1.5 flex-wrap">
+              <span className="bg-slate-100 text-slate-700 text-[10px] font-extrabold px-2.5 py-0.5 rounded-full">Google Fit</span>
+              <span className="bg-slate-100 text-slate-700 text-[10px] font-extrabold px-2.5 py-0.5 rounded-full">Wear OS</span>
+              <span className="bg-slate-100 text-slate-700 text-[10px] font-extrabold px-2.5 py-0.5 rounded-full">Galaxy Watch</span>
+              <span className="bg-slate-100 text-slate-700 text-[10px] font-extrabold px-2.5 py-0.5 rounded-full">Fitbit</span>
+              <span className="bg-slate-100 text-slate-700 text-[10px] font-extrabold px-2.5 py-0.5 rounded-full">Apple Health</span>
+            </div>
+
+            {/* Connection Actions */}
+            {googleFitConnected ? (
+              <div className="flex items-center gap-2 pt-1">
+                <button
+                  onClick={handleDisconnectGoogleFit}
+                  className="flex-1 py-2.5 rounded-2xl bg-red-50 text-red-600 border border-red-200 font-bold text-xs hover:bg-red-100 transition-all"
+                >
+                  Disconnect
+                </button>
+                <button
+                  onClick={() => {
+                    setToastMessage('✓ Smartwatch data refreshed! (Steps & Vitals up to date)');
+                    setTimeout(() => setToastMessage(''), 3000);
+                  }}
+                  className="flex-1 py-2.5 rounded-2xl bg-[#008080] text-white font-extrabold text-xs shadow hover:bg-[#006666] active:scale-95 transition-all flex items-center justify-center gap-1.5"
+                >
+                  <span className="material-symbols-outlined text-sm">sync</span>
+                  <span>Sync Vitals Now</span>
+                </button>
+              </div>
+            ) : (
+              <button
+                onClick={() => setActiveModal('google_fit')}
+                className="w-full py-3 rounded-2xl bg-[#008080] text-white font-extrabold text-xs shadow-md hover:bg-[#006666] active:scale-95 transition-all flex items-center justify-center gap-2 cursor-pointer"
+              >
+                <span className="material-symbols-outlined text-lg">favorite</span>
+                <span>Connect Google Fit & Smartwatch</span>
+              </button>
+            )}
+          </section>
 
           {/* Emergency Contacts */}
           <section className="bg-surface rounded-2xl p-lg shadow-sm border border-outline-variant">
@@ -725,6 +818,70 @@ export function UserProfileScreen({ userProfile, onLogout, onNavigate }) {
       )}
 
 
+
+      {/* 5. Google Fit Sync Modal */}
+      {activeModal === 'google_fit' && (
+        <div className="absolute inset-0 bg-black/70 backdrop-blur-sm z-[100] modal-active-backdrop flex items-center justify-center p-4 select-none">
+          <div className="bg-white w-[90%] max-w-[340px] rounded-3xl p-5 shadow-2xl border border-slate-200 flex flex-col gap-4 animate-in fade-in zoom-in-95 duration-200">
+            <div className="flex justify-between items-center">
+              <div className="flex items-center gap-2">
+                <div className="w-8 h-8 rounded-xl bg-red-100 text-red-600 flex items-center justify-center">
+                  <span className="material-symbols-outlined text-lg">favorite</span>
+                </div>
+                <h3 className="font-extrabold text-sm text-[#0b1c30]">Google Fit Integration</h3>
+              </div>
+              <button onClick={() => setActiveModal(null)} className="text-slate-400 hover:text-slate-700">
+                <span className="material-symbols-outlined text-lg">close</span>
+              </button>
+            </div>
+
+            <div className="bg-[#f0f4f8] p-3.5 rounded-2xl flex flex-col gap-2 border border-slate-200">
+              <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">
+                PERMISSIONS TO SYNC WITH CURATRACK
+              </span>
+              <ul className="text-xs font-semibold text-[#0b1c30] flex flex-col gap-1.5">
+                <li className="flex items-center gap-2 text-emerald-700">
+                  <span className="material-symbols-outlined text-base">check_circle</span>
+                  <span>Daily Step Count & Distance Walked</span>
+                </li>
+                <li className="flex items-center gap-2 text-emerald-700">
+                  <span className="material-symbols-outlined text-base">check_circle</span>
+                  <span>Heart Rate Vitals & ECG Waveform</span>
+                </li>
+                <li className="flex items-center gap-2 text-emerald-700">
+                  <span className="material-symbols-outlined text-base">check_circle</span>
+                  <span>Blood Oxygen Levels (SpO2 %)</span>
+                </li>
+                <li className="flex items-center gap-2 text-emerald-700">
+                  <span className="material-symbols-outlined text-base">check_circle</span>
+                  <span>Sleep Cycles & Calorie Burn</span>
+                </li>
+              </ul>
+            </div>
+
+            <p className="text-[11px] text-slate-500 font-medium leading-tight">
+              By connecting, CuraTrack will automatically read smartwatch sensor logs to maintain your real-time Vitals & Health Reports.
+            </p>
+
+            <div className="flex items-center gap-2 pt-1">
+              <button
+                type="button"
+                onClick={() => setActiveModal(null)}
+                className="flex-1 py-2.5 rounded-xl border border-slate-300 text-xs font-bold text-slate-600 hover:bg-slate-50"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={handleConnectGoogleFit}
+                className="flex-1 py-2.5 rounded-xl bg-[#008080] text-white text-xs font-bold shadow hover:bg-[#006666] active:scale-95 transition-all flex items-center justify-center gap-1.5"
+              >
+                <span>Allow & Connect</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* 4. Add Emergency Contact Modal */}
       {activeModal === 'add_contact' && (
