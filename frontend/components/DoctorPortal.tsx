@@ -1618,23 +1618,46 @@ export default function DoctorPortal() {
             </div>
 
             <form
-              onSubmit={(e) => {
+              onSubmit={async (e) => {
                 e.preventDefault();
                 if (!prescriptionData.medication) return;
                 const newRx = {
-                  ...prescriptionData,
+                  id: `rx-${Date.now()}`,
+                  name: prescriptionData.medication,
+                  medication: prescriptionData.medication,
+                  dosage: prescriptionData.dosage,
+                  frequency: prescriptionData.frequency,
+                  notes: prescriptionData.notes,
                   patientName: selectedPatient.name,
                   patientId: selectedPatient.id,
-                  date: new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }),
-                  doctorName: doctorName || 'Dr. David Ross'
+                  doctor: doctorName || 'Dr. David Ross',
+                  doctorName: doctorName || 'Dr. David Ross',
+                  date: new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
                 };
                 const updatedList = [newRx, ...prescriptionsList];
                 setPrescriptionsList(updatedList);
                 try {
                   localStorage.setItem('curatrack_prescriptions', JSON.stringify(updatedList));
+                  window.dispatchEvent(new Event('storage'));
                 } catch (err) {
-                  console.warn('Could not persist prescription:', err);
+                  console.warn('Could not persist prescription locally:', err);
                 }
+
+                try {
+                  await supabase.from('prescriptions').insert({
+                    patient_id: selectedPatient.id,
+                    name: prescriptionData.medication,
+                    medication: prescriptionData.medication,
+                    dosage: prescriptionData.dosage,
+                    frequency: prescriptionData.frequency,
+                    doctor: doctorName || 'Dr. David Ross',
+                    notes: prescriptionData.notes,
+                    date: new Date().toISOString()
+                  });
+                } catch (err) {
+                  console.warn('Could not insert prescription into Supabase:', err);
+                }
+
                 setShowPrescriptionModal(false);
                 setPrescriptionData({ medication: '', dosage: '', frequency: 'Twice daily after meals', notes: '' });
                 alert(`✅ E-Prescription for ${selectedPatient.name} issued successfully and added to patient health records!`);

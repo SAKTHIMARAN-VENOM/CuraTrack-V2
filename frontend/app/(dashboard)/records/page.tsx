@@ -142,9 +142,43 @@ export default function HealthRecordsPage() {
             setActiveMedications(cachedMeds || []);
           }
 
-          // Fetch user-scoped prescriptions
+          // Fetch user-scoped prescriptions from Supabase & localStorage fallback
           const { data: dbRx } = await supabase.from('prescriptions').select('*').eq('patient_id', user.id);
-          setUserPrescriptions(dbRx || []);
+          let localRx: any[] = [];
+          try {
+            const savedRx = localStorage.getItem('curatrack_prescriptions');
+            if (savedRx) {
+              localRx = JSON.parse(savedRx);
+            }
+          } catch (err) {
+            console.warn('Could not read local e-prescriptions:', err);
+          }
+
+          const combinedRx = [
+            ...(localRx || []),
+            ...(dbRx || [])
+          ];
+          const uniqueRx = Array.from(new Map(combinedRx.map(item => [item.medication || item.name, item])).values());
+          setUserPrescriptions(uniqueRx);
+
+          // Automatically sync new e-prescriptions into active medications schedule
+          if (uniqueRx.length > 0) {
+            const newMedsFromRx = uniqueRx.map((rx: any) => ({
+              id: rx.id || `rx-${Date.now()}`,
+              name: rx.name || rx.medication,
+              dosage: rx.dosage || '500mg',
+              frequency: rx.frequency || 'Once daily',
+              time: 'Morning',
+              status: 'UPCOMING',
+              color: '#d4f0fa',
+              icon: 'pill',
+              isError: false,
+            }));
+            setActiveMedications(prev => {
+              const combined = [...newMedsFromRx, ...prev];
+              return Array.from(new Map(combined.map(m => [m.name, m])).values());
+            });
+          }
 
           // Fetch user-scoped doctor notes
           const { data: dbNotes } = await supabase.from('doctor_notes').select('*').eq('patient_id', user.id);
@@ -168,9 +202,34 @@ export default function HealthRecordsPage() {
             )),
           ]);
         } else {
-          // Unauthenticated demo fallback
+          // Unauthenticated / demo fallback
+          let localRx: any[] = [];
+          try {
+            const savedRx = localStorage.getItem('curatrack_prescriptions');
+            if (savedRx) {
+              localRx = JSON.parse(savedRx);
+              setUserPrescriptions(localRx);
+
+              const newMedsFromRx = localRx.map((rx: any) => ({
+                id: rx.id || `rx-${Date.now()}`,
+                name: rx.name || rx.medication,
+                dosage: rx.dosage || '500mg',
+                frequency: rx.frequency || 'Once daily',
+                time: 'Morning',
+                status: 'UPCOMING',
+                color: '#d4f0fa',
+                icon: 'pill',
+                isError: false,
+              }));
+              setActiveMedications(prev => {
+                const combined = [...newMedsFromRx, ...prev];
+                return Array.from(new Map(combined.map(m => [m.name, m])).values());
+              });
+            }
+          } catch (e) {}
+
           const cachedMeds = offlineStorage.getMedications();
-          setActiveMedications(cachedMeds.length > 0 ? cachedMeds : DEFAULT_MEDICATIONS);
+          if (cachedMeds.length > 0 && localRx.length === 0) setActiveMedications(cachedMeds);
           const cachedLabReports = offlineStorage.getLabReports();
           if (cachedLabReports.length > 0) setUserLabReports(cachedLabReports);
         }
@@ -1112,15 +1171,20 @@ export default function HealthRecordsPage() {
                           </div>
                           <div>
                             <div className="flex items-center gap-2 mb-1">
-                              <h4 className="font-headline font-bold text-on-surface text-lg">{rx.name}</h4>
+                              <h4 className="font-headline font-bold text-on-surface text-lg">{rx.name || rx.medication || 'Prescription'}</h4>
                               <span className="px-2 py-0.5 rounded-full text-[10px] font-bold status-badge-stable">ACTIVE</span>
                               <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-primary/10 text-primary">NEW</span>
                             </div>
-                            <p className="text-sm text-tertiary mb-3">{rx.dosage} · {rx.frequency || 'As directed'} · {rx.date}</p>
+                            <p className="text-sm text-tertiary mb-3">{rx.dosage} · {rx.frequency || 'As directed'} · {rx.date || 'Today'}</p>
+                            {rx.notes && (
+                              <p className="text-xs text-on-surface-variant bg-surface-container-low p-2.5 rounded-xl mb-3 border border-outline-variant/10">
+                                💡 <span className="font-semibold">Doctor Note:</span> {rx.notes}
+                              </p>
+                            )}
                             <div className="flex flex-wrap gap-3 text-xs">
-                              {rx.doctor && (
+                              {(rx.doctor || rx.doctorName) && (
                                 <div className="px-3 py-1.5 bg-surface-container-lowest rounded-lg">
-                                  <span className="text-tertiary">Prescribed by: </span><span className="font-bold text-on-surface">{rx.doctor}</span>
+                                  <span className="text-tertiary">Prescribed by: </span><span className="font-bold text-on-surface">{rx.doctor || rx.doctorName}</span>
                                 </div>
                               )}
                             </div>
