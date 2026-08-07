@@ -123,22 +123,29 @@ export default function HealthRecordsPage() {
           // Fetch user-scoped medications
           const { data: dbMeds } = await supabase.from('medications').select('*').eq('patient_id', user.id);
           if (dbMeds && dbMeds.length > 0) {
-            const mapped = dbMeds.map((m: any) => ({
-              id: m.id,
-              name: m.name,
-              dosage: m.dosage,
-              frequency: m.frequency || 'Once daily',
-              time: m.time || 'Morning',
-              status: m.status || 'UPCOMING',
-              date_action: m.created_at ? new Date(m.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }),
-              color: '#d4f0fa',
-              icon: 'pill',
-              isError: m.status === 'MISSED',
-            }));
+            const todayStr = new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+            const mapped = dbMeds.map((m: any) => {
+              const actionDate = m.date_action || (m.created_at ? new Date(m.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : todayStr);
+              const isNewDay = actionDate !== todayStr;
+              // Reset status to UPCOMING on a new calendar day while preserving historical status
+              const activeStatus = isNewDay ? 'UPCOMING' : (m.status || 'UPCOMING');
+              return {
+                id: m.id,
+                name: m.name,
+                dosage: m.dosage,
+                frequency: m.frequency || 'Once daily',
+                time: m.time || 'Morning',
+                status: activeStatus,
+                date_action: actionDate,
+                historical_status: m.status || 'UPCOMING',
+                color: '#d4f0fa',
+                icon: 'pill',
+                isError: activeStatus === 'MISSED',
+              };
+            });
             setActiveMedications(mapped);
             offlineStorage.saveMedications(mapped, user.id);
           } else {
-            // Check offline storage for this specific user
             const cachedMeds = offlineStorage.getMedications(user.id);
             setActiveMedications(cachedMeds || []);
           }
@@ -1321,19 +1328,19 @@ export default function HealthRecordsPage() {
                 <p className="text-xs text-tertiary mt-1">Review missed or skipped doses with recorded dates to track adherence.</p>
               </div>
               <span className="self-start sm:self-auto px-3 py-1.5 bg-error-container text-on-error-container text-xs font-black rounded-xl">
-                {activeMedications.filter(m => m.status === 'MISSED').length} Missed Doses
+                {activeMedications.filter(m => m.status === 'MISSED' || m.historical_status === 'MISSED').length} Missed Doses
               </span>
             </div>
 
             <div className="space-y-4">
-              {activeMedications.filter(m => m.status === 'MISSED').length === 0 ? (
+              {activeMedications.filter(m => m.status === 'MISSED' || m.historical_status === 'MISSED').length === 0 ? (
                 <div className="text-center py-12 text-tertiary">
                   <span className="material-symbols-outlined text-5xl mb-3 text-emerald-600">task_alt</span>
                   <p className="font-headline font-bold text-base text-on-surface">No Missed Doses Recorded!</p>
                   <p className="text-xs mt-1">All active medication doses are logged or marked taken.</p>
                 </div>
               ) : (
-                activeMedications.filter(m => m.status === 'MISSED').map((med, idx) => (
+                activeMedications.filter(m => m.status === 'MISSED' || m.historical_status === 'MISSED').map((med, idx) => (
                   <div key={`missed-${idx}`} className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-5 bg-error-container/20 border border-error/20 rounded-2xl hover:bg-error-container/30 transition-colors">
                     <div className="flex items-start gap-4">
                       <div className="w-12 h-12 rounded-2xl bg-error-container flex items-center justify-center shrink-0 text-error">
