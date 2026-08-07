@@ -1621,46 +1621,76 @@ export default function DoctorPortal() {
               onSubmit={async (e) => {
                 e.preventDefault();
                 if (!prescriptionData.medication) return;
+                if (!selectedPatient.id || selectedPatient.id === 'pending-patient') {
+                  alert('Please select a registered patient before issuing a prescription.');
+                  return;
+                }
+
+                const issuedAt = new Date();
+                const prescriptionInstructions = prescriptionData.notes;
                 const newRx = {
-                  id: `rx-${Date.now()}`,
+                  id: `rx-${issuedAt.getTime()}`,
                   name: prescriptionData.medication,
                   medication: prescriptionData.medication,
                   dosage: prescriptionData.dosage,
                   frequency: prescriptionData.frequency,
-                  notes: prescriptionData.notes,
+                  notes: prescriptionInstructions,
+                  instructions: prescriptionInstructions,
                   patientName: selectedPatient.name,
                   patientId: selectedPatient.id,
                   doctor: doctorName || 'Dr. David Ross',
                   doctorName: doctorName || 'Dr. David Ross',
-                  date: new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
+                  doctor_name: doctorName || 'Dr. David Ross',
+                  date: issuedAt.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
                 };
                 const updatedList = [newRx, ...prescriptionsList];
                 setPrescriptionsList(updatedList);
                 try {
                   localStorage.setItem('curatrack_prescriptions', JSON.stringify(updatedList));
+                  localStorage.setItem(`curatrack_prescriptions_${selectedPatient.id}`, JSON.stringify(
+                    [newRx, ...prescriptionsList.filter((rx) => rx.patientId === selectedPatient.id || rx.patient_id === selectedPatient.id)]
+                  ));
                   window.dispatchEvent(new Event('storage'));
                 } catch (err) {
                   console.warn('Could not persist prescription locally:', err);
                 }
 
                 try {
-                  await supabase.from('prescriptions').insert({
+                  const prescriptionRow = {
                     patient_id: selectedPatient.id,
-                    name: prescriptionData.medication,
                     medication: prescriptionData.medication,
                     dosage: prescriptionData.dosage,
                     frequency: prescriptionData.frequency,
+                    doctor_name: doctorName || 'Dr. David Ross',
+                    instructions: prescriptionInstructions,
+                    date: issuedAt.toISOString()
+                  };
+                  const medicationRow = {
+                    patient_id: selectedPatient.id,
+                    name: prescriptionData.medication,
+                    dosage: prescriptionData.dosage,
+                    frequency: prescriptionData.frequency,
+                    time: 'Morning',
+                    reason: prescriptionInstructions,
+                    instructions: prescriptionInstructions,
                     doctor: doctorName || 'Dr. David Ross',
-                    notes: prescriptionData.notes,
-                    date: new Date().toISOString()
-                  });
+                    status: 'UPCOMING',
+                    source: 'doctor_prescription',
+                    active: true
+                  };
+
+                  const { error: prescriptionError } = await supabase.from('prescriptions').insert(prescriptionRow);
+                  if (prescriptionError) throw prescriptionError;
+
+                  const { error: medicationError } = await supabase.from('medications').insert(medicationRow);
+                  if (medicationError) throw medicationError;
                 } catch (err) {
-                  console.warn('Could not insert prescription into Supabase:', err);
+                  console.warn('Could not sync prescription into patient health records:', err);
                 }
 
                 setShowPrescriptionModal(false);
                 setPrescriptionData({ medication: '', dosage: '', frequency: 'Twice daily after meals', notes: '' });
-                alert(`✅ E-Prescription for ${selectedPatient.name} issued successfully and added to patient health records!`);
+                alert(`E-Prescription for ${selectedPatient.name} issued successfully and added to patient health records!`);
               }}
               className="space-y-4"
             >

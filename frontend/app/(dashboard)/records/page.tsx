@@ -146,9 +146,13 @@ export default function HealthRecordsPage() {
           const { data: dbRx } = await supabase.from('prescriptions').select('*').eq('patient_id', user.id);
           let localRx: any[] = [];
           try {
-            const savedRx = localStorage.getItem('curatrack_prescriptions');
+            const scopedSavedRx = localStorage.getItem(`curatrack_prescriptions_${user.id}`);
+            const savedRx = scopedSavedRx || localStorage.getItem('curatrack_prescriptions');
             if (savedRx) {
-              localRx = JSON.parse(savedRx);
+              const parsedRx = JSON.parse(savedRx);
+              localRx = scopedSavedRx
+                ? parsedRx
+                : parsedRx.filter((rx: any) => rx.patientId === user.id || rx.patient_id === user.id);
             }
           } catch (err) {
             console.warn('Could not read local e-prescriptions:', err);
