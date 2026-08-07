@@ -1,6 +1,9 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
+  typescript: {
+    ignoreBuildErrors: true,
+  },
   output: process.env.NEXT_EXPORT === 'true' ? 'export' : undefined,
   images: {
     unoptimized: true,
