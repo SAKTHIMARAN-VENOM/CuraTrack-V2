@@ -130,9 +130,10 @@ export default function HealthRecordsPage() {
               frequency: m.frequency || 'Once daily',
               time: m.time || 'Morning',
               status: m.status || 'UPCOMING',
+              date_action: m.created_at ? new Date(m.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }),
               color: '#d4f0fa',
               icon: 'pill',
-              isError: false,
+              isError: m.status === 'MISSED',
             }));
             setActiveMedications(mapped);
             offlineStorage.saveMedications(mapped, user.id);
@@ -272,12 +273,39 @@ export default function HealthRecordsPage() {
     };
   }, []);
 
-  // Dynamic summary stats
+  // Dynamic summary stats & weekly adherence calculation
   const takenCount = activeMedications.filter(m => m.status === 'TAKEN').length;
+  const missedCount = activeMedications.filter(m => m.status === 'MISSED').length;
   const adherencePercentage = activeMedications.length > 0 
     ? Math.round((takenCount / activeMedications.length) * 100) 
     : 100;
   const nextDoseMed = activeMedications.find(m => m.status === 'UPCOMING');
+
+  const daysOfWeek = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+  const currentDayIndex = (new Date().getDay() + 6) % 7; // Mon=0, Sun=6
+
+  const weeklyAdherenceData = daysOfWeek.map((day, idx) => {
+    if (idx > currentDayIndex) {
+      return { day, percentage: 0, status: 'upcoming' };
+    }
+    if (activeMedications.length === 0) {
+      return { day, percentage: 100, status: 'taken' };
+    }
+    if (idx === currentDayIndex) {
+      const taken = activeMedications.filter(m => m.status === 'TAKEN').length;
+      const total = activeMedications.length;
+      const pct = Math.round((taken / total) * 100);
+      return { day, percentage: pct, status: pct === 100 ? 'taken' : pct === 0 ? 'missed' : 'partial' };
+    }
+    const pastPct = Math.max(20, 100 - (missedCount * 25));
+    return { day, percentage: pastPct, status: pastPct >= 80 ? 'taken' : 'missed' };
+  });
+
+  const activeWeeklyAdherencePct = Math.round(
+    weeklyAdherenceData
+      .slice(0, currentDayIndex + 1)
+      .reduce((acc, d) => acc + d.percentage, 0) / (currentDayIndex + 1)
+  );
 
   const handleExportPDF = () => {
     const lines = [
@@ -314,22 +342,50 @@ export default function HealthRecordsPage() {
     alert(`💊 Refill request for ${target} has been sent to your preferred pharmacy!`);
   };
 
-  const handleToggleMedicationStatus = (index: number) => {
+  const handleToggleMedicationStatus = async (index: number) => {
+    const medToUpdate = activeMedications[index];
+    if (!medToUpdate) return;
+
+    const nextStatus: 'TAKEN' | 'MISSED' | 'UPCOMING' = 
+      medToUpdate.status === 'TAKEN' ? 'MISSED' : medToUpdate.status === 'MISSED' ? 'UPCOMING' : 'TAKEN';
+    const updatedDate = new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+
+    // 1. Update React local state immediately
     setActiveMedications(prev => {
       const updated = prev.map((med, idx) => {
         if (idx !== index) return med;
-        const nextStatus: 'TAKEN' | 'MISSED' | 'UPCOMING' = 
-          med.status === 'TAKEN' ? 'MISSED' : med.status === 'MISSED' ? 'UPCOMING' : 'TAKEN';
         return {
           ...med,
           status: nextStatus,
+          date_action: updatedDate,
           isError: nextStatus === 'MISSED'
         };
       });
 
-      offlineStorage.saveMedications(updated);
+      if (userId) {
+        offlineStorage.saveMedications(updated, userId);
+      }
       return updated;
     });
+
+    // 2. Persist status change to Supabase
+    try {
+      const supabase = createClient();
+      if (medToUpdate.id && typeof medToUpdate.id === 'string' && !medToUpdate.id.startsWith('rx-')) {
+        await supabase
+          .from('medications')
+          .update({ status: nextStatus })
+          .eq('id', medToUpdate.id);
+      } else if (userId && medToUpdate.name) {
+        await supabase
+          .from('medications')
+          .update({ status: nextStatus })
+          .eq('patient_id', userId)
+          .eq('name', medToUpdate.name);
+      }
+    } catch (err) {
+      console.warn('Could not update medication status in Supabase:', err);
+    }
   };
 
   const handleDownloadReport = (lab: any) => {
@@ -769,6 +825,14 @@ export default function HealthRecordsPage() {
         <button onClick={() => setActiveTab('prescriptions')} className={`${activeTab === 'prescriptions' ? 'tab-active' : 'tab-inactive'} px-5 py-2.5 rounded-xl text-sm font-bold font-headline transition-all flex items-center gap-2`}>
           <span className="material-symbols-outlined text-base">receipt_long</span>Prescriptions
         </button>
+        <button onClick={() => setActiveTab('missed')} className={`${activeTab === 'missed' ? 'tab-active' : 'tab-inactive'} px-5 py-2.5 rounded-xl text-sm font-bold font-headline transition-all flex items-center gap-2`}>
+          <span className="material-symbols-outlined text-base">event_busy</span>Missed Medications
+          {activeMedications.filter(m => m.status === 'MISSED').length > 0 && (
+            <span className="ml-1 px-2 py-0.5 rounded-full bg-error-container text-on-error-container text-[10px] font-black">
+              {activeMedications.filter(m => m.status === 'MISSED').length}
+            </span>
+          )}
+        </button>
       </div>
 
       {/* ===== MEDICATIONS SECTION ===== */}
@@ -856,26 +920,34 @@ export default function HealthRecordsPage() {
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
             {/* Weekly adherence */}
             <div className="section-card p-6">
-              <h3 className="font-headline text-lg font-bold text-on-surface mb-5">Weekly Adherence</h3>
+              <div className="flex justify-between items-center mb-5">
+                <h3 className="font-headline text-lg font-bold text-on-surface">Weekly Adherence</h3>
+                <span className="text-xs font-extrabold text-secondary px-2.5 py-1 bg-secondary/10 rounded-full">{activeWeeklyAdherencePct}% Average</span>
+              </div>
               <div className="flex items-end gap-3 h-28">
-                {['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'].map((day, idx) => (
-                  <div key={day} className="flex flex-col items-center gap-2 flex-1">
+                {weeklyAdherenceData.map((d, idx) => (
+                  <div key={d.day} className="flex flex-col items-center gap-2 flex-1">
                     <div 
-                      className="w-full rounded-lg" 
+                      className="w-full rounded-lg transition-all duration-500" 
                       style={{ 
-                        height: activeMedications.length > 0 ? `${(80 + (idx * 3) % 20)}%` : '15%', 
-                        background: activeMedications.length > 0 ? 'linear-gradient(180deg,#00647e,#2c7d99)' : '#edeeef',
-                        opacity: activeMedications.length > 0 ? 1 : 0.4 
+                        height: `${Math.max(d.percentage, 12)}%`, 
+                        background: d.percentage >= 80 
+                          ? 'linear-gradient(180deg,#00647e,#2c7d99)' 
+                          : d.percentage > 0 
+                          ? 'linear-gradient(180deg,#d97706,#f59e0b)' 
+                          : '#f87171',
+                        opacity: idx > currentDayIndex ? 0.35 : 1 
                       }}
+                      title={`${d.day}: ${d.percentage}% adherence`}
                     ></div>
-                    <span className="text-[10px] font-bold text-tertiary">{day}</span>
+                    <span className={`text-[10px] font-bold ${idx === currentDayIndex ? 'text-primary font-black' : 'text-tertiary'}`}>{d.day}</span>
                   </div>
                 ))}
               </div>
               <div className="mt-4 flex items-center gap-4">
-                <div className="flex items-center gap-1.5"><div className="w-3 h-3 rounded-sm" style={{ background: '#00647e' }}></div><span className="text-xs text-tertiary">Taken</span></div>
-                <div className="flex items-center gap-1.5"><div className="w-3 h-3 rounded-sm bg-error-container"></div><span className="text-xs text-tertiary">Missed</span></div>
-                <div className="flex items-center gap-1.5"><div className="w-3 h-3 rounded-sm bg-surface-container-high"></div><span className="text-xs text-tertiary">Upcoming</span></div>
+                <div className="flex items-center gap-1.5"><div className="w-3 h-3 rounded-sm" style={{ background: '#00647e' }}></div><span className="text-xs text-tertiary">Taken (≥80%)</span></div>
+                <div className="flex items-center gap-1.5"><div className="w-3 h-3 rounded-sm bg-amber-500"></div><span className="text-xs text-tertiary">Partial</span></div>
+                <div className="flex items-center gap-1.5"><div className="w-3 h-3 rounded-sm bg-red-400"></div><span className="text-xs text-tertiary">Missed</span></div>
               </div>
             </div>
             {/* Refill tracker */}
@@ -1233,6 +1305,62 @@ export default function HealthRecordsPage() {
                     </div>
                   ))}
                 </>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ===== MISSED MEDICATIONS SECTION ===== */}
+      {activeTab === 'missed' && (
+        <div className="space-y-6">
+          <div className="section-card p-6 lg:p-8">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6 pb-4 border-b border-outline-variant/10">
+              <div>
+                <h3 className="font-headline text-xl font-bold text-on-surface">Missed Medications Log</h3>
+                <p className="text-xs text-tertiary mt-1">Review missed or skipped doses with recorded dates to track adherence.</p>
+              </div>
+              <span className="self-start sm:self-auto px-3 py-1.5 bg-error-container text-on-error-container text-xs font-black rounded-xl">
+                {activeMedications.filter(m => m.status === 'MISSED').length} Missed Doses
+              </span>
+            </div>
+
+            <div className="space-y-4">
+              {activeMedications.filter(m => m.status === 'MISSED').length === 0 ? (
+                <div className="text-center py-12 text-tertiary">
+                  <span className="material-symbols-outlined text-5xl mb-3 text-emerald-600">task_alt</span>
+                  <p className="font-headline font-bold text-base text-on-surface">No Missed Doses Recorded!</p>
+                  <p className="text-xs mt-1">All active medication doses are logged or marked taken.</p>
+                </div>
+              ) : (
+                activeMedications.filter(m => m.status === 'MISSED').map((med, idx) => (
+                  <div key={`missed-${idx}`} className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-5 bg-error-container/20 border border-error/20 rounded-2xl hover:bg-error-container/30 transition-colors">
+                    <div className="flex items-start gap-4">
+                      <div className="w-12 h-12 rounded-2xl bg-error-container flex items-center justify-center shrink-0 text-error">
+                        <span className="material-symbols-outlined fill-icon text-2xl">event_busy</span>
+                      </div>
+                      <div>
+                        <div className="flex items-center gap-2 mb-1">
+                          <h4 className="font-headline font-bold text-on-surface text-base">{med.name}</h4>
+                          <span className="status-badge-urgent px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase">MISSED</span>
+                        </div>
+                        <p className="text-xs text-tertiary font-medium mb-1">
+                          {med.dosage} · {med.frequency} · Scheduled: {med.time}
+                        </p>
+                        <p className="text-xs text-error font-bold flex items-center gap-1.5">
+                          <span className="material-symbols-outlined text-sm">calendar_month</span>
+                          <span>Date Recorded: {med.date_action || new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}</span>
+                        </p>
+                      </div>
+                    </div>
+                    <button
+                      onClick={() => handleToggleMedicationStatus(activeMedications.findIndex(m => m.name === med.name))}
+                      className="shrink-0 px-4 py-2.5 bg-primary text-white text-xs font-bold rounded-xl shadow-sm hover:opacity-90 transition-all flex items-center gap-1.5"
+                    >
+                      <span className="material-symbols-outlined text-base">check</span> Mark Taken Now
+                    </button>
+                  </div>
+                ))
               )}
             </div>
           </div>
