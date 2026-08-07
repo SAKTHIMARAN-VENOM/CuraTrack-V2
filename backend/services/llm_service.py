@@ -1,5 +1,6 @@
 """
-LLM service — calls Google Gemini API (or local Ollama fallback) for structured medical data extraction.
+LLM service — calls Google Gemini API (or local Ollama fallback) for structured medical data extraction
+and patient-friendly clinical interpretation.
 
 This is used by the /api/ingest-document pipeline for health records (prescriptions, lab reports, doctor notes).
 Uses the unified ocr_service for Gemini calls when possible.
@@ -27,12 +28,14 @@ OLLAMA_MODEL = os.getenv("OLLAMA_MODEL", "llama3.1:8b")
 def extract_medical_data(text: str) -> str:
     """
     Send OCR text to LLM (Gemini API or Ollama fallback) and get structured medical JSON back.
+    The response also includes patient-friendly clinical insights based only on the extracted file.
     Returns the raw LLM response string.
     Raises RuntimeError on failure — NO silent fallback to mock data.
     """
-    prompt = f"""You are a medical data extraction AI.
+    prompt = f"""You are a careful clinical assistant helping a patient understand a medical document.
 
-Extract structured healthcare data from the text.
+Extract structured healthcare data from the text, then explain the results in plain language.
+Act like a doctor explaining what the report appears to show, without pretending to diagnose.
 
 Return ONLY JSON in this format:
 
@@ -59,11 +62,32 @@ Return ONLY JSON in this format:
   "doctor_notes": {{
     "summary": "",
     "confidence": 0.0
+  }},
+  "clinical_insights": {{
+    "plain_language_summary": "",
+    "key_findings": [
+      {{
+        "title": "",
+        "explanation": "",
+        "severity": "normal | watch | concerning | urgent | unknown",
+        "related_tests": []
+      }}
+    ],
+    "possible_meaning": "",
+    "recommended_next_steps": [],
+    "questions_for_doctor": [],
+    "urgent_warning_signs": [],
+    "disclaimer": "This is an AI explanation of the uploaded document and is not a diagnosis. Please confirm with a qualified clinician."
   }}
 }}
 
 If a field cannot be determined from the text, leave it as an empty string or omit it.
 Never invent or fabricate data that is not present in the input text.
+Use simple language a non-medical person can understand.
+Highlight high, low, abnormal, critical, positive, negative, and out-of-range values when the report provides them.
+If reference ranges are missing, say what is unclear instead of guessing.
+Do not recommend starting, stopping, or changing medication without speaking to a clinician.
+Use "urgent" only when the document explicitly contains critical, emergency, severe, or life-threatening wording.
 
 Input:
 \"\"\"{text}\"\"\"
@@ -98,7 +122,16 @@ Input:
         empty = {
             "medications": [],
             "lab_results": [],
-            "doctor_notes": {"summary": "", "confidence": 0.0}
+            "doctor_notes": {"summary": "", "confidence": 0.0},
+            "clinical_insights": {
+                "plain_language_summary": "",
+                "key_findings": [],
+                "possible_meaning": "",
+                "recommended_next_steps": [],
+                "questions_for_doctor": [],
+                "urgent_warning_signs": [],
+                "disclaimer": "This is an AI explanation of the uploaded document and is not a diagnosis. Please confirm with a qualified clinician.",
+            },
         }
         logger.warning("Both Gemini and Ollama failed. Returning empty medical structure.")
         return json.dumps(empty)

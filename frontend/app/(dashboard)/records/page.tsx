@@ -14,6 +14,86 @@ const DEFAULT_MEDICATIONS = [
   { name: 'Vitamin D3', dosage: '2000 IU', frequency: 'Once daily', time: '8:00 AM (Morning)', status: 'MISSED', color: '#ffe082', icon: 'pill', isError: true },
 ];
 
+const DEFAULT_LAB_DISCLAIMER = 'This is an AI explanation of the uploaded scan and is not a diagnosis. Confirm these results with a qualified clinician.';
+
+const normalizeLabStatus = (status?: string) => {
+  const normalized = String(status || 'unknown').toLowerCase();
+  if (['high', 'low', 'normal'].includes(normalized)) return normalized;
+  return 'unknown';
+};
+
+const escapePdfText = (value: string) =>
+  value.replace(/\\/g, '\\\\').replace(/\(/g, '\\(').replace(/\)/g, '\\)').replace(/\r?\n/g, ' ');
+
+const wrapPdfLine = (value: string, limit = 92) => {
+  const words = value.split(/\s+/).filter(Boolean);
+  const lines: string[] = [];
+  let current = '';
+
+  words.forEach((word) => {
+    const next = current ? `${current} ${word}` : word;
+    if (next.length > limit && current) {
+      lines.push(current);
+      current = word;
+    } else {
+      current = next;
+    }
+  });
+
+  if (current) lines.push(current);
+  return lines.length > 0 ? lines : [''];
+};
+
+const createPdfBlob = (title: string, lines: string[]) => {
+  const pageLines = lines.flatMap((line) => wrapPdfLine(line));
+  const pages: string[][] = [];
+  for (let i = 0; i < pageLines.length; i += 46) {
+    pages.push(pageLines.slice(i, i + 46));
+  }
+  if (pages.length === 0) pages.push([title]);
+
+  const objects: string[] = [];
+  const addObject = (body: string) => {
+    objects.push(body);
+    return objects.length;
+  };
+
+  const pageObjectRefs: number[] = [];
+  const contentObjectRefs: number[] = [];
+
+  const catalogRef = addObject(''); // filled after pages object exists
+  const pagesRef = addObject(''); // filled after page refs exist
+  const fontRef = addObject('<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>');
+
+  pages.forEach((page) => {
+    const streamLines = page.map((line) => `(${escapePdfText(line)}) Tj T*`).join('\n');
+    const stream = `BT /F1 10 Tf 50 790 Td 14 TL\n${streamLines}\nET`;
+    const contentRef = addObject(`<< /Length ${stream.length} >>\nstream\n${stream}\nendstream`);
+    const pageRef = addObject(`<< /Type /Page /Parent ${pagesRef} 0 R /MediaBox [0 0 612 842] /Resources << /Font << /F1 ${fontRef} 0 R >> >> /Contents ${contentRef} 0 R >>`);
+    contentObjectRefs.push(contentRef);
+    pageObjectRefs.push(pageRef);
+  });
+
+  objects[catalogRef - 1] = `<< /Type /Catalog /Pages ${pagesRef} 0 R >>`;
+  objects[pagesRef - 1] = `<< /Type /Pages /Kids [${pageObjectRefs.map((ref) => `${ref} 0 R`).join(' ')}] /Count ${pageObjectRefs.length} >>`;
+
+  let pdf = '%PDF-1.4\n';
+  const offsets = [0];
+  objects.forEach((body, index) => {
+    offsets.push(pdf.length);
+    pdf += `${index + 1} 0 obj\n${body}\nendobj\n`;
+  });
+
+  const xrefOffset = pdf.length;
+  pdf += `xref\n0 ${objects.length + 1}\n0000000000 65535 f \n`;
+  offsets.slice(1).forEach((offset) => {
+    pdf += `${offset.toString().padStart(10, '0')} 00000 n \n`;
+  });
+  pdf += `trailer\n<< /Size ${objects.length + 1} /Root ${catalogRef} 0 R >>\nstartxref\n${xrefOffset}\n%%EOF`;
+
+  return new Blob([pdf], { type: 'application/pdf' });
+};
+
 export default function HealthRecordsPage() {
   const router = useRouter();
   const [activeTab, setActiveTab] = useState('medications');
@@ -72,11 +152,27 @@ export default function HealthRecordsPage() {
 
           // Fetch user-scoped lab reports
           const { data: dbLabs } = await supabase.from('lab_results').select('*').eq('patient_id', user.id);
-          setUserLabReports(dbLabs || []);
+          const mappedDbLabs = (dbLabs || []).map((lab: any) => ({
+            ...lab,
+            testName: lab.testName || lab.test_name || 'Laboratory Investigation Report',
+            labName: lab.labName || lab.lab_name || '',
+            clinicalInsights: lab.clinicalInsights || null,
+            rawText: lab.rawText || '',
+            results: Array.isArray(lab.results) ? lab.results : [],
+          }));
+          const cachedLabReports = offlineStorage.getLabReports();
+          setUserLabReports([
+            ...cachedLabReports,
+            ...mappedDbLabs.filter((dbLab: any) => !cachedLabReports.some((cached: any) =>
+              cached.testName === dbLab.testName && cached.date === dbLab.date
+            )),
+          ]);
         } else {
           // Unauthenticated demo fallback
           const cachedMeds = offlineStorage.getMedications();
           setActiveMedications(cachedMeds.length > 0 ? cachedMeds : DEFAULT_MEDICATIONS);
+          const cachedLabReports = offlineStorage.getLabReports();
+          if (cachedLabReports.length > 0) setUserLabReports(cachedLabReports);
         }
       } catch (e) {
         console.warn('Could not load records from Supabase:', e);
@@ -114,17 +210,30 @@ export default function HealthRecordsPage() {
   const nextDoseMed = activeMedications.find(m => m.status === 'UPCOMING');
 
   const handleExportPDF = () => {
-    const text = `CuraTrack Medical History & Health Records Export\n` +
-      `Date: ${new Date().toLocaleDateString()}\n\n` +
-      `Active Medications:\n` +
-      activeMedications.map(m => `- ${m.name} (${m.dosage}) - Status: ${m.status}`).join('\n') +
-      `\n\nPrescriptions: ${userPrescriptions.length}\nDoctor Notes: ${userNotes.length}\nLab Reports: ${userLabReports.length}\n`;
-    
-    const blob = new Blob([text], { type: 'text/plain;charset=utf-8' });
+    const lines = [
+      'CuraTrack Medical History & Health Records Export',
+      `Date: ${new Date().toLocaleDateString()}`,
+      '',
+      'Active Medications',
+      ...(activeMedications.length > 0
+        ? activeMedications.map(m => `- ${m.name} (${m.dosage}) - Status: ${m.status}`)
+        : ['- None']),
+      '',
+      `Prescriptions: ${userPrescriptions.length}`,
+      `Doctor Notes: ${userNotes.length}`,
+      `Lab Reports: ${userLabReports.length}`,
+      '',
+      'Recent Lab Reports',
+      ...(userLabReports.length > 0
+        ? userLabReports.map(lab => `- ${lab.testName || 'Lab Report'} - ${lab.status || 'Unknown'} - ${lab.date || 'No date'}`)
+        : ['- None']),
+    ];
+
+    const blob = createPdfBlob('CuraTrack Medical History Export', lines);
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = `CuraTrack_Medical_Report_${Date.now()}.txt`;
+    a.download = `CuraTrack_Medical_Report_${Date.now()}.pdf`;
     a.click();
     URL.revokeObjectURL(url);
   };
@@ -153,13 +262,81 @@ export default function HealthRecordsPage() {
     });
   };
 
-  const handleDownloadReport = (reportTitle: string) => {
-    const content = `Report Title: ${reportTitle}\nStatus: Complete\nGenerated: ${new Date().toLocaleString()}\nVerified by CuraTrack Medical Team.`;
-    const blob = new Blob([content], { type: 'text/plain' });
+  const handleDownloadReport = (lab: any) => {
+    const insights = getLabInsights(lab);
+    const reportTitle = lab?.testName || 'Lab Report';
+    const results = lab?.results || [];
+    const abnormalResults = (lab?.results || []).filter((result: any) => {
+      const status = normalizeLabStatus(result.status);
+      return status === 'high' || status === 'low';
+    });
+    const digitalScanText = String(lab?.rawText || '').trim();
+    const digitalScanLines = digitalScanText
+      ? digitalScanText.split(/\r?\n/).map((line) => line.trim()).filter(Boolean)
+      : [
+          'No OCR transcript was stored for this report.',
+          'The structured digital values below were extracted from the uploaded scan.',
+        ];
+
+    const lines = [
+      'CuraTrack Digital Lab Report',
+      `Report: ${reportTitle}`,
+      `Date: ${lab?.date || new Date().toLocaleDateString()}`,
+      `Lab: ${lab?.labName || 'Unknown Lab'}`,
+      `Doctor: ${lab?.doctor || 'Unknown Doctor'}`,
+      `Overall status: ${lab?.status || 'Unknown'}`,
+      '',
+      'Digital version of uploaded scan',
+      'This section is the text CuraTrack read from your uploaded medical scan using OCR.',
+      ...digitalScanLines,
+      '',
+      'Structured digital lab values',
+      ...(results.length > 0
+        ? results.map((result: any) => {
+            const status = normalizeLabStatus(result.status);
+            const label = status === 'unknown' ? 'STATUS NOT FOUND' : status.toUpperCase();
+            return `- ${result.key || 'Metric'} | Value: ${result.value || '-'} ${result.unit || ''} | ${label}`;
+          })
+        : ['No structured lab values were extracted from the scan.']),
+      '',
+      'Doctor-perspective analysis',
+      'If I were reviewing this report with you in clinic, this is how I would frame the findings based on the scan alone:',
+      insights.plain_language_summary || 'No summary available.',
+      '',
+      'Clinical findings',
+      ...(insights.key_findings || []).map((finding: any) =>
+        `- ${finding.title || 'Finding'} (${finding.severity || 'unknown'}): ${finding.explanation || ''}`
+      ),
+      '',
+      'Interpretation',
+      insights.possible_meaning || 'Not enough context was available in the scan to explain the result fully.',
+      '',
+      'Recommended actions',
+      ...(insights.recommended_next_steps || []).map((stepText: string) => `- ${stepText}`),
+      '',
+      'Suggested follow-up questions for your doctor',
+      ...(insights.questions_for_doctor || []).map((question: string) => `- ${question}`),
+      '',
+      abnormalResults.length > 0
+        ? `Attention: ${abnormalResults.length} extracted value${abnormalResults.length === 1 ? '' : 's'} appeared high or low in the scan.`
+        : 'No high/low status was extracted from the scan.',
+      ...(insights.urgent_warning_signs?.length > 0
+        ? [
+            '',
+            'Urgent warning signs',
+            ...(insights.urgent_warning_signs || []).map((warning: string) => `- ${warning}`),
+          ]
+        : []),
+      '',
+      insights.disclaimer || DEFAULT_LAB_DISCLAIMER,
+      `Generated: ${new Date().toLocaleString()}`,
+    ];
+
+    const blob = createPdfBlob(reportTitle, lines);
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = `${reportTitle.replace(/\s+/g, '_')}_Report.txt`;
+    a.download = `${reportTitle.replace(/\s+/g, '_')}_Analysis.pdf`;
     a.click();
     URL.revokeObjectURL(url);
   };
@@ -247,7 +424,11 @@ export default function HealthRecordsPage() {
       return;
     }
     if (data && data.type === 'lab') {
-      setUserLabReports(prev => [data.data, ...prev]);
+      setUserLabReports(prev => {
+        const updated = [data.data, ...prev];
+        offlineStorage.saveLabReports(updated);
+        return updated;
+      });
       try {
         await supabase.from('lab_results').insert({
           patient_id: userId,
@@ -263,6 +444,7 @@ export default function HealthRecordsPage() {
         console.warn('Failed to insert lab result to Supabase:', err);
       }
       setActiveTab('lab');
+      setOpenSections({ 'user-lab-0': true });
       return;
     }
   };
@@ -295,6 +477,187 @@ export default function HealthRecordsPage() {
 
   const toggleSection = (id: string) => {
     setOpenSections(prev => ({ ...prev, [id]: !prev[id] }));
+  };
+
+  const getLabInsights = (lab: any) => {
+    const aiInsights = lab?.clinicalInsights;
+    const hasAiInsights = Boolean(
+      aiInsights?.plain_language_summary ||
+      aiInsights?.possible_meaning ||
+      aiInsights?.key_findings?.length ||
+      aiInsights?.recommended_next_steps?.length ||
+      aiInsights?.questions_for_doctor?.length ||
+      aiInsights?.urgent_warning_signs?.length
+    );
+
+    if (hasAiInsights) return aiInsights;
+
+    const results = lab?.results || [];
+    const resultNames = results.map((r: any) => r.key).filter(Boolean);
+    const abnormalResults = results.filter((r: any) => {
+      const status = normalizeLabStatus(r.status);
+      return status === 'high' || status === 'low';
+    });
+    const normalResults = results.filter((r: any) => normalizeLabStatus(r.status) === 'normal');
+    const flagged = lab?.status === 'Flagged' || abnormalResults.length > 0;
+    const abnormalSummary = abnormalResults
+      .map((r: any) => `${r.key || 'A result'} is ${normalizeLabStatus(r.status)} at ${r.value || '-'} ${r.unit || ''}`.trim())
+      .join('; ');
+
+    return {
+      plain_language_summary: flagged
+        ? `I found ${abnormalResults.length || 'one or more'} result${abnormalResults.length === 1 ? '' : 's'} that appear outside the expected range. ${abnormalSummary || 'The report is marked as flagged.'}`
+        : `I reviewed the extracted values from this scan. ${normalResults.length > 0 ? `${normalResults.length} result${normalResults.length === 1 ? '' : 's'} were marked normal. ` : ''}No high or low value was extracted, but the result still needs clinical context.`,
+      key_findings: abnormalResults.length > 0
+        ? abnormalResults.map((result: any) => {
+            const status = normalizeLabStatus(result.status);
+            return {
+              title: `${result.key || 'Lab value'} is ${status}`,
+              explanation: `${result.key || 'This value'} was read as ${result.value || '-'} ${result.unit || ''}. A ${status} result can be temporary, lab-specific, or related to diet, hydration, medicines, infection, chronic disease, or the reason your doctor ordered the test.`,
+              severity: status === 'high' || status === 'low' ? 'watch' : 'unknown',
+              related_tests: [result.key || 'Lab value'],
+            };
+          })
+        : [
+            {
+              title: flagged ? 'Flagged lab report' : 'No high/low value extracted',
+              explanation: flagged
+                ? 'The report is marked as flagged, but CuraTrack could not identify exactly which extracted row was high or low. Compare each value with the reference range printed on the original scan.'
+                : 'The scan did not provide an obvious abnormal marker that CuraTrack could identify. Normal-looking values can still matter when symptoms are present.',
+              severity: flagged ? 'watch' : 'normal',
+              related_tests: resultNames.slice(0, 5),
+            },
+          ],
+      possible_meaning: flagged
+        ? 'An out-of-range lab value is a signal to interpret the result, not a diagnosis by itself. The next step is to match it with your symptoms, previous reports, medications, and the lab reference range.'
+        : 'These values can be useful as a baseline for future comparison, especially if your doctor is tracking a condition over time.',
+      recommended_next_steps: flagged
+        ? [
+            'Book a review with your doctor or the doctor who ordered the test, especially if this is new or worsening.',
+            'Compare the flagged value with the lab reference range printed on the report.',
+            'Check whether you have older reports to see if this is a trend or a one-time change.',
+            'Do not start or stop medication based only on this scan.',
+          ]
+        : [
+            'Keep this report saved for trend comparison.',
+            'Discuss it during your next visit if symptoms continue or if this was part of ongoing monitoring.',
+          ],
+      questions_for_doctor: flagged
+        ? [
+            'Which value is outside range, and how serious is it for me?',
+            'Do I need a repeat test or another related test?',
+            'Could my medicines, diet, or recent illness affect this result?',
+          ]
+        : [
+            'Are these values appropriate for my age and medical history?',
+            'When should I repeat this test?',
+          ],
+      urgent_warning_signs: flagged
+        ? ['Seek urgent care if you have severe chest pain, fainting, severe breathlessness, confusion, heavy bleeding, or rapidly worsening symptoms.']
+        : [],
+      disclaimer: DEFAULT_LAB_DISCLAIMER,
+    };
+  };
+
+  const severityClass = (severity?: string) => {
+    switch (severity) {
+      case 'urgent':
+        return 'bg-error-container text-on-error-container border-error/20';
+      case 'concerning':
+        return 'bg-red-50 text-red-800 border-red-200';
+      case 'watch':
+        return 'bg-amber-50 text-amber-800 border-amber-200';
+      case 'normal':
+        return 'bg-secondary/10 text-secondary border-secondary/20';
+      default:
+        return 'bg-surface-container-low text-on-surface-variant border-outline-variant/20';
+    }
+  };
+
+  const renderLabInsights = (lab: any) => {
+    const insights = getLabInsights(lab);
+
+    return (
+      <div className="rounded-2xl border border-primary/10 bg-primary/5 p-5 space-y-4">
+        <div className="flex items-start gap-3">
+          <div className="w-10 h-10 rounded-xl bg-primary/10 text-primary flex items-center justify-center shrink-0">
+            <span className="material-symbols-outlined">stethoscope</span>
+          </div>
+          <div>
+            <p className="text-xs font-bold text-primary uppercase tracking-widest">Doctor-style scan insights</p>
+            <p className="text-sm text-on-surface-variant leading-relaxed mt-1">{insights.plain_language_summary}</p>
+          </div>
+        </div>
+
+        {insights.key_findings?.length > 0 && (
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+            {insights.key_findings.map((finding: any, idx: number) => (
+              <div key={idx} className={`rounded-xl border p-4 ${severityClass(finding.severity)}`}>
+                <div className="flex flex-wrap items-center gap-2 mb-1">
+                  <p className="text-sm font-bold">{finding.title || `Finding ${idx + 1}`}</p>
+                  <span className="px-2 py-0.5 rounded-full bg-white/70 text-[10px] font-black uppercase tracking-wider">{finding.severity || 'unknown'}</span>
+                </div>
+                {finding.explanation && <p className="text-xs leading-relaxed opacity-90">{finding.explanation}</p>}
+                {finding.related_tests?.length > 0 && (
+                  <p className="text-[10px] font-bold uppercase tracking-widest opacity-70 mt-2">Related: {finding.related_tests.join(', ')}</p>
+                )}
+              </div>
+            ))}
+          </div>
+        )}
+
+        {insights.possible_meaning && (
+          <div>
+            <p className="text-[10px] font-bold text-tertiary uppercase tracking-widest mb-1">What this may mean</p>
+            <p className="text-sm text-on-surface-variant leading-relaxed">{insights.possible_meaning}</p>
+          </div>
+        )}
+
+        {insights.recommended_next_steps?.length > 0 && (
+          <div>
+            <p className="text-[10px] font-bold text-tertiary uppercase tracking-widest mb-2">Suggested actions</p>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+              {insights.recommended_next_steps.map((stepText: string, idx: number) => (
+                <div key={idx} className="flex gap-2 rounded-xl bg-white/70 p-3 text-xs text-on-surface-variant leading-relaxed">
+                  <span className="material-symbols-outlined text-secondary text-sm mt-0.5">check_circle</span>
+                  <span>{stepText}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {insights.questions_for_doctor?.length > 0 && (
+          <div>
+            <p className="text-[10px] font-bold text-tertiary uppercase tracking-widest mb-2">Ask your doctor</p>
+            <div className="space-y-2">
+              {insights.questions_for_doctor.map((question: string, idx: number) => (
+                <div key={idx} className="flex gap-2 text-xs text-on-surface-variant leading-relaxed">
+                  <span className="material-symbols-outlined text-primary text-sm mt-0.5">help</span>
+                  <span>{question}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {insights.urgent_warning_signs?.length > 0 && (
+          <div className="rounded-xl border border-error/20 bg-error-container/40 p-3">
+            <p className="text-[10px] font-bold text-on-error-container uppercase tracking-widest mb-2">Seek urgent care if you notice</p>
+            <ul className="space-y-1.5">
+              {insights.urgent_warning_signs.map((warning: string, idx: number) => (
+                <li key={idx} className="flex gap-2 text-xs text-on-error-container leading-relaxed">
+                  <span className="material-symbols-outlined text-error text-sm mt-0.5">emergency_home</span>
+                  <span>{warning}</span>
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
+
+        <p className="text-[10px] text-tertiary leading-relaxed border-t border-primary/10 pt-3">{insights.disclaimer || DEFAULT_LAB_DISCLAIMER}</p>
+      </div>
+    );
   };
 
   return (
@@ -543,6 +906,8 @@ export default function HealthRecordsPage() {
                     </button>
                     <div className={`collapsible-content ${openSections[`user-lab-${idx}`] ? 'open' : ''}`}>
                       <div className="p-5 bg-surface-container-lowest border-t border-outline-variant/10 space-y-3">
+                        {renderLabInsights(lab)}
+
                         {lab.results && lab.results.length > 0 && (
                           <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
                             {lab.results.map((r: any, ri: number) => (
@@ -550,12 +915,21 @@ export default function HealthRecordsPage() {
                                 <p className="text-[10px] font-bold text-tertiary uppercase tracking-wider mb-1">{r.key}</p>
                                 <p className="font-headline text-xl font-extrabold text-on-surface">{r.value}</p>
                                 {r.unit && <p className="text-[10px] text-tertiary">{r.unit}</p>}
+                                {normalizeLabStatus(r.status) !== 'unknown' && (
+                                  <span className={`inline-flex mt-2 px-2 py-0.5 rounded-full text-[10px] font-black uppercase ${
+                                    normalizeLabStatus(r.status) === 'normal'
+                                      ? 'bg-secondary/10 text-secondary'
+                                      : 'bg-amber-100 text-amber-800'
+                                  }`}>
+                                    {normalizeLabStatus(r.status)}
+                                  </span>
+                                )}
                               </div>
                             ))}
                           </div>
                         )}
                         <button 
-                          onClick={() => handleDownloadReport(lab.testName)}
+                          onClick={() => handleDownloadReport(lab)}
                           className="flex items-center gap-2 text-xs font-bold text-primary hover:underline"
                         >
                           <span className="material-symbols-outlined text-base">download</span> Download report (PDF)

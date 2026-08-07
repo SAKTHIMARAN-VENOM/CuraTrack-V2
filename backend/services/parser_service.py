@@ -14,6 +14,15 @@ EMPTY_RESULT = {
         "summary": "",
         "confidence": 0.0,
     },
+    "clinical_insights": {
+        "plain_language_summary": "",
+        "key_findings": [],
+        "possible_meaning": "",
+        "recommended_next_steps": [],
+        "questions_for_doctor": [],
+        "urgent_warning_signs": [],
+        "disclaimer": "This is an AI explanation of the uploaded document and is not a diagnosis. Please confirm with a qualified clinician.",
+    },
 }
 
 
@@ -37,6 +46,7 @@ def parse_llm_response(raw_response: str) -> dict:
             "medications": _normalize_medications(data.get("medications", [])),
             "lab_results": _normalize_lab_results(data.get("lab_results", [])),
             "doctor_notes": _normalize_doctor_notes(data.get("doctor_notes", {})),
+            "clinical_insights": _normalize_clinical_insights(data.get("clinical_insights", {})),
         }
 
         return result
@@ -123,4 +133,58 @@ def _normalize_doctor_notes(notes) -> dict:
     return {
         "summary": str(notes.get("summary", "")).strip(),
         "confidence": _clamp_confidence(notes.get("confidence", 0.0)),
+    }
+
+
+def _normalize_string_list(value, max_items: int = 6) -> list[str]:
+    """Normalize a list of short user-facing strings."""
+    if not isinstance(value, list):
+        return []
+
+    result = []
+    for item in value[:max_items]:
+        text = str(item).strip()
+        if text:
+            result.append(text)
+    return result
+
+
+def _normalize_key_findings(findings) -> list[dict]:
+    """Validate and normalize patient-facing clinical findings."""
+    if not isinstance(findings, list):
+        return []
+
+    valid_severities = {"normal", "watch", "concerning", "urgent", "unknown"}
+    result = []
+    for finding in findings[:8]:
+        if not isinstance(finding, dict):
+            continue
+
+        severity = str(finding.get("severity", "unknown")).lower().strip()
+        if severity not in valid_severities:
+            severity = "unknown"
+
+        result.append({
+            "title": str(finding.get("title", "")).strip(),
+            "explanation": str(finding.get("explanation", "")).strip(),
+            "severity": severity,
+            "related_tests": _normalize_string_list(finding.get("related_tests", []), max_items=5),
+        })
+    return result
+
+
+def _normalize_clinical_insights(insights) -> dict:
+    """Validate and normalize plain-language clinical interpretation."""
+    default_disclaimer = EMPTY_RESULT["clinical_insights"]["disclaimer"]
+    if not isinstance(insights, dict):
+        return EMPTY_RESULT["clinical_insights"].copy()
+
+    return {
+        "plain_language_summary": str(insights.get("plain_language_summary", "")).strip(),
+        "key_findings": _normalize_key_findings(insights.get("key_findings", [])),
+        "possible_meaning": str(insights.get("possible_meaning", "")).strip(),
+        "recommended_next_steps": _normalize_string_list(insights.get("recommended_next_steps", [])),
+        "questions_for_doctor": _normalize_string_list(insights.get("questions_for_doctor", [])),
+        "urgent_warning_signs": _normalize_string_list(insights.get("urgent_warning_signs", [])),
+        "disclaimer": str(insights.get("disclaimer", default_disclaimer)).strip() or default_disclaimer,
     }

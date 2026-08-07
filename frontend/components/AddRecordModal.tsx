@@ -171,7 +171,7 @@ export default function AddRecordModal({ isOpen, onClose, onSuccess }: AddRecord
         date: currentDateStr,
         status: labs.some((l: any) => l.status === 'high' || l.status === 'low') ? 'Flagged' : 'Normal',
         results: labs.length > 0
-          ? labs.map((l: any) => ({ key: l.test || 'Metric', value: l.value || '', unit: l.unit || '' }))
+          ? labs.map((l: any) => ({ key: l.test || 'Metric', value: l.value || '', unit: l.unit || '', status: l.status || 'unknown' }))
           : [{ key: '', value: '', unit: '' }],
       });
     }
@@ -207,7 +207,16 @@ export default function AddRecordModal({ isOpen, onClose, onSuccess }: AddRecord
 
   const submitLab = () => {
     if (!labForm.testName) { setError('Test name is required.'); return; }
-    onSuccess({ type: 'lab', data: { ...labForm, date: labForm.date || new Date().toLocaleDateString(), results: labForm.results.filter(r => r.key) } });
+    onSuccess({
+      type: 'lab',
+      data: {
+        ...labForm,
+        date: labForm.date || new Date().toLocaleDateString(),
+        results: labForm.results.filter(r => r.key),
+        clinicalInsights: ocrData?.clinical_insights || null,
+        rawText,
+      },
+    });
     handleClose();
   };
 
@@ -230,6 +239,125 @@ export default function AddRecordModal({ isOpen, onClose, onSuccess }: AddRecord
     : recordType === 'prescription' ? 'Prescription Details'
     : recordType === 'notes' ? "Doctor's Note Details"
     : 'Lab Report Details';
+
+  const clinicalInsights = ocrData?.clinical_insights;
+  const hasClinicalInsights = Boolean(
+    clinicalInsights?.plain_language_summary ||
+    clinicalInsights?.possible_meaning ||
+    clinicalInsights?.key_findings?.length ||
+    clinicalInsights?.recommended_next_steps?.length ||
+    clinicalInsights?.questions_for_doctor?.length ||
+    clinicalInsights?.urgent_warning_signs?.length
+  );
+
+  const severityClass = (severity?: string) => {
+    switch (severity) {
+      case 'urgent':
+        return 'bg-error-container text-on-error-container border-error/20';
+      case 'concerning':
+        return 'bg-red-50 text-red-800 border-red-200';
+      case 'watch':
+        return 'bg-amber-50 text-amber-800 border-amber-200';
+      case 'normal':
+        return 'bg-secondary/10 text-secondary border-secondary/20';
+      default:
+        return 'bg-surface-container-low text-on-surface-variant border-outline-variant/20';
+    }
+  };
+
+  const renderClinicalInsights = () => {
+    if (!hasClinicalInsights) return null;
+
+    return (
+      <div className="bg-primary/5 rounded-2xl p-4 border border-primary/10 space-y-4">
+        <div className="flex items-start gap-3">
+          <div className="w-9 h-9 rounded-xl bg-primary/10 text-primary flex items-center justify-center shrink-0">
+            <span className="material-symbols-outlined text-xl">stethoscope</span>
+          </div>
+          <div>
+            <p className="text-xs font-bold text-primary uppercase tracking-widest">Doctor-style explanation</p>
+            {clinicalInsights?.plain_language_summary && (
+              <p className="text-sm text-on-surface-variant leading-relaxed mt-1">{clinicalInsights.plain_language_summary}</p>
+            )}
+          </div>
+        </div>
+
+        {clinicalInsights?.key_findings?.length > 0 && (
+          <div className="space-y-2">
+            {clinicalInsights.key_findings.map((finding: any, idx: number) => (
+              <div key={idx} className={`rounded-xl border p-3 ${severityClass(finding.severity)}`}>
+                <div className="flex flex-wrap items-center gap-2 mb-1">
+                  <p className="text-sm font-bold">{finding.title || `Finding ${idx + 1}`}</p>
+                  <span className="px-2 py-0.5 rounded-full bg-white/70 text-[10px] font-black uppercase tracking-wider">
+                    {finding.severity || 'unknown'}
+                  </span>
+                </div>
+                {finding.explanation && <p className="text-xs leading-relaxed opacity-90">{finding.explanation}</p>}
+                {finding.related_tests?.length > 0 && (
+                  <p className="text-[10px] font-bold uppercase tracking-widest opacity-70 mt-2">
+                    Related: {finding.related_tests.join(', ')}
+                  </p>
+                )}
+              </div>
+            ))}
+          </div>
+        )}
+
+        {clinicalInsights?.possible_meaning && (
+          <div>
+            <p className="text-[10px] font-bold text-tertiary uppercase tracking-widest mb-1">What this may mean</p>
+            <p className="text-xs text-on-surface-variant leading-relaxed">{clinicalInsights.possible_meaning}</p>
+          </div>
+        )}
+
+        {clinicalInsights?.recommended_next_steps?.length > 0 && (
+          <div>
+            <p className="text-[10px] font-bold text-tertiary uppercase tracking-widest mb-2">Suggested next steps</p>
+            <ul className="space-y-1.5">
+              {clinicalInsights.recommended_next_steps.map((stepText: string, idx: number) => (
+                <li key={idx} className="flex gap-2 text-xs text-on-surface-variant leading-relaxed">
+                  <span className="material-symbols-outlined text-secondary text-sm mt-0.5">check_circle</span>
+                  <span>{stepText}</span>
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
+
+        {clinicalInsights?.questions_for_doctor?.length > 0 && (
+          <div>
+            <p className="text-[10px] font-bold text-tertiary uppercase tracking-widest mb-2">Questions to ask your doctor</p>
+            <ul className="space-y-1.5">
+              {clinicalInsights.questions_for_doctor.map((question: string, idx: number) => (
+                <li key={idx} className="flex gap-2 text-xs text-on-surface-variant leading-relaxed">
+                  <span className="material-symbols-outlined text-primary text-sm mt-0.5">help</span>
+                  <span>{question}</span>
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
+
+        {clinicalInsights?.urgent_warning_signs?.length > 0 && (
+          <div className="bg-error-container/50 border border-error/20 rounded-xl p-3">
+            <p className="text-[10px] font-bold text-on-error-container uppercase tracking-widest mb-2">Seek urgent care if you notice</p>
+            <ul className="space-y-1.5">
+              {clinicalInsights.urgent_warning_signs.map((warning: string, idx: number) => (
+                <li key={idx} className="flex gap-2 text-xs text-on-error-container leading-relaxed">
+                  <span className="material-symbols-outlined text-error text-sm mt-0.5">emergency_home</span>
+                  <span>{warning}</span>
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
+
+        <p className="text-[10px] text-tertiary leading-relaxed border-t border-primary/10 pt-3">
+          {clinicalInsights?.disclaimer || 'This is an AI explanation of the uploaded document and is not a diagnosis. Please confirm with a qualified clinician.'}
+        </p>
+      </div>
+    );
+  };
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm p-4">
@@ -279,7 +407,7 @@ export default function AddRecordModal({ isOpen, onClose, onSuccess }: AddRecord
           {step === 'upload' && (
             <div className="space-y-5">
               <div className="text-sm text-tertiary">
-                Upload an image or PDF of your medical record. Our AI will extract the text and help you categorize the data.
+                Upload an image or PDF of your medical record. Our AI will extract the text, identify results, and explain what the scan may mean in plain language.
               </div>
               <div
                 className="border-2 border-dashed border-outline-variant/50 rounded-2xl p-8 flex flex-col items-center justify-center cursor-pointer hover:bg-surface-container-low transition-colors group"
@@ -368,6 +496,8 @@ export default function AddRecordModal({ isOpen, onClose, onSuccess }: AddRecord
                   </div>
                 </div>
               )}
+
+              {renderClinicalInsights()}
             </div>
           )}
 
@@ -467,6 +597,8 @@ export default function AddRecordModal({ isOpen, onClose, onSuccess }: AddRecord
           {/* ========== STEP 3: FORM — LAB REPORT ========== */}
           {step === 'form' && recordType === 'lab' && (
             <div className="space-y-4">
+              {renderClinicalInsights()}
+
               <div className="grid grid-cols-2 gap-4">
                 <div className="col-span-2">
                   <label className={labelClass}>Test Name *</label>

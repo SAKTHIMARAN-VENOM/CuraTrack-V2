@@ -11,6 +11,7 @@ const STORAGE_KEYS = {
   HEALTH_RISKS: 'curatrack_offline_health_risks',
   HEALTH_NEWS: 'curatrack_offline_health_news',
   MEDICATIONS: 'curatrack_offline_medications',
+  LAB_REPORTS: 'curatrack_offline_lab_reports',
   INSIGHTS: 'curatrack_offline_insights',
   PENDING_SYNCS: 'curatrack_offline_pending_syncs',
 };
@@ -118,6 +119,26 @@ export const offlineStorage = {
     try {
       const key = userId ? `${STORAGE_KEYS.MEDICATIONS}_${userId}` : STORAGE_KEYS.MEDICATIONS;
       const data = localStorage.getItem(key);
+      return data ? JSON.parse(data) : [];
+    } catch (e) {
+      return [];
+    }
+  },
+
+  // --- Lab Reports Caching ---
+  saveLabReports: (reports: any[]) => {
+    if (typeof window === 'undefined') return;
+    try {
+      localStorage.setItem(STORAGE_KEYS.LAB_REPORTS, JSON.stringify(reports));
+    } catch (e) {
+      console.warn('Failed to save lab reports offline:', e);
+    }
+  },
+
+  getLabReports: (): any[] => {
+    if (typeof window === 'undefined') return [];
+    try {
+      const data = localStorage.getItem(STORAGE_KEYS.LAB_REPORTS);
       return data ? JSON.parse(data) : [];
     } catch (e) {
       return [];
