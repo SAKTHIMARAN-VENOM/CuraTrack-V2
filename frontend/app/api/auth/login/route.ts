@@ -29,8 +29,8 @@ export async function POST(req: NextRequest) {
             .eq('id', data.user.id)
             .maybeSingle();
 
-        const isDoctor = profile?.role === 'doctor' || email.toLowerCase().includes('doctor') || email.toLowerCase().includes('dr.');
-        const isAdmin = profile?.role === 'admin' || email.toLowerCase().includes('admin');
+        const isDoctor = profile?.role === 'doctor' || data.user?.user_metadata?.role === 'doctor' || email.toLowerCase().includes('doctor') || email.toLowerCase().includes('dr.');
+        const isAdmin = profile?.role === 'admin' || data.user?.user_metadata?.role === 'admin' || email.toLowerCase().includes('admin');
         const userRole = isAdmin ? 'admin' : isDoctor ? 'doctor' : 'patient';
         const userName = profile?.name || data.user.user_metadata?.name || (userRole === 'doctor' ? 'Dr. Practitioner' : 'User');
         const profileCompleted = profile?.profile_completed ?? (userRole === 'doctor' ? true : false);
