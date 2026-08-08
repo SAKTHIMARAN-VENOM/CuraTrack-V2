@@ -287,13 +287,24 @@ export default function TelemedicinePage() {
     }
 
     const roomId = crypto.randomUUID();
-    const { error } = await supabase.from('appointments').insert({
+    const payload: any = {
       client_id: user.id,
       doctor_id: doctorId,
       scheduled_time: new Date().toISOString(),
       room_id: roomId,
       status: 'active',
-    });
+      date: new Date().toISOString().split('T')[0],
+      time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+    };
+
+    let { error } = await supabase.from('appointments').insert(payload);
+
+    if (error && (error.message.includes('room_id') || error.message.includes('scheduled_time'))) {
+      if (error.message.includes('room_id')) delete payload.room_id;
+      if (error.message.includes('scheduled_time')) delete payload.scheduled_time;
+      const retry = await supabase.from('appointments').insert(payload);
+      error = retry.error;
+    }
 
     if (error) {
       setBookingDoctorId(null);
@@ -331,13 +342,25 @@ export default function TelemedicinePage() {
       scheduledDate.setHours(hours, minutes, 0, 0);
 
       const roomId = crypto.randomUUID();
-      const { error } = await supabase.from('appointments').insert({
+      const payload: any = {
         client_id: user.id,
         doctor_id: doctorId,
         scheduled_time: scheduledDate.toISOString(),
         room_id: roomId,
         status: 'ringing',
-      });
+        doctor_name: doctors.find(d => d.id === doctorId)?.name || 'Doctor',
+        date: schedDate,
+        time: schedTime,
+      };
+
+      let { error } = await supabase.from('appointments').insert(payload);
+
+      if (error && (error.message.includes('room_id') || error.message.includes('scheduled_time'))) {
+        if (error.message.includes('room_id')) delete payload.room_id;
+        if (error.message.includes('scheduled_time')) delete payload.scheduled_time;
+        const retry = await supabase.from('appointments').insert(payload);
+        error = retry.error;
+      }
 
       if (error) {
         alert(`Scheduling error: ${error.message}`);

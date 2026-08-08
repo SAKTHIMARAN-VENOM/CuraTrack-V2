@@ -36,14 +36,24 @@ export default function DoctorBookingModal({
       const roomId = `room-${Date.now().toString(36)}-${Math.random().toString(36).substring(2, 6)}`;
 
       if (user) {
-        await supabase.from('appointments').insert({
+        const payload: any = {
           client_id: user.id,
           doctor_id: doctorId,
           scheduled_time: new Date().toISOString(),
           room_id: roomId,
           status: 'booked',
+          date: new Date().toISOString().split('T')[0],
+          time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
           notes: reason || 'Telehealth consultation requested via CuraTrack Mobile'
-        });
+        };
+
+        const { error } = await supabase.from('appointments').insert(payload);
+        if (error && (error.message.includes('room_id') || error.message.includes('scheduled_time') || error.message.includes('notes'))) {
+          if (error.message.includes('room_id')) delete payload.room_id;
+          if (error.message.includes('scheduled_time')) delete payload.scheduled_time;
+          if (error.message.includes('notes')) delete payload.notes;
+          await supabase.from('appointments').insert(payload);
+        }
       }
     } catch (err) {
       console.warn("Could not save appointment to Supabase DB:", err);
