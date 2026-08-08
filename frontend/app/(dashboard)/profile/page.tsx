@@ -34,7 +34,7 @@ export default function ProfilePage() {
                 if (user.user_metadata?.blood_group) setUserBlood(user.user_metadata.blood_group);
 
                 // Fetch profile table if available
-                const { data: profile } = await supabase.from('profiles').select('*').eq('id', user.id).single();
+                const { data: profile } = await supabase.from('profiles').select('*').eq('id', user.id).maybeSingle();
                 if (profile) {
                     if (profile.name) setUserName(profile.name);
                     if (profile.age) setUserAge(String(profile.age));

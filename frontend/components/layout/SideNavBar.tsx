@@ -31,7 +31,7 @@ export function SideNavBar() {
                 .from('profiles')
                 .select('*')
                 .eq('id', user.id)
-                .single();
+                .maybeSingle();
 
             const displayName = data?.name || 
                                 user.user_metadata?.full_name || 

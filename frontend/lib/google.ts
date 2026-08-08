@@ -21,7 +21,7 @@ export async function getTokensForUser(userId: string) {
         .from('google_tokens')
         .select('*')
         .eq('user_id', userId)
-        .single();
+        .maybeSingle();
 
     if (error || !tokens) {
         return null;

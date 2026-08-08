@@ -88,7 +88,7 @@ export default function DoctorPortal() {
           return;
         }
 
-        const { data: profile } = await supabase.from('profiles').select('role, name').eq('id', user.id).single();
+        const { data: profile } = await supabase.from('profiles').select('role, name').eq('id', user.id).maybeSingle();
         const isDoctorRole = profile?.role === 'doctor' || user.user_metadata?.role === 'doctor' || user.email?.toLowerCase().includes('doctor') || user.email?.toLowerCase().includes('dr.');
 
         if (!isDoctorRole) {
@@ -213,7 +213,7 @@ export default function DoctorPortal() {
                 .from('profiles')
                 .select('name, email')
                 .eq('id', appt.client_id)
-                .single();
+                .maybeSingle();
               return {
                 ...appt,
                 patient_name: getCleanPatientName(prof, appt.client_id),
@@ -307,7 +307,7 @@ export default function DoctorPortal() {
     async function loadRealPatient() {
       if (!latestAppointment?.client_id) return;
       try {
-        const { data: prof } = await supabase.from('profiles').select('id, name, email').eq('id', latestAppointment.client_id).single();
+        const { data: prof } = await supabase.from('profiles').select('id, name, email').eq('id', latestAppointment.client_id).maybeSingle();
         if (prof) {
           const name = getCleanPatientName(prof, prof.id, 0);
           setRealPatientData({ id: prof.id, name, email: prof.email });

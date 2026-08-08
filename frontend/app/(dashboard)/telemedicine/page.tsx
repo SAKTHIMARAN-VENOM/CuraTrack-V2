@@ -111,7 +111,7 @@ export default function TelemedicinePage() {
         .from('profiles')
         .select('*')
         .eq('id', authUser.id)
-        .single();
+        .maybeSingle();
 
       setProfile(fetchedProfile);
 

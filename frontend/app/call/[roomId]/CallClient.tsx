@@ -56,7 +56,7 @@ export default function CallPage() {
       try {
         const { data: { user } } = await supabase.auth.getUser();
         if (user) {
-          const { data: prof } = await supabase.from('profiles').select('role').eq('id', user.id).single();
+          const { data: prof } = await supabase.from('profiles').select('role').eq('id', user.id).maybeSingle();
           const isDoc = prof?.role === 'doctor' || user.user_metadata?.role === 'doctor' || user.email?.toLowerCase().includes('doctor') || user.email?.toLowerCase().includes('dr.');
           if (isDoc) {
             setIsDoctorRole(true);
@@ -106,7 +106,7 @@ export default function CallPage() {
           .from('appointments')
           .select('client_id, doctor_id')
           .eq('room_id', roomId)
-          .single();
+          .maybeSingle();
 
         if (appt) {
           let targetId = isDoctorRole ? appt.client_id : appt.doctor_id;
@@ -115,7 +115,7 @@ export default function CallPage() {
           }
 
           if (targetId && targetId !== currentUserId) {
-            const { data: prof } = await supabase.from('profiles').select('name, email').eq('id', targetId).single();
+            const { data: prof } = await supabase.from('profiles').select('name, email').eq('id', targetId).maybeSingle();
             if (prof?.name) {
               setRemoteUserName(prof.name);
             } else if (prof?.email) {
