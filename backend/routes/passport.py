@@ -103,7 +103,10 @@ def generate_passport_qr(request: PassportGenerateRequest, http_request: Request
     img = qr.make_image(fill_color="#001f29", back_color="white")
 
     buffer = io.BytesIO()
-    img.save(buffer, format="PNG")
+    try:
+        img.save(buffer, format="PNG")
+    except TypeError:
+        img.save(buffer)
     buffer.seek(0)
     img_base64 = base64.b64encode(buffer.read()).decode("utf-8")
 

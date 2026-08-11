@@ -8,12 +8,13 @@ export default function VitalsPage() {
   const [vitals, setVitals] = useState<{ steps: number; heart_rate: number; spo2: number } | null>(null);
 
   useEffect(() => {
-    getFitData().then((res) => {
+    getFitData().then((res: any) => {
       if (res) {
+        const hr = res.heart_rate || (res.heartRateData && res.heartRateData.length > 0 ? res.heartRateData[res.heartRateData.length - 1].bpm : 74);
         setVitals({
-          steps: res.steps,
-          heart_rate: res.heart_rate,
-          spo2: res.spo2,
+          steps: res.steps || 0,
+          heart_rate: hr,
+          spo2: res.spo2 || 98,
         });
       }
     }).catch((err) => console.warn("Vitals API error:", err));

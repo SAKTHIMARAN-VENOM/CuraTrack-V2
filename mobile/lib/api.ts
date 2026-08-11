@@ -3,7 +3,8 @@ import { supabase } from '@/lib/supabaseClient';
 const BASE_URL = process.env.NEXT_PUBLIC_FASTAPI_URL || 'https://curatrack-v3.onrender.com';
 
 async function fetchAPI<T>(endpoint: string, options: RequestInit = {}): Promise<T> {
-  const url = `${BASE_URL}${endpoint.startsWith('/') ? endpoint : `/${endpoint}`}`;
+  const isNextRoute = endpoint.startsWith('/api/fit-data');
+  const url = isNextRoute ? endpoint : `${BASE_URL}${endpoint.startsWith('/') ? endpoint : `/${endpoint}`}`;
   const defaultHeaders: Record<string, string> = {};
   
   try {

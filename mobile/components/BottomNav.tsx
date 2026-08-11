@@ -8,31 +8,32 @@ export default function BottomNav() {
 
   const navItems = [
     { href: '/dashboard', label: 'Home', icon: 'home' },
-    { href: '/appointments', label: 'Doctors', icon: 'calendar_month' },
-    { href: '/drug-checker', label: 'Meds Check', icon: 'medication' },
-    { href: '/records', label: 'Records', icon: 'folder_shared' },
+    { href: '/appointments', label: 'Appointments', icon: 'calendar_month' },
     { href: '/schemes', label: 'Schemes', icon: 'account_balance_wallet' },
+    { href: '/vitals', label: 'Vitals', icon: 'monitoring' },
     { href: '/profile', label: 'Profile', icon: 'person' },
   ];
 
   return (
-    <div className="bg-white px-2 py-2 border-t border-slate-200 flex items-center justify-around shrink-0 select-none shadow-lg">
+    <div className="bg-white border-t border-slate-200 py-2 px-4 flex items-center justify-around shrink-0 select-none shadow-sm">
       {navItems.map((item) => {
         const isActive = pathname === item.href || (item.href === '/dashboard' && pathname === '/');
         return (
           <Link
             key={item.href}
             href={item.href}
-            className={`flex flex-col items-center gap-0.5 px-1.5 py-1 rounded-xl transition-all ${
+            className={`flex flex-col items-center gap-0.5 transition-all ${
               isActive
-                ? 'text-[#008080] font-extrabold'
-                : 'text-slate-500 hover:text-slate-800 font-medium'
+                ? 'text-[#008080]'
+                : 'text-slate-400 hover:text-[#008080]'
             }`}
           >
-            <span className={`material-symbols-outlined text-lg ${isActive ? 'scale-110' : ''}`}>
+            <span className="material-symbols-outlined text-2xl">
               {item.icon}
             </span>
-            <span className="text-[9px] tracking-tight">{item.label}</span>
+            <span className={`text-[10px] ${isActive ? 'font-extrabold' : 'font-bold'}`}>
+              {item.label}
+            </span>
           </Link>
         );
       })}
