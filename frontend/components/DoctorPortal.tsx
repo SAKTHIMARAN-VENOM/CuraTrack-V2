@@ -1,20 +1,8 @@
 'use client';
 
-import { useEffect, useState, useMemo, useCallback, useRef } from 'react';
+import { useEffect, useState, useMemo, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { createClient } from '@/lib/supabase/client';
-import { BluetoothManager } from '@/lib/bluetooth/bluetoothManager';
-import { OfflineStorageManager } from '@/lib/bluetooth/offlineStorage';
-import { 
-  OfflineMedicalPackage, 
-  DoctorOfflineResponse, 
-  DoctorAvailabilityState, 
-  LocalOfflineTransferRecord 
-} from '@/lib/bluetooth/bluetoothTypes';
-
-interface DoctorPortalProps {
-  initialView?: 'schedule' | 'dashboard' | 'directory' | 'records' | 'settings' | 'bluetooth';
-}
 
 interface PatientData {
   id: string;
@@ -61,11 +49,11 @@ function getCleanPatientName(prof?: any, fallbackId?: string, queueIndex?: numbe
   return fallbackId ? `Patient (${fallbackId.slice(0, 6)})` : 'Registered Patient';
 }
 
-export default function DoctorPortal({ initialView }: DoctorPortalProps = {}) {
+export default function DoctorPortal() {
   const router = useRouter();
   const supabase = useMemo(() => createClient(), []);
 
-  const [currentView, setCurrentView] = useState<'schedule' | 'dashboard' | 'directory' | 'records' | 'settings' | 'bluetooth'>(initialView || 'schedule');
+  const [currentView, setCurrentView] = useState<'schedule' | 'dashboard' | 'directory' | 'records' | 'settings'>('schedule');
   const [selectedPatientId, setSelectedPatientId] = useState<string>('elena');
   const [qrModalPatientId, setQrModalPatientId] = useState<string | null>(null);
   const [doctorName, setDoctorName] = useState<string>('Dr. David Ross');
@@ -80,24 +68,6 @@ export default function DoctorPortal({ initialView }: DoctorPortalProps = {}) {
     notes: ''
   });
   const [prescriptionsList, setPrescriptionsList] = useState<any[]>([]);
-
-  // Bluetooth Receiver Suite states
-  const [btAvailabilityState, setBtAvailabilityState] = useState<DoctorAvailabilityState>('OFFLINE');
-  const [btIncomingRequest, setBtIncomingRequest] = useState<{
-    requestId: string;
-    patientId: string;
-    patientName: string;
-    accept: () => void;
-    reject: () => void;
-  } | null>(null);
-  const [btReceivedPackage, setBtReceivedPackage] = useState<OfflineMedicalPackage | null>(null);
-  const [btShowHistoryView, setBtShowHistoryView] = useState<boolean>(false);
-  const [btPastRecords, setBtPastRecords] = useState<LocalOfflineTransferRecord[]>([]);
-  const [btInstructions, setBtInstructions] = useState<string>('');
-  const [btDiagnosisSummary, setBtDiagnosisSummary] = useState<string>('');
-  const [btResponseSent, setBtResponseSent] = useState<boolean>(false);
-  const btSessionStartTimeRef = useRef<number>(Date.now());
-  const doctorIdRef = useRef<string>('');
 
   // Active appointment room state from Supabase
   const [latestAppointment, setLatestAppointment] = useState<Appointment | null>(null);
@@ -221,179 +191,6 @@ export default function DoctorPortal({ initialView }: DoctorPortalProps = {}) {
       supabase.removeChannel(channel);
     };
   }, [supabase, fetchLatestRoom]);
-
-  // ═══════════════════════ BLUETOOTH RECEIVER HOOKS & HANDLERS ═══════════════════════
-  useEffect(() => {
-    if (typeof window === 'undefined') return;
-    const manager = BluetoothManager.getInstance();
-
-    OfflineStorageManager.clearMockData();
-
-    async function initDoctorBtIdentity() {
-      try {
-        const { data: { user } } = await supabase.auth.getUser();
-        if (user) {
-          doctorIdRef.current = user.id;
-          manager.setDeviceIdentity({
-            id: user.id,
-            name: doctorName,
-            role: 'doctor',
-          });
-        }
-      } catch (err) {}
-    }
-
-    initDoctorBtIdentity();
-
-    manager.setOnPairingRequest((req) => {
-      setBtIncomingRequest({
-        requestId: req.requestId,
-        patientId: req.patientId,
-        patientName: req.patientName,
-        accept: () => {
-          manager.acceptConnectionRequest(req.requestId);
-          setBtIncomingRequest(null);
-        },
-        reject: () => {
-          manager.rejectConnectionRequest(req.requestId);
-          setBtIncomingRequest(null);
-        },
-      });
-    });
-
-    manager.setOnPackageReceived((pkg) => {
-      if (pkg && new Date(pkg.timestamp).getTime() >= btSessionStartTimeRef.current - 5000) {
-        setBtReceivedPackage(pkg);
-        setBtResponseSent(false);
-      }
-    });
-
-    const isPollingRef = { current: false };
-
-    const pollIncomingTransfers = async () => {
-      if (isPollingRef.current || typeof window === 'undefined') return;
-      isPollingRef.current = true;
-      try {
-        const localTransfers = OfflineStorageManager.getLocalTransfers();
-        const activeRec = localTransfers.find(r => 
-          r.package && 
-          new Date(r.timestamp).getTime() >= btSessionStartTimeRef.current - 5000 &&
-          (r.doctorId === doctorIdRef.current || r.doctorName.includes('David Ross'))
-        );
-
-        if (activeRec && activeRec.package) {
-          setBtReceivedPackage(activeRec.package);
-        }
-
-        const API_URL = `${window.location.protocol}//${window.location.hostname}:8000/api`;
-        const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), 3000);
-
-        const res = await fetch(`${API_URL}/offline/transfers`, { signal: controller.signal });
-        clearTimeout(timeoutId);
-
-        if (res.ok) {
-          const data = await res.json();
-          if (data.transfers && Array.isArray(data.transfers)) {
-            data.transfers.forEach((bRec: any) => {
-              const transferTime = new Date(bRec.timestamp).getTime();
-              if (
-                bRec.package && 
-                transferTime >= btSessionStartTimeRef.current - 5000 &&
-                (bRec.doctorId === doctorIdRef.current || bRec.doctorName?.includes('David Ross'))
-              ) {
-                OfflineStorageManager.saveLocalTransfer({
-                  transferId: bRec.transferId,
-                  patientId: bRec.patientId || bRec.package.patient.id,
-                  patientName: bRec.patientName || bRec.package.patient.name,
-                  doctorId: bRec.doctorId || doctorIdRef.current,
-                  doctorName: bRec.doctorName || doctorName,
-                  timestamp: bRec.timestamp,
-                  package: bRec.package,
-                  status: bRec.status || 'SYNCED',
-                  doctorResponse: bRec.doctorResponse
-                });
-                setBtReceivedPackage(bRec.package);
-              }
-            });
-          }
-        }
-      } catch (e) {
-      } finally {
-        isPollingRef.current = false;
-      }
-    };
-
-    pollIncomingTransfers();
-    const pollTimer = setInterval(pollIncomingTransfers, 2000);
-
-    const historyTransfers = OfflineStorageManager.getLocalTransfers();
-    setBtPastRecords(historyTransfers);
-
-    return () => {
-      clearInterval(pollTimer);
-    };
-  }, [supabase, doctorName]);
-
-  const toggleBtBroadcasting = () => {
-    if (typeof window === 'undefined') return;
-    const manager = BluetoothManager.getInstance();
-    if (btAvailabilityState === 'AVAILABLE') {
-      manager.setDoctorAvailability('OFFLINE');
-      setBtAvailabilityState('OFFLINE');
-    } else {
-      btSessionStartTimeRef.current = Date.now();
-      manager.setDoctorAvailability('AVAILABLE');
-      setBtAvailabilityState('AVAILABLE');
-    }
-  };
-
-  const handleBtAcceptRequest = () => {
-    if (btIncomingRequest) {
-      btIncomingRequest.accept();
-    }
-  };
-
-  const handleBtRejectRequest = () => {
-    if (btIncomingRequest) {
-      btIncomingRequest.reject();
-    }
-  };
-
-  const handleBtSendResponse = async () => {
-    if (typeof window === 'undefined' || !btReceivedPackage || !btInstructions.trim()) return;
-    const manager = BluetoothManager.getInstance();
-
-    const doctorResp: DoctorOfflineResponse = {
-      responseId: `RESP-${Date.now()}`,
-      transferId: btReceivedPackage.transferId,
-      doctorId: doctorIdRef.current || 'DOC-BLE-001',
-      doctorName: doctorName || 'Dr. David Ross',
-      specialization: 'Cardiology & Internal Medicine',
-      timestamp: new Date().toISOString(),
-      diagnosisSummary: btDiagnosisSummary.trim() || 'Vitals reviewed & clinical assessment completed.',
-      instructions: btInstructions.trim(),
-      urgency: 'ROUTINE',
-      followUpRequired: true,
-      followUpDays: 3
-    };
-
-    manager.sendDoctorResponse(doctorResp);
-    OfflineStorageManager.saveDoctorResponse(btReceivedPackage.transferId, doctorResp, btReceivedPackage);
-    setBtResponseSent(true);
-
-    try {
-      const API_URL = `${window.location.protocol}//${window.location.hostname}:8000/api`;
-      await fetch(`${API_URL}/offline/transfers/sync`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          transferId: btReceivedPackage.transferId,
-          doctorResponse: doctorResp
-        })
-      });
-    } catch (err) {}
-  };
 
   // Fetch scheduled appointments for this doctor
   const fetchScheduledAppointments = useCallback(async () => {
@@ -779,15 +576,11 @@ export default function DoctorPortal({ initialView }: DoctorPortalProps = {}) {
           </div>
 
           <div
-            className={`nav-link flex items-center gap-3 px-4 py-3 rounded-xl font-headline font-medium text-sm transition-all cursor-pointer ${
-              currentView === 'bluetooth'
-                ? 'bg-[#e8f6fa] text-[#00647e] font-bold'
-                : 'text-outline hover:bg-[#00647e]/5 hover:text-[#00647e]'
-            }`}
-            onClick={() => setCurrentView('bluetooth')}
+            className="nav-link flex items-center gap-3 px-4 py-3 rounded-xl font-headline font-medium text-sm transition-all cursor-pointer bg-teal-50 hover:bg-teal-100 text-teal-800 border border-teal-200"
+            onClick={() => router.push('/bluetooth/doctor')}
           >
             <span className="material-symbols-outlined text-teal-600">bluetooth</span>
-            <span>Bluetooth Offline Care</span>
+            <span className="font-bold">Bluetooth Offline Care</span>
           </div>
 
           <div
@@ -866,10 +659,10 @@ export default function DoctorPortal({ initialView }: DoctorPortalProps = {}) {
         <header className="bg-white/80 backdrop-blur-xl flex items-center justify-between px-10 h-20 shrink-0 z-30 shadow-[0_8px_40px_-10px_rgba(25,28,29,0.06)]">
           <div>
             <h1 className="font-headline font-bold text-xl text-on-surface">
-              {currentView === 'dashboard' ? 'Doctor Dashboard' : currentView === 'schedule' ? 'Clinical Schedule' : currentView === 'directory' ? 'Patient Directory' : currentView === 'records' ? 'Medical Records' : currentView === 'bluetooth' ? 'Bluetooth Offline Care' : 'Settings'}
+              {currentView === 'dashboard' ? 'Doctor Dashboard' : currentView === 'schedule' ? 'Clinical Schedule' : currentView === 'directory' ? 'Patient Directory' : currentView === 'records' ? 'Medical Records' : 'Settings'}
             </h1>
             <p className="text-xs text-tertiary">
-              {currentView === 'dashboard' ? `${doctorName} · Overview` : currentView === 'schedule' ? (scheduledAppointments.length > 0 ? `${scheduledAppointments.length} scheduled appointment${scheduledAppointments.length > 1 ? 's' : ''} pending` : 'Today\'s appointments') : currentView === 'bluetooth' ? 'Real-time Offline Consultation & Handshake' : ''}
+              {currentView === 'dashboard' ? `${doctorName} · Overview` : currentView === 'schedule' ? (scheduledAppointments.length > 0 ? `${scheduledAppointments.length} scheduled appointment${scheduledAppointments.length > 1 ? 's' : ''} pending` : 'Today\'s appointments') : ''}
             </p>
           </div>
           <div className="flex items-center gap-4 relative">
@@ -1826,225 +1619,6 @@ export default function DoctorPortal({ initialView }: DoctorPortalProps = {}) {
                   </div>
                 </div>
               </div>
-            </div>
-          </div>
-        )}
-
-        {/* ─────────── BLUETOOTH OFFLINE CARE VIEW ─────────── */}
-        {currentView === 'bluetooth' && (
-          <div className="flex-1 overflow-y-auto p-8 lg:p-10 transition-all duration-300 bg-slate-950 text-slate-100 min-h-[calc(100vh-5rem)]">
-            <div className="max-w-6xl mx-auto space-y-6">
-              {/* Header Bar */}
-              <div className="bg-slate-900/90 border border-slate-800 p-6 rounded-3xl backdrop-blur-md shadow-xl flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-                <div className="flex items-center gap-4">
-                  <div className="w-12 h-12 rounded-2xl bg-teal-500/20 text-teal-400 border border-teal-500/30 flex items-center justify-center font-bold">
-                    <span className="material-symbols-outlined text-2xl">bluetooth</span>
-                  </div>
-                  <div>
-                    <h2 className="text-lg font-black text-white tracking-tight">Doctor Offline Consultation Suite</h2>
-                    <p className="text-xs text-slate-400">Clinician: <strong className="text-slate-200">{doctorName}</strong> (Cardiology & Internal Medicine)</p>
-                  </div>
-                </div>
-
-                <div className="flex items-center gap-3">
-                  <button
-                    onClick={() => setBtShowHistoryView(!btShowHistoryView)}
-                    className="flex items-center gap-2 px-4 py-2.5 rounded-xl border border-slate-800 bg-slate-950/80 text-xs font-bold text-slate-300 hover:bg-slate-800 transition-all cursor-pointer"
-                  >
-                    <span className="material-symbols-outlined text-base text-teal-400">history</span>
-                    <span>{btShowHistoryView ? 'Back to Live Suite' : 'Past Transfer History'}</span>
-                  </button>
-
-                  <button
-                    onClick={toggleBtBroadcasting}
-                    className={`flex items-center gap-2 px-5 py-2.5 rounded-xl text-xs font-extrabold transition-all shadow-md cursor-pointer ${
-                      btAvailabilityState === 'AVAILABLE'
-                        ? 'bg-emerald-500 text-slate-950 shadow-emerald-500/30 animate-pulse font-black'
-                        : 'bg-slate-800 text-slate-300 hover:bg-slate-700'
-                    }`}
-                  >
-                    <span className="material-symbols-outlined text-base">
-                      {btAvailabilityState === 'AVAILABLE' ? 'sensors' : 'sensors_off'}
-                    </span>
-                    <span>{btAvailabilityState === 'AVAILABLE' ? 'Broadcasting (Available)' : 'Start Broadcasting'}</span>
-                  </button>
-                </div>
-              </div>
-
-              {/* Incoming Connection Request Banner */}
-              {btIncomingRequest && (
-                <div className="bg-gradient-to-r from-amber-950/90 to-slate-900 border border-amber-500/60 p-6 rounded-3xl space-y-4 shadow-2xl animate-fade-in">
-                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-                    <div className="flex items-center gap-3">
-                      <div className="w-10 h-10 rounded-2xl bg-amber-500 text-slate-950 flex items-center justify-center font-bold">
-                        <span className="material-symbols-outlined text-xl">person_add</span>
-                      </div>
-                      <div>
-                        <h3 className="text-base font-bold text-white">Incoming Patient Connection Request</h3>
-                        <p className="text-xs text-amber-200">Patient: <strong className="text-white">{btIncomingRequest.patientName}</strong> ({btIncomingRequest.patientId})</p>
-                        <p className="text-[11px] text-amber-300/80">Zero medical data has been sent. Do you accept this consultation?</p>
-                      </div>
-                    </div>
-
-                    <div className="flex items-center gap-3">
-                      <button
-                        onClick={handleBtRejectRequest}
-                        className="px-4 py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 font-semibold text-xs transition-all cursor-pointer"
-                      >
-                        Reject
-                      </button>
-                      <button
-                        onClick={handleBtAcceptRequest}
-                        className="px-5 py-2.5 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-bold text-xs shadow-md transition-all cursor-pointer"
-                      >
-                        Accept Pair
-                      </button>
-                    </div>
-                  </div>
-                </div>
-              )}
-
-              {/* Past Transfer History View */}
-              {btShowHistoryView ? (
-                <div className="bg-slate-900/90 border border-slate-800 p-6 rounded-3xl backdrop-blur-md shadow-xl space-y-4">
-                  <h3 className="font-headline font-bold text-lg text-white flex items-center gap-2">
-                    <span className="material-symbols-outlined text-teal-400">history</span>
-                    <span>Past Offline Transfers ({btPastRecords.length})</span>
-                  </h3>
-                  {btPastRecords.length === 0 ? (
-                    <p className="text-xs text-slate-500 py-6 text-center">No past transfer records stored on this device.</p>
-                  ) : (
-                    <div className="space-y-3">
-                      {btPastRecords.map((rec) => (
-                        <div
-                          key={rec.transferId}
-                          onClick={() => { setBtReceivedPackage(rec.package); setBtShowHistoryView(false); }}
-                          className="cursor-pointer bg-slate-950/80 hover:bg-slate-900 border border-slate-800 hover:border-teal-500/50 p-4 rounded-2xl flex items-center justify-between transition-all"
-                        >
-                          <div>
-                            <p className="text-sm font-bold text-white">Patient: {rec.patientName}</p>
-                            <p className="text-xs text-slate-400">{rec.transferId} • {new Date(rec.timestamp).toLocaleString()}</p>
-                          </div>
-                          <span className="text-xs font-semibold text-teal-400 underline">View Record</span>
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                </div>
-              ) : btReceivedPackage ? (
-                /* Active Patient Medical Record Display & Treatment Form */
-                <div className="space-y-6">
-                  <div className="bg-slate-900/90 border border-slate-800 p-6 rounded-3xl backdrop-blur-md shadow-xl space-y-4">
-                    <div className="flex flex-wrap items-center justify-between gap-4 pb-4 border-b border-slate-800">
-                      <div>
-                        <span className="text-[10px] font-bold text-teal-400 uppercase tracking-widest block">TRANSFER ID: {btReceivedPackage.transferId}</span>
-                        <h3 className="text-xl font-extrabold text-white">Patient: {btReceivedPackage.patient.name}</h3>
-                        <p className="text-xs text-slate-400">
-                          Blood Group: <strong className="text-slate-200">{btReceivedPackage.patient.bloodGroup || 'O+'}</strong> • Age: <strong className="text-slate-200">{btReceivedPackage.patient.age || 'N/A'}</strong> • Gender: <strong className="text-slate-200">{btReceivedPackage.patient.gender || 'Unspecified'}</strong>
-                        </p>
-                      </div>
-                      <span className="text-xs font-semibold text-slate-400 bg-slate-950 px-3 py-1.5 rounded-xl border border-slate-800">
-                        Transferred At {new Date(btReceivedPackage.timestamp).toLocaleTimeString()}
-                      </span>
-                    </div>
-
-                    {/* Vitals & Records Grid */}
-                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-                      {btReceivedPackage.vitals && (
-                        <div className="bg-slate-950 p-4 rounded-2xl border border-slate-800">
-                          <span className="text-xs font-bold text-slate-400 uppercase tracking-wider block mb-2">Vitals</span>
-                          <p className="text-sm text-slate-200 font-semibold">BP: <strong className="text-white">{btReceivedPackage.vitals.bp || '120/80'}</strong></p>
-                          <p className="text-sm text-slate-200 font-semibold">Heart Rate: <strong className="text-white">{btReceivedPackage.vitals.hr || '72 bpm'}</strong></p>
-                          <p className="text-sm text-slate-200 font-semibold">SpO2: <strong className="text-white">{btReceivedPackage.vitals.spo2 || '98%'}</strong></p>
-                        </div>
-                      )}
-
-                      {btReceivedPackage.medications && btReceivedPackage.medications.length > 0 && (
-                        <div className="bg-slate-950 p-4 rounded-2xl border border-slate-800 col-span-2">
-                          <span className="text-xs font-bold text-teal-400 uppercase tracking-wider block mb-2">Active Medications ({btReceivedPackage.medications.length})</span>
-                          <div className="space-y-1">
-                            {btReceivedPackage.medications.map((m, idx) => (
-                              <p key={idx} className="text-xs text-slate-300 font-medium">• <strong className="text-white">{m.name}</strong> — {m.dosage} ({m.frequency})</p>
-                            ))}
-                          </div>
-                        </div>
-                      )}
-
-                      {btReceivedPackage.allergies && btReceivedPackage.allergies.length > 0 && (
-                        <div className="bg-slate-950 p-4 rounded-2xl border border-slate-800">
-                          <span className="text-xs font-bold text-red-400 uppercase tracking-wider block mb-2">Allergies ({btReceivedPackage.allergies.length})</span>
-                          <div className="space-y-1">
-                            {btReceivedPackage.allergies.map((a, idx) => (
-                              <p key={idx} className="text-xs text-red-300 font-semibold">• {a.allergen} ({a.severity})</p>
-                            ))}
-                          </div>
-                        </div>
-                      )}
-                    </div>
-
-                    {/* Offline Response Treatment Form */}
-                    <div className="pt-4 border-t border-slate-800 space-y-4">
-                      <h4 className="font-headline font-bold text-base text-white flex items-center gap-2">
-                        <span className="material-symbols-outlined text-teal-400">edit_note</span>
-                        <span>Issue Treatment Plan & Offline Response</span>
-                      </h4>
-
-                      {btResponseSent ? (
-                        <div className="p-4 bg-emerald-500/10 border border-emerald-500/30 rounded-2xl flex items-center gap-3 text-emerald-400 font-bold text-sm">
-                          <span className="material-symbols-outlined">check_circle</span>
-                          <span>Treatment plan issued and sent to patient via Bluetooth!</span>
-                        </div>
-                      ) : (
-                        <div className="space-y-4">
-                          <div>
-                            <label className="block text-xs font-bold text-slate-400 uppercase tracking-wider mb-1">Diagnosis Summary (Optional)</label>
-                            <input
-                              type="text"
-                              placeholder="e.g. Mild upper respiratory tract infection, vitals stable"
-                              value={btDiagnosisSummary}
-                              onChange={(e) => setBtDiagnosisSummary(e.target.value)}
-                              className="w-full bg-slate-950 p-3.5 rounded-xl border border-slate-800 outline-none text-sm text-white placeholder:text-slate-600 focus:ring-2 focus:ring-teal-500/40"
-                            />
-                          </div>
-
-                          <div>
-                            <label className="block text-xs font-bold text-slate-400 uppercase tracking-wider mb-1">Clinical Instructions & Prescriptions *</label>
-                            <textarea
-                              rows={3}
-                              placeholder="Enter instructions for patient (e.g. Continue hydration, take prescribed medications after food, rest for 3 days)..."
-                              value={btInstructions}
-                              onChange={(e) => setBtInstructions(e.target.value)}
-                              className="w-full bg-slate-950 p-3.5 rounded-xl border border-slate-800 outline-none text-sm text-white placeholder:text-slate-600 focus:ring-2 focus:ring-teal-500/40"
-                            ></textarea>
-                          </div>
-
-                          <div className="flex gap-4">
-                            <button
-                              onClick={handleBtSendResponse}
-                              disabled={!btInstructions.trim()}
-                              className="px-6 py-3 bg-teal-600 hover:bg-teal-500 text-white font-bold text-xs rounded-xl shadow-md disabled:opacity-50 transition-all cursor-pointer flex items-center gap-2"
-                            >
-                              <span className="material-symbols-outlined text-base">send</span>
-                              <span>Send Instructions to Patient</span>
-                            </button>
-                          </div>
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                </div>
-              ) : (
-                /* Waiting State */
-                <div className="bg-slate-900/90 border border-slate-800 p-12 rounded-3xl text-center space-y-4 shadow-xl">
-                  <div className="w-16 h-16 rounded-full bg-slate-950 border border-slate-800 text-teal-400 flex items-center justify-center mx-auto">
-                    <span className="material-symbols-outlined text-3xl animate-pulse">bluetooth_searching</span>
-                  </div>
-                  <h3 className="text-lg font-bold text-white">Awaiting Incoming Patient Pair Request</h3>
-                  <p className="text-xs text-slate-400 max-w-md mx-auto">
-                    Your device is currently broadcasting availability. Incoming patient requests will display an Accept/Reject prompt above.
-                  </p>
-                </div>
-              )}
             </div>
           </div>
         )}
