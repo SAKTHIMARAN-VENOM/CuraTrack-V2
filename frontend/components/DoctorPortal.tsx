@@ -82,7 +82,6 @@ export default function DoctorPortal({ initialView }: DoctorPortalProps = {}) {
   const [prescriptionsList, setPrescriptionsList] = useState<any[]>([]);
 
   // Bluetooth Receiver Suite states
-  const [btManager] = useState(() => BluetoothManager.getInstance());
   const [btAvailabilityState, setBtAvailabilityState] = useState<DoctorAvailabilityState>('OFFLINE');
   const [btIncomingRequest, setBtIncomingRequest] = useState<{
     requestId: string;
@@ -225,6 +224,9 @@ export default function DoctorPortal({ initialView }: DoctorPortalProps = {}) {
 
   // ═══════════════════════ BLUETOOTH RECEIVER HOOKS & HANDLERS ═══════════════════════
   useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const manager = BluetoothManager.getInstance();
+
     OfflineStorageManager.clearMockData();
 
     async function initDoctorBtIdentity() {
@@ -232,7 +234,7 @@ export default function DoctorPortal({ initialView }: DoctorPortalProps = {}) {
         const { data: { user } } = await supabase.auth.getUser();
         if (user) {
           doctorIdRef.current = user.id;
-          btManager.setDeviceIdentity({
+          manager.setDeviceIdentity({
             id: user.id,
             name: doctorName,
             role: 'doctor',
@@ -243,23 +245,23 @@ export default function DoctorPortal({ initialView }: DoctorPortalProps = {}) {
 
     initDoctorBtIdentity();
 
-    btManager.setOnPairingRequest((req) => {
+    manager.setOnPairingRequest((req) => {
       setBtIncomingRequest({
         requestId: req.requestId,
         patientId: req.patientId,
         patientName: req.patientName,
         accept: () => {
-          btManager.acceptConnectionRequest(req.requestId);
+          manager.acceptConnectionRequest(req.requestId);
           setBtIncomingRequest(null);
         },
         reject: () => {
-          btManager.rejectConnectionRequest(req.requestId);
+          manager.rejectConnectionRequest(req.requestId);
           setBtIncomingRequest(null);
         },
       });
     });
 
-    btManager.setOnPackageReceived((pkg) => {
+    manager.setOnPackageReceived((pkg) => {
       if (pkg && new Date(pkg.timestamp).getTime() >= btSessionStartTimeRef.current - 5000) {
         setBtReceivedPackage(pkg);
         setBtResponseSent(false);
@@ -269,7 +271,7 @@ export default function DoctorPortal({ initialView }: DoctorPortalProps = {}) {
     const isPollingRef = { current: false };
 
     const pollIncomingTransfers = async () => {
-      if (isPollingRef.current) return;
+      if (isPollingRef.current || typeof window === 'undefined') return;
       isPollingRef.current = true;
       try {
         const localTransfers = OfflineStorageManager.getLocalTransfers();
@@ -331,15 +333,17 @@ export default function DoctorPortal({ initialView }: DoctorPortalProps = {}) {
     return () => {
       clearInterval(pollTimer);
     };
-  }, [supabase, btManager, doctorName]);
+  }, [supabase, doctorName]);
 
   const toggleBtBroadcasting = () => {
+    if (typeof window === 'undefined') return;
+    const manager = BluetoothManager.getInstance();
     if (btAvailabilityState === 'AVAILABLE') {
-      btManager.setDoctorAvailability('OFFLINE');
+      manager.setDoctorAvailability('OFFLINE');
       setBtAvailabilityState('OFFLINE');
     } else {
       btSessionStartTimeRef.current = Date.now();
-      btManager.setDoctorAvailability('AVAILABLE');
+      manager.setDoctorAvailability('AVAILABLE');
       setBtAvailabilityState('AVAILABLE');
     }
   };
@@ -357,7 +361,8 @@ export default function DoctorPortal({ initialView }: DoctorPortalProps = {}) {
   };
 
   const handleBtSendResponse = async () => {
-    if (!btReceivedPackage || !btInstructions.trim()) return;
+    if (typeof window === 'undefined' || !btReceivedPackage || !btInstructions.trim()) return;
+    const manager = BluetoothManager.getInstance();
 
     const doctorResp: DoctorOfflineResponse = {
       responseId: `RESP-${Date.now()}`,
@@ -373,7 +378,7 @@ export default function DoctorPortal({ initialView }: DoctorPortalProps = {}) {
       followUpDays: 3
     };
 
-    btManager.sendDoctorResponse(doctorResp);
+    manager.sendDoctorResponse(doctorResp);
     OfflineStorageManager.saveDoctorResponse(btReceivedPackage.transferId, doctorResp, btReceivedPackage);
     setBtResponseSent(true);
 
