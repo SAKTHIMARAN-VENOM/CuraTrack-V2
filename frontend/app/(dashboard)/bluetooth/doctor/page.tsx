@@ -176,7 +176,9 @@ export default function DoctorBluetoothReceiverPage() {
             const data = await res.json();
             if (data.transfers && Array.isArray(data.transfers) && data.transfers.length > 0) {
               const latest = data.transfers[0];
-              if (latest && latest.package) {
+              const transferTime = new Date(latest.timestamp || Date.now()).getTime();
+              // ONLY display if transferred DURING current active session (after doctor accepted)
+              if (latest && latest.package && transferTime >= (sessionStartTimeRef.current - 5000)) {
                 setReceivedPackage(latest.package);
               }
             }
