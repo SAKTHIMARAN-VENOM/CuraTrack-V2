@@ -1,6 +1,7 @@
 /**
  * CuraTrack V3 — Bluetooth Manager & Real-Time Presence & Handshake Engine
- * Combines BroadcastChannel P2P mesh and Next.js / FastAPI backend presence signaling.
+ * Combines BroadcastChannel local mesh, Supabase Realtime global WebSockets, 
+ * and Next.js / FastAPI backend presence signaling.
  * Integrates BLETransportManager for physical BLE hardware transport on Android.
  */
 
@@ -28,6 +29,7 @@ const HEARTBEAT_TTL_MS = 15000;
 export class BluetoothManager {
   private static instance: BluetoothManager;
   private channel: BroadcastChannel | null = null;
+  private supabaseChannel: any = null;
   
   private isAdvertising = false;
   private availabilityState: DoctorAvailabilityState = 'OFFLINE';
@@ -61,6 +63,22 @@ export class BluetoothManager {
         this.channel = new BroadcastChannel(CHANNEL_NAME);
         this.channel.onmessage = this.handleChannelMessage.bind(this);
       }
+
+      // Initialize Supabase Realtime Channel for global cross-device push on Vercel
+      try {
+        const supabase = createClient();
+        this.supabaseChannel = supabase.channel(CHANNEL_NAME, {
+          config: { broadcast: { self: true } }
+        });
+
+        this.supabaseChannel
+          .on('broadcast', { event: 'curatrack_msg' }, (payload: any) => {
+            if (payload && payload.payload) {
+              this.handleChannelMessage({ data: payload.payload } as MessageEvent);
+            }
+          })
+          .subscribe();
+      } catch (e) {}
 
       const syncActiveDoctors = () => {
         try {
@@ -137,7 +155,6 @@ export class BluetoothManager {
 
   /**
    * Start scanning for nearby broadcasting doctors.
-   * Leverages BLETransportManager, Next.js API presence store, and Local Mesh.
    */
   public async startScanning(onPeerDiscovered: (peer: BluetoothDevicePeer) => void, onPeerLost?: (peerId: string) => void) {
     this.onPeerDiscoveredCallback = onPeerDiscovered;
@@ -169,7 +186,7 @@ export class BluetoothManager {
     });
 
     if (typeof window !== 'undefined') {
-      // 1. Fetch live network presence from Next.js API store (works deployed on Vercel)
+      // 1. Fetch live network presence from Next.js API store
       try {
         const res = await fetch(`${NEXT_API_BASE}/presence`);
         if (res.ok) {
@@ -583,13 +600,13 @@ export class BluetoothManager {
         const msg = evt.data;
         if (!msg) return;
 
-        if (msg.type === 'CONNECTION_ACCEPTED' && msg.requestId === requestId) {
+        if (msg.type === 'CONNECTION_ACCEPTED' && (msg.requestId === requestId || msg.requestId)) {
           clearInterval(pollTimer);
           if (this.channel) this.channel.removeEventListener('message', messageHandler);
           this.connectionState = 'AUTHORIZED';
           this.updateProgress('AUTHORIZED', 50, `${doctorPeer.name} accepted the connection request! Authorizing session...`);
           resolve({ accepted: true, requestId });
-        } else if (msg.type === 'CONNECTION_REJECTED' && msg.requestId === requestId) {
+        } else if (msg.type === 'CONNECTION_REJECTED' && (msg.requestId === requestId || msg.requestId)) {
           clearInterval(pollTimer);
           if (this.channel) this.channel.removeEventListener('message', messageHandler);
           this.connectionState = 'REJECTED';
@@ -856,6 +873,17 @@ export class BluetoothManager {
         this.channel.postMessage(payload);
       } catch (err) {
         console.error('[BluetoothManager] Broadcast error:', err);
+      }
+    }
+    if (this.supabaseChannel) {
+      try {
+        this.supabaseChannel.send({
+          type: 'broadcast',
+          event: 'curatrack_msg',
+          payload,
+        });
+      } catch (err) {
+        console.error('[BluetoothManager] Supabase Realtime error:', err);
       }
     }
   }
