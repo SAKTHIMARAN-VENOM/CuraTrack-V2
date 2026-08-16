@@ -83,6 +83,16 @@ export default function PatientBluetoothTransferPage() {
           .eq('id', user.id)
           .maybeSingle();
 
+        const isDoc = profile?.role === 'doctor' ||
+          user.user_metadata?.role === 'doctor' ||
+          user.email?.toLowerCase().includes('doctor');
+
+        if (isDoc) {
+          console.warn('[PatientBTPage] Doctor role detected on patient route — redirecting');
+          router.push('/bluetooth/doctor');
+          return;
+        }
+
         // Fetch real patient data
         const data = await PatientDataService.getAuthenticatedPatientData();
         if (data) {
