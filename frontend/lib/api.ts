@@ -28,29 +28,24 @@ export async function apiFetch<T = any>(
     ...(options.headers as Record<string, string> || {}),
   };
 
-  // Attach Supabase access token if available
   if (session?.access_token) {
     headers['Authorization'] = `Bearer ${session.access_token}`;
   }
 
-  const url = `${API_BASE}${endpoint}`;
+  // Use relative endpoint if starting with /api/ or absolute URL
+  const targetUrl = endpoint.startsWith('http')
+    ? endpoint
+    : (endpoint.startsWith('/api/') ? endpoint : `${API_BASE}${endpoint}`);
 
-  try {
-    const response = await fetch(url, {
-      ...options,
-      headers,
-    });
+  const res = await fetch(targetUrl, {
+    ...options,
+    headers,
+  });
 
-    if (!response.ok) {
-      const errorData = await response.json().catch(() => ({}));
-      throw new Error(errorData.detail || errorData.message || `API error: ${response.status}`);
-    }
-
-    return response.json();
-  } catch (err: any) {
-    if (err?.name === 'TypeError' || err?.message === 'Failed to fetch') {
-      throw new Error(`Network connection unavailable for ${endpoint}`);
-    }
-    throw err;
+  if (!res.ok) {
+    const errorBody = await res.text().catch(() => '');
+    throw new Error(`API error ${res.status}: ${res.statusText} - ${errorBody}`);
   }
+
+  return res.json();
 }

@@ -19,7 +19,9 @@ import { createClient } from '@/lib/supabase/client';
 
 const CHANNEL_NAME = 'curatrack_bt_mesh_v1';
 const BROADCASTING_DOCTORS_KEY = 'curatrack_active_broadcasting_doctors_v1';
-const API_BASE_URL = typeof window !== 'undefined' ? `${window.location.protocol}//${window.location.hostname}:8000/api` : 'http://localhost:8000/api';
+const API_BASE_URL = typeof window !== 'undefined' 
+  ? (process.env.NEXT_PUBLIC_FASTAPI_URL || `${window.location.protocol}//${window.location.hostname}:8000/api`) 
+  : (process.env.NEXT_PUBLIC_FASTAPI_URL || 'http://localhost:8000/api');
 const NEXT_API_BASE = typeof window !== 'undefined' ? '/api/bluetooth' : 'http://localhost:3000/api/bluetooth';
 const HEARTBEAT_TTL_MS = 15000;
 
