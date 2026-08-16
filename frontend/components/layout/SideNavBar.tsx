@@ -7,12 +7,23 @@ import { createClient } from '@/lib/supabase/client';
 import clsx from 'clsx';
 import { twMerge } from 'tailwind-merge';
 
-const NAV_ITEMS = [
+const PATIENT_NAV_ITEMS = [
     { href: '/dashboard', icon: 'dashboard', label: 'Dashboard' },
+    { href: '/bluetooth/patient', icon: 'bluetooth', label: 'Offline Transfer (BLE)' },
     { href: '/records', icon: 'folder_shared', label: 'Health Records' },
     { href: '/alerts', icon: 'notifications_active', label: 'Alerts' },
     { href: '/telemedicine', icon: 'video_chat', label: 'Telemedicine' },
     { href: '/benefits', icon: 'account_balance_wallet', label: 'Benefits & Insurance' },
+    { href: '/profile', icon: 'person', label: 'Profile' }
+];
+
+const DOCTOR_NAV_ITEMS = [
+    { href: '/doctor', icon: 'dashboard', label: 'Doctor Dashboard' },
+    { href: '/bluetooth/doctor', icon: 'bluetooth', label: 'Offline Consultation' },
+    { href: '/doctor/clinical-schedule', icon: 'calendar_month', label: 'Clinical Schedule' },
+    { href: '/records', icon: 'folder_shared', label: 'Health Records' },
+    { href: '/alerts', icon: 'notifications_active', label: 'Alerts' },
+    { href: '/telemedicine', icon: 'video_chat', label: 'Telemedicine' },
     { href: '/profile', icon: 'person', label: 'Profile' }
 ];
 
@@ -33,29 +44,38 @@ export function SideNavBar() {
                 .eq('id', user.id)
                 .maybeSingle();
 
+            const isDoctor = data?.role === 'doctor' || 
+                             user.user_metadata?.role === 'doctor' || 
+                             user.email?.toLowerCase().includes('doctor') || 
+                             user.email?.toLowerCase().includes('dr.');
+
             const displayName = data?.name || 
                                 user.user_metadata?.full_name || 
                                 user.user_metadata?.name || 
-                                (user.email ? user.email.split('@')[0].replace(/[._-]/g, ' ').replace(/\b\w/g, (c: string) => c.toUpperCase()) : 'Patient User');
+                                (user.email ? user.email.split('@')[0].replace(/[._-]/g, ' ').replace(/\b\w/g, (c: string) => c.toUpperCase()) : (isDoctor ? 'Dr. David Ross' : 'Patient User'));
 
             setProfile({
                 ...data,
                 name: displayName,
-                role: data?.role || user.user_metadata?.role || 'patient'
+                role: isDoctor ? 'doctor' : (data?.role || user.user_metadata?.role || 'patient')
             });
         }
         fetchProfile();
     }, [supabase]);
 
+    const navItems = profile?.role === 'doctor' ? DOCTOR_NAV_ITEMS : PATIENT_NAV_ITEMS;
+
     return (
         <aside className="hidden md:flex w-72 flex-col p-8 rounded-[2rem] my-4 ml-4 h-[calc(100vh-2rem)] bg-white border border-outline-variant/20 shadow-[0_8px_30px_rgb(0,0,0,0.02)] font-headline antialiased tracking-tight shrink-0 sticky top-4">
             <div className="flex flex-col gap-1 mb-10">
                 <h1 className="text-2xl font-black tracking-tighter text-primary">CuraTrack</h1>
-                <p className="text-[10px] text-tertiary uppercase tracking-[0.2em] font-bold">Clinical Care</p>
+                <p className="text-[10px] text-tertiary uppercase tracking-[0.2em] font-bold">
+                    {profile?.role === 'doctor' ? 'Clinical Portal' : 'Clinical Care'}
+                </p>
             </div>
 
             <nav className="flex flex-col gap-2 flex-grow">
-                {NAV_ITEMS.map((item) => {
+                {navItems.map((item) => {
                     const isActive = pathname === item.href;
                     return (
                         <Link
