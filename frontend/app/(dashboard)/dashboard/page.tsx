@@ -180,6 +180,13 @@ export default function Dashboard() {
                 </div>
                 <div className="flex gap-3">
                     <button 
+                        onClick={() => router.push('/bluetooth')}
+                        className="px-6 py-3 bg-gradient-to-br from-cyan-600 to-teal-500 text-white font-bold rounded-2xl shadow-md hover:opacity-90 transition-all flex items-center gap-2"
+                    >
+                        <span className="material-symbols-outlined !text-lg">bluetooth</span>
+                        Offline Care
+                    </button>
+                    <button 
                         onClick={() => setShowPassportModal(true)}
                         className="px-6 py-3 bg-gradient-to-br from-secondary to-secondary/80 text-white font-bold rounded-2xl shadow-md hover:opacity-90 transition-all flex items-center gap-2"
                     >

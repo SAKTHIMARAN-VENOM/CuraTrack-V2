@@ -32,10 +32,12 @@ export async function GET(request: Request) {
             console.error('Error saving Google provider tokens to database:', tokenError)
         }
       }
-      return NextResponse.redirect(`${origin}${next}`)
+      const cleanOrigin = origin.replace('0.0.0.0', 'localhost');
+      return NextResponse.redirect(`${cleanOrigin}${next}`)
     }
   }
 
   // return the user to an error page with instructions
-  return NextResponse.redirect(`${origin}/login?error=OAuthFailed`)
+  const cleanOrigin = origin.replace('0.0.0.0', 'localhost');
+  return NextResponse.redirect(`${cleanOrigin}/login?error=OAuthFailed`)
 }

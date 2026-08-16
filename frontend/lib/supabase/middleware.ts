@@ -77,6 +77,9 @@ export async function updateSession(request: NextRequest) {
     // no user, potentially respond by redirecting the user to the login page
     const url = request.nextUrl.clone()
     url.pathname = '/login'
+    if (url.hostname === '0.0.0.0') {
+      url.hostname = 'localhost'
+    }
     return NextResponse.redirect(url)
   }
 
