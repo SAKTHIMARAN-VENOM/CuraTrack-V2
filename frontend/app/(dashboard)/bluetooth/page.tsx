@@ -6,7 +6,6 @@ import { useRouter } from 'next/navigation';
 import { 
   Bluetooth, 
   UserCheck, 
-  Stethoscope, 
   RefreshCw, 
   Wifi, 
   WifiOff, 
@@ -16,8 +15,7 @@ import {
   ArrowRight,
   ShieldCheck,
   ChevronDown,
-  ChevronUp,
-  AlertTriangle
+  ChevronUp
 } from 'lucide-react';
 import { OfflineStorageManager } from '@/lib/bluetooth/offlineStorage';
 import { LocalOfflineTransferRecord, DoctorOfflineResponse } from '@/lib/bluetooth/bluetoothTypes';
@@ -31,7 +29,6 @@ export default function BluetoothTransferHubPage() {
   const [isSyncing, setIsSyncing] = useState<boolean>(false);
   const [syncMessage, setSyncMessage] = useState<string | null>(null);
 
-  const [userRole, setUserRole] = useState<'patient' | 'doctor'>('doctor');
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
   const [loadingAuth, setLoadingAuth] = useState<boolean>(true);
 
@@ -43,18 +40,6 @@ export default function BluetoothTransferHubPage() {
 
         if (user) {
           setCurrentUserId(user.id);
-          const { data: profile } = await supabase
-            .from('profiles')
-            .select('role')
-            .eq('id', user.id)
-            .maybeSingle();
-
-          const isDoc = profile?.role === 'doctor' || 
-                        user.user_metadata?.role === 'doctor' || 
-                        user.email?.toLowerCase().includes('doctor') || 
-                        user.email?.toLowerCase().includes('dr.');
-
-          setUserRole(isDoc ? 'doctor' : 'patient');
         }
       } catch (err) {
         console.error('[BluetoothHub] Auth check error:', err);
@@ -87,7 +72,7 @@ export default function BluetoothTransferHubPage() {
       }
       clearInterval(pollTimer);
     };
-  }, [currentUserId, userRole]);
+  }, []);
 
   const loadLocalRecords = () => {
     const updatedData = OfflineStorageManager.getLocalTransfers();
@@ -123,24 +108,9 @@ export default function BluetoothTransferHubPage() {
             <div>
               <div className="flex items-center gap-2">
                 <h1 className="text-2xl font-bold tracking-tight text-white">Bluetooth Offline Care</h1>
-                <div className="flex items-center gap-1.5 bg-slate-800 p-1 rounded-xl border border-slate-700">
-                  <button
-                    onClick={() => setUserRole('doctor')}
-                    className={`text-xs px-3 py-1 rounded-lg font-bold transition-all ${
-                      userRole === 'doctor' ? 'bg-teal-500 text-slate-950 shadow-sm' : 'text-slate-400 hover:text-white'
-                    }`}
-                  >
-                    🩺 Doctor Suite
-                  </button>
-                  <button
-                    onClick={() => setUserRole('patient')}
-                    className={`text-xs px-3 py-1 rounded-lg font-bold transition-all ${
-                      userRole === 'patient' ? 'bg-cyan-500 text-slate-950 shadow-sm' : 'text-slate-400 hover:text-white'
-                    }`}
-                  >
-                    👤 Patient Mode
-                  </button>
-                </div>
+                <span className="bg-cyan-500/10 text-cyan-400 border border-cyan-500/30 text-xs px-2.5 py-0.5 rounded-full font-semibold">
+                  Patient Mode
+                </span>
               </div>
               <p className="text-slate-400 text-sm mt-1">
                 Zero-internet medical data transfer & doctor consultations for remote areas.
@@ -178,54 +148,20 @@ export default function BluetoothTransferHubPage() {
           </div>
         )}
 
-        {/* BOTH MODE OPTIONS DISPLAYED PROMINENTLY */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          {/* Doctor Mode Card */}
-          <Link href="/bluetooth/doctor" className="group">
-            <div className={`h-full bg-gradient-to-br from-slate-900 to-slate-900/80 hover:from-slate-850 hover:to-slate-900 border p-8 rounded-3xl transition-all shadow-xl relative overflow-hidden flex flex-col justify-between ${
-              userRole === 'doctor' ? 'border-teal-500/80 ring-2 ring-teal-500/30 shadow-teal-950/40' : 'border-slate-800 hover:border-teal-500/50'
-            }`}>
-              <div className="absolute top-0 right-0 w-48 h-48 bg-teal-500/10 rounded-full blur-3xl group-hover:bg-teal-500/20 transition-all" />
-              <div>
-                <div className="w-14 h-14 rounded-2xl bg-teal-950 text-teal-400 border border-teal-800 flex items-center justify-center mb-6 group-hover:scale-110 transition-transform">
-                  <Stethoscope className="w-7 h-7" />
-                </div>
-                <div className="flex items-center justify-between mb-2">
-                  <span className="text-[10px] font-black text-teal-400 uppercase tracking-widest bg-teal-950 px-2.5 py-1 rounded-full border border-teal-800">Doctor Portal</span>
-                </div>
-                <h2 className="text-2xl font-bold text-white group-hover:text-teal-300 transition-colors">
-                  Doctor Mode — Offline Consultation Suite
-                </h2>
-                <p className="text-slate-400 text-sm mt-2 leading-relaxed">
-                  Broadcast availability, approve incoming patient pair requests, inspect received medical summaries, and issue offline treatment instructions.
-                </p>
-              </div>
-
-              <div className="mt-8 flex items-center justify-between text-teal-400 font-bold text-base pt-6 border-t border-slate-800">
-                <span>Open Doctor Consultation Suite</span>
-                <ArrowRight className="w-5 h-5 group-hover:translate-x-1 transition-transform" />
-              </div>
-            </div>
-          </Link>
-
-          {/* Patient Mode Card */}
+        {/* Patient Action Card */}
+        <div className="grid grid-cols-1 gap-6">
           <Link href="/bluetooth/patient" className="group">
-            <div className={`h-full bg-gradient-to-br from-slate-900 to-slate-900/80 hover:from-slate-850 hover:to-slate-900 border p-8 rounded-3xl transition-all shadow-xl relative overflow-hidden flex flex-col justify-between ${
-              userRole === 'patient' ? 'border-cyan-500/80 ring-2 ring-cyan-500/30 shadow-cyan-950/40' : 'border-slate-800 hover:border-cyan-500/50'
-            }`}>
+            <div className="bg-gradient-to-br from-slate-900 to-slate-900/80 hover:from-slate-850 hover:to-slate-900 border border-slate-800 hover:border-cyan-500/50 p-8 rounded-3xl transition-all shadow-xl hover:shadow-cyan-950/30 relative overflow-hidden flex flex-col justify-between">
               <div className="absolute top-0 right-0 w-48 h-48 bg-cyan-500/10 rounded-full blur-3xl group-hover:bg-cyan-500/20 transition-all" />
               <div>
                 <div className="w-14 h-14 rounded-2xl bg-cyan-950 text-cyan-400 border border-cyan-800 flex items-center justify-center mb-6 group-hover:scale-110 transition-transform">
                   <UserCheck className="w-7 h-7" />
                 </div>
-                <div className="flex items-center justify-between mb-2">
-                  <span className="text-[10px] font-black text-cyan-400 uppercase tracking-widest bg-cyan-950 px-2.5 py-1 rounded-full border border-cyan-800">Patient Portal</span>
-                </div>
                 <h2 className="text-2xl font-bold text-white group-hover:text-cyan-300 transition-colors">
                   Patient Mode — Share Offline Medical Package
                 </h2>
-                <p className="text-slate-400 text-sm mt-2 leading-relaxed">
-                  Scan for nearby broadcasting doctors, request pairing authorization, select consent items, and transfer encrypted records offline.
+                <p className="text-slate-400 text-sm mt-2 max-w-2xl leading-relaxed">
+                  Scan for nearby broadcasting CuraTrack doctors, request connection authorization, select your consent scope, and transfer encrypted medical records offline.
                 </p>
               </div>
 
@@ -237,13 +173,13 @@ export default function BluetoothTransferHubPage() {
           </Link>
         </div>
 
-        {/* Local Transfer History & Treatment Plan Viewer */}
+        {/* Local Transfer History & Doctor Treatment Plans (Patient) */}
         <div className="bg-slate-900/60 backdrop-blur-md rounded-3xl border border-slate-800 p-6 md:p-8 space-y-6">
           <div className="flex items-center justify-between">
             <div>
               <h3 className="text-lg font-bold text-white flex items-center gap-2">
                 <FileText className="w-5 h-5 text-cyan-400" />
-                <span>Local Offline Transfer Records & Treatment Plans</span>
+                <span>Your Local Transfer History & Doctor Treatment Plans (Patient)</span>
               </h3>
               <p className="text-xs text-slate-400 mt-0.5">
                 Saved on local device storage. Click any item to inspect issued Doctor treatment plans.
