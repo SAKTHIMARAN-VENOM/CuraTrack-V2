@@ -700,7 +700,7 @@ export class BluetoothManager {
     });
 
     try {
-      await fetch(`${API_BASE_URL}/offline/transfers/sync`, {
+      await fetch(`${NEXT_API_BASE}/transfers`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({

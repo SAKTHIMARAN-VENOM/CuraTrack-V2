@@ -169,31 +169,19 @@ export default function DoctorBluetoothReceiverPage() {
           }
         }
 
-        // Check backend API for new transfers
-        const API_URL = `${window.location.protocol}//${window.location.hostname}:8000/api`;
-        const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), 3000);
-
-        const res = await fetch(`${API_URL}/offline/transfers`, { signal: controller.signal });
-        clearTimeout(timeoutId);
-
-        if (res.ok) {
-          const data = await res.json();
-          if (data.transfers && Array.isArray(data.transfers) && data.transfers.length > 0) {
-            const realApiTransfers = data.transfers.filter((t: any) => 
-              t.patientName !== 'Sarah Jenkins' && 
-              !t.patientName.includes('Sarah') &&
-              (t.doctorId === activeDocId || activeDocId === '' || t.doctorId === 'DOC-BLE-001')
-            );
-            if (realApiTransfers.length > 0) {
-              const latest = realApiTransfers[realApiTransfers.length - 1];
-              const transferTime = new Date(latest.timestamp).getTime();
-              if (latest.package && transferTime >= (sessionStartTimeRef.current - 5000)) {
+        // Check Next.js API route for new medical transfers (works across devices on Vercel)
+        try {
+          const res = await fetch(`/api/bluetooth/transfers?doctorId=${encodeURIComponent(activeDocId)}`);
+          if (res.ok) {
+            const data = await res.json();
+            if (data.transfers && Array.isArray(data.transfers) && data.transfers.length > 0) {
+              const latest = data.transfers[0];
+              if (latest && latest.package) {
                 setReceivedPackage(latest.package);
               }
             }
           }
-        }
+        } catch (e) {}
       } catch (e) {
       } finally {
         isPollingRef.current = false;
