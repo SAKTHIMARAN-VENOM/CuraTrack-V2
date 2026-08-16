@@ -823,10 +823,10 @@ export default function DoctorPortal({ initialView = 'schedule' }: DoctorPortalP
         <header className="bg-white/80 backdrop-blur-xl flex items-center justify-between px-10 h-20 shrink-0 z-30 shadow-[0_8px_40px_-10px_rgba(25,28,29,0.06)]">
           <div>
             <h1 className="font-headline font-bold text-xl text-on-surface">
-              {currentView === 'dashboard' ? 'Doctor Dashboard' : currentView === 'schedule' ? 'Clinical Schedule' : currentView === 'directory' ? 'Patient Directory' : currentView === 'records' ? 'Medical Records' : 'Settings'}
+              {currentView === 'dashboard' ? 'Doctor Dashboard' : currentView === 'schedule' ? 'Clinical Schedule' : currentView === 'directory' ? 'Patient Directory' : currentView === 'records' ? 'Medical Records' : currentView === 'bluetooth' ? 'Bluetooth Offline Care' : 'Settings'}
             </h1>
             <p className="text-xs text-tertiary">
-              {currentView === 'dashboard' ? `${doctorName} · Overview` : currentView === 'schedule' ? (scheduledAppointments.length > 0 ? `${scheduledAppointments.length} scheduled appointment${scheduledAppointments.length > 1 ? 's' : ''} pending` : 'Today\'s appointments') : ''}
+              {currentView === 'dashboard' ? `${doctorName} · Overview` : currentView === 'schedule' ? (scheduledAppointments.length > 0 ? `${scheduledAppointments.length} scheduled appointment${scheduledAppointments.length > 1 ? 's' : ''} pending` : 'Today\'s appointments') : currentView === 'bluetooth' ? 'Real-time Offline Consultation & Handshake' : ''}
             </p>
           </div>
           <div className="flex items-center gap-4 relative">
@@ -1789,35 +1789,35 @@ export default function DoctorPortal({ initialView = 'schedule' }: DoctorPortalP
 
         {/* ─────────── BLUETOOTH OFFLINE CARE VIEW ─────────── */}
         {currentView === 'bluetooth' && (
-          <div className="flex-1 overflow-y-auto p-8 lg:p-10 transition-all duration-300">
+          <div className="flex-1 overflow-y-auto p-8 lg:p-10 transition-all duration-300 bg-slate-950 text-slate-100 min-h-[calc(100vh-5rem)]">
             <div className="max-w-6xl mx-auto space-y-6">
               {/* Header Bar */}
-              <div className="bg-surface-container-lowest rounded-3xl p-6 border border-surface-container shadow-sm flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+              <div className="bg-slate-900/90 border border-slate-800 p-6 rounded-3xl backdrop-blur-md shadow-xl flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
                 <div className="flex items-center gap-4">
-                  <div className="w-12 h-12 rounded-2xl bg-teal-500/10 text-teal-600 flex items-center justify-center font-bold">
+                  <div className="w-12 h-12 rounded-2xl bg-teal-500/20 text-teal-400 border border-teal-500/30 flex items-center justify-center font-bold">
                     <span className="material-symbols-outlined text-2xl">bluetooth</span>
                   </div>
                   <div>
-                    <h2 className="text-lg font-black text-on-surface">Doctor Offline Consultation Suite</h2>
-                    <p className="text-xs text-tertiary">Clinician: <strong>{doctorName}</strong> (Cardiology & Internal Medicine)</p>
+                    <h2 className="text-lg font-black text-white tracking-tight">Doctor Offline Consultation Suite</h2>
+                    <p className="text-xs text-slate-400">Clinician: <strong className="text-slate-200">{doctorName}</strong> (Cardiology & Internal Medicine)</p>
                   </div>
                 </div>
 
                 <div className="flex items-center gap-3">
                   <button
                     onClick={() => setBtShowHistoryView(!btShowHistoryView)}
-                    className="flex items-center gap-2 px-4 py-2.5 rounded-xl border border-surface-container text-xs font-bold text-tertiary hover:bg-surface-container-low transition-all cursor-pointer"
+                    className="flex items-center gap-2 px-4 py-2.5 rounded-xl border border-slate-800 bg-slate-950/80 text-xs font-bold text-slate-300 hover:bg-slate-800 transition-all cursor-pointer"
                   >
-                    <span className="material-symbols-outlined text-base">history</span>
+                    <span className="material-symbols-outlined text-base text-teal-400">history</span>
                     <span>{btShowHistoryView ? 'Back to Live Suite' : 'Past Transfer History'}</span>
                   </button>
 
                   <button
                     onClick={toggleBtBroadcasting}
-                    className={`flex items-center gap-2 px-5 py-2.5 rounded-xl text-xs font-extrabold transition-all shadow-sm cursor-pointer ${
+                    className={`flex items-center gap-2 px-5 py-2.5 rounded-xl text-xs font-extrabold transition-all shadow-md cursor-pointer ${
                       btAvailabilityState === 'AVAILABLE'
-                        ? 'bg-emerald-600 text-white shadow-emerald-600/20 animate-pulse'
-                        : 'bg-surface-container-high text-tertiary hover:bg-surface-container-highest'
+                        ? 'bg-emerald-500 text-slate-950 shadow-emerald-500/30 animate-pulse font-black'
+                        : 'bg-slate-800 text-slate-300 hover:bg-slate-700'
                     }`}
                   >
                     <span className="material-symbols-outlined text-base">
@@ -1830,29 +1830,29 @@ export default function DoctorPortal({ initialView = 'schedule' }: DoctorPortalP
 
               {/* Incoming Connection Request Banner */}
               {btIncomingRequest && (
-                <div className="bg-amber-50 border-2 border-amber-300 p-6 rounded-3xl space-y-4 shadow-md animate-fade-in">
+                <div className="bg-gradient-to-r from-amber-950/90 to-slate-900 border border-amber-500/60 p-6 rounded-3xl space-y-4 shadow-2xl animate-fade-in">
                   <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                     <div className="flex items-center gap-3">
-                      <div className="w-10 h-10 rounded-2xl bg-amber-500 text-white flex items-center justify-center font-bold">
+                      <div className="w-10 h-10 rounded-2xl bg-amber-500 text-slate-950 flex items-center justify-center font-bold">
                         <span className="material-symbols-outlined text-xl">person_add</span>
                       </div>
                       <div>
-                        <h3 className="text-base font-bold text-on-surface">Incoming Patient Connection Request</h3>
-                        <p className="text-xs text-amber-900 font-semibold">Patient: <strong>{btIncomingRequest.patientName}</strong> ({btIncomingRequest.patientId})</p>
-                        <p className="text-[11px] text-tertiary">Zero medical data has been sent. Do you accept this consultation?</p>
+                        <h3 className="text-base font-bold text-white">Incoming Patient Connection Request</h3>
+                        <p className="text-xs text-amber-200">Patient: <strong className="text-white">{btIncomingRequest.patientName}</strong> ({btIncomingRequest.patientId})</p>
+                        <p className="text-[11px] text-amber-300/80">Zero medical data has been sent. Do you accept this consultation?</p>
                       </div>
                     </div>
 
                     <div className="flex items-center gap-3">
                       <button
                         onClick={handleBtRejectRequest}
-                        className="px-4 py-2.5 rounded-xl border border-error/30 bg-error/5 hover:bg-error/10 text-error font-bold text-xs transition-all cursor-pointer"
+                        className="px-4 py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 font-semibold text-xs transition-all cursor-pointer"
                       >
                         Reject
                       </button>
                       <button
                         onClick={handleBtAcceptRequest}
-                        className="px-5 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs shadow-md transition-all cursor-pointer"
+                        className="px-5 py-2.5 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-bold text-xs shadow-md transition-all cursor-pointer"
                       >
                         Accept Pair
                       </button>
@@ -1863,26 +1863,26 @@ export default function DoctorPortal({ initialView = 'schedule' }: DoctorPortalP
 
               {/* Past Transfer History View */}
               {btShowHistoryView ? (
-                <div className="bg-surface-container-lowest rounded-3xl p-6 border border-surface-container shadow-sm space-y-4">
-                  <h3 className="font-headline font-bold text-lg text-on-surface flex items-center gap-2">
-                    <span className="material-symbols-outlined text-teal-600">history</span>
+                <div className="bg-slate-900/90 border border-slate-800 p-6 rounded-3xl backdrop-blur-md shadow-xl space-y-4">
+                  <h3 className="font-headline font-bold text-lg text-white flex items-center gap-2">
+                    <span className="material-symbols-outlined text-teal-400">history</span>
                     <span>Past Offline Transfers ({btPastRecords.length})</span>
                   </h3>
                   {btPastRecords.length === 0 ? (
-                    <p className="text-xs text-tertiary py-6 text-center">No past transfer records stored on this device.</p>
+                    <p className="text-xs text-slate-500 py-6 text-center">No past transfer records stored on this device.</p>
                   ) : (
                     <div className="space-y-3">
                       {btPastRecords.map((rec) => (
                         <div
                           key={rec.transferId}
                           onClick={() => { setBtReceivedPackage(rec.package); setBtShowHistoryView(false); }}
-                          className="cursor-pointer bg-surface-container-low hover:bg-surface-container p-4 rounded-2xl flex items-center justify-between border border-surface-container transition-all"
+                          className="cursor-pointer bg-slate-950/80 hover:bg-slate-900 border border-slate-800 hover:border-teal-500/50 p-4 rounded-2xl flex items-center justify-between transition-all"
                         >
                           <div>
-                            <p className="text-sm font-bold text-on-surface">Patient: {rec.patientName}</p>
-                            <p className="text-xs text-tertiary">{rec.transferId} • {new Date(rec.timestamp).toLocaleString()}</p>
+                            <p className="text-sm font-bold text-white">Patient: {rec.patientName}</p>
+                            <p className="text-xs text-slate-400">{rec.transferId} • {new Date(rec.timestamp).toLocaleString()}</p>
                           </div>
-                          <span className="text-xs font-bold text-primary underline">View Medical Record</span>
+                          <span className="text-xs font-semibold text-teal-400 underline">View Record</span>
                         </div>
                       ))}
                     </div>
@@ -1891,48 +1891,48 @@ export default function DoctorPortal({ initialView = 'schedule' }: DoctorPortalP
               ) : btReceivedPackage ? (
                 /* Active Patient Medical Record Display & Treatment Form */
                 <div className="space-y-6">
-                  <div className="bg-surface-container-lowest rounded-3xl p-6 border border-surface-container shadow-sm space-y-4">
-                    <div className="flex flex-wrap items-center justify-between gap-4 pb-4 border-b border-surface-container">
+                  <div className="bg-slate-900/90 border border-slate-800 p-6 rounded-3xl backdrop-blur-md shadow-xl space-y-4">
+                    <div className="flex flex-wrap items-center justify-between gap-4 pb-4 border-b border-slate-800">
                       <div>
-                        <span className="text-[10px] font-bold text-teal-600 uppercase tracking-widest block">TRANSFER ID: {btReceivedPackage.transferId}</span>
-                        <h3 className="text-xl font-extrabold text-on-surface">Patient: {btReceivedPackage.patient.name}</h3>
-                        <p className="text-xs text-tertiary">
-                          Blood Group: <strong>{btReceivedPackage.patient.bloodGroup || 'O+'}</strong> • Age: <strong>{btReceivedPackage.patient.age || '32'}</strong> • Gender: <strong>{btReceivedPackage.patient.gender || 'Male'}</strong>
+                        <span className="text-[10px] font-bold text-teal-400 uppercase tracking-widest block">TRANSFER ID: {btReceivedPackage.transferId}</span>
+                        <h3 className="text-xl font-extrabold text-white">Patient: {btReceivedPackage.patient.name}</h3>
+                        <p className="text-xs text-slate-400">
+                          Blood Group: <strong className="text-slate-200">{btReceivedPackage.patient.bloodGroup || 'O+'}</strong> • Age: <strong className="text-slate-200">{btReceivedPackage.patient.age || 'N/A'}</strong> • Gender: <strong className="text-slate-200">{btReceivedPackage.patient.gender || 'Unspecified'}</strong>
                         </p>
                       </div>
-                      <span className="text-xs font-semibold text-tertiary bg-surface-container-low px-3 py-1.5 rounded-xl">
-                        Transferred: {new Date(btReceivedPackage.timestamp).toLocaleTimeString()}
+                      <span className="text-xs font-semibold text-slate-400 bg-slate-950 px-3 py-1.5 rounded-xl border border-slate-800">
+                        Transferred At {new Date(btReceivedPackage.timestamp).toLocaleTimeString()}
                       </span>
                     </div>
 
                     {/* Vitals & Records Grid */}
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
                       {btReceivedPackage.vitals && (
-                        <div className="bg-surface-container-low p-4 rounded-2xl border border-surface-container">
-                          <span className="text-xs font-bold text-tertiary uppercase tracking-wider block mb-2">Vitals</span>
-                          <p className="text-sm text-on-surface font-semibold">BP: <strong>{btReceivedPackage.vitals.bp || '120/80'}</strong></p>
-                          <p className="text-sm text-on-surface font-semibold">Heart Rate: <strong>{btReceivedPackage.vitals.hr || '72 bpm'}</strong></p>
-                          <p className="text-sm text-on-surface font-semibold">SpO2: <strong>{btReceivedPackage.vitals.spo2 || '98%'}</strong></p>
+                        <div className="bg-slate-950 p-4 rounded-2xl border border-slate-800">
+                          <span className="text-xs font-bold text-slate-400 uppercase tracking-wider block mb-2">Vitals</span>
+                          <p className="text-sm text-slate-200 font-semibold">BP: <strong className="text-white">{btReceivedPackage.vitals.bp || '120/80'}</strong></p>
+                          <p className="text-sm text-slate-200 font-semibold">Heart Rate: <strong className="text-white">{btReceivedPackage.vitals.hr || '72 bpm'}</strong></p>
+                          <p className="text-sm text-slate-200 font-semibold">SpO2: <strong className="text-white">{btReceivedPackage.vitals.spo2 || '98%'}</strong></p>
                         </div>
                       )}
 
                       {btReceivedPackage.medications && btReceivedPackage.medications.length > 0 && (
-                        <div className="bg-surface-container-low p-4 rounded-2xl border border-surface-container col-span-2">
-                          <span className="text-xs font-bold text-tertiary uppercase tracking-wider block mb-2">Active Medications ({btReceivedPackage.medications.length})</span>
+                        <div className="bg-slate-950 p-4 rounded-2xl border border-slate-800 col-span-2">
+                          <span className="text-xs font-bold text-teal-400 uppercase tracking-wider block mb-2">Active Medications ({btReceivedPackage.medications.length})</span>
                           <div className="space-y-1">
                             {btReceivedPackage.medications.map((m, idx) => (
-                              <p key={idx} className="text-xs text-on-surface font-medium">• <strong>{m.name}</strong> — {m.dosage} ({m.frequency})</p>
+                              <p key={idx} className="text-xs text-slate-300 font-medium">• <strong className="text-white">{m.name}</strong> — {m.dosage} ({m.frequency})</p>
                             ))}
                           </div>
                         </div>
                       )}
 
                       {btReceivedPackage.allergies && btReceivedPackage.allergies.length > 0 && (
-                        <div className="bg-surface-container-low p-4 rounded-2xl border border-surface-container">
-                          <span className="text-xs font-bold text-error uppercase tracking-wider block mb-2">Allergies ({btReceivedPackage.allergies.length})</span>
+                        <div className="bg-slate-950 p-4 rounded-2xl border border-slate-800">
+                          <span className="text-xs font-bold text-red-400 uppercase tracking-wider block mb-2">Allergies ({btReceivedPackage.allergies.length})</span>
                           <div className="space-y-1">
                             {btReceivedPackage.allergies.map((a, idx) => (
-                              <p key={idx} className="text-xs text-error font-semibold">• {a.allergen} ({a.severity})</p>
+                              <p key={idx} className="text-xs text-red-300 font-semibold">• {a.allergen} ({a.severity})</p>
                             ))}
                           </div>
                         </div>
@@ -1940,38 +1940,38 @@ export default function DoctorPortal({ initialView = 'schedule' }: DoctorPortalP
                     </div>
 
                     {/* Offline Response Treatment Form */}
-                    <div className="pt-4 border-t border-surface-container space-y-4">
-                      <h4 className="font-headline font-bold text-base text-on-surface flex items-center gap-2">
-                        <span className="material-symbols-outlined text-primary">edit_note</span>
+                    <div className="pt-4 border-t border-slate-800 space-y-4">
+                      <h4 className="font-headline font-bold text-base text-white flex items-center gap-2">
+                        <span className="material-symbols-outlined text-teal-400">edit_note</span>
                         <span>Issue Treatment Plan & Offline Response</span>
                       </h4>
 
                       {btResponseSent ? (
-                        <div className="p-4 bg-emerald-500/10 border border-emerald-500/30 rounded-2xl flex items-center gap-3 text-emerald-700 font-bold text-sm">
+                        <div className="p-4 bg-emerald-500/10 border border-emerald-500/30 rounded-2xl flex items-center gap-3 text-emerald-400 font-bold text-sm">
                           <span className="material-symbols-outlined">check_circle</span>
                           <span>Treatment plan issued and sent to patient via Bluetooth!</span>
                         </div>
                       ) : (
                         <div className="space-y-4">
                           <div>
-                            <label className="block text-xs font-bold text-tertiary uppercase tracking-wider mb-1">Diagnosis Summary</label>
+                            <label className="block text-xs font-bold text-slate-400 uppercase tracking-wider mb-1">Diagnosis Summary (Optional)</label>
                             <input
                               type="text"
                               placeholder="e.g. Mild upper respiratory tract infection, vitals stable"
                               value={btDiagnosisSummary}
                               onChange={(e) => setBtDiagnosisSummary(e.target.value)}
-                              className="w-full bg-surface-container-low p-3.5 rounded-xl border border-surface-container outline-none text-sm focus:ring-2 focus:ring-primary/20"
+                              className="w-full bg-slate-950 p-3.5 rounded-xl border border-slate-800 outline-none text-sm text-white placeholder:text-slate-600 focus:ring-2 focus:ring-teal-500/40"
                             />
                           </div>
 
                           <div>
-                            <label className="block text-xs font-bold text-tertiary uppercase tracking-wider mb-1">Clinical Instructions & Prescriptions *</label>
+                            <label className="block text-xs font-bold text-slate-400 uppercase tracking-wider mb-1">Clinical Instructions & Prescriptions *</label>
                             <textarea
                               rows={3}
                               placeholder="Enter instructions for patient (e.g. Continue hydration, take prescribed medications after food, rest for 3 days)..."
                               value={btInstructions}
                               onChange={(e) => setBtInstructions(e.target.value)}
-                              className="w-full bg-surface-container-low p-3.5 rounded-xl border border-surface-container outline-none text-sm focus:ring-2 focus:ring-primary/20"
+                              className="w-full bg-slate-950 p-3.5 rounded-xl border border-slate-800 outline-none text-sm text-white placeholder:text-slate-600 focus:ring-2 focus:ring-teal-500/40"
                             ></textarea>
                           </div>
 
@@ -1979,7 +1979,7 @@ export default function DoctorPortal({ initialView = 'schedule' }: DoctorPortalP
                             <button
                               onClick={handleBtSendResponse}
                               disabled={!btInstructions.trim()}
-                              className="px-6 py-3 primary-gradient text-white font-bold text-xs rounded-xl shadow-md disabled:opacity-50 transition-all cursor-pointer flex items-center gap-2"
+                              className="px-6 py-3 bg-teal-600 hover:bg-teal-500 text-white font-bold text-xs rounded-xl shadow-md disabled:opacity-50 transition-all cursor-pointer flex items-center gap-2"
                             >
                               <span className="material-symbols-outlined text-base">send</span>
                               <span>Send Instructions to Patient</span>
@@ -1992,12 +1992,12 @@ export default function DoctorPortal({ initialView = 'schedule' }: DoctorPortalP
                 </div>
               ) : (
                 /* Waiting State */
-                <div className="bg-surface-container-lowest rounded-3xl p-12 border border-surface-container shadow-sm text-center space-y-4">
-                  <div className="w-16 h-16 rounded-full bg-surface-container-low text-tertiary flex items-center justify-center mx-auto">
+                <div className="bg-slate-900/90 border border-slate-800 p-12 rounded-3xl text-center space-y-4 shadow-xl">
+                  <div className="w-16 h-16 rounded-full bg-slate-950 border border-slate-800 text-teal-400 flex items-center justify-center mx-auto">
                     <span className="material-symbols-outlined text-3xl animate-pulse">bluetooth_searching</span>
                   </div>
-                  <h3 className="text-lg font-bold text-on-surface">Awaiting Incoming Patient Pair Request</h3>
-                  <p className="text-xs text-tertiary max-w-md mx-auto">
+                  <h3 className="text-lg font-bold text-white">Awaiting Incoming Patient Pair Request</h3>
+                  <p className="text-xs text-slate-400 max-w-md mx-auto">
                     Your device is currently broadcasting availability. Incoming patient requests will display an Accept/Reject prompt above.
                   </p>
                 </div>
