@@ -1,6 +1,6 @@
 /**
  * CuraTrack V3 — Bluetooth Manager & Real-Time Presence & Handshake Engine
- * Combines BroadcastChannel P2P mesh and FastAPI backend presence signaling.
+ * Combines BroadcastChannel P2P mesh and Next.js / FastAPI backend presence signaling.
  * Integrates BLETransportManager for physical BLE hardware transport on Android.
  */
 
@@ -20,6 +20,7 @@ import { createClient } from '@/lib/supabase/client';
 const CHANNEL_NAME = 'curatrack_bt_mesh_v1';
 const BROADCASTING_DOCTORS_KEY = 'curatrack_active_broadcasting_doctors_v1';
 const API_BASE_URL = typeof window !== 'undefined' ? `${window.location.protocol}//${window.location.hostname}:8000/api` : 'http://localhost:8000/api';
+const NEXT_API_BASE = typeof window !== 'undefined' ? '/api/bluetooth' : 'http://localhost:3000/api/bluetooth';
 const HEARTBEAT_TTL_MS = 15000;
 
 export class BluetoothManager {
@@ -134,7 +135,7 @@ export class BluetoothManager {
 
   /**
    * Start scanning for nearby broadcasting doctors.
-   * Leverages BLETransportManager for physical BLE scanning on Android.
+   * Leverages BLETransportManager, Next.js API presence store, and Local Mesh.
    */
   public async startScanning(onPeerDiscovered: (peer: BluetoothDevicePeer) => void, onPeerLost?: (peerId: string) => void) {
     this.onPeerDiscoveredCallback = onPeerDiscovered;
@@ -166,6 +167,32 @@ export class BluetoothManager {
     });
 
     if (typeof window !== 'undefined') {
+      // 1. Fetch live network presence from Next.js API store (works deployed on Vercel)
+      try {
+        const res = await fetch(`${NEXT_API_BASE}/presence`);
+        if (res.ok) {
+          const data = await res.json();
+          if (data.doctors && Array.isArray(data.doctors)) {
+            data.doctors.forEach((doc: any) => {
+              const peer: BluetoothDevicePeer = {
+                id: doc.id,
+                name: doc.name,
+                role: 'doctor',
+                specialization: doc.specialization,
+                hospitalName: doc.hospitalName,
+                availabilityState: 'AVAILABLE',
+                isAvailable: true,
+                rssi: doc.rssi || -55,
+                lastSeen: doc.lastSeen || Date.now(),
+              };
+              this.discoveredPeers.set(peer.id, peer);
+              onPeerDiscovered(peer);
+            });
+          }
+        }
+      } catch (e) {}
+
+      // 2. Fetch Supabase registered Doctor profiles
       try {
         const supabase = createClient();
         const { data: docs } = await supabase
@@ -192,6 +219,7 @@ export class BluetoothManager {
         }
       } catch (e) {}
 
+      // 3. Local Storage Sync
       try {
         const raw = localStorage.getItem(BROADCASTING_DOCTORS_KEY);
         if (raw) {
@@ -223,30 +251,6 @@ export class BluetoothManager {
       onPeerDiscovered(defaultDoc);
     }
 
-    try {
-      const res = await fetch(`${API_BASE_URL}/offline/presence/doctors`);
-      if (res.ok) {
-        const data = await res.json();
-        if (data.doctors && Array.isArray(data.doctors)) {
-          data.doctors.forEach((doc: any) => {
-            const peer: BluetoothDevicePeer = {
-              id: doc.id,
-              name: doc.name,
-              role: 'doctor',
-              specialization: doc.specialization,
-              hospitalName: doc.hospitalName,
-              availabilityState: 'AVAILABLE',
-              isAvailable: true,
-              rssi: -55,
-              lastSeen: Date.now(),
-            };
-            this.discoveredPeers.set(peer.id, peer);
-            onPeerDiscovered(peer);
-          });
-        }
-      }
-    } catch (e) {}
-
     this.broadcastMessage({
       type: 'DISCOVERY_PING',
       senderRole: this.activeDeviceRole,
@@ -256,7 +260,6 @@ export class BluetoothManager {
 
   /**
    * Doctor enables live broadcasting (AVAILABLE state).
-   * Leverages BLETransportManager for GATT Server & BLE Peripheral Advertising on Android.
    */
   public startAdvertising(onConnectionRequest: (req: any) => void) {
     this.isAdvertising = true;
@@ -266,7 +269,7 @@ export class BluetoothManager {
     this.currentDeviceMeta.lastSeen = Date.now();
     this.onIncomingConnectionRequestCallback = onConnectionRequest;
 
-    // Hardware BLE Advertising & GATT Server Registration on Native Android
+    // Hardware BLE Advertising on Native Android
     BLETransportManager.getInstance().requestPermissions().then((granted) => {
       if (granted) {
         BLETransportManager.getInstance().startAdvertising({
@@ -303,7 +306,23 @@ export class BluetoothManager {
       });
     });
 
-    const updateBackendPresence = async () => {
+    const updatePresenceSignal = async () => {
+      // 1. Post presence signal to Next.js API store (works on Vercel)
+      try {
+        await fetch(`${NEXT_API_BASE}/presence`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            doctorId: this.currentDeviceMeta.id || 'DOC-CURRENT',
+            doctorName: this.currentDeviceMeta.name || 'Dr. David Ross',
+            specialization: this.currentDeviceMeta.specialization || 'Cardiology & Internal Medicine',
+            hospitalName: this.currentDeviceMeta.hospitalName || 'CuraTrack Clinical Center',
+            availabilityState: 'AVAILABLE',
+          }),
+        });
+      } catch (e) {}
+
+      // 2. Post presence signal to FastAPI backend
       try {
         await fetch(`${API_BASE_URL}/offline/presence/advertise`, {
           method: 'POST',
@@ -317,9 +336,8 @@ export class BluetoothManager {
           }),
         });
       } catch (e) {}
-    };
 
-    const updatePresenceStore = () => {
+      // 3. Update Local Storage for same-browser tab sync
       if (typeof window !== 'undefined') {
         try {
           this.currentDeviceMeta.lastSeen = Date.now();
@@ -332,15 +350,14 @@ export class BluetoothManager {
           window.dispatchEvent(new Event('curatrack_doctor_presence_changed'));
         } catch (e) {}
       }
-      updateBackendPresence();
     };
 
-    updatePresenceStore();
+    updatePresenceSignal();
 
     if (this.heartbeatInterval) clearInterval(this.heartbeatInterval);
     this.heartbeatInterval = setInterval(() => {
       if (this.isAdvertising) {
-        updatePresenceStore();
+        updatePresenceSignal();
         this.broadcastMessage({
           type: 'ADVERTISE_PRESENCE',
           senderRole: this.activeDeviceRole,
@@ -352,8 +369,9 @@ export class BluetoothManager {
     if (this.doctorPollInterval) clearInterval(this.doctorPollInterval);
     this.doctorPollInterval = setInterval(async () => {
       if (this.isAdvertising && this.currentDeviceMeta.id) {
+        // Poll Next.js API for connection requests
         try {
-          const res = await fetch(`${API_BASE_URL}/offline/requests/pending?doctorId=${encodeURIComponent(this.currentDeviceMeta.id)}`);
+          const res = await fetch(`${NEXT_API_BASE}/requests?doctorId=${encodeURIComponent(this.currentDeviceMeta.id)}`);
           if (res.ok) {
             const data = await res.json();
             if (data.requests && data.requests.length > 0) {
@@ -366,20 +384,20 @@ export class BluetoothManager {
                   accept: async () => {
                     this.broadcastMessage({ type: 'CONNECTION_ACCEPTED', requestId: req.requestId });
                     try {
-                      await fetch(`${API_BASE_URL}/offline/requests/respond`, {
+                      await fetch(`${NEXT_API_BASE}/requests`, {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ requestId: req.requestId, status: 'ACCEPTED' }),
+                        body: JSON.stringify({ action: 'RESPOND', requestId: req.requestId, status: 'ACCEPTED' }),
                       });
                     } catch (e) {}
                   },
                   reject: async () => {
                     this.broadcastMessage({ type: 'CONNECTION_REJECTED', requestId: req.requestId });
                     try {
-                      await fetch(`${API_BASE_URL}/offline/requests/respond`, {
+                      await fetch(`${NEXT_API_BASE}/requests`, {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ requestId: req.requestId, status: 'REJECTED' }),
+                        body: JSON.stringify({ action: 'RESPOND', requestId: req.requestId, status: 'REJECTED' }),
                       });
                     } catch (e) {}
                   },
@@ -416,20 +434,6 @@ export class BluetoothManager {
       } catch (e) {}
     }
 
-    try {
-      fetch(`${API_BASE_URL}/offline/presence/advertise`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          doctorId: simulatedDoc.id,
-          doctorName: simulatedDoc.name,
-          specialization: simulatedDoc.specialization,
-          hospitalName: simulatedDoc.hospitalName,
-          availabilityState: 'AVAILABLE',
-        }),
-      }).catch(() => {});
-    } catch (e) {}
-
     this.broadcastMessage({
       type: 'ADVERTISE_PRESENCE',
       senderRole: 'doctor',
@@ -460,8 +464,10 @@ export class BluetoothManager {
     }
 
     if (this.currentDeviceMeta.id) {
-      fetch(`${API_BASE_URL}/offline/presence/cease?doctorId=${encodeURIComponent(this.currentDeviceMeta.id)}`, {
+      fetch(`${NEXT_API_BASE}/presence`, {
         method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ doctorId: this.currentDeviceMeta.id, availabilityState: 'OFFLINE' }),
       }).catch(() => {});
     }
 
@@ -506,10 +512,11 @@ export class BluetoothManager {
     });
 
     try {
-      const res = await fetch(`${API_BASE_URL}/offline/requests/create`, {
+      const res = await fetch(`${NEXT_API_BASE}/requests`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
+          action: 'CREATE',
           patientId,
           patientName,
           targetDoctorId: doctorPeer.id,
@@ -550,16 +557,16 @@ export class BluetoothManager {
 
       const pollTimer = setInterval(async () => {
         try {
-          const res = await fetch(`${API_BASE_URL}/offline/requests/${encodeURIComponent(requestId)}`);
+          const res = await fetch(`${NEXT_API_BASE}/requests?requestId=${encodeURIComponent(requestId)}`);
           if (res.ok) {
             const data = await res.json();
-            if (data.status === 'ACCEPTED') {
+            if (data.request && data.request.status === 'ACCEPTED') {
               clearInterval(pollTimer);
               if (this.channel) this.channel.removeEventListener('message', messageHandler);
               this.connectionState = 'AUTHORIZED';
               this.updateProgress('AUTHORIZED', 50, `${doctorPeer.name} accepted the connection request! Authorizing session...`);
               resolve({ accepted: true, requestId });
-            } else if (data.status === 'REJECTED') {
+            } else if (data.request && data.request.status === 'REJECTED') {
               clearInterval(pollTimer);
               if (this.channel) this.channel.removeEventListener('message', messageHandler);
               this.connectionState = 'REJECTED';

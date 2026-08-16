@@ -122,6 +122,12 @@ export default function DoctorBluetoothReceiverPage() {
           specialization: resolvedSpec,
           hospitalName: resolvedHospital,
         });
+
+        // Auto-start doctor presence advertising on page load
+        manager.startAdvertising((req) => {
+          setIncomingRequest(req);
+        });
+        setAvailabilityState('AVAILABLE');
       } catch (err) {
         console.error('[DoctorBTPage] Auth check error:', err);
       } finally {

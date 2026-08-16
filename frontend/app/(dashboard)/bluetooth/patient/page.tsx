@@ -183,6 +183,21 @@ export default function PatientBluetoothTransferPage() {
     pollDoctorResponse();
     const docPollInterval = setInterval(pollDoctorResponse, 2000);
 
+    // Auto-start scanning for nearby doctors on page mount
+    manager.startScanning(
+      (peer) => {
+        if (peer.role === 'doctor') {
+          setDiscoveredDoctors((prev) => {
+            if (prev.some((p) => p.id === peer.id)) return prev;
+            return [...prev, peer];
+          });
+        }
+      },
+      (lostPeerId) => {
+        setDiscoveredDoctors((prev) => prev.filter((p) => p.id !== lostPeerId));
+      }
+    );
+
     return () => {
       clearInterval(interval);
       clearInterval(docPollInterval);
