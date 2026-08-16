@@ -1,11 +1,9 @@
 import type { NextConfig } from "next";
-import path from "path";
 
 const nextConfig: NextConfig = {
   typescript: {
     ignoreBuildErrors: true,
   },
-  outputFileTracingRoot: path.join(__dirname, '../'),
   output: process.env.NEXT_EXPORT === 'true' ? 'export' : undefined,
   images: {
     unoptimized: true,
