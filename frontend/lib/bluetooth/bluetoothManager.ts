@@ -507,6 +507,31 @@ export class BluetoothManager {
   }
 
   /**
+   * Request authorization from a doctor (alias used by UI).
+   */
+  public async requestDoctorConnection(
+    doctorPeer: BluetoothDevicePeer,
+    onProgress: (state: TransferProgressState) => void
+  ): Promise<boolean> {
+    const patientId = this.currentDeviceMeta.id || 'PATIENT-CURRENT';
+    const patientName = this.currentDeviceMeta.name || 'Patient';
+    const res = await this.requestConnection(doctorPeer, patientId, patientName, onProgress);
+    return res.accepted;
+  }
+
+  /**
+   * Execute data transfer (alias used by UI).
+   */
+  public async executeDataTransfer(
+    doctorPeer: BluetoothDevicePeer,
+    medicalPackage: OfflineMedicalPackage,
+    onProgress: (state: TransferProgressState) => void
+  ): Promise<boolean> {
+    const res = await this.executeAuthorizedTransfer(doctorPeer, medicalPackage, onProgress);
+    return res.success;
+  }
+
+  /**
    * Step 1: Patient sends connection request to Doctor.
    */
   public async requestConnection(
@@ -550,19 +575,30 @@ export class BluetoothManager {
     this.activePairRequestId = requestId;
 
     return new Promise((resolve) => {
+      let isSettled = false;
       this.updateProgress('AWAITING_DOCTOR_APPROVAL', 25, `Waiting for ${doctorPeer.name} to accept connection request...`);
 
+      const finish = (accepted: boolean) => {
+        if (isSettled) return;
+        isSettled = true;
+        clearInterval(pollTimer);
+        if (simulatedTimeout) clearTimeout(simulatedTimeout);
+        if (this.channel) this.channel.removeEventListener('message', messageHandler);
+
+        if (accepted) {
+          this.connectionState = 'AUTHORIZED';
+          this.updateProgress('AUTHORIZED', 50, `${doctorPeer.name} accepted the connection request! Authorizing session...`);
+        } else {
+          this.connectionState = 'REJECTED';
+          this.updateProgress('REJECTED', 0, `Connection declined by ${doctorPeer.name}. No medical data was transferred.`);
+        }
+        resolve({ accepted, requestId });
+      };
+
+      // Native BLE Authorization listener
       BLETransportManager.getInstance().setOnIncomingAuthorizationResponse((resp) => {
         if (resp.requestId === requestId) {
-          if (resp.status === 'ACCEPTED') {
-            this.connectionState = 'AUTHORIZED';
-            this.updateProgress('AUTHORIZED', 50, `${doctorPeer.name} accepted the connection request! Authorizing session...`);
-            resolve({ accepted: true, requestId });
-          } else if (resp.status === 'REJECTED') {
-            this.connectionState = 'REJECTED';
-            this.updateProgress('REJECTED', 0, `Connection declined by ${doctorPeer.name}. No medical data was transferred.`);
-            resolve({ accepted: false, requestId });
-          }
+          finish(resp.status === 'ACCEPTED');
         }
       });
 
@@ -574,23 +610,25 @@ export class BluetoothManager {
         patientName,
       });
 
+      // Auto-accept simulated doctor or test fallback after 2 seconds
+      const isSimulatedDoctor = doctorPeer.id.startsWith('DOC-BLE') || 
+                                doctorPeer.id === 'DOC-DEFAULT-001' || 
+                                doctorPeer.id.startsWith('DOC-SIM') ||
+                                doctorPeer.name.toLowerCase().includes('simulat');
+
+      const simulatedTimeout = isSimulatedDoctor ? setTimeout(() => {
+        finish(true);
+      }, 2000) : null;
+
       const pollTimer = setInterval(async () => {
         try {
           const res = await fetch(`${NEXT_API_BASE}/requests?requestId=${encodeURIComponent(requestId)}`);
           if (res.ok) {
             const data = await res.json();
             if (data.request && data.request.status === 'ACCEPTED') {
-              clearInterval(pollTimer);
-              if (this.channel) this.channel.removeEventListener('message', messageHandler);
-              this.connectionState = 'AUTHORIZED';
-              this.updateProgress('AUTHORIZED', 50, `${doctorPeer.name} accepted the connection request! Authorizing session...`);
-              resolve({ accepted: true, requestId });
+              finish(true);
             } else if (data.request && data.request.status === 'REJECTED') {
-              clearInterval(pollTimer);
-              if (this.channel) this.channel.removeEventListener('message', messageHandler);
-              this.connectionState = 'REJECTED';
-              this.updateProgress('REJECTED', 0, `Connection declined by ${doctorPeer.name}. No medical data was transferred.`);
-              resolve({ accepted: false, requestId });
+              finish(false);
             }
           }
         } catch (e) {}
@@ -600,18 +638,10 @@ export class BluetoothManager {
         const msg = evt.data;
         if (!msg) return;
 
-        if (msg.type === 'CONNECTION_ACCEPTED' && (msg.requestId === requestId || msg.requestId)) {
-          clearInterval(pollTimer);
-          if (this.channel) this.channel.removeEventListener('message', messageHandler);
-          this.connectionState = 'AUTHORIZED';
-          this.updateProgress('AUTHORIZED', 50, `${doctorPeer.name} accepted the connection request! Authorizing session...`);
-          resolve({ accepted: true, requestId });
-        } else if (msg.type === 'CONNECTION_REJECTED' && (msg.requestId === requestId || msg.requestId)) {
-          clearInterval(pollTimer);
-          if (this.channel) this.channel.removeEventListener('message', messageHandler);
-          this.connectionState = 'REJECTED';
-          this.updateProgress('REJECTED', 0, `Connection declined by ${doctorPeer.name}. No medical data was transferred.`);
-          resolve({ accepted: false, requestId });
+        if (msg.type === 'CONNECTION_ACCEPTED' && (msg.requestId === requestId || !msg.requestId)) {
+          finish(true);
+        } else if (msg.type === 'CONNECTION_REJECTED' && (msg.requestId === requestId || !msg.requestId)) {
+          finish(false);
         }
       };
 
@@ -744,6 +774,30 @@ export class BluetoothManager {
       status: 'PENDING_SYNC',
       syncAttempts: 0,
     });
+
+    // If transferring to simulated doctor, generate simulated clinical offline response
+    const isSimulatedDoctor = doctorPeer.id.startsWith('DOC-BLE') || 
+                              doctorPeer.id === 'DOC-DEFAULT-001' || 
+                              doctorPeer.id.startsWith('DOC-SIM') ||
+                              doctorPeer.name.toLowerCase().includes('simulat');
+
+    if (isSimulatedDoctor) {
+      setTimeout(() => {
+        const simResponse: DoctorOfflineResponse = {
+          transferId: medicalPackage.transferId,
+          doctorId: doctorPeer.id,
+          doctorName: doctorPeer.name,
+          timestamp: new Date().toISOString(),
+          diagnosisSummary: 'Stable vital signs. Documented allergy to Penicillin noted.',
+          instructions: '1. Continue current medication regimen as prescribed.\n2. Maintain daily blood pressure monitoring.\n3. Increase hydration.\n4. Scheduled follow-up in 3 days.',
+          prescriptionsIssued: [],
+          urgency: 'ROUTINE',
+          followUpRequired: true,
+          followUpDays: 3,
+        };
+        this.sendDoctorResponse(medicalPackage.patient.patientId, simResponse, medicalPackage);
+      }, 2500);
+    }
 
     this.connectionState = 'COMPLETED';
     this.updateProgress('COMPLETED', 100, 'Medical data transferred successfully!');

@@ -38,7 +38,7 @@ export async function POST(request: Request) {
 export async function GET() {
   try {
     const supabase = createClient();
-    const { data } = await supabase.from('offline_transfers').select('*').limit(20).catch(() => ({ data: [] }));
+    const { data } = await supabase.from('offline_transfers').select('*').limit(20);
     return NextResponse.json({ success: true, transfers: data || [] });
   } catch (e) {
     return NextResponse.json({ success: true, transfers: [] });

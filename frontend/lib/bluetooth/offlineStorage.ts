@@ -76,7 +76,7 @@ export class OfflineStorageManager {
         const newRecord: LocalOfflineTransferRecord = {
           transferId,
           timestamp: response.timestamp,
-          patientId: response.patientId || pkg?.patient.patientId || 'PATIENT-BLE',
+          patientId: pkg?.patient.patientId || 'PATIENT-BLE',
           patientName: pkg?.patient.name || 'Patient',
           doctorId: response.doctorId,
           doctorName: response.doctorName,
@@ -112,7 +112,7 @@ export class OfflineStorageManager {
             body: JSON.stringify({
               transferId,
               timestamp: response.timestamp,
-              patientId: response.patientId || activePkg.patient.patientId,
+              patientId: activePkg.patient.patientId,
               doctorId: response.doctorId,
               package: activePkg,
               doctorResponse: response,
