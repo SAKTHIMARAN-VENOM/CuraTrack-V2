@@ -248,8 +248,30 @@ npx expo start
 
 ---
 
+## 🛡️ Automated Pre-Push Testing & Quality Assurance
+
+To ensure production features, security tokens, and API routes never break:
+
+```bash
+# Run all automated tests in one command
+python tests/run_all_tests.py
+
+# Or use standard Pytest
+pytest tests/ -v
+```
+
+### Test Coverage Highlights:
+- **Core Backend APIs**: Health checks, seasonal outbreak radar, SDOH scoring, and government schemes.
+- **Security & Patient Passport**: JWT encryption, scoped permissions, 5-minute auto-expiry, and strict one-time access verification.
+- **Vitals Alert Thresholds**: EMERGENCY hypoxemia triggers, hypertensive crisis rules, and OpenFDA drug interaction analysis.
+- **Offline Mesh / BLE**: Doctor presence broadcasting, patient discovery, and pairing handshake protocol.
+- **Frontend & Mobile Route Audits**: Ensures all critical web and mobile routes and deployment configs (`render.yaml`) remain intact.
+
+---
+
 ## 📄 License
 
 Distributed under the **MIT License**. See `LICENSE` for more details.
 
 **CuraTrack V3 — Empathetic Precision in Modern Digital Healthcare.**
+
