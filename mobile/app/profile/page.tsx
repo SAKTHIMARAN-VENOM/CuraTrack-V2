@@ -1,222 +1,232 @@
-"use client";
+'use client';
 
 import React, { useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import MobileFrame from '@/components/MobileFrame';
-import { generatePassport, calculateSDOH, getFitAuthUrl, PassportGenerateResponse, SDOHResponse } from '@/lib/api';
-import { supabase } from '@/lib/supabaseClient';
+import { TopAppBar } from '@/components/TopAppBar';
+import { useApp } from '@/context/AppContext';
+import { 
+  User, 
+  ShieldCheck, 
+  Heart, 
+  Mail, 
+  Bell, 
+  Lock, 
+  LogOut, 
+  QrCode, 
+  ChevronRight, 
+  Edit3, 
+  CheckCircle2, 
+  Sparkles,
+  ShieldAlert,
+  Clock
+} from 'lucide-react';
+import { MedicalIdQrModal } from '@/components/MedicalIdQrModal';
 
-export default function ProfilePage() {
+export default function UserProfilePage() {
   const router = useRouter();
-  const [isFitConnected, setIsFitConnected] = useState(true);
-  const [fitLoading, setFitLoading] = useState(false);
-
-  const handleConnectFit = async () => {
-    setFitLoading(true);
-    try {
-      const res = await getFitAuthUrl();
-      if (res && res.auth_url) {
-        window.location.href = res.auth_url;
-      } else {
-        setIsFitConnected(!isFitConnected);
-      }
-    } catch {
-      setIsFitConnected(!isFitConnected);
-    } finally {
-      setFitLoading(false);
-    }
-  };
-  const [passportData, setPassportData] = useState<null | PassportGenerateResponse>(null);
-  const [sdohScore, setSdohScore] = useState<null | SDOHResponse>(null);
-  const [generating, setGenerating] = useState(false);
-  const [userId, setUserId] = useState<string>("pat_authenticated");
-  const [userProfile, setUserProfile] = useState<{ name: string; email: string }>({
-    name: "Patient",
-    email: "user@curatrack.org",
+  const { user, updateUser } = useApp();
+  const [isEditing, setIsEditing] = useState(false);
+  const [isQrModalOpen, setIsQrModalOpen] = useState(false);
+  const [editData, setEditData] = useState({
+    name: user.name,
+    phone: user.phone,
+    email: user.email,
   });
 
-  React.useEffect(() => {
-    supabase.auth.getUser().then(({ data: { user } }) => {
-      if (user) {
-        setUserId(user.id);
-        setUserProfile({
-          name: user.user_metadata?.full_name || user.email?.split('@')[0] || "Authenticated Patient",
-          email: user.email || "user@curatrack.org",
-        });
-      }
-    }).catch((err) => console.warn("Supabase getUser error:", err));
-  }, []);
-
-  const handleGeneratePassport = async () => {
-    setGenerating(true);
-    try {
-      const res = await generatePassport(userId);
-      setPassportData(res);
-    } finally {
-      setGenerating(false);
-    }
-  };
-
-  const handleCalculateSdoh = async () => {
-    const res = await calculateSDOH({
-      patient_id: userId,
-      income_band: 1,
-      food_security: 0,
-      hospital_distance: 1,
-      employment: 0,
-      health_literacy: 1,
-    });
-    setSdohScore(res);
-  };
-
-  const handleLogout = async () => {
-    try {
-      await supabase.auth.signOut();
-    } catch (err) {
-      console.warn("Sign out exception:", err);
-    } finally {
-      router.push('/login');
-    }
+  const handleSave = (e: React.FormEvent) => {
+    e.preventDefault();
+    updateUser(editData);
+    setIsEditing(false);
   };
 
   return (
-    <MobileFrame headerTitle="User Profile">
-      {/* User Info Card */}
-      <div className="bg-white rounded-3xl p-5 border border-slate-200 shadow-sm flex items-center gap-4">
-        <div className="w-16 h-16 rounded-2xl bg-[#008080] text-white font-extrabold text-2xl flex items-center justify-center shadow ring-4 ring-[#008080]/20 shrink-0">
-          {userProfile.name.charAt(0).toUpperCase()}
-        </div>
-        <div className="flex-1">
-          <div className="flex items-center justify-between">
-            <h1 className="text-lg font-extrabold text-[#0b1c30] truncate max-w-[160px]">{userProfile.name}</h1>
-            <span className="text-[10px] font-extrabold px-2 py-0.5 rounded-full bg-teal-100 text-[#008080]">
-              PREMIUM
-            </span>
-          </div>
-          <p className="text-xs text-slate-400 font-medium truncate max-w-[180px]">{userProfile.email}</p>
-          <p className="text-xs text-slate-500 font-semibold mt-1">+91 98765 43210</p>
-        </div>
-      </div>
+    <div className="flex-1 flex flex-col pb-24">
+      <TopAppBar title="User Profile" />
 
-      {/* Emergency Digital Medical ID & Patient Passport */}
-      <div className="bg-gradient-to-r from-slate-900 to-[#0b1c30] rounded-3xl p-5 text-white shadow-xl border border-slate-800 flex flex-col gap-3">
-        <div className="flex items-center justify-between border-b border-slate-800 pb-3">
-          <div className="flex items-center gap-2">
-            <div className="w-7 h-7 rounded-lg bg-red-500 text-white flex items-center justify-center font-bold">
-              <span className="material-symbols-outlined text-base">badge</span>
+      <main className="flex-1 max-w-4xl mx-auto w-full px-4 md:px-8 py-5 flex flex-col gap-6">
+        {/* Profile Card Header */}
+        <section className="bg-white dark:bg-slate-900 rounded-3xl p-5 sm:p-6 shadow-card border border-surface-container-high dark:border-slate-800 flex flex-col sm:flex-row items-center sm:items-start justify-between gap-5 text-center sm:text-left">
+          <div className="flex flex-col sm:flex-row items-center gap-4">
+            <div className="relative w-24 h-24 rounded-full overflow-hidden ring-4 ring-primary/20 shadow-md">
+              <img
+                src={user.avatarUrl}
+                alt={user.name}
+                className="w-full h-full object-cover"
+              />
             </div>
-            <span className="text-xs font-extrabold tracking-wider uppercase text-slate-200">EMERGENCY MEDICAL ID</span>
-          </div>
-          <span className="text-[10px] font-mono text-teal-300 font-bold">ABHA: 91-0024-9120</span>
-        </div>
 
-        <div className="grid grid-cols-2 gap-3 text-xs">
-          <div>
-            <span className="text-[10px] font-bold text-slate-400 block uppercase">BLOOD GROUP</span>
-            <span className="font-extrabold text-red-400 text-sm">O Positive (O+)</span>
-          </div>
-          <div>
-            <span className="text-[10px] font-bold text-slate-400 block uppercase">ALLERGIES</span>
-            <span className="font-extrabold text-amber-300 text-sm">Penicillin, Dust</span>
-          </div>
-        </div>
-
-        {/* Patient Passport Generation */}
-        <div className="pt-2 border-t border-slate-800 flex flex-col gap-2">
-          <div className="flex items-center justify-between text-xs">
-            <span className="text-[11px] text-slate-300 font-medium">256-bit Scoped Patient Passport</span>
-            <button
-              onClick={handleGeneratePassport}
-              disabled={generating}
-              className="bg-[#008080] hover:bg-teal-700 text-white font-extrabold px-2.5 py-1 rounded-lg text-[10px] transition-colors"
-            >
-              {generating ? "Generating..." : "Generate Token"}
-            </button>
-          </div>
-          {passportData && (
-            <div className="bg-slate-950 p-2.5 rounded-xl text-[10px] font-mono text-emerald-400 border border-teal-800/50 flex flex-col gap-1">
-              <div>Passport ID: <span className="text-white font-bold">{passportData.passportId}</span></div>
-              <div className="text-slate-400 text-[9px]">Expires in 5 minutes (JWT Scoped)</div>
-            </div>
-          )}
-        </div>
-      </div>
-
-      {/* SDOH Risk Score Calculation */}
-      <div className="bg-white rounded-3xl p-4 border border-slate-200 shadow-sm flex items-center justify-between">
-        <div>
-          <h4 className="font-extrabold text-xs text-[#0b1c30]">Social Determinants of Health (SDOH)</h4>
-          <p className="text-[11px] text-slate-400 font-medium">
-            {sdohScore ? `Calculated Score: ${sdohScore.score} (${sdohScore.risk_level} Risk)` : "Income, housing & occupational health index"}
-          </p>
-        </div>
-        <button
-          onClick={handleCalculateSdoh}
-          className="bg-slate-100 hover:bg-slate-200 text-slate-800 font-extrabold px-3 py-1.5 rounded-xl text-xs"
-        >
-          {sdohScore ? "Recalculate" : "Calculate"}
-        </button>
-      </div>
-
-      {/* Connected Wearables / Integration */}
-      <div className="bg-white rounded-3xl p-4 border border-slate-200 shadow-sm flex flex-col gap-3">
-        <h3 className="font-extrabold text-xs text-slate-400 uppercase tracking-wider">Health Data Sync</h3>
-        
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-2xl bg-emerald-100 text-emerald-600 flex items-center justify-center">
-              <span className="material-symbols-outlined text-xl">watch</span>
-            </div>
             <div>
-              <h4 className="font-extrabold text-sm text-[#0b1c30]">Google Fit & Wearable</h4>
-              <p className="text-[11px] text-slate-400 font-medium">OAuth2 callback URL configured</p>
+              <div className="flex items-center gap-2 justify-center sm:justify-start">
+                <h1 className="text-xl sm:text-2xl font-extrabold text-on-surface">{user.name}</h1>
+                <span className="bg-primary/10 text-primary p-1 rounded-full" title="Verified Patient">
+                  <ShieldCheck className="w-4 h-4" />
+                </span>
+              </div>
+              <p className="text-xs text-on-surface-variant mt-0.5">
+                {user.gender} • {user.age} Years Old • ID: CT-99482
+              </p>
+
+              <div className="flex flex-wrap gap-1.5 mt-3 justify-center sm:justify-start">
+                <span className="bg-secondary-container text-on-secondary-container px-3 py-0.5 rounded-full text-[11px] font-bold">
+                  Platinum Member
+                </span>
+                <span className="bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 px-3 py-0.5 rounded-full text-[11px] font-bold">
+                  Blood Group {user.bloodType}
+                </span>
+              </div>
             </div>
           </div>
 
           <button
-            onClick={handleConnectFit}
-            disabled={fitLoading}
-            className={`px-3 py-1.5 rounded-xl text-xs font-extrabold transition-all ${
-              isFitConnected
-                ? "bg-emerald-100 text-emerald-800 border border-emerald-300"
-                : "bg-slate-100 text-slate-600"
-            }`}
+            onClick={() => setIsEditing(!isEditing)}
+            className="flex items-center gap-1.5 bg-surface-container-high dark:bg-slate-800 hover:bg-surface-container-highest text-primary font-bold text-xs px-4 py-2 rounded-xl transition-colors shadow-sm"
           >
-            {fitLoading ? "Syncing..." : isFitConnected ? "Connected (Re-sync)" : "Connect Google Fit"}
+            <Edit3 className="w-3.5 h-3.5" />
+            <span>{isEditing ? 'Cancel' : 'Edit Profile'}</span>
           </button>
+        </section>
+
+        {/* Edit Form Drawer */}
+        {isEditing && (
+          <form onSubmit={handleSave} className="bg-white dark:bg-slate-900 rounded-3xl p-5 shadow-card border border-primary/40 space-y-3 animate-in fade-in">
+            <h3 className="text-sm font-bold text-on-surface">Update Personal Information</h3>
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+              <div>
+                <label className="block text-[11px] font-semibold text-slate-500 mb-1">Full Name</label>
+                <input
+                  type="text"
+                  value={editData.name}
+                  onChange={(e) => setEditData({ ...editData, name: e.target.value })}
+                  className="w-full bg-slate-50 dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 p-2 text-xs text-on-surface outline-none focus:border-primary"
+                />
+              </div>
+              <div>
+                <label className="block text-[11px] font-semibold text-slate-500 mb-1">Phone</label>
+                <input
+                  type="text"
+                  value={editData.phone}
+                  onChange={(e) => setEditData({ ...editData, phone: e.target.value })}
+                  className="w-full bg-slate-50 dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 p-2 text-xs text-on-surface outline-none focus:border-primary"
+                />
+              </div>
+              <div>
+                <label className="block text-[11px] font-semibold text-slate-500 mb-1">Email</label>
+                <input
+                  type="email"
+                  value={editData.email}
+                  onChange={(e) => setEditData({ ...editData, email: e.target.value })}
+                  className="w-full bg-slate-50 dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 p-2 text-xs text-on-surface outline-none focus:border-primary"
+                />
+              </div>
+            </div>
+            <div className="flex justify-end pt-1">
+              <button
+                type="submit"
+                className="bg-primary text-white font-bold text-xs px-4 py-2 rounded-xl hover:bg-primary/90 shadow-sm"
+              >
+                Save Changes
+              </button>
+            </div>
+          </form>
+        )}
+
+        {/* 2-Column Bento Grid */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+          {/* Medical ID Card */}
+          <div className="bg-white dark:bg-slate-900 rounded-3xl p-5 shadow-card border border-surface-container-high dark:border-slate-800 space-y-4">
+            <div className="flex items-center justify-between">
+              <h3 className="text-sm font-bold text-on-surface flex items-center gap-2">
+                <Heart className="w-4 h-4 text-red-500" />
+                <span>Medical ID Summary</span>
+              </h3>
+              <Link href="/emergency" className="text-xs font-semibold text-error hover:underline flex items-center gap-1">
+                <ShieldAlert className="w-3.5 h-3.5" />
+                <span>Emergency View</span>
+              </Link>
+            </div>
+
+            <div className="space-y-2.5 text-xs">
+              <div className="p-3 bg-surface dark:bg-slate-800/60 rounded-2xl flex items-center justify-between">
+                <span className="text-slate-500 font-medium">Blood Group:</span>
+                <span className="font-extrabold text-red-600 dark:text-red-400">{user.bloodType}</span>
+              </div>
+
+              <div className="p-3 bg-surface dark:bg-slate-800/60 rounded-2xl">
+                <span className="text-slate-500 font-medium block mb-1">Known Allergies:</span>
+                <div className="flex flex-wrap gap-1">
+                  {user.allergies.map((all, i) => (
+                    <span key={i} className="bg-red-100 dark:bg-red-950/60 text-red-700 dark:text-red-300 px-2 py-0.5 rounded-md font-semibold text-[10px]">
+                      {all}
+                    </span>
+                  ))}
+                </div>
+              </div>
+
+              <div className="p-3 bg-surface dark:bg-slate-800/60 rounded-2xl">
+                <span className="text-slate-500 font-medium block mb-1">Chronic Conditions:</span>
+                <div className="flex flex-wrap gap-1">
+                  {user.chronicConditions.map((cond, i) => (
+                    <span key={i} className="bg-slate-200 dark:bg-slate-700 text-on-surface px-2 py-0.5 rounded-md font-semibold text-[10px]">
+                      {cond}
+                    </span>
+                  ))}
+                </div>
+              </div>
+
+              {/* Dynamic 5-Min QR Code Trigger Button */}
+              <button
+                type="button"
+                onClick={() => setIsQrModalOpen(true)}
+                className="w-full mt-2 bg-gradient-to-r from-teal-600 to-teal-700 hover:from-teal-700 hover:to-teal-800 text-white p-3 rounded-2xl font-bold text-xs flex items-center justify-between shadow-sm transition-all active:scale-[0.98] group"
+              >
+                <div className="flex items-center gap-2.5">
+                  <div className="p-1.5 bg-white/20 rounded-xl">
+                    <QrCode className="w-4 h-4 text-white" />
+                  </div>
+                  <div className="text-left">
+                    <span className="block text-xs font-bold leading-tight">Patient Medical QR</span>
+                    <span className="text-[10px] text-teal-100 font-normal">Encrypted • 5-min live validity</span>
+                  </div>
+                </div>
+                <div className="flex items-center gap-1 bg-white/20 px-2.5 py-1 rounded-full text-[10px] font-extrabold text-teal-100">
+                  <Clock className="w-3 h-3" />
+                  <span>5 MINS</span>
+                </div>
+              </button>
+            </div>
+          </div>
+
+          {/* Account Settings & Sign Out */}
+          <div className="bg-white dark:bg-slate-900 rounded-3xl p-5 shadow-card border border-surface-container-high dark:border-slate-800 space-y-3">
+            <h3 className="text-sm font-bold text-on-surface flex items-center gap-2">
+              <Sparkles className="w-4 h-4 text-primary" />
+              <span>Account & Security</span>
+            </h3>
+
+            <div className="space-y-2">
+              {/* Log out */}
+              <Link
+                href="/login"
+                className="p-3 rounded-2xl flex items-center justify-between text-error hover:bg-red-50 dark:hover:bg-red-950/20 transition-colors"
+              >
+                <div className="flex items-center gap-2.5">
+                  <LogOut className="w-4 h-4" />
+                  <span className="text-xs font-bold">Sign Out of CuraTrack</span>
+                </div>
+                <ChevronRight className="w-4 h-4" />
+              </Link>
+            </div>
+          </div>
         </div>
-      </div>
+      </main>
 
-      {/* Account Settings Menu */}
-      <div className="bg-white rounded-3xl p-2 border border-slate-200 shadow-sm flex flex-col divide-y divide-slate-100 text-xs font-bold">
-        <Link href="/records" className="p-3.5 flex items-center justify-between hover:bg-slate-50 transition-colors rounded-2xl text-slate-800">
-          <div className="flex items-center gap-3">
-            <span className="material-symbols-outlined text-teal-600 text-lg">folder_shared</span>
-            <span>Encrypted Records Vault</span>
-          </div>
-          <span className="material-symbols-outlined text-slate-400 text-base">chevron_right</span>
-        </Link>
-
-        <Link href="/schemes" className="p-3.5 flex items-center justify-between hover:bg-slate-50 transition-colors text-slate-800">
-          <div className="flex items-center gap-3">
-            <span className="material-symbols-outlined text-amber-600 text-lg">account_balance_wallet</span>
-            <span>Ayushman & Health Insurance</span>
-          </div>
-          <span className="material-symbols-outlined text-slate-400 text-base">chevron_right</span>
-        </Link>
-
-        <button
-          onClick={handleLogout}
-          className="p-3.5 flex items-center justify-between hover:bg-slate-50 transition-colors text-red-600 text-left w-full cursor-pointer"
-        >
-          <div className="flex items-center gap-3">
-            <span className="material-symbols-outlined text-red-500 text-lg">logout</span>
-            <span>Log Out Account</span>
-          </div>
-          <span className="material-symbols-outlined text-slate-400 text-base">chevron_right</span>
-        </button>
-      </div>
-    </MobileFrame>
+      {/* Dynamic 5-Minute Medical ID QR Modal */}
+      <MedicalIdQrModal
+        user={user}
+        isOpen={isQrModalOpen}
+        onClose={() => setIsQrModalOpen(false)}
+      />
+    </div>
   );
 }

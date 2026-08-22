@@ -1,244 +1,274 @@
-"use client";
+'use client';
 
 import React, { useState } from 'react';
-import MobileFrame from '@/components/MobileFrame';
+import Link from 'next/link';
+import { TopAppBar } from '@/components/TopAppBar';
+import { useApp } from '@/context/AppContext';
+import { 
+  Landmark, 
+  ShieldCheck, 
+  CheckCircle2, 
+  Search, 
+  ArrowUpRight, 
+  Sparkles, 
+  HeartHandshake, 
+  FileText, 
+  AlertCircle,
+  ChevronRight,
+  ExternalLink,
+  Percent,
+  CreditCard
+} from 'lucide-react';
+
+interface Scheme {
+  id: string;
+  name: string;
+  category: 'Universal Cover' | 'Chronic Care' | 'Senior Citizens' | 'Maternity' | 'Subsidies';
+  coverage: string;
+  provider: string;
+  description: string;
+  eligibility: string;
+  benefits: string[];
+  status: 'Eligible' | 'Applied' | 'Explore';
+  badgeColor: string;
+}
+
+const schemesData: Scheme[] = [
+  {
+    id: 'pmjay',
+    name: 'Ayushman Bharat PM-JAY',
+    category: 'Universal Cover',
+    coverage: '₹5,00,000 / Year per Family',
+    provider: 'National Health Authority (NHA)',
+    description: 'World’s largest government-funded health assurance scheme providing secondary and tertiary care hospitalization.',
+    eligibility: 'All verified socio-economic registry families & PMJAY card holders',
+    benefits: ['Cashless inpatient care at 28,000+ empanelled hospitals', 'Pre-existing illnesses covered from Day 1', '15 days post-hospitalization medicine expenses covered'],
+    status: 'Eligible',
+    badgeColor: 'bg-emerald-100 text-emerald-800 dark:bg-emerald-950/60 dark:text-emerald-300',
+  },
+  {
+    id: 'ncis',
+    name: 'National Chronic Illness Care Subsidy',
+    category: 'Chronic Care',
+    coverage: 'Up to 70% Off Maintenance Rx',
+    provider: 'Ministry of Health & Family Welfare',
+    description: 'Direct subsidies on essential medications for cardiovascular health, hypertension, diabetes, and chronic respiratory disorders.',
+    eligibility: 'Patients diagnosed with registered chronic conditions (e.g. Asthma, CVD)',
+    benefits: ['Subsidized generic medicines via Jan Aushadhi Kendras', 'Free bi-annual HbA1c and lipid profile testing', 'Teleconsultation follow-up assistance'],
+    status: 'Eligible',
+    badgeColor: 'bg-teal-100 text-teal-800 dark:bg-teal-950/60 dark:text-teal-300',
+  },
+  {
+    id: 'senior-care',
+    name: 'Senior Citizen Health & Wellness Grant',
+    category: 'Senior Citizens',
+    coverage: '₹1,50,000 Annual Diagnostic Pool',
+    provider: 'Department of Social Justice & Health',
+    description: 'Comprehensive geriatric care package covering preventive screenings, vision care, cardiology checks, and mobility aids.',
+    eligibility: 'Citizens aged 60+ with valid government photo identification',
+    benefits: ['Free quarterly at-home health checkups', 'Subsidized hearing aids and corrective spectacles', 'Priority emergency ambulance dispatch'],
+    status: 'Explore',
+    badgeColor: 'bg-blue-100 text-blue-800 dark:bg-blue-950/60 dark:text-blue-300',
+  },
+  {
+    id: 'pmmvy',
+    name: 'Pradhan Mantri Matru Vandana Yojana',
+    category: 'Maternity',
+    coverage: '₹6,000 Direct Health Benefit',
+    provider: 'Ministry of Women and Child Development',
+    description: 'Maternity benefit program offering cash incentive for pregnant and lactating mothers for improved nutrition and prenatal visits.',
+    eligibility: 'Pregnant women and lactating mothers for first living child',
+    benefits: ['Institutional delivery coverage', 'Free immunization schedules for infant', 'Nutritional supplement vouchers'],
+    status: 'Explore',
+    badgeColor: 'bg-purple-100 text-purple-800 dark:bg-purple-950/60 dark:text-purple-300',
+  },
+  {
+    id: 'critical-relief',
+    name: 'Emergency Catastrophic Health Relief',
+    category: 'Subsidies',
+    coverage: 'Up to ₹2,50,000 Emergency Grant',
+    provider: 'National Illness Assistance Fund',
+    description: 'One-time emergency relief fund for life-threatening medical emergencies and critical ICU admissions.',
+    eligibility: 'Patients undergoing emergency interventions below state threshold',
+    benefits: ['Fast-track hospital verification within 2 hours', 'Direct hospital account disbursement', 'No advance collateral needed'],
+    status: 'Applied',
+    badgeColor: 'bg-amber-100 text-amber-800 dark:bg-amber-950/60 dark:text-amber-300',
+  },
+];
 
 export default function SchemesPage() {
-  const [toastMessage, setToastMessage] = useState<string | null>(null);
-  const [isVerified, setIsVerified] = useState<boolean>(false);
-  const [insuranceId, setInsuranceId] = useState<string>("INS-[#008080]-98273");
-  const [visitType, setVisitType] = useState<string>("Consultation Visit");
+  const { user } = useApp();
+  const [searchTerm, setSearchTerm] = useState('');
+  const [selectedCategory, setSelectedCategory] = useState<string>('All');
+  const [expandedScheme, setExpandedScheme] = useState<string | null>('pmjay');
 
-  const [selectedScheme, setSelectedScheme] = useState<string | null>(null);
-  const [isModalOpen, setIsModalOpen] = useState<boolean>(false);
+  const categories = ['All', 'Universal Cover', 'Chronic Care', 'Senior Citizens', 'Maternity', 'Subsidies'];
 
-  const handleVerifyCoverage = (e: React.FormEvent) => {
-    e.preventDefault();
-    setIsVerified(true);
-  };
-
-  const handleOpenClaimModal = (schemeName: string) => {
-    setSelectedScheme(schemeName);
-    setIsModalOpen(true);
-  };
-
-  const handleSubmitClaim = () => {
-    setIsModalOpen(false);
-    setToastMessage("✓ Claim Submitted Successfully!");
-    setTimeout(() => setToastMessage(null), 4000);
-  };
+  const filteredSchemes = schemesData.filter((scheme) => {
+    const matchesCategory = selectedCategory === 'All' || scheme.category === selectedCategory;
+    const matchesSearch = scheme.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                          scheme.description.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                          scheme.provider.toLowerCase().includes(searchTerm.toLowerCase());
+    return matchesCategory && matchesSearch;
+  });
 
   return (
-    <MobileFrame headerTitle="Benefits & Schemes">
-      {/* Toast Alert Banner */}
-      {toastMessage && (
-        <div className="bg-[#008080] text-white text-xs font-bold px-4 py-3 rounded-2xl shadow-lg flex items-center justify-between z-50 animate-bounce">
-          <span>{toastMessage}</span>
-          <button onClick={() => setToastMessage(null)} className="ml-2 text-white/80 hover:text-white">
-            <span className="material-symbols-outlined text-sm">close</span>
-          </button>
+    <div className="flex-1 flex flex-col pb-28 bg-[#f8fafc] dark:bg-[#091422] min-h-screen">
+      <TopAppBar title="Health Schemes & Benefits" />
+
+      <main className="flex-1 max-w-lg mx-auto w-full px-4 py-4 flex flex-col gap-4">
+        {/* Header Hero Banner */}
+        <div className="bg-gradient-to-br from-teal-700 via-teal-800 to-teal-950 rounded-3xl p-5 text-white shadow-lg relative overflow-hidden">
+          <div className="absolute -right-6 -bottom-6 w-32 h-32 bg-white/10 rounded-full blur-2xl pointer-events-none" />
+          
+          <div className="flex items-center justify-between mb-2">
+            <span className="bg-white/20 backdrop-blur-md text-teal-100 text-[10px] font-extrabold uppercase px-2.5 py-1 rounded-full flex items-center gap-1">
+              <Sparkles className="w-3 h-3 text-amber-300" />
+              <span>Government & Care Subsidies</span>
+            </span>
+            <span className="text-xs text-teal-200 font-mono">ABHA Synced</span>
+          </div>
+
+          <h1 className="text-xl font-extrabold leading-tight mt-1">
+            Healthcare Schemes & Grants
+          </h1>
+          <p className="text-xs text-teal-100/90 mt-1 max-w-xs leading-relaxed">
+            Verify your eligibility, claim universal medical coverage, and access state-backed medication subsidies.
+          </p>
+
+          <div className="mt-4 pt-3 border-t border-white/15 flex items-center justify-between text-xs">
+            <div className="flex items-center gap-1.5">
+              <CheckCircle2 className="w-4 h-4 text-emerald-300" />
+              <span className="font-semibold text-teal-50">2 Schemes Eligible</span>
+            </div>
+            <span className="text-[11px] text-teal-200 font-medium">Patient: {user.name}</span>
+          </div>
         </div>
-      )}
 
-      {/* Header Section */}
-      <div className="flex flex-col gap-1">
-        <h1 className="text-2xl font-extrabold text-[#0b1c30] tracking-tight">Benefits & Schemes</h1>
-        <p className="text-xs text-[#434654] font-medium leading-relaxed">
-          Maximize your coverage with AI-matched healthcare schemes and seamless insurance claim processing.
-        </p>
-      </div>
-
-      {/* Check Insurance Eligibility Box */}
-      <div className="bg-white rounded-3xl p-5 border border-slate-200 shadow-sm flex flex-col gap-3">
-        <div>
-          <h2 className="text-base font-extrabold text-[#0b1c30]">Check Insurance Eligibility</h2>
-          <p className="text-xs text-[#434654]">Verify your coverage before requesting schemes.</p>
-        </div>
-
-        <form onSubmit={handleVerifyCoverage} className="flex flex-col gap-2.5">
-          <select
-            value={visitType}
-            onChange={(e) => setVisitType(e.target.value)}
-            className="w-full px-3.5 py-2.5 bg-[#f0f4f8] border border-slate-300 rounded-2xl text-xs font-bold text-[#0b1c30] focus:outline-none focus:border-[#008080]"
-          >
-            <option>Consultation Visit</option>
-            <option>Hospitalization (IPD)</option>
-            <option>Diagnostics & Labs</option>
-            <option>Emergency Care SOS</option>
-          </select>
-
+        {/* Search Bar */}
+        <div className="relative">
+          <Search className="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" />
           <input
             type="text"
-            value={insuranceId}
-            onChange={(e) => setInsuranceId(e.target.value)}
-            required
-            placeholder="Enter Insurance ID"
-            className="w-full px-3.5 py-2.5 bg-[#f0f4f8] border border-slate-300 rounded-2xl text-xs font-semibold text-[#0b1c30] focus:outline-none focus:border-[#008080]"
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            placeholder="Search schemes, subsidies, PM-JAY..."
+            className="w-full bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl py-2.5 pl-10 pr-4 text-xs sm:text-sm text-slate-800 dark:text-slate-100 placeholder:text-slate-400 outline-none focus:border-teal-600 focus:ring-2 focus:ring-teal-600/20 transition-all shadow-sm"
           />
-
-          <button
-            type="submit"
-            className="w-full py-3 rounded-2xl bg-[#008080] text-white font-extrabold text-xs shadow hover:bg-[#006666] active:scale-95 transition-all cursor-pointer"
-          >
-            Verify Coverage
-          </button>
-        </form>
-
-        {isVerified && (
-          <div className="bg-emerald-50 border border-emerald-300 rounded-2xl p-3 flex items-center justify-between text-xs text-emerald-900 animate-in fade-in">
-            <div className="flex items-center gap-2">
-              <span className="material-symbols-outlined text-lg text-emerald-600">verified</span>
-              <span className="font-extrabold">100% Cashless Coverage Approved</span>
-            </div>
-            <span className="bg-emerald-200 text-emerald-900 font-extrabold text-[9px] px-2 py-0.5 rounded-full">ACTIVE</span>
-          </div>
-        )}
-      </div>
-
-      {/* Claim Analytics Box */}
-      <div className="bg-white rounded-3xl p-5 border border-slate-200 shadow-sm flex flex-col gap-3">
-        <h3 className="font-extrabold text-sm text-[#0b1c30]">Claim Analytics</h3>
-
-        <div className="flex items-baseline justify-between">
-          <span className="text-xs font-bold text-slate-500">Total Claimed</span>
-          <span className="text-2xl font-extrabold text-[#0b1c30] tracking-tight">₹10,00,000</span>
         </div>
 
-        <div className="w-full bg-[#008080] h-2.5 rounded-full overflow-hidden"></div>
-
-        <div className="flex items-center justify-between text-xs text-slate-600 font-semibold pt-1">
-          <span>Annual Limit</span>
-          <span className="font-extrabold text-[#0b1c30]">₹1,00,000</span>
-        </div>
-      </div>
-
-      {/* Government Schemes Header */}
-      <div className="flex items-center gap-2 mt-2">
-        <span className="material-symbols-outlined text-xl text-[#008080]">account_balance</span>
-        <h2 className="text-base font-extrabold text-[#0b1c30]">Government Schemes Available</h2>
-      </div>
-
-      {/* Govt Scheme Card 1 */}
-      <div className="bg-white rounded-3xl p-5 border-2 border-[#008080]/30 shadow-sm flex flex-col gap-3">
-        <div className="flex justify-between items-start">
-          <div className="w-10 h-10 rounded-2xl bg-emerald-100 text-[#008080] flex items-center justify-center">
-            <span className="material-symbols-outlined text-xl">verified_user</span>
-          </div>
-          <span className="bg-amber-100 text-amber-800 text-[9px] font-extrabold px-2.5 py-0.5 rounded-full uppercase">
-            ⭐ BEST GOVERNMENT OPTION
-          </span>
-        </div>
-
-        <div>
-          <h3 className="font-extrabold text-base text-[#0b1c30]">NPCDCS (National Programme for NCDs)</h3>
-          <span className="text-xs text-slate-500 font-semibold">Government Health Programme</span>
-        </div>
-
-        <div className="flex flex-col gap-1">
-          <div className="flex justify-between text-xs font-bold text-[#0b1c30]">
-            <span>Eligibility Match</span>
-            <span className="text-[#008080]">96%</span>
-          </div>
-          <div className="w-full bg-slate-100 h-2 rounded-full overflow-hidden">
-            <div className="bg-[#008080] h-full rounded-full" style={{ width: '96%' }}></div>
-          </div>
-        </div>
-
-        <div className="bg-[#f0f4f8] p-3 rounded-2xl text-xs">
-          <span className="font-bold text-[#0b1c30] block mb-1">Why you qualify:</span>
-          <p className="text-slate-600 font-medium text-[11px] leading-relaxed">
-            Your medical records indicate hypertension & vitals tracking. Qualify for free diagnosis, medication, and follow-up under NPCDCS.
-          </p>
-        </div>
-
-        <div className="flex items-center justify-between pt-1">
-          <div>
-            <span className="text-xs font-bold text-[#008080] block">Free screening & treatment</span>
-            <span className="text-[10px] text-slate-400 font-semibold">Est. benefit: ₹50,000</span>
-          </div>
-
-          <button
-            onClick={() => handleOpenClaimModal("NPCDCS Government Health Programme")}
-            className="px-4 py-2.5 rounded-2xl bg-[#008080] text-white font-extrabold text-xs shadow hover:bg-[#006666] active:scale-95 transition-all cursor-pointer"
-          >
-            Apply Now
-          </button>
-        </div>
-      </div>
-
-      {/* Govt Scheme Card 2: Ayushman Bharat PMJAY */}
-      <div className="bg-white rounded-3xl p-5 border border-slate-200 shadow-sm flex flex-col gap-3">
-        <div className="flex justify-between items-start">
-          <div className="w-10 h-10 rounded-2xl bg-cyan-100 text-cyan-800 flex items-center justify-center">
-            <span className="material-symbols-outlined text-xl">account_balance_wallet</span>
-          </div>
-          <span className="bg-emerald-100 text-emerald-800 text-[9px] font-extrabold px-2.5 py-0.5 rounded-full uppercase">
-            CASHLESS HOSPITALIZATION
-          </span>
-        </div>
-
-        <div>
-          <h3 className="font-extrabold text-base text-[#0b1c30]">Ayushman Bharat (PM-JAY)</h3>
-          <span className="text-xs text-slate-500 font-semibold">National Health Authority</span>
-        </div>
-
-        <div className="flex flex-col gap-1">
-          <div className="flex justify-between text-xs font-bold text-[#0b1c30]">
-            <span>Eligibility Match</span>
-            <span className="text-[#008080]">92%</span>
-          </div>
-          <div className="w-full bg-slate-100 h-2 rounded-full overflow-hidden">
-            <div className="bg-[#008080] h-full rounded-full" style={{ width: '92%' }}></div>
-          </div>
-        </div>
-
-        <div className="bg-[#f0f4f8] p-3 rounded-2xl text-xs">
-          <span className="font-bold text-[#0b1c30] block mb-1">Why you qualify:</span>
-          <p className="text-slate-600 font-medium text-[11px] leading-relaxed">
-            Secondary and tertiary care hospitalization coverage up to ₹5,00,000 per family per year.
-          </p>
-        </div>
-
-        <div className="flex items-center justify-between pt-1">
-          <div>
-            <span className="text-xs font-bold text-[#008080] block">₹5,00,000 Cashless Cover</span>
-            <span className="text-[10px] text-slate-400 font-semibold">Est. benefit: ₹5,00,000</span>
-          </div>
-
-          <button
-            onClick={() => handleOpenClaimModal("Ayushman Bharat (PM-JAY)")}
-            className="px-4 py-2.5 rounded-2xl bg-[#008080] text-white font-extrabold text-xs shadow hover:bg-[#006666] active:scale-95 transition-all cursor-pointer"
-          >
-            Apply Now
-          </button>
-        </div>
-      </div>
-
-      {/* Claim Modal Popup */}
-      {isModalOpen && (
-        <div className="fixed inset-0 bg-black/70 backdrop-blur-sm z-[100] flex items-center justify-center p-4">
-          <div className="bg-white w-[90%] max-w-[320px] rounded-3xl p-5 shadow-2xl flex flex-col gap-3 animate-in zoom-in-95">
-            <div className="flex justify-between items-center">
-              <h3 className="font-extrabold text-sm text-[#0b1c30]">Auto-fill Claim Form</h3>
-              <button onClick={() => setIsModalOpen(false)} className="text-slate-400 hover:text-slate-700">
-                <span className="material-symbols-outlined text-lg">close</span>
-              </button>
-            </div>
-
-            <div className="bg-[#f0f4f8] p-3 rounded-2xl text-xs">
-              <span className="text-[10px] text-slate-400 font-bold uppercase block">SELECTED SCHEME</span>
-              <h4 className="font-extrabold text-xs text-[#0b1c30]">{selectedScheme || "NPCDCS Programme"}</h4>
-            </div>
-
+        {/* Category Pills */}
+        <div className="flex items-center gap-2 overflow-x-auto pb-1 no-scrollbar">
+          {categories.map((cat) => (
             <button
-              onClick={handleSubmitClaim}
-              className="w-full py-3 rounded-2xl bg-[#008080] text-white font-extrabold text-xs shadow hover:bg-[#006666] active:scale-95 transition-all cursor-pointer"
+              key={cat}
+              onClick={() => setSelectedCategory(cat)}
+              className={`px-3 py-1.5 rounded-full text-xs font-bold whitespace-nowrap transition-all ${
+                selectedCategory === cat
+                  ? 'bg-teal-700 text-white shadow-sm'
+                  : 'bg-white dark:bg-slate-900 text-slate-600 dark:text-slate-400 border border-slate-200 dark:border-slate-800 hover:bg-slate-50'
+              }`}
             >
-              Submit Claim
+              {cat}
             </button>
-          </div>
+          ))}
         </div>
-      )}
-    </MobileFrame>
+
+        {/* Schemes List */}
+        <div className="space-y-3.5">
+          {filteredSchemes.length === 0 ? (
+            <div className="bg-white dark:bg-slate-900 rounded-3xl p-8 text-center border border-slate-200 dark:border-slate-800">
+              <AlertCircle className="w-8 h-8 text-slate-400 mx-auto mb-2" />
+              <p className="text-sm font-bold text-slate-700 dark:text-slate-300">No schemes found</p>
+              <p className="text-xs text-slate-400 mt-0.5">Try searching with different keywords</p>
+            </div>
+          ) : (
+            filteredSchemes.map((scheme) => {
+              const isExpanded = expandedScheme === scheme.id;
+
+              return (
+                <div
+                  key={scheme.id}
+                  className="bg-white dark:bg-slate-900 rounded-3xl p-4 sm:p-5 border border-slate-100 dark:border-slate-800 shadow-sm transition-all hover:shadow-md"
+                >
+                  {/* Card Header */}
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="flex items-start gap-3">
+                      <div className="w-10 h-10 rounded-2xl bg-teal-50 dark:bg-teal-950/50 text-teal-700 dark:text-teal-400 flex items-center justify-center shrink-0 mt-0.5">
+                        <Landmark className="w-5 h-5" />
+                      </div>
+                      <div>
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <h3 className="text-sm sm:text-base font-extrabold text-slate-900 dark:text-white leading-snug">
+                            {scheme.name}
+                          </h3>
+                        </div>
+                        <p className="text-[11px] text-slate-400 font-medium">{scheme.provider}</p>
+                      </div>
+                    </div>
+
+                    <span className={`text-[10px] font-extrabold px-2.5 py-1 rounded-full uppercase tracking-wider shrink-0 ${scheme.badgeColor}`}>
+                      {scheme.status}
+                    </span>
+                  </div>
+
+                  {/* Coverage Highlight */}
+                  <div className="mt-3.5 p-2.5 bg-slate-50 dark:bg-slate-800/60 rounded-2xl flex items-center justify-between border border-slate-100 dark:border-slate-700/60">
+                    <span className="text-[11px] font-bold text-slate-500">Maximum Benefit Cover:</span>
+                    <span className="text-xs font-black text-teal-700 dark:text-teal-400">{scheme.coverage}</span>
+                  </div>
+
+                  <p className="text-xs text-slate-600 dark:text-slate-300 mt-2.5 leading-relaxed">
+                    {scheme.description}
+                  </p>
+
+                  {/* Expandable Details */}
+                  {isExpanded && (
+                    <div className="mt-3.5 pt-3.5 border-t border-slate-100 dark:border-slate-800 space-y-2.5 animate-in fade-in">
+                      <div>
+                        <span className="text-[11px] font-bold text-slate-400 uppercase block mb-1">Key Benefits</span>
+                        <ul className="space-y-1.5 text-xs text-slate-700 dark:text-slate-300">
+                          {scheme.benefits.map((benefit, i) => (
+                            <li key={i} className="flex items-start gap-2">
+                              <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600 shrink-0 mt-0.5" />
+                              <span>{benefit}</span>
+                            </li>
+                          ))}
+                        </ul>
+                      </div>
+
+                      <div className="p-2.5 bg-teal-50/70 dark:bg-teal-950/40 rounded-xl text-[11px] text-teal-900 dark:text-teal-200">
+                        <strong className="block font-bold">Eligibility Rule:</strong>
+                        <span>{scheme.eligibility}</span>
+                      </div>
+
+                      <div className="flex items-center gap-2 pt-1">
+                        <button
+                          type="button"
+                          onClick={() => alert(`Application initiated for ${scheme.name}. Your ABHA Health ID is linked.`)}
+                          className="flex-1 bg-teal-700 hover:bg-teal-800 text-white font-bold text-xs py-2.5 px-3 rounded-xl transition-transform active:scale-95 shadow-sm flex items-center justify-center gap-1.5"
+                        >
+                          <span>Apply / Claim Benefit</span>
+                          <ArrowUpRight className="w-3.5 h-3.5" />
+                        </button>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Toggle Accordion */}
+                  <button
+                    onClick={() => setExpandedScheme(isExpanded ? null : scheme.id)}
+                    className="w-full mt-3 pt-2 text-[11px] font-bold text-teal-700 dark:text-teal-400 flex items-center justify-center gap-1 hover:underline"
+                  >
+                    <span>{isExpanded ? 'Show Less' : 'View Full Details & Benefits'}</span>
+                    <ChevronRight className={`w-3.5 h-3.5 transition-transform ${isExpanded ? '-rotate-90' : 'rotate-90'}`} />
+                  </button>
+                </div>
+              );
+            })
+          )}
+        </div>
+      </main>
+    </div>
   );
 }

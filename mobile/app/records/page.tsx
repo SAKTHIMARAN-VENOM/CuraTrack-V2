@@ -1,201 +1,331 @@
-"use client";
+'use client';
 
 import React, { useState } from 'react';
-import MobileFrame from '@/components/MobileFrame';
-import RecordUploadModal from '@/components/RecordUploadModal';
+import Link from 'next/link';
+import { useRouter } from 'next/navigation';
+import { TopAppBar } from '@/components/TopAppBar';
+import { useApp } from '@/context/AppContext';
+import { 
+  FileText, 
+  Search, 
+  UploadCloud, 
+  ChevronRight, 
+  FileCheck, 
+  FlaskConical, 
+  Scan, 
+  Pill, 
+  HeartPulse, 
+  Plus, 
+  Download, 
+  Eye,
+  Filter,
+  X
+} from 'lucide-react';
 
-export default function RecordsPage() {
-  const [isUploadOpen, setIsUploadOpen] = useState(false);
-  const [selectedDoc, setSelectedDoc] = useState<null | { title: string; category: string; date: string; doctor: string }>(null);
-  
-  const [records, setRecords] = useState<any[]>([]);
+export default function MedicalRecordsPage() {
+  const router = useRouter();
+  const { records, addRecord } = useApp();
+  const [selectedCategory, setSelectedCategory] = useState<string>('All');
+  const [searchQuery, setSearchQuery] = useState('');
+  const [isUploadModalOpen, setIsUploadModalOpen] = useState(false);
+  const [isUploading, setIsUploading] = useState(false);
 
-  React.useEffect(() => {
-    async function loadRecords() {
-      try {
-        const { supabase } = await import('@/lib/supabaseClient');
-        const { data: { user } } = await supabase.auth.getUser();
+  // New record state
+  const [newDoc, setNewDoc] = useState({
+    title: '',
+    category: 'Lab Report' as const,
+    doctor: 'Dr. Sarah Jenkins',
+    facility: 'Quest Diagnostic Labs',
+    summary: 'Comprehensive lab tests and biomarkers analysis.',
+  });
 
-        let dbRecords: any[] = [];
-        if (user) {
-          const { data } = await supabase
-            .from('medical_records')
-            .select('*')
-            .eq('patient_id', user.id)
-            .order('created_at', { ascending: false });
+  const categories = ['All', 'Lab Report', 'Imaging', 'Prescription', 'Cardiology'];
 
-          if (data && data.length > 0) {
-            dbRecords = data.map((r: any) => ({
-              title: r.title || r.doc_name || 'Medical Document',
-              category: r.category || 'Lab Reports',
-              date: r.created_at ? new Date(r.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : 'Recent',
-              doctor: r.doctor_name || 'Uploaded & OCR Verified',
-              ocrText: r.ocr_text || r.summary,
-            }));
-          }
-        }
+  const filteredRecords = records.filter((rec) => {
+    const matchesCategory = selectedCategory === 'All' || rec.category === selectedCategory;
+    const matchesSearch =
+      rec.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      rec.doctor.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      rec.summary.toLowerCase().includes(searchQuery.toLowerCase());
+    return matchesCategory && matchesSearch;
+  });
 
-        const saved = localStorage.getItem("curatrack_user_records");
-        const localRecs = saved ? JSON.parse(saved) : [];
-        const combined = [...dbRecords, ...localRecs.filter((l: any) => !dbRecords.some((d: any) => d.title === l.title))];
-        setRecords(combined);
-      } catch (err) {
-        console.warn("Could not fetch records from Supabase DB:", err);
-      }
-    }
-    loadRecords();
-  }, []);
+  const handleUploadSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newDoc.title) return;
+    setIsUploading(true);
 
-  const handleNewRecord = async (newDoc: { title: string; category: string; date: string; ocrText?: string }) => {
-    const item = {
-      title: newDoc.title,
-      category: newDoc.category,
-      date: newDoc.date,
-      doctor: "Uploaded by User • RapidOCR Verified",
-      ocrText: newDoc.ocrText || "",
-      size: "2.1 MB PDF",
-    };
+    setTimeout(() => {
+      const newId = addRecord({
+        title: newDoc.title,
+        category: newDoc.category,
+        date: 'Today, Aug 16',
+        doctor: newDoc.doctor,
+        facility: newDoc.facility,
+        summary: newDoc.summary,
+        fileSize: '3.1 MB',
+        fileType: 'PDF Document',
+        metrics: [
+          { label: 'Diagnostic Verification', value: 'Complete', status: 'optimal', range: 'Verified' },
+          { label: 'OCR Extraction', value: '100% Match', status: 'optimal', range: 'High Confidence' },
+        ],
+        doctorNotes: 'Uploaded document verified and indexed in medical history.',
+      });
 
-    const updated = [item, ...records];
-    setRecords(updated);
+      setIsUploading(false);
+      setIsUploadModalOpen(false);
+      router.push(`/records/upload-success?id=${newId}`);
+    }, 1000);
+  };
 
-    try {
-      localStorage.setItem("curatrack_user_records", JSON.stringify(updated));
-      const { supabase } = await import('@/lib/supabaseClient');
-      const { data: { user } } = await supabase.auth.getUser();
-      if (user) {
-        await supabase.from('medical_records').insert({
-          patient_id: user.id,
-          title: newDoc.title,
-          category: newDoc.category,
-          ocr_text: newDoc.ocrText || "",
-          status: 'verified'
-        });
-      }
-    } catch (e) {
-      console.warn("Save error:", e);
+  const getCategoryIcon = (category: string) => {
+    switch (category) {
+      case 'Lab Report':
+        return <FlaskConical className="w-5 h-5 text-teal-600" />;
+      case 'Imaging':
+        return <Scan className="w-5 h-5 text-indigo-600" />;
+      case 'Prescription':
+        return <Pill className="w-5 h-5 text-amber-600" />;
+      case 'Cardiology':
+        return <HeartPulse className="w-5 h-5 text-red-600" />;
+      default:
+        return <FileText className="w-5 h-5 text-primary" />;
     }
   };
 
   return (
-    <MobileFrame headerTitle="Encrypted Records">
-      {/* Title & Action */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-extrabold text-[#0b1c30]">Medical Vault</h1>
-          <p className="text-xs text-[#434654] font-medium">ABHA Linked & End-to-End Encrypted</p>
-        </div>
-        <button
-          onClick={() => setIsUploadOpen(true)}
-          className="bg-[#008080] hover:bg-teal-700 text-white font-extrabold px-3.5 py-2 rounded-2xl transition-colors shadow flex items-center gap-1 text-xs"
-        >
-          <span className="material-symbols-outlined text-base">cloud_upload</span>
-          <span>Upload</span>
-        </button>
-      </div>
+    <div className="flex-1 flex flex-col pb-24">
+      <TopAppBar title="Medical Records" />
 
-      {/* Security Banner */}
-      <div className="bg-[#008080]/10 border border-[#008080]/30 rounded-2xl p-3 flex items-center gap-3">
-        <span className="material-symbols-outlined text-xl text-[#008080]">verified_user</span>
-        <p className="text-[11px] font-semibold text-[#0b1c30]">
-          All records protected with 256-bit AES encryption and stored on secure cloud.
-        </p>
-      </div>
+      <main className="flex-1 max-w-6xl mx-auto w-full px-4 md:px-8 py-5 flex flex-col gap-6">
+        {/* Header & Search */}
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+          <div>
+            <h1 className="text-2xl md:text-3xl font-extrabold text-on-surface">Medical Records</h1>
+            <p className="text-xs sm:text-sm text-on-surface-variant mt-0.5">
+              Securely view lab test results, imaging, and prescriptions
+            </p>
+          </div>
 
-      {/* Record List */}
-      <div className="flex flex-col gap-3">
-        {records.length === 0 ? (
-          <div className="bg-white rounded-3xl p-8 border border-slate-200 shadow-sm flex flex-col items-center justify-center text-center gap-3">
-            <div className="w-14 h-14 rounded-full bg-teal-50 text-[#008080] flex items-center justify-center">
-              <span className="material-symbols-outlined text-3xl">folder_off</span>
+          <div className="flex items-center gap-3">
+            {/* Search Input */}
+            <div className="relative flex-1 md:w-72">
+              <Search className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
+              <input
+                type="text"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                placeholder="Search tests, doctors..."
+                className="w-full bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-full pl-9 pr-4 py-2 text-xs sm:text-sm text-on-surface outline-none focus:border-primary shadow-sm"
+              />
             </div>
-            <div>
-              <h4 className="font-extrabold text-sm text-[#0b1c30]">No Encrypted Records Uploaded Yet</h4>
-              <p className="text-xs text-slate-500 max-w-xs mt-1">
-                Upload your prescriptions, lab reports, or scans. Our Tesseract & RapidOCR engine will automatically parse your medical records.
-              </p>
-            </div>
+
+            {/* Upload Button */}
             <button
-              onClick={() => setIsUploadOpen(true)}
-              className="bg-[#008080] hover:bg-teal-700 text-white font-extrabold px-4 py-2.5 rounded-2xl text-xs shadow-md mt-1 flex items-center gap-1.5"
+              onClick={() => setIsUploadModalOpen(true)}
+              className="flex items-center gap-1.5 bg-primary hover:bg-primary/90 text-white font-bold text-xs px-4 py-2.5 rounded-full shadow-sm transition-transform active:scale-95 shrink-0"
             >
-              <span className="material-symbols-outlined text-base">cloud_upload</span>
-              <span>Upload Your First Document</span>
+              <UploadCloud className="w-4 h-4" />
+              <span>Upload Document</span>
+            </button>
+          </div>
+        </div>
+
+        {/* Category Tabs */}
+        <div className="flex overflow-x-auto hide-scrollbar gap-2 pb-1">
+          {categories.map((cat) => (
+            <button
+              key={cat}
+              onClick={() => setSelectedCategory(cat)}
+              className={`px-4 py-2 rounded-full text-xs font-bold whitespace-nowrap transition-all ${
+                selectedCategory === cat
+                  ? 'bg-primary text-white shadow-sm'
+                  : 'bg-white dark:bg-slate-900 text-slate-600 dark:text-slate-400 border border-slate-200 dark:border-slate-800 hover:bg-slate-50'
+              }`}
+            >
+              {cat}
+            </button>
+          ))}
+        </div>
+
+        {/* Records Bento Grid */}
+        {filteredRecords.length === 0 ? (
+          <div className="bg-white dark:bg-slate-900 rounded-3xl p-10 text-center border border-dashed border-slate-300 dark:border-slate-700 shadow-sm flex flex-col items-center">
+            <div className="w-16 h-16 rounded-full bg-primary/10 text-primary flex items-center justify-center mb-3">
+              <FileCheck className="w-8 h-8" />
+            </div>
+            <h3 className="text-base font-bold text-on-surface">No Records Found</h3>
+            <p className="text-xs text-on-surface-variant max-w-sm mt-1">
+              No medical documents match your current filter or search criteria.
+            </p>
+            <button
+              onClick={() => {
+                setSelectedCategory('All');
+                setSearchQuery('');
+              }}
+              className="mt-4 px-4 py-2 text-xs font-bold text-primary bg-primary/10 rounded-xl hover:bg-primary/20"
+            >
+              Reset Filters
             </button>
           </div>
         ) : (
-          records.map((doc, idx) => (
-            <div key={idx} className="bg-white rounded-3xl p-4 border border-slate-200 shadow-sm flex flex-col gap-2">
-              <div className="flex items-start justify-between">
-                <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-2xl bg-blue-100 text-blue-600 flex items-center justify-center font-bold">
-                    <span className="material-symbols-outlined text-xl">description</span>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            {filteredRecords.map((rec) => (
+              <div
+                key={rec.id}
+                className="bg-white dark:bg-slate-900 rounded-3xl p-5 shadow-card border border-surface-container-high dark:border-slate-800 flex flex-col justify-between hover:border-primary/50 transition-all group"
+              >
+                <div>
+                  <div className="flex items-center justify-between mb-3">
+                    <div className="flex items-center gap-2">
+                      <div className="p-2 bg-slate-100 dark:bg-slate-800 rounded-xl">
+                        {getCategoryIcon(rec.category)}
+                      </div>
+                      <span className="text-[11px] font-bold text-primary px-2.5 py-0.5 rounded-full bg-primary/10">
+                        {rec.category}
+                      </span>
+                    </div>
+                    <span className="text-[11px] text-slate-400 font-medium">{rec.date}</span>
+                  </div>
+
+                  <h3 className="text-sm font-bold text-on-surface group-hover:text-primary transition-colors">
+                    {rec.title}
+                  </h3>
+                  <p className="text-xs text-on-surface-variant mt-1 line-clamp-2">
+                    {rec.summary}
+                  </p>
+
+                  <div className="mt-3 pt-3 border-t border-slate-100 dark:border-slate-800/80 text-[11px] text-slate-500 space-y-1">
+                    <p><span className="font-semibold text-slate-700 dark:text-slate-300">Doctor:</span> {rec.doctor}</p>
+                    <p><span className="font-semibold text-slate-700 dark:text-slate-300">Facility:</span> {rec.facility}</p>
+                  </div>
+                </div>
+
+                <div className="mt-4 pt-3 flex items-center justify-between">
+                  <span className="text-[10px] text-slate-400 font-medium">{rec.fileSize} • {rec.fileType}</span>
+                  <Link
+                    href={`/records/${rec.id}`}
+                    className="flex items-center gap-1 text-xs font-bold text-primary hover:underline bg-primary/10 px-3 py-1.5 rounded-xl"
+                  >
+                    <span>View Report</span>
+                    <ChevronRight className="w-3.5 h-3.5" />
+                  </Link>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+
+        {/* Upload Modal */}
+        {isUploadModalOpen && (
+          <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
+            <div className="bg-white dark:bg-slate-900 max-w-md w-full rounded-3xl p-6 shadow-2xl border border-slate-200 dark:border-slate-800 animate-in fade-in zoom-in duration-200">
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="text-lg font-bold text-on-surface flex items-center gap-2">
+                  <UploadCloud className="w-5 h-5 text-primary" />
+                  <span>Upload Medical Record</span>
+                </h3>
+                <button
+                  onClick={() => setIsUploadModalOpen(false)}
+                  className="p-1 rounded-full text-slate-400 hover:text-slate-700 dark:hover:text-slate-200"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+
+              <form onSubmit={handleUploadSubmit} className="space-y-3.5">
+                {/* File Dropzone Mock */}
+                <div className="border-2 border-dashed border-primary/40 bg-primary/5 dark:bg-primary/10 rounded-2xl p-6 text-center cursor-pointer hover:border-primary transition-colors">
+                  <UploadCloud className="w-8 h-8 text-primary mx-auto mb-2" />
+                  <p className="text-xs font-bold text-on-surface">Click to select or drag PDF / DICOM file</p>
+                  <p className="text-[10px] text-slate-400 mt-0.5">Supports PDF, JPG, PNG, DICOM (Max 25MB)</p>
+                </div>
+
+                <div>
+                  <label className="block text-xs font-semibold text-on-surface-variant mb-1">
+                    Document Title / Test Name
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    placeholder="e.g. Lipid Panel Blood Test"
+                    value={newDoc.title}
+                    onChange={(e) => setNewDoc({ ...newDoc, title: e.target.value })}
+                    className="w-full bg-slate-50 dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 p-2.5 text-xs text-on-surface outline-none focus:border-primary"
+                  />
+                </div>
+
+                <div className="grid grid-cols-2 gap-2.5">
+                  <div>
+                    <label className="block text-xs font-semibold text-on-surface-variant mb-1">
+                      Category
+                    </label>
+                    <select
+                      value={newDoc.category}
+                      onChange={(e) => setNewDoc({ ...newDoc, category: e.target.value as any })}
+                      className="w-full bg-slate-50 dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 p-2.5 text-xs text-on-surface outline-none focus:border-primary"
+                    >
+                      <option value="Lab Report">Lab Report</option>
+                      <option value="Imaging">Imaging (X-Ray / MRI)</option>
+                      <option value="Prescription">Prescription</option>
+                      <option value="Cardiology">Cardiology</option>
+                    </select>
                   </div>
                   <div>
-                    <h3 className="font-extrabold text-sm text-[#0b1c30] leading-snug">{doc.title}</h3>
-                    <p className="text-[11px] font-bold text-slate-400">{doc.doctor}</p>
+                    <label className="block text-xs font-semibold text-on-surface-variant mb-1">
+                      Doctor Name
+                    </label>
+                    <input
+                      type="text"
+                      placeholder="Dr. Aris Thorne"
+                      value={newDoc.doctor}
+                      onChange={(e) => setNewDoc({ ...newDoc, doctor: e.target.value })}
+                      className="w-full bg-slate-50 dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 p-2.5 text-xs text-on-surface outline-none focus:border-primary"
+                    />
                   </div>
                 </div>
-              </div>
 
-              <div className="flex items-center justify-between pt-2 border-t border-slate-100 text-xs">
-                <span className="text-[10px] font-extrabold px-2.5 py-0.5 rounded-full bg-slate-100 text-slate-600">
-                  {doc.category}
-                </span>
-                <div className="flex items-center gap-2">
-                  <span className="text-[10px] text-slate-400 font-semibold">{doc.date}</span>
+                <div>
+                  <label className="block text-xs font-semibold text-on-surface-variant mb-1">
+                    Clinical Summary
+                  </label>
+                  <textarea
+                    rows={2}
+                    placeholder="Summary of results or diagnosis..."
+                    value={newDoc.summary}
+                    onChange={(e) => setNewDoc({ ...newDoc, summary: e.target.value })}
+                    className="w-full bg-slate-50 dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 p-2.5 text-xs text-on-surface outline-none focus:border-primary"
+                  />
+                </div>
+
+                <div className="pt-2 flex items-center justify-end gap-2">
                   <button
-                    onClick={() => setSelectedDoc(doc)}
-                    className="bg-slate-100 hover:bg-slate-200 text-slate-800 font-extrabold px-3 py-1 rounded-xl transition-colors text-xs flex items-center gap-1"
+                    type="button"
+                    onClick={() => setIsUploadModalOpen(false)}
+                    className="px-4 py-2 rounded-xl text-xs font-semibold text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800"
                   >
-                    <span className="material-symbols-outlined text-sm">visibility</span>
-                    <span>View</span>
+                    Cancel
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={isUploading}
+                    className="px-4 py-2 rounded-xl text-xs font-bold bg-primary text-white hover:bg-primary/90 shadow-sm flex items-center gap-1.5"
+                  >
+                    {isUploading ? (
+                      <span>Encrypting & Uploading...</span>
+                    ) : (
+                      <>
+                        <UploadCloud className="w-3.5 h-3.5" />
+                        <span>Upload & Verify</span>
+                      </>
+                    )}
                   </button>
                 </div>
-              </div>
-            </div>
-          ))
-        )}
-      </div>
-
-      {/* Upload Modal */}
-      <RecordUploadModal
-        isOpen={isUploadOpen}
-        onClose={() => setIsUploadOpen(false)}
-        onUploadSuccess={handleNewRecord}
-      />
-
-      {/* PDF View Modal */}
-      {selectedDoc && (
-        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div className="bg-white rounded-3xl p-6 max-w-sm w-full shadow-2xl border border-slate-100 flex flex-col gap-4">
-            <div className="flex items-center justify-between border-b border-slate-100 pb-3">
-              <div className="flex items-center gap-2">
-                <span className="material-symbols-outlined text-blue-600 text-xl">picture_as_pdf</span>
-                <h3 className="font-extrabold text-sm text-[#0b1c30] truncate max-w-[200px]">{selectedDoc.title}</h3>
-              </div>
-              <button onClick={() => setSelectedDoc(null)} className="text-slate-400 hover:text-slate-700">
-                <span className="material-symbols-outlined text-xl">close</span>
-              </button>
-            </div>
-
-            <div className="bg-slate-100 rounded-2xl h-48 border border-slate-200 flex flex-col items-center justify-center p-4 text-center">
-              <span className="material-symbols-outlined text-4xl text-slate-400 mb-2">find_in_page</span>
-              <p className="text-xs font-extrabold text-slate-700">{selectedDoc.title}</p>
-              <p className="text-[10px] text-slate-400 mt-1">Verified Medical Signature • {selectedDoc.date}</p>
-            </div>
-
-            <div className="flex items-center gap-2">
-              <button
-                onClick={() => setSelectedDoc(null)}
-                className="w-full bg-[#008080] hover:bg-teal-700 text-white font-extrabold py-2.5 rounded-xl text-xs shadow"
-              >
-                Close Preview
-              </button>
+              </form>
             </div>
           </div>
-        </div>
-      )}
-    </MobileFrame>
+        )}
+      </main>
+    </div>
   );
 }

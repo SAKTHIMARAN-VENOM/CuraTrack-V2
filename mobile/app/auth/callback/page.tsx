@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { supabase } from '@/lib/supabaseClient';
-import MobileFrame from '@/components/MobileFrame';
+import { RefreshCw, ShieldCheck } from 'lucide-react';
 
 export default function AuthCallbackPage() {
   const router = useRouter();
@@ -13,7 +13,6 @@ export default function AuthCallbackPage() {
   useEffect(() => {
     const handleAuthCallback = async () => {
       try {
-        // Parse search params and hash fragment
         const searchParams = new URLSearchParams(window.location.search);
         const code = searchParams.get('code');
         const error = searchParams.get('error_description') || searchParams.get('error');
@@ -38,25 +37,23 @@ export default function AuthCallbackPage() {
           }
         }
 
-        // Verify session state
         const { data: { session } } = await supabase.auth.getSession();
         if (session) {
           setStatusMessage("Successfully authenticated! Redirecting to Dashboard...");
-          router.push('/dashboard');
+          router.push('/');
         } else {
-          // If no session found yet, wait briefly or check hash fragment
           const hashParams = new URLSearchParams(window.location.hash.substring(1));
           if (hashParams.get('access_token')) {
             setStatusMessage("Token parsed! Redirecting to Dashboard...");
-            router.push('/dashboard');
+            router.push('/');
           } else {
             setStatusMessage("Redirecting to Dashboard...");
-            router.push('/dashboard');
+            router.push('/');
           }
         }
       } catch (err: any) {
         console.error("Auth callback exception:", err);
-        router.push('/dashboard');
+        router.push('/');
       }
     };
 
@@ -64,18 +61,22 @@ export default function AuthCallbackPage() {
   }, [router]);
 
   return (
-    <MobileFrame headerTitle="Authenticating" hideNav showBack={false}>
-      <div className="flex flex-col items-center justify-center my-auto py-12 text-center gap-4">
-        <div className="w-16 h-16 rounded-3xl bg-[#008080]/10 text-[#008080] flex items-center justify-center animate-pulse shadow-md">
-          <span className="material-symbols-outlined text-3xl">sync</span>
+    <div className="flex-1 min-h-screen flex flex-col items-center justify-center p-6 bg-surface-container-lowest dark:bg-slate-950 text-center">
+      <div className="w-full max-w-sm bg-white dark:bg-slate-900 rounded-3xl p-8 shadow-xl border border-slate-200 dark:border-slate-800 flex flex-col items-center gap-4">
+        <div className="w-16 h-16 rounded-2xl bg-primary/10 text-primary flex items-center justify-center animate-spin">
+          <RefreshCw className="w-8 h-8" />
         </div>
         <div>
-          <h2 className="text-xl font-extrabold text-[#0b1c30]">Completing Sign In</h2>
-          <p className="text-xs text-slate-500 font-medium mt-1 max-w-xs">
+          <h2 className="text-xl font-bold text-on-surface">Completing Sign In</h2>
+          <p className="text-xs text-on-surface-variant mt-1 max-w-xs">
             {errorMsg ? `Notice: ${errorMsg}` : statusMessage}
           </p>
         </div>
+        <div className="flex items-center gap-1 text-[11px] text-teal-600 dark:text-teal-400 font-semibold mt-2">
+          <ShieldCheck className="w-4 h-4" />
+          <span>Secure Clinical Authentication</span>
+        </div>
       </div>
-    </MobileFrame>
+    </div>
   );
 }
