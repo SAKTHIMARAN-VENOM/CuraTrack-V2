@@ -1,0 +1,19 @@
+{
+  "patient_id": "demo-patient-001",
+  "saved_at": "2026-04-18T03:35:25.691947Z",
+  "medications": [
+    {
+      "name": "Aspirin",
+      "dosage": "75 mg Tablet, 1 once daily",
+      "frequency": "daily",
+      "time": "Night",
+      "reason": "",
+      "confidence": 0.7
+    }
+  ],
+  "lab_results": [],
+  "doctor_notes": {
+    "summary": "",
+    "confidence": 0.0
+  }
+}

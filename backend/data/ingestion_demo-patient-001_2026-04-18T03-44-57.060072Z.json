@@ -1,0 +1,19 @@
+{
+  "patient_id": "demo-patient-001",
+  "saved_at": "2026-04-18T03:44:57.060072Z",
+  "medications": [
+    {
+      "name": "Amlodipine",
+      "dosage": "5 mg Tablet, 1 tab once daily (Morning )",
+      "frequency": "once daily",
+      "time": "Before Food",
+      "reason": "",
+      "confidence": 0.8
+    }
+  ],
+  "lab_results": [],
+  "doctor_notes": {
+    "summary": "",
+    "confidence": 0.0
+  }
+}

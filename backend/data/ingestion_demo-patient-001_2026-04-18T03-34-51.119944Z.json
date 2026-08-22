@@ -1,0 +1,19 @@
+{
+  "patient_id": "demo-patient-001",
+  "saved_at": "2026-04-18T03:34:51.119944Z",
+  "medications": [
+    {
+      "name": "Metformin",
+      "dosage": "500 mg Tablet, 1 twice daily",
+      "frequency": "twice daily",
+      "time": "Morning & Night",
+      "reason": "",
+      "confidence": 0.9
+    }
+  ],
+  "lab_results": [],
+  "doctor_notes": {
+    "summary": "",
+    "confidence": 0.0
+  }
+}

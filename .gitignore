@@ -1,20 +1,74 @@
+# Dependency directories
+node_modules/
+frontend/node_modules/
+mobile/node_modules/
+jspm_packages/
+.venv/
+backend/.venv/
+env/
+venv/
+ENV/
+env.bak/
+venv.bak/
+
+# Next.js build output
+.next/
+frontend/.next/
+mobile/.next/
+out/
+frontend/out/
+mobile/out/
+
+# Production build
+build/
+frontend/build/
+mobile/build/
+
+# IDE files
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Environment variables (SECURITY)
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+*.env
+frontend/.env
+backend/.env
+
+# Python specific
+__pycache__/
+backend/__pycache__/
+*.py[cod]
+*$py.class
+.pytest_cache/
+.mypy_cache/
+.coverage
+htmlcov/
+.nox/
+.tox/
+
 # Logs
 logs
+pip-log.txt
 *.log
 npm-debug.log*
 yarn-debug.log*
+yarn-error.log*
 
-# Dependencies
-node_modules
-**/node_modules
-
-# Production Build
-dist
-**/dist
-dist-ssr
-
-# OS & Editor files
-.DS_Store
-.vscode
-.idea
-*.local
+# Other
+.vercel
+.pnpm-debug.log*
+*.tsbuildinfo
+next-env.d.ts
+backend/uploads/
+*.traineddata
+curaTrack-mobile/

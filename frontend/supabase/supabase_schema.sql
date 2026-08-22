@@ -1,0 +1,1 @@
+-- Refer to frontend/supabase/complete_v3_schema.sql for the complete CuraTrack V3 master schema script.
