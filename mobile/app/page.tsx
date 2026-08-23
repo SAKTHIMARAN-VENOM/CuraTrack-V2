@@ -24,7 +24,7 @@ import {
 } from 'lucide-react';
 
 export default function HomeDashboardPage() {
-  const { user, appointments, medications, toggleMedication, medicationAdherence } = useApp();
+  const { user, appointments, medications, toggleMedication, medicationAdherence, vitals, vitalsLoading } = useApp();
   const [isCallActive, setIsCallActive] = useState<boolean>(false);
   const [isMuted, setIsMuted] = useState<boolean>(false);
   const [isVideoOff, setIsVideoOff] = useState<boolean>(false);
@@ -111,7 +111,7 @@ export default function HomeDashboardPage() {
                   Steps
                 </span>
                 <span className="text-xl font-black text-slate-900 dark:text-white leading-tight block">
-                  0
+                  {vitalsLoading ? '—' : vitals.steps.toLocaleString()}
                 </span>
                 <span className="text-[10px] text-slate-400 font-medium">Goal 10k</span>
               </div>
@@ -137,11 +137,11 @@ export default function HomeDashboardPage() {
                 </span>
                 <div className="flex items-baseline gap-1">
                   <span className="text-xl font-black text-slate-900 dark:text-white leading-tight">
-                    72
+                    {vitalsLoading ? '—' : (vitals.heart_rate || 72)}
                   </span>
                   <span className="text-[10px] font-bold text-slate-400">BPM</span>
                 </div>
-                <span className="text-[10px] text-emerald-600 dark:text-emerald-400 font-semibold">Normal</span>
+                <span className="text-[10px] text-emerald-600 dark:text-emerald-400 font-semibold">{vitals.heart_rate > 100 ? 'Elevated' : 'Normal'}</span>
               </div>
             </Link>
 
@@ -164,9 +164,9 @@ export default function HomeDashboardPage() {
                   Sleep
                 </span>
                 <span className="text-xl font-black text-slate-900 dark:text-white leading-tight block">
-                  7h 30m
+                  {vitalsLoading ? '—' : (vitals.sleep?.formatted || `${Math.floor(vitals.sleep_hours)}h ${Math.round((vitals.sleep_hours % 1) * 60)}m`)}
                 </span>
-                <span className="text-[10px] text-purple-600 dark:text-purple-300 font-semibold">Optimal</span>
+                <span className="text-[10px] text-purple-600 dark:text-purple-300 font-semibold">{vitals.sleep_hours >= 7 ? 'Optimal' : vitals.sleep_hours >= 5 ? 'Fair' : 'Low'}</span>
               </div>
             </Link>
           </div>

@@ -32,10 +32,10 @@ export async function apiFetch<T = any>(
     headers['Authorization'] = `Bearer ${session.access_token}`;
   }
 
-  // Use relative endpoint if starting with /api/ or absolute URL
+  // Ensure relative endpoints target the FastAPI backend API_BASE
   const targetUrl = endpoint.startsWith('http')
     ? endpoint
-    : (endpoint.startsWith('/api/') ? endpoint : `${API_BASE}${endpoint}`);
+    : `${API_BASE}${endpoint.startsWith('/') ? endpoint : `/${endpoint}`}`;
 
   const res = await fetch(targetUrl, {
     ...options,

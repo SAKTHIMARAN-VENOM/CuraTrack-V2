@@ -3,6 +3,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import QRCode from 'qrcode';
 import { UserProfile } from '@/context/AppContext';
+import { generatePassport } from '@/lib/api';
 import { 
   QrCode, 
   X, 
@@ -47,28 +48,50 @@ export const MedicalIdQrModal: React.FC<MedicalIdQrModalProps> = ({
     setTokenId(newTokenId);
     setSecondsRemaining(EXPIRATION_SECONDS);
 
-    // Patient info payload formatted for medical responders
-    const payload = JSON.stringify({
-      schema: 'CuraTrack-Medical-ID-v1',
-      token: newTokenId,
-      expiresAt,
-      patient: {
+    // Try backend passport generation first
+    let passportPayload: string | null = null;
+    try {
+      const passportResult: any = await generatePassport({
+        patient_id: newTokenId,
         name: user.name,
-        bloodType: user.bloodType,
-        age: user.age,
-        gender: user.gender,
+        blood_type: user.bloodType,
         allergies: user.allergies,
-        chronicConditions: user.chronicConditions,
-        emergencyContact: {
-          name: user.emergencyContact.name,
-          relationship: user.emergencyContact.relationship,
-          phone: user.emergencyContact.phone,
+        conditions: user.chronicConditions,
+        emergency_contact: user.emergencyContact,
+      });
+      if (passportResult?.qr_data) {
+        passportPayload = typeof passportResult.qr_data === 'string'
+          ? passportResult.qr_data
+          : JSON.stringify(passportResult.qr_data);
+      }
+    } catch (e) {
+      console.warn('Backend passport generation failed, using local:', e);
+    }
+
+    // Fallback: build payload locally
+    if (!passportPayload) {
+      passportPayload = JSON.stringify({
+        schema: 'CuraTrack-Medical-ID-v1',
+        token: newTokenId,
+        expiresAt,
+        patient: {
+          name: user.name,
+          bloodType: user.bloodType,
+          age: user.age,
+          gender: user.gender,
+          allergies: user.allergies,
+          chronicConditions: user.chronicConditions,
+          emergencyContact: {
+            name: user.emergencyContact.name,
+            relationship: user.emergencyContact.relationship,
+            phone: user.emergencyContact.phone,
+          },
         },
-      },
-    });
+      });
+    }
 
     try {
-      const url = await QRCode.toDataURL(payload, {
+      const url = await QRCode.toDataURL(passportPayload, {
         width: 320,
         margin: 2,
         color: {

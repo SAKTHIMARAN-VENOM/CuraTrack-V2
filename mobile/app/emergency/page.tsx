@@ -24,6 +24,25 @@ export default function EmergencySOSPage() {
   const [countdown, setCountdown] = useState(10);
   const [isTriggered, setIsTriggered] = useState(false);
   const [isAutoCalling, setIsAutoCalling] = useState(true);
+  const [geoCoords, setGeoCoords] = useState<{ lat: string; lng: string; accuracy: number } | null>(null);
+
+  // Get real GPS coordinates
+  useEffect(() => {
+    if ('geolocation' in navigator) {
+      const watchId = navigator.geolocation.watchPosition(
+        (pos) => {
+          setGeoCoords({
+            lat: pos.coords.latitude.toFixed(4),
+            lng: pos.coords.longitude.toFixed(4),
+            accuracy: Math.round(pos.coords.accuracy),
+          });
+        },
+        (err) => console.warn('Geolocation error:', err),
+        { enableHighAccuracy: true, timeout: 10000 }
+      );
+      return () => navigator.geolocation.clearWatch(watchId);
+    }
+  }, []);
 
   useEffect(() => {
     let timer: NodeJS.Timeout;
@@ -84,7 +103,7 @@ export default function EmergencySOSPage() {
         {isAutoCalling ? (
           <div className="w-full max-w-md bg-red-950/80 border border-red-800 rounded-3xl p-5 shadow-xl flex flex-col items-center gap-1.5">
             <span className="text-xs font-bold text-red-300 uppercase tracking-widest">
-              Connecting to 911 Emergency Services
+              Connecting to 108 Ambulance & 112 Emergency
             </span>
             <div className="text-4xl sm:text-5xl font-black text-white font-mono my-1">
               00:{countdown < 10 ? `0${countdown}` : countdown}
@@ -97,11 +116,29 @@ export default function EmergencySOSPage() {
             </button>
           </div>
         ) : isTriggered ? (
-          <div className="w-full max-w-md bg-emerald-950/80 border border-emerald-700 rounded-3xl p-5 shadow-xl flex items-center justify-center gap-3">
-            <CheckCircle2 className="w-8 h-8 text-emerald-400" />
-            <div className="text-left">
-              <span className="text-xs font-bold text-emerald-300 uppercase">Emergency Dispatch Active</span>
-              <p className="text-xs text-slate-300 mt-0.5">Paramedics & contacts notified with live coordinates.</p>
+          <div className="w-full max-w-md bg-emerald-950/80 border border-emerald-700 rounded-3xl p-5 shadow-xl flex flex-col gap-3">
+            <div className="flex items-center gap-3">
+              <CheckCircle2 className="w-8 h-8 text-emerald-400 shrink-0" />
+              <div className="text-left">
+                <span className="text-xs font-bold text-emerald-300 uppercase">Emergency Dispatch Active</span>
+                <p className="text-xs text-slate-300 mt-0.5">108 Emergency responders & contacts notified with live coordinates.</p>
+              </div>
+            </div>
+            <div className="grid grid-cols-2 gap-2 pt-2 border-t border-emerald-800/60">
+              <a
+                href="tel:108"
+                className="py-2 px-3 bg-red-600 hover:bg-red-700 text-white rounded-xl font-bold text-xs flex items-center justify-center gap-1.5 shadow-sm"
+              >
+                <Phone className="w-3.5 h-3.5" />
+                <span>Call 108 Ambulance</span>
+              </a>
+              <a
+                href="tel:112"
+                className="py-2 px-3 bg-slate-800 hover:bg-slate-700 text-white rounded-xl font-bold text-xs flex items-center justify-center gap-1.5 shadow-sm"
+              >
+                <Phone className="w-3.5 h-3.5" />
+                <span>Call 112 Emergency</span>
+              </a>
             </div>
           </div>
         ) : (
@@ -120,7 +157,7 @@ export default function EmergencySOSPage() {
         <div className="w-full max-w-md bg-slate-900/90 border border-slate-800 rounded-2xl p-3.5 flex items-center justify-between text-xs">
           <div className="flex items-center gap-2 text-slate-300">
             <MapPin className="w-4 h-4 text-red-500 animate-pulse" />
-            <span>37.7749° N, 122.4194° W (Accuracy 3m)</span>
+            <span>{geoCoords ? `${geoCoords.lat}° N, ${geoCoords.lng}° W (Accuracy ${geoCoords.accuracy}m)` : 'Acquiring GPS lock...'}</span>
           </div>
           <span className="text-emerald-400 font-bold flex items-center gap-1">
             <Radio className="w-3.5 h-3.5 animate-spin" />

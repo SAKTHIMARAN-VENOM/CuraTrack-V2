@@ -1,6 +1,8 @@
 'use client';
 
-import React, { createContext, useContext, useState, useEffect } from 'react';
+import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
+import { supabase, getAuthRedirectUrl } from '@/lib/supabaseClient';
+import type { Session, User } from '@supabase/supabase-js';
 
 export interface Appointment {
   id: string;
@@ -74,6 +76,23 @@ export interface UserProfile {
   avatarUrl: string;
 }
 
+export interface VitalsData {
+  steps: number;
+  heart_rate: number;
+  spo2: number;
+  sleep_hours: number;
+  sleep?: { totalMinutes: number; formatted: string };
+  heartRateData?: Array<{ bpm: number; time: string }>;
+  isAuthenticated?: boolean;
+}
+
+const defaultVitals: VitalsData = {
+  steps: 0,
+  heart_rate: 0,
+  spo2: 98,
+  sleep_hours: 0,
+};
+
 interface AppContextType {
   user: UserProfile;
   updateUser: (data: Partial<UserProfile>) => void;
@@ -90,8 +109,23 @@ interface AppContextType {
   markNotificationRead: (id: string) => void;
   dismissNotification: (id: string) => void;
   markAllNotificationsRead: () => void;
-
   medicationAdherence: number;
+
+  // Auth
+  session: Session | null;
+  supabaseUser: User | null;
+  isAuthenticated: boolean;
+  authLoading: boolean;
+  authError: string | null;
+  signInWithGoogle: () => Promise<void>;
+  signInWithEmail: (email: string, password: string) => Promise<{ error?: string }>;
+  signUpWithEmail: (email: string, password: string, name?: string) => Promise<{ error?: string }>;
+  signOut: () => Promise<void>;
+
+  // Vitals
+  vitals: VitalsData;
+  vitalsLoading: boolean;
+  fetchVitals: () => Promise<void>;
 }
 
 const defaultUser: UserProfile = {
@@ -301,11 +335,163 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const [records, setRecords] = useState<MedicalRecord[]>(initialRecords);
   const [notifications, setNotifications] = useState<NotificationItem[]>(initialNotifications);
 
+  // Auth state
+  const [session, setSession] = useState<Session | null>(null);
+  const [supabaseUser, setSupabaseUser] = useState<User | null>(null);
+  const [authLoading, setAuthLoading] = useState(true);
+  const [authError, setAuthError] = useState<string | null>(null);
+
+  // Vitals state
+  const [vitals, setVitals] = useState<VitalsData>(defaultVitals);
+  const [vitalsLoading, setVitalsLoading] = useState(false);
+
   // Ensure light mode is always active
   useEffect(() => {
     document.documentElement.classList.remove('dark');
   }, []);
 
+  // ─── Auth Session Management ─────────────────────────────────────────
+  useEffect(() => {
+    const initAuth = async () => {
+      try {
+        const { data: { session: currentSession } } = await supabase.auth.getSession();
+        setSession(currentSession);
+        setSupabaseUser(currentSession?.user ?? null);
+        if (currentSession?.user) {
+          const meta = currentSession.user.user_metadata;
+          setUser((prev) => ({
+            ...prev,
+            name: meta?.full_name || meta?.name || prev.name,
+            email: currentSession.user.email || prev.email,
+            avatarUrl: meta?.avatar_url || meta?.picture || prev.avatarUrl,
+          }));
+        }
+      } catch (e) {
+        console.error('Auth init error:', e);
+      } finally {
+        setAuthLoading(false);
+      }
+    };
+
+    initAuth();
+
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, newSession) => {
+      setSession(newSession);
+      setSupabaseUser(newSession?.user ?? null);
+      if (newSession?.user) {
+        const meta = newSession.user.user_metadata;
+        setUser((prev) => ({
+          ...prev,
+          name: meta?.full_name || meta?.name || prev.name,
+          email: newSession.user.email || prev.email,
+          avatarUrl: meta?.avatar_url || meta?.picture || prev.avatarUrl,
+        }));
+      }
+      setAuthLoading(false);
+    });
+
+    return () => subscription.unsubscribe();
+  }, []);
+
+  // ─── Vitals Fetching ─────────────────────────────────────────────────
+  const fetchVitals = useCallback(async () => {
+    setVitalsLoading(true);
+    try {
+      const res = await fetch('/api/fit-data');
+      if (res.ok) {
+        const data = await res.json();
+        setVitals({
+          steps: data.steps || 0,
+          heart_rate: data.heart_rate || 0,
+          spo2: data.spo2 || 98,
+          sleep_hours: data.sleep_hours || 0,
+          sleep: data.sleep,
+          heartRateData: data.heartRateData,
+          isAuthenticated: data.isAuthenticated,
+        });
+      }
+    } catch (e) {
+      console.error('Error fetching vitals:', e);
+    } finally {
+      setVitalsLoading(false);
+    }
+  }, []);
+
+  // Auto-fetch vitals when session is established
+  useEffect(() => {
+    if (session) {
+      fetchVitals();
+    }
+  }, [session, fetchVitals]);
+
+  // ─── Auth Functions ──────────────────────────────────────────────────
+  const signInWithGoogle = async () => {
+    setAuthError(null);
+    try {
+      const { error } = await supabase.auth.signInWithOAuth({
+        provider: 'google',
+        options: {
+          scopes: 'https://www.googleapis.com/auth/userinfo.email https://www.googleapis.com/auth/userinfo.profile https://www.googleapis.com/auth/fitness.activity.read https://www.googleapis.com/auth/fitness.heart_rate.read https://www.googleapis.com/auth/fitness.sleep.read',
+          queryParams: {
+            access_type: 'offline',
+            prompt: 'consent',
+          },
+          redirectTo: getAuthRedirectUrl('/auth/callback'),
+        },
+      });
+      if (error) setAuthError(error.message);
+    } catch (e: any) {
+      setAuthError(e?.message || 'Google login failed');
+    }
+  };
+
+  const signInWithEmail = async (email: string, password: string): Promise<{ error?: string }> => {
+    setAuthError(null);
+    try {
+      const { error } = await supabase.auth.signInWithPassword({ email, password });
+      if (error) {
+        setAuthError(error.message);
+        return { error: error.message };
+      }
+      return {};
+    } catch (e: any) {
+      const msg = e?.message || 'Login failed';
+      setAuthError(msg);
+      return { error: msg };
+    }
+  };
+
+  const signUpWithEmail = async (email: string, password: string, name?: string): Promise<{ error?: string }> => {
+    setAuthError(null);
+    try {
+      const { error } = await supabase.auth.signUp({
+        email,
+        password,
+        options: {
+          data: { full_name: name },
+          emailRedirectTo: getAuthRedirectUrl('/auth/callback'),
+        },
+      });
+      if (error) {
+        setAuthError(error.message);
+        return { error: error.message };
+      }
+      return {};
+    } catch (e: any) {
+      const msg = e?.message || 'Registration failed';
+      setAuthError(msg);
+      return { error: msg };
+    }
+  };
+
+  const signOutFn = async () => {
+    await supabase.auth.signOut();
+    setSession(null);
+    setSupabaseUser(null);
+    setVitals(defaultVitals);
+  };
+
+  // ─── Existing App Functions (unchanged) ──────────────────────────────
   const updateUser = (data: Partial<UserProfile>) => {
     setUser((prev) => ({ ...prev, ...data }));
   };
@@ -422,8 +608,23 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         markNotificationRead,
         dismissNotification,
         markAllNotificationsRead,
-
         medicationAdherence,
+
+        // Auth
+        session,
+        supabaseUser,
+        isAuthenticated: !!session,
+        authLoading,
+        authError,
+        signInWithGoogle,
+        signInWithEmail,
+        signUpWithEmail,
+        signOut: signOutFn,
+
+        // Vitals
+        vitals,
+        vitalsLoading,
+        fetchVitals,
       }}
     >
       {children}

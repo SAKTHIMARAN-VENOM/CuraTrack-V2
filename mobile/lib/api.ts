@@ -124,12 +124,36 @@ export async function generatePassportQR(payload: PassportGenerateRequest): Prom
   return res;
 }
 
-export async function generatePassport(patientId: string) {
-  return generatePassportQR({
-    userId: patientId,
-    userName: "Patient",
+export async function generatePassport(input: string | { patient_id: string; name?: string; blood_type?: string; allergies?: string[]; conditions?: string[]; emergency_contact?: any }) {
+  if (typeof input === 'string') {
+    return generatePassportQR({
+      userId: input,
+      userName: "Patient",
+      scope: ["vitals", "allergies", "medications", "diagnoses", "insurance"],
+    });
+  }
+  
+  // Object-based call — pass data to the passport endpoint
+  const result = await generatePassportQR({
+    userId: input.patient_id,
+    userName: input.name || "Patient",
     scope: ["vitals", "allergies", "medications", "diagnoses", "insurance"],
   });
+  
+  return {
+    ...result,
+    qr_data: {
+      schema: 'CuraTrack-Medical-ID-v1',
+      patient_id: input.patient_id,
+      name: input.name,
+      blood_type: input.blood_type,
+      allergies: input.allergies,
+      conditions: input.conditions,
+      emergency_contact: input.emergency_contact,
+      token: result.token,
+      passportId: result.passportId,
+    },
+  };
 }
 
 // ⌚ 4. Wearables, Vitals & AI Health Insights

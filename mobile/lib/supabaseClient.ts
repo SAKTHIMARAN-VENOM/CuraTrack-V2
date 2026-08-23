@@ -42,6 +42,6 @@ export const getAuthRedirectUrl = (path: string = '/auth/callback'): string => {
     const url = process.env.NEXT_PUBLIC_VERCEL_URL;
     return url.startsWith('http') ? `${url}${path}` : `https://${url}${path}`;
   }
-  return `https://moblie-ui-curatrack.vercel.app${path}`;
+  return `https://cura-track-v3.vercel.app${path}`;
 };
 

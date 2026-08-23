@@ -3,6 +3,7 @@
 import React, { useState } from 'react';
 import { TopAppBar } from '@/components/TopAppBar';
 import { useApp } from '@/context/AppContext';
+import { checkDrugInteractions } from '@/lib/api';
 import { 
   Pill, 
   Sun, 
@@ -23,6 +24,7 @@ export default function MedicationsPage() {
   const { medications, toggleMedication, addMedication, medicationAdherence } = useApp();
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [refillToast, setRefillToast] = useState(false);
+  const [interactionWarnings, setInteractionWarnings] = useState<Array<{ drug_a: string; drug_b: string; severity: string; description: string }>>([]);
 
   const [newMed, setNewMed] = useState({
     name: '',
@@ -34,9 +36,29 @@ export default function MedicationsPage() {
     remainingPills: 30,
   });
 
-  const handleAddMed = (e: React.FormEvent) => {
+  const handleAddMed = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!newMed.name) return;
+
+    // Check drug interactions with existing medications
+    const existingNames = medications.map(m => m.name);
+    const allMeds = [...existingNames, newMed.name];
+    
+    if (allMeds.length >= 2) {
+      try {
+        const result = await checkDrugInteractions(allMeds);
+        if (result.pairs && result.pairs.length > 0) {
+          const dangerous = result.pairs.filter(p => p.interaction_found);
+          if (dangerous.length > 0) {
+            setInteractionWarnings(dangerous);
+            // Still add the medication but show warnings
+          }
+        }
+      } catch (e) {
+        console.warn('Drug interaction check failed:', e);
+      }
+    }
+
     addMedication({
       ...newMed,
       taken: false,
@@ -130,6 +152,22 @@ export default function MedicationsPage() {
           <div className="bg-emerald-600 text-white text-xs font-semibold px-4 py-2.5 rounded-xl flex items-center gap-2 shadow-lg animate-in fade-in slide-in-from-top-2">
             <CheckCircle2 className="w-4 h-4" />
             <span>Refill request sent to Walgreens Pharmacy #4402!</span>
+          </div>
+        )}
+
+        {/* Drug Interaction Warnings */}
+        {interactionWarnings.length > 0 && (
+          <div className="bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-900/60 rounded-2xl p-4 space-y-2">
+            <div className="flex items-center gap-2 text-amber-800 dark:text-amber-200">
+              <AlertCircle className="w-4 h-4" />
+              <span className="text-xs font-bold">Drug Interaction Warnings</span>
+              <button onClick={() => setInteractionWarnings([])} className="ml-auto text-amber-600 text-[10px] font-bold hover:underline">Dismiss</button>
+            </div>
+            {interactionWarnings.map((w, i) => (
+              <div key={i} className="text-xs text-amber-700 dark:text-amber-300 pl-6">
+                <strong>{w.drug_a}</strong> × <strong>{w.drug_b}</strong>: {w.description} <span className={`font-bold ${w.severity === 'high' ? 'text-red-600' : 'text-amber-600'}`}>({w.severity})</span>
+              </div>
+            ))}
           </div>
         )}
 

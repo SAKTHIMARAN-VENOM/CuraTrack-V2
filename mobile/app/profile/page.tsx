@@ -25,7 +25,7 @@ import { MedicalIdQrModal } from '@/components/MedicalIdQrModal';
 
 export default function UserProfilePage() {
   const router = useRouter();
-  const { user, updateUser } = useApp();
+  const { user, updateUser, signOut, supabaseUser, isAuthenticated } = useApp();
   const [isEditing, setIsEditing] = useState(false);
   const [isQrModalOpen, setIsQrModalOpen] = useState(false);
   const [editData, setEditData] = useState({
@@ -206,16 +206,20 @@ export default function UserProfilePage() {
 
             <div className="space-y-2">
               {/* Log out */}
-              <Link
-                href="/login"
-                className="p-3 rounded-2xl flex items-center justify-between text-error hover:bg-red-50 dark:hover:bg-red-950/20 transition-colors"
+              <button
+                type="button"
+                onClick={async () => {
+                  await signOut();
+                  router.push('/login');
+                }}
+                className="w-full p-3 rounded-2xl flex items-center justify-between text-error hover:bg-red-50 dark:hover:bg-red-950/20 transition-colors"
               >
                 <div className="flex items-center gap-2.5">
                   <LogOut className="w-4 h-4" />
                   <span className="text-xs font-bold">Sign Out of CuraTrack</span>
                 </div>
                 <ChevronRight className="w-4 h-4" />
-              </Link>
+              </button>
             </div>
           </div>
         </div>

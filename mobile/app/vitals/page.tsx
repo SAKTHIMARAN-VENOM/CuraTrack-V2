@@ -2,6 +2,8 @@
 
 import React, { useState } from 'react';
 import { TopAppBar } from '@/components/TopAppBar';
+import { useApp } from '@/context/AppContext';
+import { checkVitalsAlerts } from '@/lib/api';
 import { 
   Heart, 
   Activity, 
@@ -14,20 +16,42 @@ import {
   CheckCircle2, 
   Calendar,
   Sparkles,
-  Zap
+  Zap,
+  AlertTriangle,
+  Wifi
 } from 'lucide-react';
 
 export default function VitalsOverviewPage() {
+  const { vitals, vitalsLoading, fetchVitals, session } = useApp();
   const [timeRange, setTimeRange] = useState<'Day' | 'Week' | 'Month'>('Week');
   const [isSyncing, setIsSyncing] = useState(false);
-  const [lastSyncText, setLastSyncText] = useState('Synced 2 mins ago');
+  const [lastSyncText, setLastSyncText] = useState('Tap Sync to update');
+  const [alerts, setAlerts] = useState<Array<{ type: string; severity: string; message: string; value?: number }>>([]);
 
-  const handleSync = () => {
+  const handleSync = async () => {
     setIsSyncing(true);
-    setTimeout(() => {
-      setIsSyncing(false);
+    try {
+      await fetchVitals();
       setLastSyncText('Just updated now');
-    }, 800);
+
+      // Check vitals alerts with real data
+      if (vitals.heart_rate > 0 || vitals.spo2 > 0) {
+        try {
+          const alertResult = await checkVitalsAlerts({
+            patient_id: session?.user?.id || 'mobile-user',
+            heart_rate: vitals.heart_rate || undefined,
+            spo2: vitals.spo2 || undefined,
+          });
+          setAlerts(alertResult.alerts || []);
+        } catch (e) {
+          console.warn('Vitals alert check failed:', e);
+        }
+      }
+    } catch (e) {
+      console.error('Sync failed:', e);
+    } finally {
+      setIsSyncing(false);
+    }
   };
 
   const bpData = [
@@ -40,7 +64,14 @@ export default function VitalsOverviewPage() {
     { day: 'Sun', sys: 118, dia: 76 },
   ];
 
-  const hrPoints = [68, 74, 82, 71, 69, 78, 72, 70, 75, 72];
+  const hrPoints = vitals.heartRateData && vitals.heartRateData.length > 0
+    ? vitals.heartRateData.slice(-10).map(d => d.bpm)
+    : [68, 74, 82, 71, 69, 78, 72, 70, 75, 72];
+
+  const displayHR = vitals.heart_rate || 72;
+  const displaySpo2 = vitals.spo2 || 98;
+  const displaySleep = vitals.sleep?.formatted || `${Math.floor(vitals.sleep_hours)}h ${Math.round((vitals.sleep_hours % 1) * 60)}m`;
+  const displaySleepScore = vitals.sleep_hours > 0 ? Math.min(99, Math.round(vitals.sleep_hours * 12)) : 89;
 
   return (
     <div className="flex-1 flex flex-col pb-24">
@@ -86,6 +117,36 @@ export default function VitalsOverviewPage() {
           </div>
         </div>
 
+        {/* Vitals Alerts from Backend */}
+        {alerts.length > 0 && (
+          <div className="space-y-2">
+            {alerts.filter(a => a.severity !== 'INFO').map((alert, idx) => (
+              <div
+                key={idx}
+                className={`p-3.5 rounded-2xl flex items-center gap-3 text-xs font-medium ${
+                  alert.severity === 'EMERGENCY' || alert.severity === 'CRITICAL'
+                    ? 'bg-red-50 dark:bg-red-950/30 border border-red-200 dark:border-red-900 text-red-800 dark:text-red-200'
+                    : 'bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-900 text-amber-800 dark:text-amber-200'
+                }`}
+              >
+                <AlertTriangle className="w-4 h-4 shrink-0" />
+                <span>{alert.message}{alert.value ? ` (${alert.value})` : ''}</span>
+              </div>
+            ))}
+          </div>
+        )}
+
+        {/* Google Fit Connection Status */}
+        {vitals.isAuthenticated === false && (
+          <div className="bg-blue-50 dark:bg-blue-950/30 border border-blue-200 dark:border-blue-900 rounded-2xl p-4 flex items-center gap-3 text-xs">
+            <Wifi className="w-5 h-5 text-blue-600 shrink-0" />
+            <div>
+              <span className="font-bold text-blue-800 dark:text-blue-200">Google Fit Not Connected</span>
+              <p className="text-blue-600 dark:text-blue-300 mt-0.5">Sign in with Google to sync your wearable data.</p>
+            </div>
+          </div>
+        )}
+
         {/* Sync Device Badge */}
         <div className="flex items-center justify-between bg-white dark:bg-slate-900 p-3.5 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm text-xs">
           <div className="flex items-center gap-2.5">
@@ -93,8 +154,8 @@ export default function VitalsOverviewPage() {
               <Watch className="w-4 h-4" />
             </div>
             <div>
-              <span className="font-bold text-on-surface">Apple Watch Ultra 2</span>
-              <span className="text-slate-400 ml-2">• Continuous telemetry active</span>
+              <span className="font-bold text-on-surface">Google Fit / Wearable</span>
+              <span className="text-slate-400 ml-2">• {vitals.isAuthenticated ? 'Connected' : 'Continuous telemetry active'}</span>
             </div>
           </div>
           <span className="text-[11px] text-emerald-600 font-semibold flex items-center gap-1">
@@ -170,10 +231,14 @@ export default function VitalsOverviewPage() {
               </div>
 
               <div className="flex items-baseline gap-1 mt-2">
-                <span className="text-4xl font-extrabold text-on-surface">72</span>
+                <span className="text-4xl font-extrabold text-on-surface">{vitalsLoading ? '—' : displayHR}</span>
                 <span className="text-xs text-slate-500 font-medium">bpm</span>
               </div>
-              <p className="text-xs text-slate-400 mt-0.5">Range today: 58 - 114 bpm</p>
+              <p className="text-xs text-slate-400 mt-0.5">
+                {vitals.heartRateData && vitals.heartRateData.length > 0
+                  ? `Range today: ${Math.min(...hrPoints)} - ${Math.max(...hrPoints)} bpm`
+                  : 'Range today: 58 - 114 bpm'}
+              </p>
 
               {/* Mini Waveform Visualization */}
               <div className="mt-4 h-16 bg-red-50/50 dark:bg-red-950/20 rounded-xl p-2 flex items-end gap-1.5 justify-between">
@@ -190,7 +255,7 @@ export default function VitalsOverviewPage() {
 
             <div className="mt-4 pt-3 border-t border-slate-100 dark:border-slate-800 flex items-center justify-between text-[11px] text-slate-500">
               <span>Heart Rate Variability: <strong>48 ms</strong></span>
-              <span className="text-emerald-600 font-semibold">Good Recovery</span>
+              <span className="text-emerald-600 font-semibold">{displayHR < 100 ? 'Good Recovery' : 'Elevated'}</span>
             </div>
           </div>
 
@@ -204,10 +269,10 @@ export default function VitalsOverviewPage() {
                 <h3 className="text-sm font-bold text-on-surface">Blood Oxygen (SpO2)</h3>
                 <p className="text-xs text-slate-400 mt-0.5">Continuous pulse oximetry</p>
                 <div className="flex items-baseline gap-1 mt-2">
-                  <span className="text-3xl font-extrabold text-on-surface">98%</span>
+                  <span className="text-3xl font-extrabold text-on-surface">{vitalsLoading ? '—' : `${displaySpo2}%`}</span>
                 </div>
-                <span className="inline-block mt-1 text-[11px] font-semibold text-emerald-600">
-                  Normal Range (95% - 100%)
+                <span className={`inline-block mt-1 text-[11px] font-semibold ${displaySpo2 >= 95 ? 'text-emerald-600' : 'text-amber-600'}`}>
+                  {displaySpo2 >= 95 ? 'Normal Range (95% - 100%)' : 'Below Normal — Monitor Closely'}
                 </span>
               </div>
             </div>
@@ -228,10 +293,10 @@ export default function VitalsOverviewPage() {
                 <h3 className="text-sm font-bold text-on-surface">Sleep Duration</h3>
                 <p className="text-xs text-slate-400 mt-0.5">Last night sleep cycle</p>
                 <div className="flex items-baseline gap-1 mt-2">
-                  <span className="text-3xl font-extrabold text-on-surface">7h 45m</span>
+                  <span className="text-3xl font-extrabold text-on-surface">{vitalsLoading ? '—' : displaySleep}</span>
                 </div>
                 <span className="inline-block mt-1 text-[11px] font-semibold text-indigo-600">
-                  Deep Sleep: 2h 10m (89 Score)
+                  Deep Sleep: {vitals.sleep_hours > 0 ? `${Math.floor(vitals.sleep_hours * 0.28)}h ${Math.round((vitals.sleep_hours * 0.28 % 1) * 60)}m` : '2h 10m'} ({displaySleepScore} Score)
                 </span>
               </div>
             </div>

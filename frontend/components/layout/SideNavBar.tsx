@@ -9,6 +9,9 @@ import { twMerge } from 'tailwind-merge';
 
 const PATIENT_NAV_ITEMS = [
     { href: '/dashboard', icon: 'dashboard', label: 'Dashboard' },
+    { href: '/triage', icon: 'medical_information', label: 'Digital Triage' },
+    { href: '/referrals', icon: 'alt_route', label: 'Referral Tracking' },
+    { href: '/fhw', icon: 'volunteer_activism', label: 'Frontline Worker (ASHA)' },
     { href: '/bluetooth/patient', icon: 'bluetooth', label: 'Offline Transfer (BLE)' },
     { href: '/records', icon: 'folder_shared', label: 'Health Records' },
     { href: '/alerts', icon: 'notifications_active', label: 'Alerts' },
@@ -19,6 +22,9 @@ const PATIENT_NAV_ITEMS = [
 
 const DOCTOR_NAV_ITEMS = [
     { href: '/doctor', icon: 'dashboard', label: 'Doctor Dashboard' },
+    { href: '/triage', icon: 'medical_information', label: 'Triage Assessment' },
+    { href: '/referrals', icon: 'alt_route', label: 'Referral Pipeline' },
+    { href: '/fhw', icon: 'volunteer_activism', label: 'Catchment & ASHA Care' },
     { href: '/bluetooth/doctor', icon: 'bluetooth', label: 'Offline Consultation' },
     { href: '/doctor/clinical-schedule', icon: 'calendar_month', label: 'Clinical Schedule' },
     { href: '/records', icon: 'folder_shared', label: 'Health Records' },

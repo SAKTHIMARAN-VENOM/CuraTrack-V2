@@ -367,33 +367,65 @@ export default function Dashboard() {
 
             {/* Quick Actions Section */}
             <div>
-                <h3 className="text-lg font-extrabold text-on-surface mb-6">Quick Actions</h3>
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-6">
+                <h3 className="text-lg font-extrabold text-on-surface mb-6">Clinical Core Actions</h3>
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+                    <button onClick={() => router.push('/triage')} className="group p-6 bg-surface-container-lowest rounded-3xl shadow-sm hover:shadow-md transition-all flex flex-col gap-4 text-left border-b-4 border-transparent hover:border-primary">
+                        <div className="h-12 w-12 bg-primary/10 rounded-2xl flex items-center justify-center text-primary group-hover:scale-110 transition-transform">
+                            <span className="material-symbols-outlined">medical_information</span>
+                        </div>
+                        <div>
+                            <p className="font-extrabold text-on-surface">Digital Clinical Triage</p>
+                            <p className="text-xs text-tertiary">Symptom check & facility routing</p>
+                        </div>
+                    </button>
+
+                    <button onClick={() => router.push('/referrals')} className="group p-6 bg-surface-container-lowest rounded-3xl shadow-sm hover:shadow-md transition-all flex flex-col gap-4 text-left border-b-4 border-transparent hover:border-teal-600">
+                        <div className="h-12 w-12 bg-teal-500/10 rounded-2xl flex items-center justify-center text-teal-700 group-hover:scale-110 transition-transform">
+                            <span className="material-symbols-outlined">alt_route</span>
+                        </div>
+                        <div>
+                            <p className="font-extrabold text-on-surface">Referral Pipeline</p>
+                            <p className="text-xs text-tertiary">SC ➔ PHC ➔ CHC ➔ District Hosp</p>
+                        </div>
+                    </button>
+
+                    <button onClick={() => router.push('/fhw')} className="group p-6 bg-surface-container-lowest rounded-3xl shadow-sm hover:shadow-md transition-all flex flex-col gap-4 text-left border-b-4 border-transparent hover:border-purple-600">
+                        <div className="h-12 w-12 bg-purple-500/10 rounded-2xl flex items-center justify-center text-purple-700 group-hover:scale-110 transition-transform">
+                            <span className="material-symbols-outlined">volunteer_activism</span>
+                        </div>
+                        <div>
+                            <p className="font-extrabold text-on-surface">Frontline Worker (ASHA)</p>
+                            <p className="text-xs text-tertiary">Catchment & Assisted Teleconsult</p>
+                        </div>
+                    </button>
+
                     <button onClick={() => router.push('/telemedicine')} className="group p-6 bg-surface-container-lowest rounded-3xl shadow-sm hover:shadow-md transition-all flex flex-col gap-4 text-left border-b-4 border-transparent hover:border-primary">
                         <div className="h-12 w-12 bg-primary/10 rounded-2xl flex items-center justify-center text-primary group-hover:scale-110 transition-transform">
                             <span className="material-symbols-outlined">video_chat</span>
                         </div>
                         <div>
                             <p className="font-extrabold text-on-surface">Consult Doctor</p>
-                            <p className="text-xs text-tertiary">Available in 15 mins</p>
+                            <p className="text-xs text-tertiary">Live WebRTC video session</p>
                         </div>
                     </button>
+
                     <button onClick={() => setShowPassportModal(true)} className="group p-6 bg-surface-container-lowest rounded-3xl shadow-sm hover:shadow-md transition-all flex flex-col gap-4 text-left border-b-4 border-transparent hover:border-secondary">
                         <div className="h-12 w-12 bg-secondary/10 rounded-2xl flex items-center justify-center text-secondary group-hover:scale-110 transition-transform">
                             <span className="material-symbols-outlined">qr_code_2</span>
                         </div>
                         <div>
                             <p className="font-extrabold text-on-surface">Patient Passport</p>
-                            <p className="text-xs text-tertiary">Generate secure QR</p>
+                            <p className="text-xs text-tertiary">Generate secure scoped QR</p>
                         </div>
                     </button>
+
                     <button onClick={() => router.push('/benefits')} className="group p-6 bg-surface-container-lowest rounded-3xl shadow-sm hover:shadow-md transition-all flex flex-col gap-4 text-left border-b-4 border-transparent hover:border-tertiary">
                         <div className="h-12 w-12 bg-tertiary/10 rounded-2xl flex items-center justify-center text-tertiary group-hover:scale-110 transition-transform">
                             <span className="material-symbols-outlined">account_balance_wallet</span>
                         </div>
                         <div>
                             <p className="font-extrabold text-on-surface">Benefits & Schemes</p>
-                            <p className="text-xs text-tertiary">AI-matched coverage</p>
+                            <p className="text-xs text-tertiary">PMJAY & AI-matched cover</p>
                         </div>
                     </button>
                 </div>

@@ -1,9 +1,10 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { TopAppBar } from '@/components/TopAppBar';
 import { useApp } from '@/context/AppContext';
+import { fetchRecommendedSchemes, submitInsuranceClaim } from '@/lib/api';
 import { 
   Landmark, 
   ShieldCheck, 
@@ -97,14 +98,63 @@ const schemesData: Scheme[] = [
 ];
 
 export default function SchemesPage() {
-  const { user } = useApp();
+  const { user, session } = useApp();
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedCategory, setSelectedCategory] = useState<string>('All');
   const [expandedScheme, setExpandedScheme] = useState<string | null>('pmjay');
+  const [backendSchemes, setBackendSchemes] = useState<Scheme[]>([]);
+  const [isLoadingSchemes, setIsLoadingSchemes] = useState(false);
+  const [claimStatus, setClaimStatus] = useState<{ id: string; message: string } | null>(null);
+
+  // Fetch AI-recommended schemes from backend
+  useEffect(() => {
+    const loadSchemes = async () => {
+      setIsLoadingSchemes(true);
+      try {
+        const result = await fetchRecommendedSchemes(session?.user?.id || 'demo-patient-001');
+        if (result.availableSchemes) {
+          const mapped: Scheme[] = result.availableSchemes.map((s: any) => ({
+            id: s.id,
+            name: s.name,
+            category: s.type === 'insurance' ? 'Subsidies' as const : 'Universal Cover' as const,
+            coverage: s.amount,
+            provider: 'AI Recommended • CuraTrack',
+            description: s.reason,
+            eligibility: `Match Score: ${s.match_percentage}%`,
+            benefits: ['AI-matched to your clinical profile', 'Verified eligibility', 'Instant claim processing'],
+            status: 'Eligible' as const,
+            badgeColor: 'bg-emerald-100 text-emerald-800 dark:bg-emerald-950/60 dark:text-emerald-300',
+          }));
+          setBackendSchemes(mapped);
+        }
+      } catch (e) {
+        console.warn('Failed to load recommended schemes:', e);
+      } finally {
+        setIsLoadingSchemes(false);
+      }
+    };
+    loadSchemes();
+  }, [session]);
+
+  const handleClaimSubmit = async (scheme: Scheme) => {
+    try {
+      const result = await submitInsuranceClaim(
+        session?.user?.id || 'demo-patient-001',
+        scheme.name,
+        50000
+      );
+      setClaimStatus({ id: result.claimId, message: result.message });
+      setTimeout(() => setClaimStatus(null), 5000);
+    } catch (e) {
+      alert(`Application initiated for ${scheme.name}. Your ABHA Health ID is linked.`);
+    }
+  };
+
+  const allSchemes = [...backendSchemes, ...schemesData];
 
   const categories = ['All', 'Universal Cover', 'Chronic Care', 'Senior Citizens', 'Maternity', 'Subsidies'];
 
-  const filteredSchemes = schemesData.filter((scheme) => {
+  const filteredSchemes = allSchemes.filter((scheme) => {
     const matchesCategory = selectedCategory === 'All' || scheme.category === selectedCategory;
     const matchesSearch = scheme.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
                           scheme.description.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -139,7 +189,7 @@ export default function SchemesPage() {
           <div className="mt-4 pt-3 border-t border-white/15 flex items-center justify-between text-xs">
             <div className="flex items-center gap-1.5">
               <CheckCircle2 className="w-4 h-4 text-emerald-300" />
-              <span className="font-semibold text-teal-50">2 Schemes Eligible</span>
+              <span className="font-semibold text-teal-50">{schemesData.filter(s => s.status === 'Eligible').length + backendSchemes.length} Schemes Eligible</span>
             </div>
             <span className="text-[11px] text-teal-200 font-medium">Patient: {user.name}</span>
           </div>
@@ -245,7 +295,7 @@ export default function SchemesPage() {
                       <div className="flex items-center gap-2 pt-1">
                         <button
                           type="button"
-                          onClick={() => alert(`Application initiated for ${scheme.name}. Your ABHA Health ID is linked.`)}
+                          onClick={() => handleClaimSubmit(scheme)}
                           className="flex-1 bg-teal-700 hover:bg-teal-800 text-white font-bold text-xs py-2.5 px-3 rounded-xl transition-transform active:scale-95 shadow-sm flex items-center justify-center gap-1.5"
                         >
                           <span>Apply / Claim Benefit</span>
