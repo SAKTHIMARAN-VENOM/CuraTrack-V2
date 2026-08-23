@@ -25,7 +25,7 @@ export async function POST(req: NextRequest) {
         const demoConfig = DEMO_ACCOUNTS[emailLower];
 
         // Determine user role
-        let userRole = demoConfig?.role;
+        let userRole = demoConfig?.role || body.role;
         if (!userRole) {
             if (emailLower.includes('admin')) {
                 userRole = 'admin';
@@ -40,50 +40,53 @@ export async function POST(req: NextRequest) {
             }
         }
 
-        const userName = demoConfig?.name || (userRole === 'doctor' ? 'Dr. Medical Officer' : userRole === 'fhw' ? 'ASHA Frontline Worker' : userRole === 'facility_manager' ? 'Facility Manager' : userRole === 'admin' ? 'District Administrator' : 'Patient User');
+        const userName = demoConfig?.name || (userRole === 'doctor' ? 'Dr. David Ross' : userRole === 'fhw' ? 'Sunita Tai (ASHA #402)' : userRole === 'facility_manager' ? 'Anil Deshmukh (Facility Ops)' : userRole === 'admin' ? 'District Administrator' : 'Kavita Bai');
 
         const supabase = await createClient();
 
         // 1. Attempt standard sign-in
-        let { data, error } = await supabase.auth.signInWithPassword({
-            email: emailLower,
-            password,
-        });
-
-        // 2. If user doesn't exist yet, auto-provision via signUp
-        if (error && (error.message.includes('Invalid login credentials') || error.message.includes('invalid_grant') || demoConfig)) {
-            const signUpRes = await supabase.auth.signUp({
+        let authUser: any = null;
+        try {
+            const { data, error } = await supabase.auth.signInWithPassword({
                 email: emailLower,
                 password,
-                options: {
-                    data: {
-                        name: userName,
-                        role: userRole,
-                    },
-                },
             });
-
-            if (signUpRes.data?.user) {
-                // Retry sign-in with the newly created account
-                const retrySignIn = await supabase.auth.signInWithPassword({
+            if (data?.user) {
+                authUser = data.user;
+            } else if (error) {
+                // If sign-in failed, attempt signUp to auto-provision in Supabase Auth
+                const signUpRes = await supabase.auth.signUp({
                     email: emailLower,
                     password,
+                    options: {
+                        data: {
+                            name: userName,
+                            role: userRole,
+                        },
+                    },
                 });
-                if (retrySignIn.data?.user) {
-                    data = retrySignIn.data;
-                    error = null;
-                } else if (signUpRes.data?.session) {
-                    data = signUpRes.data as any;
-                    error = null;
+
+                if (signUpRes.data?.user) {
+                    authUser = signUpRes.data.user;
+                    // Attempt immediate sign-in with the newly created account
+                    const retry = await supabase.auth.signInWithPassword({
+                        email: emailLower,
+                        password,
+                    });
+                    if (retry.data?.user) {
+                        authUser = retry.data.user;
+                    }
                 }
             }
+        } catch (authErr) {
+            console.warn('Supabase remote auth attempt failed (using fallback session):', authErr);
         }
 
-        const userId = data?.user?.id || `demo-${userRole}-${Date.now()}`;
+        const userId = authUser?.id || `user-${userRole}-${Date.now()}`;
 
         // Provision profiles table in database if client is connected
         try {
-            if (data?.user?.id) {
+            if (authUser?.id) {
                 await supabase.from('profiles').upsert({
                     id: userId,
                     name: userName,
@@ -109,19 +112,30 @@ export async function POST(req: NextRequest) {
                 }
             }
         } catch (dbErr) {
-            console.warn('Profile provisioning fallback (using in-memory/session):', dbErr);
+            console.warn('Profile provisioning fallback:', dbErr);
         }
 
-        return NextResponse.json({
+        const userPayload = {
+            id: userId,
+            email: emailLower,
+            name: userName,
+            role: userRole,
+            profile_completed: true
+        };
+
+        const response = NextResponse.json({
             success: true,
-            user: { 
-                id: userId, 
-                email: emailLower, 
-                name: userName,
-                role: userRole,
-                profile_completed: true
-            },
+            user: userPayload,
         });
+
+        // Set persistent auth cookie readable by middleware & server components
+        response.cookies.set('curatrack_auth', JSON.stringify(userPayload), {
+            path: '/',
+            maxAge: 60 * 60 * 24 * 7, // 7 days
+            sameSite: 'lax',
+        });
+
+        return response;
     } catch (error: any) {
         return NextResponse.json(
             { error: error.message || 'Login failed' },

@@ -67,21 +67,43 @@ export function SideNavBar() {
 
     useEffect(() => {
         async function fetchProfile() {
-            const { data: { user } } = await supabase.auth.getUser();
+            let user: any = null;
+            try {
+                const { data } = await supabase.auth.getUser();
+                user = data?.user;
+            } catch {}
+
+            let savedAuthUser: any = null;
+            try {
+                const raw = localStorage.getItem('curatrack_auth_user');
+                if (raw) savedAuthUser = JSON.parse(raw);
+            } catch {}
+
+            const savedRole = (localStorage.getItem('curatrack_active_role') || savedAuthUser?.role) as UserRole | null;
+
             if (!user) {
-                const saved = localStorage.getItem('curatrack_active_role') as UserRole | null;
-                if (saved) setCurrentRole(saved);
+                if (savedRole) {
+                    setCurrentRole(savedRole);
+                    setProfile({
+                        name: savedAuthUser?.name || (savedRole === 'doctor' ? 'Dr. David Ross' : savedRole === 'fhw' ? 'Sunita Tai (ASHA)' : savedRole === 'facility_manager' ? 'Anil Deshmukh (Ops)' : savedRole === 'admin' ? 'District Administrator' : 'Kavita Bai'),
+                        role: savedRole
+                    });
+                }
                 return;
             }
 
-            const { data } = await supabase
-                .from('profiles')
-                .select('*')
-                .eq('id', user.id)
-                .maybeSingle();
+            let profileData: any = null;
+            try {
+                const { data } = await supabase
+                    .from('profiles')
+                    .select('*')
+                    .eq('id', user.id)
+                    .maybeSingle();
+                profileData = data;
+            } catch {}
 
-            const email = (user.email || '').toLowerCase();
-            let role: UserRole = (data?.role || user.user_metadata?.role) as UserRole;
+            const email = (user.email || savedAuthUser?.email || '').toLowerCase();
+            let role: UserRole = (profileData?.role || user.user_metadata?.role || savedRole) as UserRole;
 
             if (!role) {
                 if (email.includes('admin')) role = 'admin';
@@ -94,13 +116,14 @@ export function SideNavBar() {
             setCurrentRole(role);
             localStorage.setItem('curatrack_active_role', role);
 
-            const displayName = data?.name || 
+            const displayName = profileData?.name || 
                                 user.user_metadata?.full_name || 
                                 user.user_metadata?.name || 
+                                savedAuthUser?.name ||
                                 (user.email ? user.email.split('@')[0].replace(/[._-]/g, ' ').replace(/\b\w/g, (c: string) => c.toUpperCase()) : 'User');
 
             setProfile({
-                ...data,
+                ...profileData,
                 name: displayName,
                 role: role
             });

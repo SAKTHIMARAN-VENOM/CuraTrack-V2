@@ -147,7 +147,10 @@ export default function LoginPage() {
             }
 
             const detectedRole = data.user?.role || (email.includes('doctor') ? 'doctor' : email.includes('asha') ? 'fhw' : email.includes('facility') ? 'facility_manager' : email.includes('admin') ? 'admin' : 'patient');
+            const authPayload = data.user || { role: detectedRole, email };
             localStorage.setItem('curatrack_active_role', detectedRole);
+            localStorage.setItem('curatrack_auth_user', JSON.stringify(authPayload));
+            document.cookie = `curatrack_auth=${encodeURIComponent(JSON.stringify(authPayload))}; path=/; max-age=604800; SameSite=Lax`;
             routeByRole(detectedRole);
         } catch (err) {
             setError('Network error. Please try again.');

@@ -55,16 +55,15 @@ export async function updateSession(request: NextRequest) {
     }
   )
 
-  // IMPORTANT: Avoid writing any logic between createServerClient and
-  // getUser(). A simple mistake can make it very hard to debug
-  // issues with users being logged out.
-
   const {
     data: { user },
   } = await supabase.auth.getUser()
 
+  const curatrackAuthCookie = request.cookies.get('curatrack_auth')?.value;
+  const isAuthenticated = Boolean(user || curatrackAuthCookie);
+
   if (
-    !user &&
+    !isAuthenticated &&
     !request.nextUrl.pathname.startsWith('/login') &&
     !request.nextUrl.pathname.startsWith('/auth') &&
     !request.nextUrl.pathname.startsWith('/api') &&
@@ -74,15 +73,13 @@ export async function updateSession(request: NextRequest) {
     !request.nextUrl.pathname.startsWith('/onboarding') &&
     request.nextUrl.pathname !== '/'
   ) {
-    // no user, potentially respond by redirecting the user to the login page
-    const url = request.nextUrl.clone()
-    url.pathname = '/login'
-    if (url.hostname === '0.0.0.0') {
-      url.hostname = 'localhost'
+    const redirectUrl = request.nextUrl.clone()
+    redirectUrl.pathname = '/login'
+    if (redirectUrl.hostname === '0.0.0.0') {
+      redirectUrl.hostname = 'localhost'
     }
-    return NextResponse.redirect(url)
+    return NextResponse.redirect(redirectUrl)
   }
 
-  // IMPORTANT: You *must* return the supabaseResponse object as it is.
   return supabaseResponse
 }
