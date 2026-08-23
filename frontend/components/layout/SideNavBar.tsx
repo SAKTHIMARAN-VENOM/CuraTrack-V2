@@ -10,27 +10,26 @@ import { twMerge } from 'tailwind-merge';
 export type UserRole = 'patient' | 'doctor' | 'fhw' | 'facility_manager' | 'admin';
 
 const PATIENT_NAV_ITEMS = [
-    { href: '/dashboard', icon: 'dashboard', label: 'Dashboard' },
-    { href: '/triage', icon: 'medical_information', label: 'Self-Triage' },
+    { href: '/dashboard', icon: 'dashboard', label: 'My Health Dashboard' },
+    { href: '/triage', icon: 'medical_information', label: 'Symptom Triage' },
     { href: '/telemedicine', icon: 'video_chat', label: 'Consult Doctor' },
-    { href: '/records', icon: 'folder_shared', label: 'My Health Records' },
+    { href: '/records', icon: 'folder_shared', label: 'My Medical Records' },
     { href: '/benefits', icon: 'account_balance_wallet', label: 'Gov Schemes & PMJAY' },
     { href: '/bluetooth/patient', icon: 'bluetooth', label: 'Offline Data (BLE)' },
-    { href: '/alerts', icon: 'notifications_active', label: 'Outbreak Alerts' },
+    { href: '/alerts', icon: 'notifications_active', label: 'Health Alerts' },
     { href: '/profile', icon: 'person', label: 'Medical ID & Passport' }
 ];
 
 const DOCTOR_NAV_ITEMS = [
-    { href: '/doctor', icon: 'dashboard', label: 'Doctor Clinical Queue' },
-    { href: '/doctor/clinical-schedule', icon: 'calendar_month', label: 'Clinical Schedule' },
-    { href: '/triage', icon: 'medical_information', label: 'Triage Assessment' },
+    { href: '/doctor', icon: 'dashboard', label: 'Clinical OPD Queue' },
+    { href: '/doctor/clinical-schedule', icon: 'calendar_month', label: 'Consultation Schedule' },
+    { href: '/triage', icon: 'medical_information', label: 'Clinical Triage' },
     { href: '/referrals', icon: 'alt_route', label: 'Referral Pipeline' },
-    { href: '/fhw', icon: 'volunteer_activism', label: 'Catchment & ASHA Care' },
-    { href: '/facility', icon: 'local_hospital', label: 'Facility & EDL Meds' },
-    { href: '/bluetooth/doctor', icon: 'bluetooth', label: 'Offline Consultation' },
-    { href: '/drug-checker', icon: 'pill', label: 'Drug Interaction' },
+    { href: '/facility', icon: 'local_hospital', label: 'Facility Meds & Labs' },
+    { href: '/bluetooth/doctor', icon: 'bluetooth', label: 'Offline Consult' },
+    { href: '/drug-checker', icon: 'pill', label: 'Drug Safety' },
     { href: '/records', icon: 'folder_shared', label: 'Patient Records' },
-    { href: '/profile', icon: 'person', label: 'Profile' }
+    { href: '/profile', icon: 'person', label: 'Doctor Profile' }
 ];
 
 const FHW_NAV_ITEMS = [
@@ -39,7 +38,7 @@ const FHW_NAV_ITEMS = [
     { href: '/referrals', icon: 'alt_route', label: 'Village Referrals' },
     { href: '/telemedicine', icon: 'video_chat', label: 'Assisted Teleconsult' },
     { href: '/bluetooth/patient', icon: 'bluetooth', label: 'Offline Field Sync' },
-    { href: '/alerts', icon: 'notifications_active', label: 'Outbreak Precautions' },
+    { href: '/alerts', icon: 'notifications_active', label: 'Outbreak Alerts' },
     { href: '/profile', icon: 'person', label: 'ASHA Profile' }
 ];
 
@@ -48,11 +47,11 @@ const FACILITY_NAV_ITEMS = [
     { href: '/referrals', icon: 'alt_route', label: 'Inbound Referrals' },
     { href: '/doctor/clinical-schedule', icon: 'calendar_month', label: 'Doctor Roster' },
     { href: '/records', icon: 'folder_shared', label: 'Facility Archive' },
-    { href: '/profile', icon: 'person', label: 'Facility In-Charge' }
+    { href: '/profile', icon: 'person', label: 'Manager Profile' }
 ];
 
 const ADMIN_NAV_ITEMS = [
-    { href: '/admin', icon: 'admin_panel_settings', label: 'District Admin Portal' },
+    { href: '/admin', icon: 'admin_panel_settings', label: 'District Admin' },
     { href: '/facility', icon: 'local_hospital', label: 'Facility Oversight' },
     { href: '/referrals', icon: 'alt_route', label: 'Referral Audit Track' },
     { href: '/fhw', icon: 'volunteer_activism', label: 'Catchment Metrics' },
@@ -67,13 +66,11 @@ export function SideNavBar() {
     const [currentRole, setCurrentRole] = useState<UserRole>('patient');
 
     useEffect(() => {
-        // Check for saved demo role override
-        const savedRole = localStorage.getItem('curatrack_active_role') as UserRole | null;
-
         async function fetchProfile() {
             const { data: { user } } = await supabase.auth.getUser();
             if (!user) {
-                if (savedRole) setCurrentRole(savedRole);
+                const saved = localStorage.getItem('curatrack_active_role') as UserRole | null;
+                if (saved) setCurrentRole(saved);
                 return;
             }
 
@@ -83,41 +80,33 @@ export function SideNavBar() {
                 .eq('id', user.id)
                 .maybeSingle();
 
-            let detectedRole: UserRole = (savedRole || data?.role || user.user_metadata?.role || 'patient') as UserRole;
+            const email = (user.email || '').toLowerCase();
+            let role: UserRole = (data?.role || user.user_metadata?.role) as UserRole;
 
-            if (!savedRole) {
-                if (user.email?.toLowerCase().includes('doctor') || user.email?.toLowerCase().includes('dr.')) {
-                    detectedRole = 'doctor';
-                } else if (user.email?.toLowerCase().includes('asha') || user.email?.toLowerCase().includes('fhw')) {
-                    detectedRole = 'fhw';
-                } else if (user.email?.toLowerCase().includes('facility') || user.email?.toLowerCase().includes('pharma')) {
-                    detectedRole = 'facility_manager';
-                } else if (user.email?.toLowerCase().includes('admin')) {
-                    detectedRole = 'admin';
-                }
+            if (!role) {
+                if (email.includes('admin')) role = 'admin';
+                else if (email.includes('doctor') || email.includes('dr.')) role = 'doctor';
+                else if (email.includes('asha') || email.includes('fhw') || email.includes('anm')) role = 'fhw';
+                else if (email.includes('facility') || email.includes('pharma')) role = 'facility_manager';
+                else role = 'patient';
             }
 
-            setCurrentRole(detectedRole);
+            setCurrentRole(role);
+            localStorage.setItem('curatrack_active_role', role);
 
             const displayName = data?.name || 
                                 user.user_metadata?.full_name || 
                                 user.user_metadata?.name || 
-                                (user.email ? user.email.split('@')[0].replace(/[._-]/g, ' ').replace(/\b\w/g, (c: string) => c.toUpperCase()) : 'Active User');
+                                (user.email ? user.email.split('@')[0].replace(/[._-]/g, ' ').replace(/\b\w/g, (c: string) => c.toUpperCase()) : 'User');
 
             setProfile({
                 ...data,
                 name: displayName,
-                role: detectedRole
+                role: role
             });
         }
         fetchProfile();
     }, [supabase]);
-
-    const handleRoleSwitch = (newRole: UserRole) => {
-        setCurrentRole(newRole);
-        localStorage.setItem('curatrack_active_role', newRole);
-        setProfile((prev: any) => ({ ...prev, role: newRole }));
-    };
 
     const getNavItems = () => {
         switch (currentRole) {
@@ -129,49 +118,47 @@ export function SideNavBar() {
         }
     };
 
-    const getRoleTitle = () => {
+    const getRoleDetails = () => {
         switch (currentRole) {
-            case 'doctor': return 'Clinical Specialist Portal';
-            case 'fhw': return 'Frontline ASHA Worker';
-            case 'facility_manager': return 'Facility & Pharmacy Ops';
-            case 'admin': return 'District Health Administration';
-            default: return 'Citizen Health Portal';
+            case 'doctor':
+                return { title: 'Clinical Portal', badge: 'Medical Officer', color: 'bg-teal-50 text-teal-800 border-teal-200', icon: 'stethoscope' };
+            case 'fhw':
+                return { title: 'ASHA Field Portal', badge: 'Frontline Worker', color: 'bg-purple-50 text-purple-800 border-purple-200', icon: 'volunteer_activism' };
+            case 'facility_manager':
+                return { title: 'Facility Operations', badge: 'Hospital In-Charge', color: 'bg-blue-50 text-blue-800 border-blue-200', icon: 'local_hospital' };
+            case 'admin':
+                return { title: 'District Health Admin', badge: 'System Administrator', color: 'bg-amber-50 text-amber-800 border-amber-200', icon: 'admin_panel_settings' };
+            default:
+                return { title: 'Citizen Health Care', badge: 'Patient Account', color: 'bg-emerald-50 text-emerald-800 border-emerald-200', icon: 'person' };
         }
     };
 
     const navItems = getNavItems();
+    const roleMeta = getRoleDetails();
 
     return (
-        <aside className="hidden md:flex w-72 flex-col p-8 rounded-[2rem] my-4 ml-4 h-[calc(100vh-2rem)] bg-white border border-outline-variant/20 shadow-[0_8px_30px_rgb(0,0,0,0.02)] font-headline antialiased tracking-tight shrink-0 sticky top-4">
-            <div className="flex flex-col gap-2 mb-6">
-                <div className="flex items-center justify-between">
-                    <h1 className="text-2xl font-black tracking-tighter text-primary">CuraTrack</h1>
-                    <span className="text-[10px] font-black px-2 py-0.5 bg-primary/10 text-primary rounded-full uppercase">
-                        {currentRole.replace('_', ' ')}
-                    </span>
+        <aside className="hidden md:flex w-72 flex-col p-6 rounded-[2rem] my-4 ml-4 h-[calc(100vh-2rem)] bg-white border border-surface-container-high shadow-card font-headline antialiased tracking-tight shrink-0 sticky top-4">
+            {/* Header / Brand */}
+            <div className="flex flex-col gap-1.5 mb-6">
+                <div className="flex items-center gap-2.5">
+                    <div className="w-8 h-8 rounded-xl bg-primary text-white flex items-center justify-center shadow-sm">
+                        <span className="material-symbols-outlined text-lg">health_and_safety</span>
+                    </div>
+                    <h1 className="text-xl font-black tracking-tight text-primary">CuraTrack</h1>
                 </div>
-                <p className="text-[10px] text-tertiary uppercase tracking-[0.15em] font-bold">
-                    {getRoleTitle()}
-                </p>
 
-                {/* Role Switcher */}
-                <div className="mt-1 p-2 bg-surface-container-low rounded-xl border border-surface-container">
-                    <span className="text-[9px] uppercase font-bold text-tertiary block mb-1">Switch System Stakeholder</span>
-                    <select
-                        value={currentRole}
-                        onChange={(e) => handleRoleSwitch(e.target.value as UserRole)}
-                        className="w-full text-xs font-bold bg-white text-on-surface p-1.5 rounded-lg border border-surface-container-high outline-none cursor-pointer"
-                    >
-                        <option value="patient">👤 Patient / Citizen</option>
-                        <option value="doctor">🩺 Medical Officer / Doctor</option>
-                        <option value="fhw">👩‍⚕️ ASHA / ANM Frontline Worker</option>
-                        <option value="facility_manager">🏥 Facility Manager / Pharmacist</option>
-                        <option value="admin">🏛️ District Health Administrator</option>
-                    </select>
+                {/* Scoped Role Badge */}
+                <div className={`mt-2 p-2.5 rounded-xl border flex items-center gap-2 ${roleMeta.color}`}>
+                    <span className="material-symbols-outlined text-base">{roleMeta.icon}</span>
+                    <div className="min-w-0">
+                        <span className="text-[10px] uppercase font-black tracking-wider block leading-tight">{roleMeta.badge}</span>
+                        <span className="text-[11px] font-bold block truncate">{roleMeta.title}</span>
+                    </div>
                 </div>
             </div>
 
-            <nav className="flex flex-col gap-1.5 flex-grow overflow-y-auto pr-1">
+            {/* Scoped Nav Items */}
+            <nav className="flex flex-col gap-1 flex-grow overflow-y-auto pr-1">
                 {navItems.map((item) => {
                     const isActive = pathname === item.href;
                     return (
@@ -180,48 +167,50 @@ export function SideNavBar() {
                             href={item.href}
                             className={twMerge(
                                 clsx(
-                                    "flex items-center gap-3 px-4 py-2.5 rounded-2xl transition-all text-xs",
+                                    "flex items-center gap-3 px-3.5 py-2.5 rounded-xl transition-all text-xs font-semibold",
                                     isActive
-                                        ? "bg-primary text-white font-bold shadow-md shadow-primary/20"
-                                        : "hover:bg-surface-container-low text-tertiary font-medium"
+                                        ? "bg-primary text-white font-bold shadow-sm shadow-primary/20"
+                                        : "hover:bg-surface-container-low text-tertiary hover:text-on-surface"
                                 )
                             )}
                         >
                             <span
-                                className="material-symbols-outlined text-lg"
+                                className="material-symbols-outlined text-base"
                                 style={isActive ? { fontVariationSettings: "'FILL' 1" } : {}}
                             >
                                 {item.icon}
                             </span>
-                            <span>{item.label}</span>
+                            <span className="truncate">{item.label}</span>
                         </Link>
                     );
                 })}
             </nav>
 
-            <div className="mt-auto space-y-3 pt-4 border-t border-outline-variant/20">
+            {/* Footer / User Profile & Logout */}
+            <div className="mt-auto space-y-3 pt-4 border-t border-surface-container-high">
                 <button
                     onClick={async () => {
+                        localStorage.removeItem('curatrack_active_role');
                         await fetch('/api/logout', { method: 'POST' });
                         router.push('/login');
                     }}
-                    className="w-full flex items-center gap-3 px-4 py-2 rounded-xl transition-all hover:bg-error/5 text-error font-bold text-xs"
+                    className="w-full flex items-center gap-2.5 px-3.5 py-2 rounded-xl transition-all hover:bg-red-50 text-red-700 font-bold text-xs"
                 >
                     <span className="material-symbols-outlined text-base">logout</span>
-                    <span>Logout</span>
+                    <span>Sign Out</span>
                 </button>
 
-                <div className="flex items-center gap-3">
-                    <div className="h-10 w-10 rounded-2xl overflow-hidden bg-primary/10 flex items-center justify-center text-primary">
-                        <span className="material-symbols-outlined text-xl" style={{ fontVariationSettings: "'FILL' 1" }}>
-                            {currentRole === 'doctor' ? 'medical_services' : currentRole === 'fhw' ? 'volunteer_activism' : currentRole === 'facility_manager' ? 'local_hospital' : currentRole === 'admin' ? 'admin_panel_settings' : 'person'}
+                <div className="flex items-center gap-3 bg-surface-container-low p-2.5 rounded-xl">
+                    <div className="h-8 w-8 rounded-lg bg-primary/10 flex items-center justify-center text-primary shrink-0">
+                        <span className="material-symbols-outlined text-base" style={{ fontVariationSettings: "'FILL' 1" }}>
+                            {roleMeta.icon}
                         </span>
                     </div>
                     <div className="min-w-0">
                         <p className="text-xs font-bold text-on-surface truncate">
-                            {profile?.name || 'Active Stakeholder'}
+                            {profile?.name || 'Active User'}
                         </p>
-                        <p className="text-[9px] font-bold text-tertiary uppercase tracking-widest">
+                        <p className="text-[10px] text-tertiary font-semibold capitalize truncate">
                             {currentRole.replace('_', ' ')}
                         </p>
                     </div>

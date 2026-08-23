@@ -29,11 +29,33 @@ export async function POST(req: NextRequest) {
             .eq('id', data.user.id)
             .maybeSingle();
 
-        const isDoctor = profile?.role === 'doctor' || data.user?.user_metadata?.role === 'doctor' || email.toLowerCase().includes('doctor') || email.toLowerCase().includes('dr.');
-        const isAdmin = profile?.role === 'admin' || data.user?.user_metadata?.role === 'admin' || email.toLowerCase().includes('admin');
-        const userRole = isAdmin ? 'admin' : isDoctor ? 'doctor' : 'patient';
-        const userName = profile?.name || data.user.user_metadata?.name || (userRole === 'doctor' ? 'Dr. Practitioner' : 'User');
-        const profileCompleted = profile?.profile_completed ?? (userRole === 'doctor' ? true : false);
+        const emailLower = email.toLowerCase();
+        let userRole = profile?.role || data.user?.user_metadata?.role;
+
+        if (!userRole) {
+            if (emailLower.includes('admin')) {
+                userRole = 'admin';
+            } else if (emailLower.includes('doctor') || emailLower.includes('dr.')) {
+                userRole = 'doctor';
+            } else if (emailLower.includes('asha') || emailLower.includes('fhw') || emailLower.includes('anm')) {
+                userRole = 'fhw';
+            } else if (emailLower.includes('facility') || emailLower.includes('pharma')) {
+                userRole = 'facility_manager';
+            } else {
+                userRole = 'patient';
+            }
+        }
+
+        const roleDefaultNames: Record<string, string> = {
+            doctor: 'Dr. David Ross (Medical Officer)',
+            fhw: 'Sunita Tai (ASHA Worker #402)',
+            facility_manager: 'Anil Deshmukh (Facility In-Charge)',
+            admin: 'Dr. R. K. Sharma (District Health Officer)',
+            patient: 'Kavita Bai (Patient)'
+        };
+
+        const userName = profile?.name || data.user.user_metadata?.name || roleDefaultNames[userRole] || 'User';
+        const profileCompleted = profile?.profile_completed ?? true;
 
         if (!profile) {
             // Auto-provision profile row if it doesn't exist yet to prevent downstream 406/null errors
@@ -52,7 +74,7 @@ export async function POST(req: NextRequest) {
                     qualification: 'MBBS, MD',
                     specialization: 'General Medicine',
                     experience_years: 5,
-                    hospital_name: 'Metropolitan Health System',
+                    hospital_name: 'Nandurbar Sub-District Hospital',
                     department: 'Clinical Care'
                 });
                 await supabase.from('verification_status').upsert({

@@ -367,65 +367,65 @@ export default function Dashboard() {
 
             {/* Quick Actions Section */}
             <div>
-                <h3 className="text-lg font-extrabold text-on-surface mb-6">Clinical Core Actions</h3>
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-                    <button onClick={() => router.push('/triage')} className="group p-6 bg-surface-container-lowest rounded-3xl shadow-sm hover:shadow-md transition-all flex flex-col gap-4 text-left border-b-4 border-transparent hover:border-primary">
-                        <div className="h-12 w-12 bg-primary/10 rounded-2xl flex items-center justify-center text-primary group-hover:scale-110 transition-transform">
-                            <span className="material-symbols-outlined">medical_information</span>
+                <h3 className="text-lg font-extrabold text-on-surface mb-4">Patient Health Actions</h3>
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
+                    <button onClick={() => router.push('/triage')} className="group p-5 bg-white rounded-2xl shadow-sm hover:shadow-md transition-all flex flex-col gap-3 text-left border border-surface-container-high hover:border-primary">
+                        <div className="h-10 w-10 bg-primary/10 rounded-xl flex items-center justify-center text-primary group-hover:scale-105 transition-transform">
+                            <span className="material-symbols-outlined text-xl">medical_information</span>
                         </div>
                         <div>
-                            <p className="font-extrabold text-on-surface">Digital Clinical Triage</p>
-                            <p className="text-xs text-tertiary">Symptom check & facility routing</p>
+                            <p className="font-bold text-sm text-on-surface">Symptom Checker</p>
+                            <p className="text-xs text-tertiary">Urgency assessment & facility advice</p>
                         </div>
                     </button>
 
-                    <button onClick={() => router.push('/referrals')} className="group p-6 bg-surface-container-lowest rounded-3xl shadow-sm hover:shadow-md transition-all flex flex-col gap-4 text-left border-b-4 border-transparent hover:border-teal-600">
-                        <div className="h-12 w-12 bg-teal-500/10 rounded-2xl flex items-center justify-center text-teal-700 group-hover:scale-110 transition-transform">
-                            <span className="material-symbols-outlined">alt_route</span>
+                    <button onClick={() => router.push('/telemedicine')} className="group p-5 bg-white rounded-2xl shadow-sm hover:shadow-md transition-all flex flex-col gap-3 text-left border border-surface-container-high hover:border-primary">
+                        <div className="h-10 w-10 bg-primary/10 rounded-xl flex items-center justify-center text-primary group-hover:scale-105 transition-transform">
+                            <span className="material-symbols-outlined text-xl">video_chat</span>
                         </div>
                         <div>
-                            <p className="font-extrabold text-on-surface">Referral Pipeline</p>
-                            <p className="text-xs text-tertiary">SC ➔ PHC ➔ CHC ➔ District Hosp</p>
+                            <p className="font-bold text-sm text-on-surface">Consult Doctor</p>
+                            <p className="text-xs text-tertiary">Live WebRTC video consultation</p>
                         </div>
                     </button>
 
-                    <button onClick={() => router.push('/fhw')} className="group p-6 bg-surface-container-lowest rounded-3xl shadow-sm hover:shadow-md transition-all flex flex-col gap-4 text-left border-b-4 border-transparent hover:border-purple-600">
-                        <div className="h-12 w-12 bg-purple-500/10 rounded-2xl flex items-center justify-center text-purple-700 group-hover:scale-110 transition-transform">
-                            <span className="material-symbols-outlined">volunteer_activism</span>
+                    <button onClick={() => setShowPassportModal(true)} className="group p-5 bg-white rounded-2xl shadow-sm hover:shadow-md transition-all flex flex-col gap-3 text-left border border-surface-container-high hover:border-secondary">
+                        <div className="h-10 w-10 bg-secondary/10 rounded-xl flex items-center justify-center text-secondary group-hover:scale-105 transition-transform">
+                            <span className="material-symbols-outlined text-xl">qr_code_2</span>
                         </div>
                         <div>
-                            <p className="font-extrabold text-on-surface">Frontline Worker (ASHA)</p>
-                            <p className="text-xs text-tertiary">Catchment & Assisted Teleconsult</p>
-                        </div>
-                    </button>
-
-                    <button onClick={() => router.push('/telemedicine')} className="group p-6 bg-surface-container-lowest rounded-3xl shadow-sm hover:shadow-md transition-all flex flex-col gap-4 text-left border-b-4 border-transparent hover:border-primary">
-                        <div className="h-12 w-12 bg-primary/10 rounded-2xl flex items-center justify-center text-primary group-hover:scale-110 transition-transform">
-                            <span className="material-symbols-outlined">video_chat</span>
-                        </div>
-                        <div>
-                            <p className="font-extrabold text-on-surface">Consult Doctor</p>
-                            <p className="text-xs text-tertiary">Live WebRTC video session</p>
-                        </div>
-                    </button>
-
-                    <button onClick={() => setShowPassportModal(true)} className="group p-6 bg-surface-container-lowest rounded-3xl shadow-sm hover:shadow-md transition-all flex flex-col gap-4 text-left border-b-4 border-transparent hover:border-secondary">
-                        <div className="h-12 w-12 bg-secondary/10 rounded-2xl flex items-center justify-center text-secondary group-hover:scale-110 transition-transform">
-                            <span className="material-symbols-outlined">qr_code_2</span>
-                        </div>
-                        <div>
-                            <p className="font-extrabold text-on-surface">Patient Passport</p>
+                            <p className="font-bold text-sm text-on-surface">Medical ID Passport</p>
                             <p className="text-xs text-tertiary">Generate secure scoped QR</p>
                         </div>
                     </button>
 
-                    <button onClick={() => router.push('/benefits')} className="group p-6 bg-surface-container-lowest rounded-3xl shadow-sm hover:shadow-md transition-all flex flex-col gap-4 text-left border-b-4 border-transparent hover:border-tertiary">
-                        <div className="h-12 w-12 bg-tertiary/10 rounded-2xl flex items-center justify-center text-tertiary group-hover:scale-110 transition-transform">
-                            <span className="material-symbols-outlined">account_balance_wallet</span>
+                    <button onClick={() => router.push('/benefits')} className="group p-5 bg-white rounded-2xl shadow-sm hover:shadow-md transition-all flex flex-col gap-3 text-left border border-surface-container-high hover:border-tertiary">
+                        <div className="h-10 w-10 bg-tertiary/10 rounded-xl flex items-center justify-center text-tertiary group-hover:scale-105 transition-transform">
+                            <span className="material-symbols-outlined text-xl">account_balance_wallet</span>
                         </div>
                         <div>
-                            <p className="font-extrabold text-on-surface">Benefits & Schemes</p>
-                            <p className="text-xs text-tertiary">PMJAY & AI-matched cover</p>
+                            <p className="font-bold text-sm text-on-surface">Government Schemes</p>
+                            <p className="text-xs text-tertiary">PMJAY & Ayushman Bharat cover</p>
+                        </div>
+                    </button>
+
+                    <button onClick={() => router.push('/records')} className="group p-5 bg-white rounded-2xl shadow-sm hover:shadow-md transition-all flex flex-col gap-3 text-left border border-surface-container-high hover:border-teal-600">
+                        <div className="h-10 w-10 bg-teal-500/10 rounded-xl flex items-center justify-center text-teal-700 group-hover:scale-105 transition-transform">
+                            <span className="material-symbols-outlined text-xl">folder_shared</span>
+                        </div>
+                        <div>
+                            <p className="font-bold text-sm text-on-surface">Health Records (OCR)</p>
+                            <p className="text-xs text-tertiary">Upload and index prescriptions</p>
+                        </div>
+                    </button>
+
+                    <button onClick={() => router.push('/bluetooth/patient')} className="group p-5 bg-white rounded-2xl shadow-sm hover:shadow-md transition-all flex flex-col gap-3 text-left border border-surface-container-high hover:border-blue-600">
+                        <div className="h-10 w-10 bg-blue-500/10 rounded-xl flex items-center justify-center text-blue-700 group-hover:scale-105 transition-transform">
+                            <span className="material-symbols-outlined text-xl">bluetooth</span>
+                        </div>
+                        <div>
+                            <p className="font-bold text-sm text-on-surface">Offline BLE Transfer</p>
+                            <p className="text-xs text-tertiary">Zero-internet doctor handshake</p>
                         </div>
                     </button>
                 </div>

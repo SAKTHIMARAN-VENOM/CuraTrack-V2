@@ -4,10 +4,56 @@ import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { createClient } from '@/lib/supabase/client';
 
-import { Capacitor } from '@capacitor/core';
-import { Browser } from '@capacitor/browser';
-
 type AuthMode = 'login' | 'signup';
+type UserRole = 'patient' | 'doctor' | 'fhw' | 'facility_manager' | 'admin';
+
+const DEMO_CREDENTIALS: { role: UserRole; title: string; email: string; pass: string; icon: string; badge: string; desc: string }[] = [
+    {
+        role: 'patient',
+        title: 'Patient / Citizen',
+        email: 'patient@curatrack.in',
+        pass: 'Patient@123',
+        icon: 'person',
+        badge: 'Citizen Care',
+        desc: 'Vitals, Self-Triage, Teleconsult, PMJAY, QR Passport'
+    },
+    {
+        role: 'doctor',
+        title: 'Medical Officer / Doctor',
+        email: 'doctor@curatrack.in',
+        pass: 'Doctor@123',
+        icon: 'stethoscope',
+        badge: 'Clinical Care',
+        desc: 'OPD Queue, Clinical Triage, Referrals, Lab Orders'
+    },
+    {
+        role: 'fhw',
+        title: 'ASHA / ANM Frontline Worker',
+        email: 'asha@curatrack.in',
+        pass: 'Asha@123',
+        icon: 'volunteer_activism',
+        badge: 'Community Health',
+        desc: 'Catchment Survey, Maternal ANC, Assisted Teleconsult'
+    },
+    {
+        role: 'facility_manager',
+        title: 'Facility & Pharmacy In-Charge',
+        email: 'facility@curatrack.in',
+        pass: 'Facility@123',
+        icon: 'local_hospital',
+        badge: 'Facility Ops',
+        desc: 'EDL Drug Stock, Diagnostic Lab Queue, OPD Flow'
+    },
+    {
+        role: 'admin',
+        title: 'District Health Administrator',
+        email: 'admin@curatrack.in',
+        pass: 'Admin@123',
+        icon: 'admin_panel_settings',
+        badge: 'District Admin',
+        desc: 'Doctor Verification, Quality Audits, Facility Stats'
+    }
+];
 
 export default function LoginPage() {
     const router = useRouter();
@@ -15,6 +61,7 @@ export default function LoginPage() {
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
     const [name, setName] = useState('');
+    const [signupRole, setSignupRole] = useState<UserRole>('patient');
     const [doctorLicenseKey, setDoctorLicenseKey] = useState('');
     const [showPassword, setShowPassword] = useState(false);
     const [error, setError] = useState('');
@@ -49,6 +96,31 @@ export default function LoginPage() {
         }
     };
 
+    const handleSelectDemoUser = (demo: typeof DEMO_CREDENTIALS[0]) => {
+        setEmail(demo.email);
+        setPassword(demo.pass);
+        setError('');
+    };
+
+    const routeByRole = (role: string) => {
+        switch (role) {
+            case 'doctor':
+                router.push('/doctor');
+                break;
+            case 'fhw':
+                router.push('/fhw');
+                break;
+            case 'facility_manager':
+                router.push('/facility');
+                break;
+            case 'admin':
+                router.push('/admin');
+                break;
+            default:
+                router.push('/dashboard');
+                break;
+        }
+    };
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -59,7 +131,7 @@ export default function LoginPage() {
             const endpoint = mode === 'login' ? '/api/auth/login' : '/api/auth/signup';
             const body = mode === 'login'
                 ? { email, password }
-                : { email, password, name, doctorLicenseKey };
+                : { email, password, name, role: signupRole, doctorLicenseKey };
 
             const res = await fetch(endpoint, {
                 method: 'POST',
@@ -74,13 +146,9 @@ export default function LoginPage() {
                 return;
             }
 
-            const isDoctor = data.user?.role === 'doctor' || email.toLowerCase().includes('doctor') || email.toLowerCase().includes('dr.') || Boolean(doctorLicenseKey);
-
-            if (isDoctor) {
-                router.push('/doctor');
-            } else {
-                router.push('/dashboard');
-            }
+            const detectedRole = data.user?.role || (email.includes('doctor') ? 'doctor' : email.includes('asha') ? 'fhw' : email.includes('facility') ? 'facility_manager' : email.includes('admin') ? 'admin' : 'patient');
+            localStorage.setItem('curatrack_active_role', detectedRole);
+            routeByRole(detectedRole);
         } catch (err) {
             setError('Network error. Please try again.');
         } finally {
@@ -90,222 +158,247 @@ export default function LoginPage() {
 
     return (
         <div className="min-h-screen grid grid-cols-1 lg:grid-cols-2 bg-surface-bright">
-            {/* Left Side: Branding */}
-            <section className="flex flex-col justify-center px-12 lg:px-24 py-12">
-                <div className="max-w-md">
-                    <div className="flex items-center gap-3 mb-10">
-                        <div className="w-10 h-10 rounded-lg bg-primary flex items-center justify-center text-white">
+            {/* Left Side: Branding & Info */}
+            <section className="flex flex-col justify-center px-8 lg:px-20 py-12 bg-gradient-to-br from-primary/5 via-white to-teal-500/5">
+                <div className="max-w-lg mx-auto">
+                    <div className="flex items-center gap-3 mb-8">
+                        <div className="w-11 h-11 rounded-2xl bg-primary flex items-center justify-center text-white shadow-md shadow-primary/20">
                             <span className="material-symbols-outlined text-2xl">health_and_safety</span>
                         </div>
-                        <span className="font-headline text-2xl font-bold tracking-tight text-primary">CuraTrack</span>
+                        <div>
+                            <span className="font-headline text-2xl font-black tracking-tight text-primary block leading-none">CuraTrack</span>
+                            <span className="text-[10px] text-tertiary font-bold uppercase tracking-widest block mt-0.5">National Care Ecosystem</span>
+                        </div>
                     </div>
 
-                    <h1 className="font-headline text-5xl font-bold text-on-surface tracking-tight leading-[1.15] mb-6">
-                        Empathetic Precision <br />in Modern Care.
+                    <h1 className="font-headline text-4xl lg:text-5xl font-black text-on-surface tracking-tight leading-[1.15] mb-4">
+                        Integrated Rural & Public Health Care Access.
                     </h1>
 
-                    <p className="text-tertiary text-lg leading-relaxed mb-12">
-                        Access your health ecosystem with clinical-grade security and human-centric simplicity.
+                    <p className="text-tertiary text-sm leading-relaxed mb-8">
+                        Connecting citizens, ASHA workers, primary health centres, and district hospitals with seamless teleconsultation, triage, and supply tracking.
                     </p>
 
-                    <div className="space-y-4">
-                        <div className="bg-surface-container-low p-6 rounded-2xl flex items-center gap-4">
-                            <div className="w-10 h-10 bg-primary-fixed rounded-lg flex items-center justify-center">
-                                <span className="material-symbols-outlined text-primary">verified_user</span>
+                    {/* Role Access Guide */}
+                    <div className="space-y-3">
+                        <span className="text-xs font-bold text-on-surface uppercase tracking-wider block">Role-Scoped Public Health Access</span>
+                        <div className="grid grid-cols-1 gap-2.5">
+                            <div className="bg-white/80 backdrop-blur p-3.5 rounded-2xl border border-surface-container flex items-center gap-3">
+                                <span className="material-symbols-outlined text-primary text-xl">person</span>
+                                <div>
+                                    <span className="text-xs font-bold text-on-surface block">Patient / Citizen</span>
+                                    <span className="text-[11px] text-tertiary">Vitals, Self-Triage, Records, PMJAY, 108 Emergency SOS</span>
+                                </div>
                             </div>
-                            <div>
-                                <h3 className="font-headline font-bold text-on-surface">Secure Health Records</h3>
-                                <p className="text-sm text-tertiary">End-to-end encryption for all medical data.</p>
-                            </div>
-                        </div>
 
-                        <div className="bg-surface-container-low p-6 rounded-2xl flex items-center gap-4">
-                            <div className="w-10 h-10 bg-secondary-container rounded-lg flex items-center justify-center">
-                                <span className="material-symbols-outlined text-secondary">medical_services</span>
+                            <div className="bg-white/80 backdrop-blur p-3.5 rounded-2xl border border-surface-container flex items-center gap-3">
+                                <span className="material-symbols-outlined text-teal-700 text-xl">stethoscope</span>
+                                <div>
+                                    <span className="text-xs font-bold text-on-surface block">Medical Officer / Doctor</span>
+                                    <span className="text-[11px] text-tertiary">Clinical OPD Queue, Video Calls, Referrals & Lab Orders</span>
+                                </div>
                             </div>
-                            <div>
-                                <h3 className="font-headline font-bold text-on-surface">Seamless Telemedicine</h3>
-                                <p className="text-sm text-tertiary">Connect with specialists in just two clicks.</p>
+
+                            <div className="bg-white/80 backdrop-blur p-3.5 rounded-2xl border border-surface-container flex items-center gap-3">
+                                <span className="material-symbols-outlined text-purple-700 text-xl">volunteer_activism</span>
+                                <div>
+                                    <span className="text-xs font-bold text-on-surface block">ASHA / Frontline Worker</span>
+                                    <span className="text-[11px] text-tertiary">Village Surveillance, Maternal ANC, Assisted Teleconsult</span>
+                                </div>
                             </div>
                         </div>
                     </div>
                 </div>
             </section>
 
-            {/* Right Side: Auth Card */}
-            <section className="flex flex-col items-center justify-center p-6 lg:p-12">
-                <div className="w-full max-w-[540px] bg-white rounded-3xl shadow-[0_32px_64px_-12px_rgba(0,0,0,0.08)] overflow-hidden">
+            {/* Right Side: Authentication & Demo Credential Cards */}
+            <section className="flex flex-col items-center justify-center p-6 lg:p-12 overflow-y-auto">
+                <div className="w-full max-w-[540px] bg-white rounded-3xl shadow-[0_24px_48px_-12px_rgba(0,0,0,0.06)] border border-surface-container-high overflow-hidden">
                     {/* Tabs */}
                     <div className="flex relative border-b border-surface-container-high">
                         <button
                             onClick={() => { setMode('login'); setError(''); }}
-                            className={`flex-1 py-8 text-center font-headline font-bold relative transition-colors ${mode === 'login' ? 'text-primary' : 'text-outline hover:bg-surface-container-low'}`}
+                            className={`flex-1 py-5 text-center font-headline font-bold text-sm relative transition-colors ${mode === 'login' ? 'text-primary' : 'text-outline hover:bg-surface-container-low'}`}
                         >
-                            Login
+                            Sign In
                             {mode === 'login' && <div className="absolute bottom-0 left-0 w-full h-1 bg-primary"></div>}
                         </button>
                         <button
                             onClick={() => { setMode('signup'); setError(''); }}
-                            className={`flex-1 py-8 text-center font-headline font-bold relative transition-colors ${mode === 'signup' ? 'text-primary' : 'text-outline hover:bg-surface-container-low'}`}
+                            className={`flex-1 py-5 text-center font-headline font-bold text-sm relative transition-colors ${mode === 'signup' ? 'text-primary' : 'text-outline hover:bg-surface-container-low'}`}
                         >
-                            Sign Up
+                            Create Account
                             {mode === 'signup' && <div className="absolute bottom-0 left-0 w-full h-1 bg-primary"></div>}
                         </button>
                     </div>
 
-                    <div className="p-10 md:p-14 space-y-8">
+                    <div className="p-8 md:p-10 space-y-6">
                         {/* Error Message */}
                         {error && (
-                            <div className="flex items-center gap-3 p-4 bg-error-container rounded-xl text-on-error-container text-sm font-medium">
-                                <span className="material-symbols-outlined text-lg">error</span>
-                                {error}
+                            <div className="flex items-center gap-3 p-3.5 bg-red-50 border border-red-200 rounded-2xl text-red-900 text-xs font-medium">
+                                <span className="material-symbols-outlined text-base text-red-600">error</span>
+                                <span>{error}</span>
                             </div>
                         )}
 
-                        <form className="space-y-6" onSubmit={handleSubmit}>
+                        {/* Quick Demo Credentials Picker (Login Mode Only) */}
+                        {mode === 'login' && (
+                            <div className="p-4 bg-surface-container-low rounded-2xl border border-surface-container space-y-2.5">
+                                <div className="flex items-center justify-between">
+                                    <span className="text-[11px] font-extrabold uppercase tracking-wider text-tertiary">Quick Stakeholder Demo Logins</span>
+                                    <span className="text-[10px] text-teal-700 bg-teal-100 font-bold px-2 py-0.5 rounded-full">1-Click Fill</span>
+                                </div>
+
+                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                                    {DEMO_CREDENTIALS.map((demo) => (
+                                        <button
+                                            key={demo.role}
+                                            type="button"
+                                            onClick={() => handleSelectDemoUser(demo)}
+                                            className={`p-2.5 rounded-xl text-left border transition-all flex items-center gap-2.5 ${
+                                                email === demo.email
+                                                    ? 'bg-primary/10 border-primary text-primary shadow-sm'
+                                                    : 'bg-white border-surface-container-high hover:border-primary/40 text-on-surface'
+                                            }`}
+                                        >
+                                            <span className="material-symbols-outlined text-lg shrink-0">{demo.icon}</span>
+                                            <div className="min-w-0">
+                                                <span className="text-xs font-bold block truncate">{demo.title}</span>
+                                                <span className="text-[10px] text-tertiary font-mono block truncate">{demo.email}</span>
+                                            </div>
+                                        </button>
+                                    ))}
+                                </div>
+                            </div>
+                        )}
+
+                        <form className="space-y-4" onSubmit={handleSubmit}>
                             {/* Name field (signup only) */}
                             {mode === 'signup' && (
-                                <div className="space-y-2">
-                                    <label className="block text-sm font-semibold text-on-surface-variant">Full Name</label>
-                                    <div className="relative">
-                                        <span className="material-symbols-outlined absolute left-4 top-1/2 -translate-y-1/2 text-outline text-xl">person</span>
-                                        <input
-                                            className="outline-none w-full pl-12 pr-4 py-4 bg-surface-container-low border-none rounded-xl focus:ring-2 focus:ring-primary/20 text-on-surface placeholder:text-outline-variant"
-                                            placeholder="John Doe"
-                                            type="text"
-                                            value={name}
-                                            onChange={e => setName(e.target.value)}
-                                            required
-                                        />
-                                    </div>
+                                <div className="space-y-1">
+                                    <label className="block text-xs font-semibold text-tertiary">Full Name</label>
+                                    <input
+                                        className="w-full px-4 py-3 bg-surface-container-low rounded-xl text-xs font-bold text-on-surface border border-surface-container-high outline-none focus:border-primary"
+                                        placeholder="e.g. Kavita Bai"
+                                        type="text"
+                                        value={name}
+                                        onChange={e => setName(e.target.value)}
+                                        required
+                                    />
+                                </div>
+                            )}
+
+                            {/* Role Picker (signup only) */}
+                            {mode === 'signup' && (
+                                <div className="space-y-1">
+                                    <label className="block text-xs font-semibold text-tertiary">Select Stakeholder Role</label>
+                                    <select
+                                        className="w-full px-4 py-3 bg-surface-container-low rounded-xl text-xs font-bold text-on-surface border border-surface-container-high outline-none focus:border-primary cursor-pointer"
+                                        value={signupRole}
+                                        onChange={e => setSignupRole(e.target.value as UserRole)}
+                                    >
+                                        <option value="patient">👤 Patient / Citizen</option>
+                                        <option value="doctor">🩺 Medical Officer / Doctor</option>
+                                        <option value="fhw">👩‍⚕️ ASHA / ANM Frontline Worker</option>
+                                        <option value="facility_manager">🏥 Facility & Pharmacy Manager</option>
+                                        <option value="admin">🏛️ District Health Administrator</option>
+                                    </select>
+                                </div>
+                            )}
+
+                            {/* Doctor License Key (Doctor signup only) */}
+                            {mode === 'signup' && signupRole === 'doctor' && (
+                                <div className="space-y-1">
+                                    <label className="block text-xs font-semibold text-tertiary">Doctor Medical License Key</label>
+                                    <input
+                                        className="w-full px-4 py-3 bg-surface-container-low rounded-xl text-xs font-bold text-on-surface border border-surface-container-high outline-none focus:border-primary"
+                                        placeholder="e.g. DOC-KEY-2025"
+                                        type="text"
+                                        value={doctorLicenseKey}
+                                        onChange={e => setDoctorLicenseKey(e.target.value)}
+                                        required
+                                    />
                                 </div>
                             )}
 
                             {/* Email */}
-                            <div className="space-y-2">
-                                <label className="block text-sm font-semibold text-on-surface-variant">Email Address</label>
-                                <div className="relative">
-                                    <span className="material-symbols-outlined absolute left-4 top-1/2 -translate-y-1/2 text-outline text-xl">mail</span>
-                                    <input
-                                        className="outline-none w-full pl-12 pr-4 py-4 bg-surface-container-low border-none rounded-xl focus:ring-2 focus:ring-primary/20 text-on-surface placeholder:text-outline-variant"
-                                        placeholder="name@example.com"
-                                        type="email"
-                                        value={email}
-                                        onChange={e => setEmail(e.target.value)}
-                                        required
-                                    />
-                                </div>
+                            <div className="space-y-1">
+                                <label className="block text-xs font-semibold text-tertiary">Email Address</label>
+                                <input
+                                    className="w-full px-4 py-3 bg-surface-container-low rounded-xl text-xs font-bold text-on-surface border border-surface-container-high outline-none focus:border-primary"
+                                    placeholder="name@example.com"
+                                    type="email"
+                                    value={email}
+                                    onChange={e => setEmail(e.target.value)}
+                                    required
+                                />
                             </div>
 
-                            {/* Doctor License Key (Optional for Patients, Required for Doctors) */}
-                            {mode === 'signup' && (
-                                <div className="space-y-2">
-                                    <div className="flex justify-between items-center">
-                                        <label className="block text-sm font-semibold text-on-surface-variant">Doctor License Key</label>
-                                        <span className="text-[10px] text-tertiary font-bold uppercase tracking-wider">Required for Doctors</span>
-                                    </div>
-                                    <div className="relative">
-                                        <span className="material-symbols-outlined absolute left-4 top-1/2 -translate-y-1/2 text-outline text-xl">badge</span>
-                                        <input
-                                            className="outline-none w-full pl-12 pr-4 py-4 bg-surface-container-low border-none rounded-xl focus:ring-2 focus:ring-primary/20 text-on-surface placeholder:text-outline-variant"
-                                            placeholder="e.g. DOC-KEY-2025 (Leave blank for Patient)"
-                                            type="text"
-                                            value={doctorLicenseKey}
-                                            onChange={e => setDoctorLicenseKey(e.target.value)}
-                                        />
-                                    </div>
-                                </div>
-                            )}
-
                             {/* Password */}
-                            <div className="space-y-2">
+                            <div className="space-y-1">
                                 <div className="flex justify-between items-center">
-                                    <label className="block text-sm font-semibold text-on-surface-variant">Password</label>
+                                    <label className="block text-xs font-semibold text-tertiary">Password</label>
                                     {mode === 'login' && (
-                                        <a className="text-xs font-bold text-primary hover:underline" href="#">Forgot password?</a>
+                                        <span className="text-[10px] text-tertiary">Demo: <strong>Patient@123 / Doctor@123</strong></span>
                                     )}
                                 </div>
                                 <div className="relative">
-                                    <span className="material-symbols-outlined absolute left-4 top-1/2 -translate-y-1/2 text-outline text-xl">lock</span>
                                     <input
-                                        className="outline-none w-full pl-12 pr-12 py-4 bg-surface-container-low border-none rounded-xl focus:ring-2 focus:ring-primary/20 text-on-surface placeholder:text-outline-variant"
-                                        placeholder={mode === 'signup' ? 'Min. 6 characters' : '••••••••'}
+                                        className="w-full px-4 py-3 bg-surface-container-low rounded-xl text-xs font-bold text-on-surface border border-surface-container-high outline-none focus:border-primary pr-10"
+                                        placeholder="••••••••"
                                         type={showPassword ? 'text' : 'password'}
                                         value={password}
                                         onChange={e => setPassword(e.target.value)}
                                         required
-                                        minLength={mode === 'signup' ? 6 : undefined}
                                     />
                                     <button
-                                        className="absolute right-4 top-1/2 -translate-y-1/2 text-outline hover:text-primary"
                                         type="button"
                                         onClick={() => setShowPassword(!showPassword)}
+                                        className="absolute right-3 top-1/2 -translate-y-1/2 text-tertiary hover:text-on-surface"
                                     >
-                                        <span className="material-symbols-outlined text-xl">
+                                        <span className="material-symbols-outlined text-base">
                                             {showPassword ? 'visibility_off' : 'visibility'}
                                         </span>
                                     </button>
                                 </div>
                             </div>
 
+                            {/* Submit Button */}
                             <button
-                                className="w-full py-4 auth-gradient text-white font-bold rounded-xl shadow-lg shadow-primary/20 transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
                                 type="submit"
                                 disabled={loading}
+                                className="w-full py-3.5 bg-primary hover:bg-primary/95 text-white font-bold text-xs rounded-xl shadow-md shadow-primary/20 transition-all flex items-center justify-center gap-2 disabled:opacity-50"
                             >
                                 {loading ? (
                                     <>
-                                        <span className="material-symbols-outlined animate-spin text-lg">refresh</span>
-                                        {mode === 'login' ? 'Signing In...' : 'Creating Account...'}
+                                        <span className="material-symbols-outlined animate-spin text-base">progress_activity</span>
+                                        <span>Authenticating...</span>
                                     </>
                                 ) : (
-                                    mode === 'login' ? 'Sign In to CuraTrack' : 'Create Account'
+                                    <span>{mode === 'login' ? 'Sign In' : 'Create Account'}</span>
                                 )}
                             </button>
+
+                            {/* Google Sign In */}
+                            <div className="pt-2">
+                                <button
+                                    type="button"
+                                    onClick={handleGoogleLogin}
+                                    disabled={googleLoading}
+                                    className="w-full py-3 bg-white hover:bg-surface-container border border-surface-container-high rounded-xl text-xs font-bold text-on-surface flex items-center justify-center gap-2 transition-all disabled:opacity-50"
+                                >
+                                    <svg className="w-4 h-4" viewBox="0 0 24 24">
+                                        <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" />
+                                        <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" />
+                                        <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.06H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.94l2.85-2.22.81-.63z" />
+                                        <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.06l3.66 2.84c.87-2.6 3.3-4.52 6.16-4.52z" />
+                                    </svg>
+                                    <span>Continue with Google</span>
+                                </button>
+                            </div>
                         </form>
-
-                        {/* Divider */}
-                        <div className="relative flex items-center py-2">
-                            <div className="flex-grow border-t border-surface-container-high"></div>
-                            <span className="flex-shrink mx-4 text-[10px] font-bold text-outline-variant uppercase tracking-widest">or continue with</span>
-                            <div className="flex-grow border-t border-surface-container-high"></div>
-                        </div>
-
-                        {/* Google OAuth */}
-                        <div className="grid gap-4 relative z-50">
-                            <button
-                                type="button"
-                                onClick={handleGoogleLogin}
-                                onTouchEnd={handleGoogleLogin}
-                                disabled={googleLoading || loading}
-                                className="flex items-center justify-center gap-3 py-4 px-4 bg-surface-container-low rounded-xl font-bold text-on-surface hover:bg-surface-container-high active:bg-surface-container-highest transition-all cursor-pointer touch-manipulation disabled:opacity-50 relative z-50 select-none"
-                            >
-                                {googleLoading ? (
-                                    <div className="flex items-center gap-2 pointer-events-none">
-                                        <span className="material-symbols-outlined animate-spin text-lg">refresh</span>
-                                        Redirecting to Google...
-                                    </div>
-                                ) : (
-                                    <div className="flex items-center gap-3 pointer-events-none">
-                                        <svg className="w-5 h-5" viewBox="0 0 24 24">
-                                            <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4"></path>
-                                            <path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853"></path>
-                                            <path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" fill="#FBBC05"></path>
-                                            <path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335"></path>
-                                        </svg>
-                                        <span>Continue with Google</span>
-                                    </div>
-                                )}
-                            </button>
-                        </div>
                     </div>
                 </div>
-
-                <footer className="mt-8 flex gap-8 text-[13px] text-outline-variant font-semibold">
-                    <a className="hover:text-primary transition-colors" href="#">Privacy Policy</a>
-                    <a className="hover:text-primary transition-colors" href="#">Terms of Service</a>
-                    <a className="hover:text-primary transition-colors" href="#">Contact Support</a>
-                </footer>
             </section>
         </div>
     );
