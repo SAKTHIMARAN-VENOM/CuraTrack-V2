@@ -158,6 +158,90 @@ def save_admin_onboarding(user_id: str, payload: dict) -> dict:
     return {"success": True, "profile_completed": True, "message": "Admin onboarding completed successfully."}
 
 
+def save_fhw_onboarding(user_id: str, payload: dict) -> dict:
+    """Save Frontline Health Worker (ASHA/ANM) profile details."""
+    timestamp = datetime.utcnow().isoformat() + "Z"
+    record = {
+        "user_id": user_id,
+        "name": payload.get("name", ""),
+        "worker_type": payload.get("worker_type", "ASHA"),  # ASHA, ANM, MPW
+        "asha_id": payload.get("asha_id", f"ASHA-{user_id[:6]}"),
+        "village_name": payload.get("village_name", ""),
+        "sub_centre": payload.get("sub_centre", ""),
+        "parent_phc": payload.get("parent_phc", ""),
+        "contact_phone": payload.get("contact_phone", ""),
+        "profile_completed": True,
+        "updated_at": timestamp
+    }
+
+    if _supabase:
+        try:
+            _supabase.table("profiles").upsert({
+                "id": user_id,
+                "name": payload.get("name", ""),
+                "role": "fhw",
+                "profile_completed": True,
+            }).execute()
+
+            _supabase.table("fhw_profile").upsert({
+                "fhw_id": user_id,
+                "name": payload.get("name", ""),
+                "worker_type": payload.get("worker_type", "ASHA"),
+                "asha_id": payload.get("asha_id", f"ASHA-{user_id[:6]}"),
+                "village_name": payload.get("village_name", ""),
+                "sub_centre": payload.get("sub_centre", ""),
+                "parent_phc": payload.get("parent_phc", ""),
+                "contact_phone": payload.get("contact_phone", ""),
+                "updated_at": timestamp
+            }).execute()
+        except Exception as e:
+            logger.error("Failed to save FHW onboarding to Supabase: %s", e)
+
+    _local_onboarding_db.setdefault("fhw", {})[user_id] = record
+    return {"success": True, "profile_completed": True, "message": "FHW onboarding completed successfully."}
+
+
+def save_facility_manager_onboarding(user_id: str, payload: dict) -> dict:
+    """Save Facility Manager / Pharmacist operations profile details."""
+    timestamp = datetime.utcnow().isoformat() + "Z"
+    record = {
+        "user_id": user_id,
+        "name": payload.get("name", ""),
+        "role_title": payload.get("role_title", "Facility Manager"),
+        "facility_name": payload.get("facility_name", ""),
+        "facility_type": payload.get("facility_type", "CHC"),  # PHC, CHC, Sub-District Hospital, DH
+        "district": payload.get("district", ""),
+        "block": payload.get("block", ""),
+        "license_number": payload.get("license_number", ""),
+        "contact_phone": payload.get("contact_phone", ""),
+        "profile_completed": True,
+        "updated_at": timestamp
+    }
+
+    if _supabase:
+        try:
+            _supabase.table("profiles").upsert({
+                "id": user_id,
+                "name": payload.get("name", ""),
+                "role": "facility_manager",
+                "profile_completed": True,
+            }).execute()
+
+            _supabase.table("facility_manager_profile").upsert({
+                "manager_id": user_id,
+                "name": payload.get("name", ""),
+                "facility_name": payload.get("facility_name", ""),
+                "facility_type": payload.get("facility_type", "CHC"),
+                "district": payload.get("district", ""),
+                "updated_at": timestamp
+            }).execute()
+        except Exception as e:
+            logger.error("Failed to save facility manager onboarding to Supabase: %s", e)
+
+    _local_onboarding_db.setdefault("facility_managers", {})[user_id] = record
+    return {"success": True, "profile_completed": True, "message": "Facility operations onboarding completed successfully."}
+
+
 def get_user_onboarding_status(user_id: str) -> dict:
     """Check if user has completed onboarding and fetch verification status if doctor."""
     if _supabase:
@@ -191,6 +275,14 @@ def get_user_onboarding_status(user_id: str) -> dict:
     admin = _local_onboarding_db["admins"].get(user_id)
     if admin:
         return {"profile_completed": True, "role": "admin", "verification_status": "verified"}
+
+    fhw = _local_onboarding_db.get("fhw", {}).get(user_id)
+    if fhw:
+        return {"profile_completed": True, "role": "fhw", "verification_status": "verified"}
+
+    fm = _local_onboarding_db.get("facility_managers", {}).get(user_id)
+    if fm:
+        return {"profile_completed": True, "role": "facility_manager", "verification_status": "verified"}
 
     # Default fallback check if in local verifications
     local_ver = _local_onboarding_db["verifications"].get(user_id)

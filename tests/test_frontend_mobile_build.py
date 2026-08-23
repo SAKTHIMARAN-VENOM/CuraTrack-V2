@@ -24,6 +24,7 @@ def test_frontend_project_structure():
         "app/(dashboard)/triage/page.tsx",
         "app/(dashboard)/referrals/page.tsx",
         "app/(dashboard)/fhw/page.tsx",
+        "app/(dashboard)/facility/page.tsx",
         "app/(dashboard)/records/page.tsx",
         "app/(dashboard)/telemedicine/page.tsx",
         "app/(dashboard)/alerts/page.tsx",

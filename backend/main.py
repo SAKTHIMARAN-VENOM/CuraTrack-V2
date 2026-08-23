@@ -9,7 +9,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from routes import insurance, government, health_news, health_risks, qr
 from routes import passport, ingest, activity, insights, ocr, onboarding
 from routes import google_fit_auth, drug_checker, sdoh, vitals_alerts, offline_transfer
-from routes import triage, referrals, fhw
+from routes import triage, referrals, fhw, facility
 from services.ocr_service import validate_tesseract_on_startup
 
 app = FastAPI(title="CuraTrack API", version="2.0.0")
@@ -54,6 +54,7 @@ app.include_router(offline_transfer.router, prefix="/api", tags=["Offline Blueto
 app.include_router(triage.router, prefix="/api", tags=["Digital Triage"])
 app.include_router(referrals.router, prefix="/api", tags=["Referral Pipeline"])
 app.include_router(fhw.router, prefix="/api", tags=["Frontline Health Worker"])
+app.include_router(facility.router, prefix="/api", tags=["Facility Operations"])
 
 @app.get("/")
 def read_root():
