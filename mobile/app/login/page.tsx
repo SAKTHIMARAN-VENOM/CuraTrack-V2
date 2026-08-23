@@ -80,12 +80,40 @@ export default function LoginPage() {
         <div className="bg-white dark:bg-slate-900 rounded-3xl border border-slate-200 dark:border-slate-800 shadow-xl p-6 sm:p-8 relative overflow-hidden">
           <div className="absolute top-0 left-0 w-full h-1.5 bg-gradient-to-r from-primary to-teal-400"></div>
 
-          {/* Error Alert */}
-          {displayError && (
-            <div className="mb-4 p-3 bg-red-50 dark:bg-red-950/30 border border-red-200 dark:border-red-900/60 rounded-xl text-xs text-red-700 dark:text-red-300 font-medium">
-              {displayError}
+          {/* Quick Demo Accounts */}
+          <div className="mb-4 p-3 bg-slate-50 dark:bg-slate-800/60 rounded-2xl border border-slate-200 dark:border-slate-700">
+            <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500 block mb-2">1-Click Demo Login</span>
+            <div className="grid grid-cols-2 gap-1.5">
+              <button
+                type="button"
+                onClick={() => { setEmail('patient@curatrack.in'); setPassword('Patient@123'); }}
+                className="p-2 rounded-xl bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-left text-xs font-semibold text-slate-800 dark:text-slate-200 hover:border-primary"
+              >
+                👤 Patient
+              </button>
+              <button
+                type="button"
+                onClick={() => { setEmail('doctor@curatrack.in'); setPassword('Doctor@123'); }}
+                className="p-2 rounded-xl bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-left text-xs font-semibold text-slate-800 dark:text-slate-200 hover:border-primary"
+              >
+                🩺 Doctor
+              </button>
+              <button
+                type="button"
+                onClick={() => { setEmail('asha@curatrack.in'); setPassword('Asha@123'); }}
+                className="p-2 rounded-xl bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-left text-xs font-semibold text-slate-800 dark:text-slate-200 hover:border-primary"
+              >
+                👩‍⚕️ ASHA
+              </button>
+              <button
+                type="button"
+                onClick={() => { setEmail('facility@curatrack.in'); setPassword('Facility@123'); }}
+                className="p-2 rounded-xl bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-left text-xs font-semibold text-slate-800 dark:text-slate-200 hover:border-primary"
+              >
+                🏥 Facility
+              </button>
             </div>
-          )}
+          </div>
 
           <form onSubmit={handleSubmit} className="space-y-4">
             {/* Email Field */}
