@@ -25,13 +25,34 @@ export default function RecordDetailPage() {
   const { getRecordById, records } = useApp();
   const [downloadToast, setDownloadToast] = useState(false);
 
-  const recordId = typeof params?.id === 'string' ? params.id : 'rec-1';
-  const record = getRecordById(recordId) || records[0];
+  const recordId = typeof params?.id === 'string' ? params.id : '';
+  const record = getRecordById(recordId) || records.find(r => r.id === recordId);
 
   const handleDownload = () => {
     setDownloadToast(true);
     setTimeout(() => setDownloadToast(false), 3000);
   };
+
+  if (!record) {
+    return (
+      <div className="flex-1 flex flex-col pb-24">
+        <TopAppBar title="Record Details" showBack={true} />
+        <main className="flex-1 max-w-4xl mx-auto w-full px-4 py-12 text-center space-y-4">
+          <div className="w-16 h-16 bg-slate-100 dark:bg-slate-800 rounded-full flex items-center justify-center mx-auto text-slate-400">
+            <FileText className="w-8 h-8" />
+          </div>
+          <h2 className="text-lg font-bold text-on-surface">Record Not Found</h2>
+          <p className="text-xs text-on-surface-variant">The requested clinical record may have been archived or moved.</p>
+          <button
+            onClick={() => router.push('/records')}
+            className="px-4 py-2 bg-primary text-white text-xs font-bold rounded-xl shadow-sm"
+          >
+            Back to Records
+          </button>
+        </main>
+      </div>
+    );
+  }
 
   return (
     <div className="flex-1 flex flex-col pb-24">

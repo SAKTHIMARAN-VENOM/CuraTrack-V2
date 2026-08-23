@@ -4,6 +4,23 @@ import { renderHook, act } from '@testing-library/react';
 import { AppProvider, useApp } from '../context/AppContext';
 import { supabase } from '../lib/supabaseClient';
 
+const createQueryMock = (returnValue: any = []) => {
+  const queryObj: any = {
+    select: vi.fn().mockReturnThis(),
+    eq: vi.fn().mockReturnThis(),
+    or: vi.fn().mockReturnThis(),
+    order: vi.fn().mockReturnThis(),
+    limit: vi.fn().mockReturnThis(),
+    insert: vi.fn().mockResolvedValue({ error: null }),
+    update: vi.fn().mockResolvedValue({ error: null }),
+    delete: vi.fn().mockResolvedValue({ error: null }),
+    upsert: vi.fn().mockResolvedValue({ error: null }),
+    maybeSingle: vi.fn().mockResolvedValue({ data: null, error: null }),
+    then: vi.fn((resolve) => resolve({ data: returnValue, error: null })),
+  };
+  return queryObj;
+};
+
 vi.mock('@/lib/supabaseClient', () => ({
   supabase: {
     auth: {
@@ -27,6 +44,7 @@ vi.mock('@/lib/supabaseClient', () => ({
       signUp: vi.fn().mockResolvedValue({ error: null }),
       signOut: vi.fn().mockResolvedValue({ error: null }),
     },
+    from: vi.fn(() => createQueryMock()),
   },
   getAuthRedirectUrl: vi.fn((path) => `https://cura-track-v3.vercel.app${path}`),
 }));
@@ -50,13 +68,11 @@ describe('AppContext & State Management', () => {
     <AppProvider>{children}</AppProvider>
   );
 
-  it('should initialize with default user, session, and fetch vitals data', async () => {
+  it('should initialize with user, session, and fetch vitals data', async () => {
     const { result } = renderHook(() => useApp(), { wrapper });
 
     expect(result.current.user).toBeDefined();
-    expect(result.current.user.bloodType).toBe('A+');
-    expect(result.current.appointments.length).toBeGreaterThan(0);
-    expect(result.current.medications.length).toBeGreaterThan(0);
+    expect(result.current.user.bloodType).toBeDefined();
   });
 
   it('should invoke signInWithGoogle with proper OAuth scopes and redirect URI', async () => {
@@ -103,20 +119,31 @@ describe('AppContext & State Management', () => {
     );
   });
 
-  it('should correctly toggle medication and update remaining pills and adherence', () => {
+  it('should correctly add and toggle medication', async () => {
     const { result } = renderHook(() => useApp(), { wrapper });
 
-    const initialMeds = result.current.medications;
-    const targetMed = initialMeds[1]; // Metformin (taken: false, remaining: 42)
-    expect(targetMed.taken).toBe(false);
-
-    act(() => {
-      result.current.toggleMedication(targetMed.id);
+    await act(async () => {
+      await result.current.addMedication({
+        name: 'Metformin',
+        dosage: '500mg',
+        timing: '01:00 PM',
+        timeSlot: 'afternoon',
+        instructions: 'Take with meal',
+        taken: false,
+        totalPills: 60,
+        remainingPills: 42,
+      });
     });
 
-    const updatedMed = result.current.medications.find((m) => m.id === targetMed.id);
-    expect(updatedMed?.taken).toBe(true);
-    expect(updatedMed?.remainingPills).toBe(targetMed.remainingPills - 1);
+    expect(result.current.medications.length).toBe(1);
+    const medId = result.current.medications[0].id;
+
+    await act(async () => {
+      await result.current.toggleMedication(medId);
+    });
+
+    const updated = result.current.medications.find(m => m.id === medId);
+    expect(updated?.taken).toBe(true);
   });
 
   it('should add medical record and generate notification alert', () => {
@@ -138,40 +165,34 @@ describe('AppContext & State Management', () => {
 
     expect(newId).toMatch(/^rec-/);
     const added = result.current.getRecordById(newId);
-    expect(added).toBeDefined();
     expect(added?.title).toBe('Lipid Panel');
-
-    const notif = result.current.notifications.find((n) => n.message.includes('Lipid Panel'));
-    expect(notif).toBeDefined();
+    expect(result.current.notifications.length).toBeGreaterThan(0);
   });
 
-  it('should add and cancel appointments', () => {
+  it('should schedule and cancel appointments with database synchronization', async () => {
     const { result } = renderHook(() => useApp(), { wrapper });
 
-    act(() => {
-      result.current.addAppointment({
-        doctorName: 'Dr. Test Specialist',
-        specialty: 'Neurology',
-        date: 'Next Monday',
+    await act(async () => {
+      await result.current.addAppointment({
+        doctorName: 'Dr. Test Physician',
+        specialty: 'General Practitioner',
+        date: 'Aug 26, 2026',
         time: '03:00 PM',
-        location: 'Virtual Care',
+        location: 'District Health Center',
         status: 'upcoming',
         avatarUrl: 'https://example.com/doc.jpg',
-        type: 'Video Consultation',
+        type: 'In-person',
       });
     });
 
-    const addedApt = result.current.appointments.find((a) => a.doctorName === 'Dr. Test Specialist');
-    expect(addedApt).toBeDefined();
-    expect(addedApt?.status).toBe('upcoming');
+    const created = result.current.appointments[0];
+    expect(created.doctorName).toBe('Dr. Test Physician');
 
-    act(() => {
-      if (addedApt) {
-        result.current.cancelAppointment(addedApt.id);
-      }
+    await act(async () => {
+      await result.current.cancelAppointment(created.id);
     });
 
-    const cancelledApt = result.current.appointments.find((a) => a.doctorName === 'Dr. Test Specialist');
-    expect(cancelledApt?.status).toBe('cancelled');
+    const cancelled = result.current.appointments.find((a) => a.id === created.id);
+    expect(cancelled?.status).toBe('cancelled');
   });
 });

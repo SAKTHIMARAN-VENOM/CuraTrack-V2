@@ -64,12 +64,12 @@ export default function UserProfilePage() {
                 </span>
               </div>
               <p className="text-xs text-on-surface-variant mt-0.5">
-                {user.gender} • {user.age} Years Old • ID: CT-99482
+                {user.gender} • {user.age} Years Old • ID: {user.email ? `ABHA-${user.email.split('@')[0].toUpperCase()}` : 'ABHA-VERIFIED'}
               </p>
 
               <div className="flex flex-wrap gap-1.5 mt-3 justify-center sm:justify-start">
-                <span className="bg-secondary-container text-on-secondary-container px-3 py-0.5 rounded-full text-[11px] font-bold">
-                  Platinum Member
+                <span className="bg-emerald-100 dark:bg-emerald-950/60 text-emerald-800 dark:text-emerald-300 px-3 py-0.5 rounded-full text-[11px] font-bold">
+                  Ayushman Beneficiary
                 </span>
                 <span className="bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 px-3 py-0.5 rounded-full text-[11px] font-bold">
                   Blood Group {user.bloodType}

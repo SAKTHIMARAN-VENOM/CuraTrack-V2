@@ -37,9 +37,9 @@ export default function MedicalRecordsPage() {
   const [newDoc, setNewDoc] = useState({
     title: '',
     category: 'Lab Report' as const,
-    doctor: 'Dr. Sarah Jenkins',
-    facility: 'Quest Diagnostic Labs',
-    summary: 'Comprehensive lab tests and biomarkers analysis.',
+    doctor: 'Attending Physician',
+    facility: 'Health Centre / Lab',
+    summary: 'Clinical medical record document.',
   });
 
   const categories = ['All', 'Lab Report', 'Imaging', 'Prescription', 'Cardiology'];

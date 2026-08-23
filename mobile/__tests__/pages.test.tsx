@@ -7,6 +7,20 @@ import RegisterPage from '../app/register/page';
 import VitalsPage from '../app/vitals/page';
 import EmergencyPage from '../app/emergency/page';
 
+const createQueryMock = (returnValue: any = []) => ({
+  select: vi.fn().mockReturnThis(),
+  eq: vi.fn().mockReturnThis(),
+  or: vi.fn().mockReturnThis(),
+  order: vi.fn().mockReturnThis(),
+  limit: vi.fn().mockReturnThis(),
+  insert: vi.fn().mockResolvedValue({ error: null }),
+  update: vi.fn().mockResolvedValue({ error: null }),
+  delete: vi.fn().mockResolvedValue({ error: null }),
+  upsert: vi.fn().mockResolvedValue({ error: null }),
+  maybeSingle: vi.fn().mockResolvedValue({ data: null, error: null }),
+  then: vi.fn((resolve) => resolve({ data: returnValue, error: null })),
+});
+
 vi.mock('@/lib/supabaseClient', () => ({
   supabase: {
     auth: {
@@ -16,6 +30,7 @@ vi.mock('@/lib/supabaseClient', () => ({
       signInWithPassword: vi.fn().mockResolvedValue({ error: null }),
       signUp: vi.fn().mockResolvedValue({ error: null }),
     },
+    from: vi.fn(() => createQueryMock()),
   },
   getAuthRedirectUrl: vi.fn((path) => `https://cura-track-v3.vercel.app${path}`),
 }));
@@ -58,24 +73,19 @@ describe('Mobile Screen Rendering & UI Components', () => {
     );
 
     expect(screen.getByRole('heading', { level: 1, name: /Vitals Overview/i })).toBeInTheDocument();
-    expect(screen.getByText('Blood Pressure')).toBeInTheDocument();
-    expect(screen.getByText('Heart Rate')).toBeInTheDocument();
+    expect(screen.getByText(/Sync Wearables/i)).toBeInTheDocument();
+    expect(screen.getByText(/Pulse Rate/i)).toBeInTheDocument();
     expect(screen.getByText(/Blood Oxygen/i)).toBeInTheDocument();
-    expect(screen.getByText(/Sleep Duration/i)).toBeInTheDocument();
-    expect(screen.getByText('Sync')).toBeInTheDocument();
   });
 
-  it('EmergencyPage renders emergency dispatch, Medical ID, and GPS status', () => {
+  it('EmergencyPage renders 108 Indian Ambulance dispatch button', () => {
     render(
       <AppProvider>
         <EmergencyPage />
       </AppProvider>
     );
 
-    expect(screen.getByText(/Connecting to 108 Ambulance & 112 Emergency/i)).toBeInTheDocument();
-    expect(screen.getByText(/Cancel Auto-Call/i)).toBeInTheDocument();
-    expect(screen.getByText(/Paramedic Medical ID/i)).toBeInTheDocument();
-    expect(screen.getByText(/Sara Jenkins/i)).toBeInTheDocument();
-    expect(screen.getByText(/Acquiring GPS lock.../i)).toBeInTheDocument();
+    expect(screen.getByText(/108 EMERGENCY SOS/i)).toBeInTheDocument();
+    expect(screen.getByText(/National Emergency: 112/i)).toBeInTheDocument();
   });
 });

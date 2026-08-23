@@ -30,11 +30,7 @@ export default function HomeDashboardPage() {
   const [isVideoOff, setIsVideoOff] = useState<boolean>(false);
   const [callDuration, setCallDuration] = useState<number>(0);
 
-  const nextAppointment = appointments.find((a) => a.status === 'upcoming') || {
-    doctorName: 'Dr. James Alexander',
-    specialty: 'General Specialist • Video Consultation',
-    time: 'Today at 02:30 PM (In 15 mins)',
-  };
+  const nextAppointment = appointments.find((a) => a.status === 'upcoming');
 
   // Timer for active call
   React.useEffect(() => {
@@ -272,28 +268,35 @@ export default function HomeDashboardPage() {
           </div>
 
           {/* Doctor Details Box */}
-          <div className="p-3.5 bg-[#E6F2F2] dark:bg-slate-800/80 rounded-2xl border border-[#008080]/20 dark:border-slate-700/60 flex items-center gap-3">
-            <div className="w-12 h-12 rounded-2xl bg-[#006666] text-white font-extrabold text-lg flex items-center justify-center shrink-0 shadow-sm">
-              D
-            </div>
-            <div className="flex-1 min-w-0">
-              <div className="flex items-center justify-between gap-1">
-                <h4 className="font-bold text-slate-900 dark:text-white text-sm truncate">
-                  {nextAppointment.doctorName || 'Dr. James Alexander'}
-                </h4>
-                <span className="bg-[#008080]/15 text-[#006666] dark:bg-[#008080]/30 dark:text-[#E6F2F2] text-[10px] font-bold px-2 py-0.5 rounded-full shrink-0">
-                  Ready
-                </span>
+          {nextAppointment ? (
+            <div className="p-3.5 bg-[#E6F2F2] dark:bg-slate-800/80 rounded-2xl border border-[#008080]/20 dark:border-slate-700/60 flex items-center gap-3">
+              <div className="w-12 h-12 rounded-2xl bg-[#006666] text-white font-extrabold text-lg flex items-center justify-center shrink-0 shadow-sm">
+                {nextAppointment.doctorName ? nextAppointment.doctorName.charAt(3) || 'D' : 'D'}
               </div>
-              <p className="text-[11px] text-slate-600 dark:text-slate-400 truncate mt-0.5">
-                {nextAppointment.specialty || 'General Specialist • Video Consultation'}
-              </p>
-              <div className="flex items-center gap-1 text-[11px] font-bold text-[#006666] dark:text-teal-300 mt-1">
-                <Clock className="w-3 h-3" />
-                <span>{nextAppointment.time || 'Today at 02:30 PM (In 15 mins)'}</span>
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center justify-between gap-1">
+                  <h4 className="font-bold text-slate-900 dark:text-white text-sm truncate">
+                    {nextAppointment.doctorName}
+                  </h4>
+                  <span className="bg-[#008080]/15 text-[#006666] dark:bg-[#008080]/30 dark:text-[#E6F2F2] text-[10px] font-bold px-2 py-0.5 rounded-full shrink-0">
+                    Confirmed
+                  </span>
+                </div>
+                <p className="text-[11px] text-slate-600 dark:text-slate-400 truncate mt-0.5">
+                  {nextAppointment.specialty} • {nextAppointment.type}
+                </p>
+                <div className="flex items-center gap-1 text-[11px] font-bold text-[#006666] dark:text-teal-300 mt-1">
+                  <Clock className="w-3 h-3" />
+                  <span>{nextAppointment.date} at {nextAppointment.time}</span>
+                </div>
               </div>
             </div>
-          </div>
+          ) : (
+            <div className="p-4 bg-slate-50 dark:bg-slate-800/60 rounded-2xl border border-dashed border-slate-200 dark:border-slate-700 text-center space-y-1">
+              <p className="text-xs font-bold text-slate-700 dark:text-slate-200">No Upcoming Appointments</p>
+              <p className="text-[11px] text-slate-400">Book an in-person visit or instant video call with a doctor.</p>
+            </div>
+          )}
 
           {/* Compartment Actions: Instant Call & Book Visit */}
           <div className="grid grid-cols-2 gap-2.5 pt-1">

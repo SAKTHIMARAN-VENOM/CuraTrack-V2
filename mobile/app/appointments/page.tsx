@@ -23,18 +23,21 @@ import {
 export default function AppointmentsPage() {
   const { appointments, cancelAppointment } = useApp();
   const [filterTab, setFilterTab] = useState<'all' | 'upcoming' | 'past' | 'cancelled'>('upcoming');
-  const [selectedDay, setSelectedDay] = useState(17);
+  const today = new Date();
+  const [selectedDay, setSelectedDay] = useState(today.getDate());
 
-  const days = [
-    { day: 'Mon', num: 15, hasApt: false },
-    { day: 'Tue', num: 16, hasApt: false },
-    { day: 'Wed', num: 17, hasApt: true },
-    { day: 'Thu', num: 18, hasApt: false },
-    { day: 'Fri', num: 19, hasApt: false },
-    { day: 'Sat', num: 20, hasApt: false },
-    { day: 'Sun', num: 21, hasApt: false },
-    { day: 'Mon', num: 22, hasApt: true },
-  ];
+  const currentMonthYear = today.toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
+
+  // Generate real 7-day strip from today
+  const days = Array.from({ length: 7 }, (_, i) => {
+    const d = new Date();
+    d.setDate(today.getDate() + i);
+    const dayStr = d.toLocaleDateString('en-US', { weekday: 'short' });
+    const num = d.getDate();
+    const formattedDate = d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+    const hasApt = appointments.some(a => a.date && a.date.includes(formattedDate));
+    return { day: dayStr, num, hasApt, fullDate: formattedDate };
+  });
 
   const filteredAppointments = appointments.filter((apt) => {
     if (filterTab === 'all') return true;
@@ -67,7 +70,7 @@ export default function AppointmentsPage() {
         {/* Horizontal Interactive Calendar strip */}
         <div className="bg-white dark:bg-slate-900 rounded-2xl p-4 sm:p-5 shadow-card border border-surface-container-high dark:border-slate-800">
           <div className="flex items-center justify-between mb-3">
-            <span className="text-sm font-bold text-on-surface">August 2026</span>
+            <span className="text-sm font-bold text-on-surface">{currentMonthYear}</span>
             <div className="flex items-center gap-1">
               <button className="p-1 rounded-full text-slate-400 hover:text-slate-700 dark:hover:text-slate-200">
                 <ChevronLeft className="w-4 h-4" />
