@@ -98,10 +98,16 @@ export default function DoctorClinicalDashboardPage() {
   // Fetch Live Queue from Supabase Database
   const fetchLiveQueue = useCallback(async (docId: string) => {
     try {
-      const { data: dbAppts } = await supabase
+      let query = supabase
         .from('appointments')
         .select('*')
         .order('created_at', { ascending: false });
+
+      if (docId) {
+        query = query.or(`doctor_id.eq.${docId},doctor_id.ilike.%doc-%`);
+      }
+
+      const { data: dbAppts } = await query;
 
       if (!dbAppts || dbAppts.length === 0) {
         setQueue([]);
@@ -173,7 +179,7 @@ export default function DoctorClinicalDashboardPage() {
     async function initializeDoctorSessionAndRealtime() {
       try {
         let docId: string | null = null;
-        let docName = 'Dr. David Ross';
+        let docName = 'Medical Officer';
         let docEmail = 'doctor@curatrack.in';
 
         try {
@@ -213,7 +219,7 @@ export default function DoctorClinicalDashboardPage() {
           });
         }
 
-        // Fetch Initial Queue Data
+        // Fetch Initial Queue Data from Supabase
         await fetchLiveQueue(finalDocId);
 
         // Fetch active incoming telemedicine calls
@@ -227,7 +233,7 @@ export default function DoctorClinicalDashboardPage() {
 
         if (isMounted && activeAppts && activeAppts.length > 0) {
           const appt = activeAppts[0];
-          let patientName = 'Kavita Bai';
+          let patientName = 'Patient';
           if (appt.client_id) {
             try {
               const { data: prof } = await supabase.from('profiles').select('name').eq('id', appt.client_id).maybeSingle();
@@ -243,7 +249,7 @@ export default function DoctorClinicalDashboardPage() {
 
     initializeDoctorSessionAndRealtime();
 
-    // Subscribe to realtime changes on appointments table for live queue and incoming calls
+    // Subscribe to realtime changes on appointments table for live queue (INSERT, UPDATE, DELETE)
     const channel = supabase
       .channel('doctor_portal_live_queue_v3')
       .on(
@@ -256,8 +262,8 @@ export default function DoctorClinicalDashboardPage() {
         async (payload) => {
           if (!isMounted) return;
 
-          // Refetch live queue when any appointment changes
-          fetchLiveQueue(activeDoctorId || 'doc-david-ross');
+          // Refetch live queue when any appointment changes (INSERT, UPDATE, DELETE)
+          fetchLiveQueue(activeDoctorId || '');
 
           const incoming = payload.new as Appointment;
           if (!incoming || !incoming.room_id) return;
@@ -274,7 +280,7 @@ export default function DoctorClinicalDashboardPage() {
             if (isMounted) {
               setIncomingCall({
                 ...incoming,
-                patient_name: patientName || 'Kavita Bai',
+                patient_name: patientName,
               });
               setRealtimeConnected(true);
             }
