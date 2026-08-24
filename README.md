@@ -1,13 +1,13 @@
-# 🧬 CuraTrack V3 — Unified AI Healthcare & Public Health Ecosystem
+# 🧬 CuraTrack V2 — Unified AI Healthcare & Public Health Ecosystem
 
-[![Next.js](https://img.shields.io/badge/Next.js-15.0_Turbopack-black?style=for-the-badge&logo=next.js)](https://nextjs.org/)
-[![FastAPI](https://img.shields.io/badge/FastAPI-0.100+-009688?style=for-the-badge&logo=fastapi)](https://fastapi.tiangolo.com/)
-[![React Native](https://img.shields.io/badge/React_Native-Expo_SDK_54-000000?style=for-the-badge&logo=expo)](https://expo.dev/)
+[![Next.js](https://img.shields.io/badge/Next.js-16.2_Turbopack-black?style=for-the-badge&logo=next.js)](https://nextjs.org/)
+[![FastAPI](https://img.shields.io/badge/FastAPI-0.115+-009688?style=for-the-badge&logo=fastapi)](https://fastapi.tiangolo.com/)
+[![React Native](https://img.shields.io/badge/React_Native-Expo-000000?style=for-the-badge&logo=expo)](https://expo.dev/)
 [![Supabase](https://img.shields.io/badge/Supabase-PostgreSQL_|_RLS-3ECF8E?style=for-the-badge&logo=supabase)](https://supabase.com/)
 [![WebRTC](https://img.shields.io/badge/WebRTC-P2P_Video-333333?style=for-the-badge&logo=webrtc)](https://webrtc.org/)
 [![License](https://img.shields.io/badge/License-MIT-blue.svg?style=for-the-badge)](LICENSE)
 
-> **Empathetic Precision in Modern Digital Public Health** — **CuraTrack V3** is a comprehensive, production-grade healthcare ecosystem designed for India's public and rural health infrastructure. It bridges citizens, ASHA frontline health workers, primary health centres (PHCs), community health centres (CHCs), and district hospitals through seamless digital clinical triage, end-to-end referral pipelines, EDL drug stock tracking, real-time wearable telemetry, peer-to-peer WebRTC teleconsultation, and emergency 108/112 dispatch.
+> **Empathetic Precision in Modern Digital Public Health** — **CuraTrack V2** is a comprehensive, production-grade healthcare ecosystem designed for India's public and rural health infrastructure. It bridges citizens, ASHA frontline health workers, primary health centres (PHCs), community health centres (CHCs), and district hospitals through seamless digital clinical triage, end-to-end referral pipelines, EDL drug stock tracking, real-time wearable telemetry, peer-to-peer WebRTC teleconsultation, and emergency 108/112 dispatch.
 
 ---
 
@@ -63,7 +63,7 @@ graph TD
 
 ## 🔑 5-Tier Public Health Role Architecture (RBAC)
 
-CuraTrack V3 implements strict **1-user-1-role access control**. Users are strictly scoped to their designated portal upon authentication without cross-role leakage:
+CuraTrack V2 implements strict **1-user-1-role access control**. Users are strictly scoped to their designated portal upon authentication without cross-role leakage:
 
 | Stakeholder Role | Portal Route | Primary Capabilities | Default Demo Credentials |
 | :--- | :--- | :--- | :--- |
@@ -133,11 +133,11 @@ CuraTrack V3 implements strict **1-user-1-role access control**. Users are stric
 
 | Tier | Component | Technology |
 | :--- | :--- | :--- |
-| **Web Frontend** | Core Framework | Next.js 15+ (App Router & Turbopack), React 19, TypeScript |
+| **Web Frontend** | Core Framework | Next.js 16+ (App Router & Turbopack), React 19, TypeScript |
 | | Styling & Components | Vanilla Tailwind CSS v4, Lucide Icons, Material Symbols, Framer Motion |
-| **Mobile App** | Core Framework | React Native (Expo SDK 54), Expo Router, TypeScript |
+| **Mobile App** | Core Framework | React Native / Next.js, Expo, TypeScript |
 | | Native Build | Standalone Android Gradle Project (`/android`) |
-| **Backend API** | Server Framework | Python 3.10+, FastAPI, Uvicorn, Pydantic v2, HTTPX |
+| **Backend API** | Server Framework | Python 3.10+, FastAPI (0.115+), Uvicorn, Pydantic v2, HTTPX |
 | **AI & Vision** | Multimodal LLMs | Google Gemini API (`gemini-flash-latest`), Ollama Llama 3.1 |
 | | OCR Engine | Tesseract OCR v5 (Bundled Windows binaries included) |
 | **Database & Realtime** | Data Storage | Supabase PostgreSQL with Row Level Security (RLS) |
@@ -310,4 +310,4 @@ SUCCESS: ALL TESTS PASSED! Your changes are safe to push to production.
 
 Distributed under the **MIT License**. See `LICENSE` for details.
 
-**CuraTrack V3 — Empathetic Precision in Modern Digital Public Health.**
+**CuraTrack V2 — Empathetic Precision in Modern Digital Public Health.**
