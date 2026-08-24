@@ -569,20 +569,31 @@ function DigitalTriageContent() {
       {/* ========================================================================= */}
       {!selectedPatient ? (
         <div className="space-y-6 animate-in fade-in duration-300">
-          {/* Search bar */}
-          <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 bg-white p-4 rounded-3xl border border-surface-container-high shadow-card">
-            <div className="flex items-center gap-3 flex-1">
-              <span className="material-symbols-outlined text-tertiary">search</span>
-              <input
-                type="text"
-                placeholder="Search active patients by Name, ABHA ID, or Token..."
-                value={patientSearch}
-                onChange={e => setPatientSearch(e.target.value)}
-                className="w-full text-xs font-semibold bg-transparent outline-none text-on-surface"
-              />
-            </div>
-            <div className="text-[11px] font-bold text-tertiary px-3">
-              {patients.length} Patients in Outpatient Queue
+          {/* Search bar - Centered & Shortened */}
+          <div className="flex justify-center w-full">
+            <div className="w-full max-w-xl flex items-center justify-between gap-3 bg-white px-5 py-3 rounded-full border border-surface-container-high shadow-sm hover:shadow-md focus-within:ring-2 focus-within:ring-primary/20 focus-within:border-primary transition-all">
+              <div className="flex items-center gap-3 flex-1">
+                <span className="material-symbols-outlined text-primary text-xl">search</span>
+                <input
+                  type="text"
+                  placeholder="Search active patients by Name, ABHA ID, or Token..."
+                  value={patientSearch}
+                  onChange={e => setPatientSearch(e.target.value)}
+                  className="w-full text-xs font-semibold bg-transparent outline-none text-on-surface placeholder:text-tertiary"
+                />
+                {patientSearch && (
+                  <button
+                    type="button"
+                    onClick={() => setPatientSearch('')}
+                    className="text-tertiary hover:text-on-surface transition-colors p-0.5"
+                  >
+                    <span className="material-symbols-outlined text-sm">close</span>
+                  </button>
+                )}
+              </div>
+              <div className="text-[11px] font-bold text-tertiary px-3 shrink-0">
+                {patients.length} in Queue
+              </div>
             </div>
           </div>
 
