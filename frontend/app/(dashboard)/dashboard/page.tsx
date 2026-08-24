@@ -369,16 +369,6 @@ export default function Dashboard() {
             <div>
                 <h3 className="text-lg font-extrabold text-on-surface mb-4">Patient Health Actions</h3>
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
-                    <button onClick={() => router.push('/triage')} className="group p-5 bg-white rounded-2xl shadow-sm hover:shadow-md transition-all flex flex-col gap-3 text-left border border-surface-container-high hover:border-primary">
-                        <div className="h-10 w-10 bg-primary/10 rounded-xl flex items-center justify-center text-primary group-hover:scale-105 transition-transform">
-                            <span className="material-symbols-outlined text-xl">medical_information</span>
-                        </div>
-                        <div>
-                            <p className="font-bold text-sm text-on-surface">Symptom Checker</p>
-                            <p className="text-xs text-tertiary">Urgency assessment & facility advice</p>
-                        </div>
-                    </button>
-
                     <button onClick={() => router.push('/telemedicine')} className="group p-5 bg-white rounded-2xl shadow-sm hover:shadow-md transition-all flex flex-col gap-3 text-left border border-surface-container-high hover:border-primary">
                         <div className="h-10 w-10 bg-primary/10 rounded-xl flex items-center justify-center text-primary group-hover:scale-105 transition-transform">
                             <span className="material-symbols-outlined text-xl">video_chat</span>

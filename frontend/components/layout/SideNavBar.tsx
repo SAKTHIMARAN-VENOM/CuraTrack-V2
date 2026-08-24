@@ -11,7 +11,6 @@ export type UserRole = 'patient' | 'doctor' | 'fhw' | 'facility_manager' | 'admi
 
 const PATIENT_NAV_ITEMS = [
     { href: '/dashboard', icon: 'dashboard', label: 'My Health Dashboard' },
-    { href: '/triage', icon: 'medical_information', label: 'Symptom Triage' },
     { href: '/telemedicine', icon: 'video_chat', label: 'Consult Doctor' },
     { href: '/records', icon: 'folder_shared', label: 'My Medical Records' },
     { href: '/benefits', icon: 'account_balance_wallet', label: 'Gov Schemes & PMJAY' },

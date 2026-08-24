@@ -158,3 +158,38 @@ def test_clean_headings_without_descriptive_definitions():
         assert "Structured continuity of care linking Ayushman" not in content
         assert "Rule-based urgency classification connecting rural" not in content
         assert "Choose a doctor and move directly into a secure consultation" not in content
+
+
+def test_patient_portal_removed_symptom_triage():
+    """Verify Symptom Triage is removed from Patient Portal while preserved for other staff portals."""
+    # 1. SideNavBar check
+    nav_path = os.path.join(ROOT_DIR, "frontend", "components", "layout", "SideNavBar.tsx")
+    assert os.path.exists(nav_path)
+    with open(nav_path, "r", encoding="utf-8") as f:
+        nav_content = f.read()
+
+    # Patient nav items must NOT have Symptom Triage or /triage
+    patient_nav_block = nav_content.split("PATIENT_NAV_ITEMS = [")[1].split("];")[0]
+    assert "Symptom Triage" not in patient_nav_block
+    assert "/triage" not in patient_nav_block
+
+    # FHW nav items MUST still have Community Triage
+    fhw_nav_block = nav_content.split("FHW_NAV_ITEMS = [")[1].split("];")[0]
+    assert "Community Triage" in fhw_nav_block
+    assert "/triage" in fhw_nav_block
+
+    # 2. Patient Dashboard check
+    dash_path = os.path.join(ROOT_DIR, "frontend", "app", "(dashboard)", "dashboard", "page.tsx")
+    assert os.path.exists(dash_path)
+    with open(dash_path, "r", encoding="utf-8") as f:
+        dash_content = f.read()
+    assert "Symptom Checker" not in dash_content
+    assert "router.push('/triage')" not in dash_content
+
+    # 3. Triage route guard check
+    triage_path = os.path.join(ROOT_DIR, "frontend", "app", "(dashboard)", "triage", "page.tsx")
+    assert os.path.exists(triage_path)
+    with open(triage_path, "r", encoding="utf-8") as f:
+        triage_content = f.read()
+    assert "userRole === 'patient'" in triage_content
+    assert "router.replace('/dashboard')" in triage_content

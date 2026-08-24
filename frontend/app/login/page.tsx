@@ -136,7 +136,7 @@ export default function LoginPage() {
                                 <span className="material-symbols-outlined text-primary text-xl">person</span>
                                 <div>
                                     <span className="text-xs font-bold text-on-surface block">Patient / Citizen</span>
-                                    <span className="text-[11px] text-tertiary">Vitals, Self-Triage, Records, PMJAY, 108 Emergency SOS</span>
+                                    <span className="text-[11px] text-tertiary">Vitals, Consult Doctor, Records, PMJAY, 108 Emergency SOS</span>
                                 </div>
                             </div>
 

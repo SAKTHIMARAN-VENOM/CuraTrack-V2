@@ -118,9 +118,23 @@ function DigitalTriageContent() {
         setCurrentDoctorId(user.id);
         const { data: docProf } = await supabase
           .from('profiles')
-          .select('name')
+          .select('name, role')
           .eq('id', user.id)
           .maybeSingle();
+
+        let userRole = docProf?.role;
+        if (!userRole) {
+          try {
+            const rawUser = localStorage.getItem('curatrack_auth_user');
+            if (rawUser) userRole = JSON.parse(rawUser)?.role;
+          } catch {}
+        }
+
+        if (userRole === 'patient') {
+          router.replace('/dashboard');
+          return;
+        }
+
         if (docProf?.name) setCurrentDoctorName(docProf.name);
       }
 
