@@ -30,10 +30,7 @@ export default function FrontlineHealthWorkerPage() {
     });
     const [registering, setRegistering] = useState<boolean>(false);
 
-    // Assisted Teleconsult Modal
-    const [selectedForConsult, setSelectedForConsult] = useState<any>(null);
-    const [initiatingConsult, setInitiatingConsult] = useState<boolean>(false);
-    const [consultComplaint, setConsultComplaint] = useState<string>('');
+
 
     const [isOnline, setIsOnline] = useState<boolean>(true);
     const [offlineSyncPending, setOfflineSyncPending] = useState<number>(0);
@@ -154,38 +151,7 @@ export default function FrontlineHealthWorkerPage() {
         }
     };
 
-    const handleStartAssistedConsult = async (e: React.FormEvent) => {
-        e.preventDefault();
-        if (!selectedForConsult || !consultComplaint) return;
-        setInitiatingConsult(true);
-        try {
-            const result = await apiFetch('/api/fhw/assisted-consult', {
-                method: 'POST',
-                body: JSON.stringify({
-                    beneficiary_id: selectedForConsult.id,
-                    beneficiary_name: selectedForConsult.name,
-                    asha_name: 'Sunita Tai (ASHA #402)',
-                    village_name: selectedForConsult.village_name,
-                    specialist_type: selectedForConsult.category === 'Maternal ANC' ? 'Obstetrician / Gynaecologist' : 'General Medical Officer',
-                    chief_complaint: consultComplaint,
-                    systolic_bp: 140,
-                    diastolic_bp: 90,
-                    spo2: 98,
-                    heart_rate: 80
-                })
-            }).catch(() => ({
-                room_id: `fhw-${selectedForConsult.id}-${Date.now().toString().slice(-4)}`
-            }));
 
-            const roomId = result?.room_id || `fhw-${selectedForConsult.id}`;
-            router.push(`/call/${roomId}`);
-        } catch (err: any) {
-            const fallbackRoom = `fhw-${selectedForConsult.id || 'teleconsult'}`;
-            router.push(`/call/${fallbackRoom}`);
-        } finally {
-            setInitiatingConsult(false);
-        }
-    };
 
     return (
         <div className="space-y-8 max-w-7xl mx-auto pb-16">
@@ -462,28 +428,22 @@ export default function FrontlineHealthWorkerPage() {
                                 )}
                             </div>
 
-                            {/* Action CTA */}
-                            <div className="pt-3 border-t border-surface-container-high flex items-center gap-2">
-                                <button
-                                    onClick={() => {
-                                        setSelectedForConsult(ben);
-                                        setConsultComplaint(`Assisted follow-up for ${ben.name} (${ben.category}) - ${ben.next_due_service}`);
-                                    }}
-                                    className="flex-1 py-2.5 bg-primary hover:bg-primary/90 text-white font-bold text-xs rounded-xl flex items-center justify-center gap-2 shadow-md transition-transform active:scale-95"
-                                >
-                                    <span className="material-symbols-outlined text-base">video_call</span>
-                                    <span>Assisted Teleconsultation</span>
-                                </button>
-                                {ben.contact_phone && (
+                            {/* Beneficiary Action */}
+                            {ben.contact_phone && (
+                                <div className="pt-3 border-t border-surface-container-high flex items-center justify-between">
+                                    <span className="text-xs text-tertiary">
+                                        Phone: <strong className="text-on-surface font-mono">{ben.contact_phone}</strong>
+                                    </span>
                                     <a
                                         href={`tel:${ben.contact_phone}`}
-                                        className="p-2.5 bg-surface-container hover:bg-surface-container-high text-on-surface rounded-xl flex items-center justify-center"
+                                        className="px-3.5 py-2 bg-surface-container-low hover:bg-surface-container text-primary font-bold text-xs rounded-xl flex items-center gap-1.5 transition-colors border border-surface-container"
                                         title="Call Beneficiary"
                                     >
                                         <span className="material-symbols-outlined text-base">call</span>
+                                        <span>Call</span>
                                     </a>
-                                )}
-                            </div>
+                                </div>
+                            )}
                         </div>
                     ))}
                 </div>
@@ -595,54 +555,7 @@ export default function FrontlineHealthWorkerPage() {
                 </div>
             )}
 
-            {/* Assisted Teleconsultation Modal */}
-            {selectedForConsult && (
-                <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
-                    <div className="bg-white max-w-lg w-full rounded-3xl p-6 shadow-2xl border border-surface-container-high animate-in fade-in zoom-in duration-200">
-                        <div className="flex items-center justify-between border-b border-surface-container-high pb-4 mb-4">
-                            <div>
-                                <span className="text-xs font-bold text-teal-600 block">ASHA Assisted Care Bridge</span>
-                                <h3 className="text-base font-bold text-on-surface">Teleconsult for {selectedForConsult.name}</h3>
-                            </div>
-                            <button onClick={() => setSelectedForConsult(null)} className="p-2 rounded-full text-tertiary hover:bg-surface-container">
-                                <span className="material-symbols-outlined">close</span>
-                            </button>
-                        </div>
 
-                        <form onSubmit={handleStartAssistedConsult} className="space-y-4">
-                            <div className="bg-surface-container-low p-4 rounded-2xl text-xs space-y-1">
-                                <p className="font-bold text-on-surface">Patient: {selectedForConsult.name} ({selectedForConsult.village_name})</p>
-                                <p className="text-tertiary">Category: {selectedForConsult.category} • Risk: {selectedForConsult.risk_level}</p>
-                            </div>
-
-                            <div>
-                                <label className="block text-xs font-semibold text-tertiary mb-1">Chief Clinical Complaint / ASHA Observations</label>
-                                <textarea
-                                    required
-                                    rows={3}
-                                    value={consultComplaint}
-                                    onChange={(e) => setConsultComplaint(e.target.value)}
-                                    className="w-full p-2.5 bg-surface-container-low rounded-xl text-xs text-on-surface border border-surface-container-high outline-none focus:border-primary"
-                                />
-                            </div>
-
-                            <div className="pt-2 flex justify-end gap-2">
-                                <button type="button" onClick={() => setSelectedForConsult(null)} className="px-4 py-2 rounded-xl text-xs font-bold text-tertiary">
-                                    Cancel
-                                </button>
-                                <button
-                                    type="submit"
-                                    disabled={initiatingConsult}
-                                    className="px-5 py-2.5 bg-primary hover:bg-primary/90 text-white font-bold text-xs rounded-xl shadow-md flex items-center gap-2"
-                                >
-                                    <span className="material-symbols-outlined text-base">video_call</span>
-                                    <span>{initiatingConsult ? 'Connecting...' : 'Launch Video Room'}</span>
-                                </button>
-                            </div>
-                        </form>
-                    </div>
-                </div>
-            )}
         </div>
     );
 }

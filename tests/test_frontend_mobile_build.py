@@ -97,6 +97,9 @@ def test_fhw_page_dropdown_filters_and_clean_heading():
     assert "id=\"fhw-risk-filter\"" in content
     assert "<select" in content
 
+    # Assisted teleconsultation button must be removed from catchment page
+    assert "Assisted Teleconsultation" not in content
+
 
 def test_clean_headings_without_descriptive_definitions():
     """Verify pages have clean headings without redundant descriptive paragraphs."""
