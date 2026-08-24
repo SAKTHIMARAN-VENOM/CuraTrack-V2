@@ -529,38 +529,12 @@ function DigitalTriageContent() {
       {/* Header banner */}
       <div className="bg-gradient-to-r from-primary via-[#004d40] to-teal-900 rounded-3xl p-8 text-white shadow-xl relative overflow-hidden">
         <div className="absolute right-0 top-0 w-96 h-96 bg-white/5 rounded-full blur-3xl pointer-events-none"></div>
-        <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 relative z-10">
-          <div>
-            <div className="inline-flex items-center gap-2 px-3 py-1 bg-white/10 backdrop-blur rounded-full text-xs font-semibold tracking-wide text-teal-200 mb-3">
-              <span className="material-symbols-outlined text-sm">clinical_notes</span>
-              <span>Clinical Protocol • Primary Healthcare Hierarchy</span>
-            </div>
-            <h1 className="text-3xl font-extrabold tracking-tight">Smart Clinical Triage &amp; Facility Routing</h1>
+        <div className="relative z-10 space-y-2">
+          <div className="inline-flex items-center gap-2 px-3 py-1 bg-white/10 backdrop-blur rounded-full text-xs font-semibold tracking-wide text-teal-200">
+            <span className="material-symbols-outlined text-sm">clinical_notes</span>
+            <span>Clinical Protocol • Primary Healthcare Hierarchy</span>
           </div>
-
-          <div className="flex items-center gap-3">
-            <Link
-              href="/doctor"
-              className="bg-white/15 hover:bg-white/25 text-white font-bold text-xs px-4 py-3 rounded-2xl flex items-center gap-2 backdrop-blur transition-all"
-            >
-              <span className="material-symbols-outlined text-lg">dashboard</span>
-              <span>Doctor Portal</span>
-            </Link>
-            <Link
-              href="/telemedicine"
-              className="bg-white/15 hover:bg-white/25 text-white font-bold text-xs px-4 py-3 rounded-2xl flex items-center gap-2 backdrop-blur transition-all"
-            >
-              <span className="material-symbols-outlined text-lg">videocam</span>
-              <span>Direct Teleconsult</span>
-            </Link>
-            <Link
-              href="/referrals"
-              className="bg-teal-400 text-teal-950 hover:bg-teal-300 font-bold text-xs px-4 py-3 rounded-2xl flex items-center gap-2 shadow-md transition-all"
-            >
-              <span className="material-symbols-outlined text-lg">alt_route</span>
-              <span>Referral Pipeline</span>
-            </Link>
-          </div>
+          <h1 className="text-3xl font-extrabold tracking-tight">Smart Clinical Triage &amp; Facility Routing</h1>
         </div>
       </div>
 
