@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState, useCallback } from 'react';
 import { createClient } from '@/lib/supabase/client';
 import { useRouter } from 'next/navigation';
+import { apiFetch } from '@/lib/api';
 
 interface Doctor {
   id: string;
@@ -18,6 +19,18 @@ interface Appointment {
   status: string;
   room_id: string;
   scheduled_time?: string;
+}
+
+interface Beneficiary {
+  id: string;
+  name: string;
+  age?: number;
+  gender?: string;
+  category?: string;
+  risk_level?: string;
+  village_name?: string;
+  next_due_service?: string;
+  risk_factors?: string[];
 }
 
 const TIME_SLOTS = [
@@ -56,6 +69,17 @@ export default function TelemedicinePage() {
   const [patientAppointments, setPatientAppointments] = useState<any[]>([]);
   const [bookingDoctorId, setBookingDoctorId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
+  const [beneficiaries, setBeneficiaries] = useState<Beneficiary[]>([]);
+  const [selectedBeneficiaryId, setSelectedBeneficiaryId] = useState<string>('');
+  const [ashaComplaint, setAshaComplaint] = useState('');
+  const [ashaPriority, setAshaPriority] = useState<'ROUTINE' | 'PRIORITY' | 'EMERGENCY'>('PRIORITY');
+  const [ashaVitals, setAshaVitals] = useState({
+    systolic: '130',
+    diastolic: '84',
+    spo2: '98',
+    heartRate: '76',
+    temperature: '98.6',
+  });
 
   // Scheduling state
   const [schedulingDoctorId, setSchedulingDoctorId] = useState<string | null>(null);
@@ -175,6 +199,33 @@ export default function TelemedicinePage() {
       ];
       const finalDoctors = (doctorsData && doctorsData.length > 0) ? doctorsData : defaultDoctorsList;
       setDoctors(finalDoctors);
+
+      if (finalProfile?.role === 'fhw') {
+        try {
+          const benData = await apiFetch('/api/fhw/beneficiaries');
+          const loadedBeneficiaries = benData?.beneficiaries || [];
+          setBeneficiaries(loadedBeneficiaries);
+          if (loadedBeneficiaries.length > 0) {
+            const firstBen = loadedBeneficiaries[0];
+            setSelectedBeneficiaryId(prev => prev || firstBen.id);
+            setAshaComplaint(prev => prev || firstBen.next_due_service || firstBen.risk_factors?.[0] || '');
+            setAshaPriority(firstBen.risk_level === 'HIGH' ? 'PRIORITY' : 'ROUTINE');
+          }
+        } catch (err) {
+          console.warn('Error loading ASHA beneficiaries:', err);
+          try {
+            const cached = localStorage.getItem('curatrack_fhw_cached_beneficiaries');
+            if (cached) {
+              const parsed = JSON.parse(cached);
+              setBeneficiaries(parsed);
+              if (parsed.length > 0) {
+                setSelectedBeneficiaryId((prev: string) => prev || parsed[0].id);
+                setAshaComplaint((prev: string) => prev || parsed[0].next_due_service || parsed[0].risk_factors?.[0] || '');
+              }
+            }
+          } catch {}
+        }
+      }
 
       if (finalProfile?.role === 'doctor') {
         try {
@@ -302,37 +353,134 @@ export default function TelemedicinePage() {
   };
 
   const isDoctor = profile?.role === 'doctor';
+  const isFhw = profile?.role === 'fhw';
+  const selectedBeneficiary = beneficiaries.find(ben => ben.id === selectedBeneficiaryId);
   const availableDoctors = doctors.length;
   const activeRequests = activeAppointments.length;
   const urgentQueue = activeAppointments.slice(0, 3);
-  const heroName = isDoctor ? 'Care Command' : 'Virtual Care';
+  const heroName = isDoctor ? 'Care Command' : isFhw ? 'Assisted Care' : 'Virtual Care';
+
+  const getInsertableAppointment = (payload: any) => {
+    const optionalColumns = [
+      'patient_name',
+      'beneficiary_id',
+      'asha_id',
+      'asha_name',
+      'village_name',
+      'priority',
+      'complaint',
+      'vitals_bp',
+      'vitals_hr',
+      'vitals_spo2',
+      'vitals_temp',
+      'vitals_bmi',
+      'consult_type',
+      'token',
+      'doctor_name',
+      'date',
+      'time',
+      'type',
+    ];
+
+    return async () => {
+      let { error } = await supabase.from('appointments').insert(payload);
+      if (!error) return null;
+
+      if (optionalColumns.some(column => error?.message?.includes(column))) {
+        const minimalPayload = { ...payload };
+        optionalColumns.forEach(column => delete minimalPayload[column]);
+        minimalPayload.notes = payload.notes;
+        const retry = await supabase.from('appointments').insert(minimalPayload);
+        error = retry.error;
+      }
+
+      return error;
+    };
+  };
+
+  const buildAssistedPayload = (doctorId: string, roomId: string, status: 'active' | 'ringing', scheduledTime: Date) => {
+    if (!user || !selectedBeneficiary) return null;
+    const doctor = doctors.find(d => d.id === doctorId);
+    const bp = `${Number(ashaVitals.systolic) || 0}/${Number(ashaVitals.diastolic) || 0}`;
+    const complaint = ashaComplaint.trim() || selectedBeneficiary.next_due_service || 'ASHA-assisted teleconsultation request';
+    const ashaName = profile?.name || user.name || 'Sunita Tai (ASHA)';
+    const notes = [
+      `Assisted teleconsult initiated by ${ashaName} for ${selectedBeneficiary.name}.`,
+      `Village: ${selectedBeneficiary.village_name || 'Not recorded'}.`,
+      `Chief complaint: ${complaint}.`,
+      `Vitals: BP ${bp} mmHg, HR ${ashaVitals.heartRate || 'N/A'} bpm, SpO2 ${ashaVitals.spo2 || 'N/A'}%, Temp ${ashaVitals.temperature || 'N/A'} F.`,
+      `Patient category: ${selectedBeneficiary.category || 'General'}; ASHA risk: ${selectedBeneficiary.risk_level || ashaPriority}.`,
+    ].join('\n');
+
+    return {
+      client_id: user.id,
+      doctor_id: doctorId,
+      doctor_name: doctor?.name || 'Doctor',
+      scheduled_time: scheduledTime.toISOString(),
+      room_id: roomId,
+      status,
+      date: scheduledTime.toISOString().split('T')[0],
+      time: scheduledTime.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+      type: 'video',
+      consult_type: 'assisted_teleconsult',
+      patient_name: selectedBeneficiary.name,
+      beneficiary_id: selectedBeneficiary.id,
+      asha_id: user.id,
+      asha_name: ashaName,
+      village_name: selectedBeneficiary.village_name,
+      priority: ashaPriority,
+      complaint,
+      vitals_bp: bp,
+      vitals_hr: Number(ashaVitals.heartRate) || null,
+      vitals_spo2: Number(ashaVitals.spo2) || null,
+      vitals_temp: ashaVitals.temperature,
+      vitals_bmi: 'N/A',
+      token: `ASHA-${String(Date.now()).slice(-5)}`,
+      notes,
+    };
+  };
 
   const bookAppointment = async (doctorId: string) => {
     if (!user) return;
+    if (isFhw && !selectedBeneficiary) {
+      alert('Select a patient before connecting to a doctor.');
+      return;
+    }
 
     setBookingDoctorId(doctorId);
 
     // Reuse existing active room if already booked with doctor
-    const existing = patientAppointments.find(a => a.doctor_id === doctorId && a.status === 'active');
+    const existing = patientAppointments.find(a =>
+      a.doctor_id === doctorId &&
+      a.status === 'active' &&
+      (!isFhw || a.beneficiary_id === selectedBeneficiary?.id)
+    );
     if (existing && existing.room_id) {
       router.push(`/call/${existing.room_id}`);
       return;
     }
 
     const roomId = crypto.randomUUID();
-    const payload: any = {
-      client_id: user.id,
-      doctor_id: doctorId,
-      scheduled_time: new Date().toISOString(),
-      room_id: roomId,
-      status: 'active',
-      date: new Date().toISOString().split('T')[0],
-      time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-    };
+    const payload: any = isFhw
+      ? buildAssistedPayload(doctorId, roomId, 'ringing', new Date())
+      : {
+          client_id: user.id,
+          doctor_id: doctorId,
+          scheduled_time: new Date().toISOString(),
+          room_id: roomId,
+          status: 'active',
+          date: new Date().toISOString().split('T')[0],
+          time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+        };
 
-    let { error } = await supabase.from('appointments').insert(payload);
+    if (!payload) {
+      setBookingDoctorId(null);
+      return;
+    }
 
-    if (error && (error.message.includes('room_id') || error.message.includes('scheduled_time'))) {
+    let error = await getInsertableAppointment(payload)();
+
+    if (!isFhw && error && (error.message.includes('room_id') || error.message.includes('scheduled_time'))) {
       if (error.message.includes('room_id')) delete payload.room_id;
       if (error.message.includes('scheduled_time')) delete payload.scheduled_time;
       const retry = await supabase.from('appointments').insert(payload);
@@ -365,6 +513,10 @@ export default function TelemedicinePage() {
 
   const scheduleAppointment = async (doctorId: string) => {
     if (!user || !schedDate || !schedTime) return;
+    if (isFhw && !selectedBeneficiary) {
+      alert('Select a patient before scheduling with a doctor.');
+      return;
+    }
 
     setSchedBooking(true);
     setSchedSuccess(null);
@@ -375,20 +527,24 @@ export default function TelemedicinePage() {
       scheduledDate.setHours(hours, minutes, 0, 0);
 
       const roomId = crypto.randomUUID();
-      const payload: any = {
-        client_id: user.id,
-        doctor_id: doctorId,
-        scheduled_time: scheduledDate.toISOString(),
-        room_id: roomId,
-        status: 'ringing',
-        doctor_name: doctors.find(d => d.id === doctorId)?.name || 'Doctor',
-        date: schedDate,
-        time: schedTime,
-      };
+      const payload: any = isFhw
+        ? buildAssistedPayload(doctorId, roomId, 'ringing', scheduledDate)
+        : {
+            client_id: user.id,
+            doctor_id: doctorId,
+            scheduled_time: scheduledDate.toISOString(),
+            room_id: roomId,
+            status: 'ringing',
+            doctor_name: doctors.find(d => d.id === doctorId)?.name || 'Doctor',
+            date: schedDate,
+            time: schedTime,
+          };
 
-      let { error } = await supabase.from('appointments').insert(payload);
+      if (!payload) return;
 
-      if (error && (error.message.includes('room_id') || error.message.includes('scheduled_time'))) {
+      let error = await getInsertableAppointment(payload)();
+
+      if (!isFhw && error && (error.message.includes('room_id') || error.message.includes('scheduled_time'))) {
         if (error.message.includes('room_id')) delete payload.room_id;
         if (error.message.includes('scheduled_time')) delete payload.scheduled_time;
         const retry = await supabase.from('appointments').insert(payload);
@@ -455,13 +611,13 @@ export default function TelemedicinePage() {
                   <span className="material-symbols-outlined fill-icon">hub</span>
                 </div>
                 <p className="text-[10px] font-bold text-tertiary uppercase tracking-[0.2em] mb-1">
-                  {isDoctor ? 'Open Requests' : 'Available Doctors'}
+	                  {isDoctor ? 'Open Requests' : isFhw ? 'Selected Patients' : 'Available Doctors'}
                 </p>
                 <p className="font-headline text-3xl font-extrabold text-on-surface">
-                  {isDoctor ? activeRequests : availableDoctors}
+	                  {isDoctor ? activeRequests : isFhw ? beneficiaries.length : availableDoctors}
                 </p>
                 <p className="text-xs text-tertiary/70 mt-1">
-                  {isDoctor ? 'Patients waiting now' : 'Ready for virtual consult'}
+	                  {isDoctor ? 'Patients waiting now' : isFhw ? 'Ready for assisted handoff' : 'Ready for virtual consult'}
                 </p>
               </div>
 
@@ -506,12 +662,16 @@ export default function TelemedicinePage() {
 
               <div className="space-y-4">
                 {(isDoctor ? urgentQueue : doctors.slice(0, 3)).map((item, index) => {
-                  const title = isDoctor
-                    ? `Patient request #${(item as Appointment).id.slice(0, 8)}`
-                    : (item as Doctor).name;
-                  const subtitle = isDoctor
-                    ? `Room ${(item as Appointment).room_id.slice(0, 8)}`
-                    : (item as Doctor).specialty || 'General Specialist';
+	                  const title = isDoctor
+	                    ? `Patient request #${(item as Appointment).id.slice(0, 8)}`
+	                    : isFhw
+	                    ? selectedBeneficiary?.name || 'Select a patient below'
+	                    : (item as Doctor).name;
+	                  const subtitle = isDoctor
+	                    ? `Room ${(item as Appointment).room_id.slice(0, 8)}`
+	                    : isFhw
+	                    ? `${(item as Doctor).name} • ${selectedBeneficiary?.village_name || 'No patient selected'}`
+	                    : (item as Doctor).specialty || 'General Specialist';
 
                   return (
                     <div
@@ -675,18 +835,123 @@ export default function TelemedicinePage() {
             </div>
           </div>
         </section>
-      ) : (
-        <section className="space-y-8">
-          {/* ── Patient Scheduled & Active Consultations Section ── */}
+	      ) : (
+	        <section className="space-y-8">
+          {isFhw && (
+            <div className="bg-white rounded-[2rem] border border-primary/20 shadow-md p-6 lg:p-8 space-y-6">
+              <div className="flex flex-col lg:flex-row lg:items-start justify-between gap-6">
+                <div>
+                  <span className="inline-flex items-center gap-2 px-3 py-1 bg-teal-50 text-teal-800 text-[11px] font-bold rounded-full uppercase tracking-widest">
+                    <span className="material-symbols-outlined text-sm">support_agent</span>
+                    ASHA Assisted Handoff
+                  </span>
+                  <h2 className="mt-2 font-headline text-2xl font-extrabold text-on-surface">
+                    Select Patient Before Doctor
+                  </h2>
+                </div>
+                {selectedBeneficiary && (
+                  <div className="rounded-2xl bg-surface-container-low border border-surface-container-high px-4 py-3 text-xs min-w-[220px]">
+                    <p className="font-black text-on-surface">{selectedBeneficiary.name}</p>
+                    <p className="text-tertiary mt-0.5">
+                      {selectedBeneficiary.village_name || 'Village not recorded'} - {selectedBeneficiary.risk_level || 'Routine'} risk
+                    </p>
+                  </div>
+                )}
+              </div>
+
+              <div className="grid grid-cols-1 lg:grid-cols-[0.9fr_1.1fr] gap-6">
+                <div className="space-y-3">
+                  <label className="text-[11px] font-bold text-tertiary uppercase tracking-wider">Patient / Beneficiary</label>
+                  <select
+                    value={selectedBeneficiaryId}
+                    onChange={(e) => {
+                      const nextId = e.target.value;
+                      const nextBen = beneficiaries.find(ben => ben.id === nextId);
+                      setSelectedBeneficiaryId(nextId);
+                      setAshaComplaint(nextBen?.next_due_service || nextBen?.risk_factors?.[0] || '');
+                      setAshaPriority(nextBen?.risk_level === 'HIGH' ? 'PRIORITY' : 'ROUTINE');
+                    }}
+                    className="w-full px-4 py-3 bg-surface-container-low rounded-2xl text-sm font-bold text-on-surface border border-surface-container-high outline-none focus:border-primary"
+                  >
+                    {beneficiaries.length === 0 ? (
+                      <option value="">No catchment patients loaded</option>
+                    ) : (
+                      beneficiaries.map(ben => (
+                        <option key={ben.id} value={ben.id}>
+                          {ben.name} - {ben.village_name || 'Village not recorded'} - {ben.risk_level || 'Routine'} risk
+                        </option>
+                      ))
+                    )}
+                  </select>
+
+                  <div className="grid grid-cols-2 gap-3">
+                    <div className="rounded-2xl bg-surface-container-low p-4">
+                      <p className="text-[10px] font-bold uppercase tracking-widest text-tertiary">Category</p>
+                      <p className="mt-1 text-sm font-bold text-on-surface">{selectedBeneficiary?.category || 'Not selected'}</p>
+                    </div>
+                    <div className="rounded-2xl bg-surface-container-low p-4">
+                      <p className="text-[10px] font-bold uppercase tracking-widest text-tertiary">Patient ID</p>
+                      <p className="mt-1 text-sm font-bold text-on-surface">{selectedBeneficiary?.id || 'Select patient'}</p>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="space-y-4">
+                  <div>
+                    <label className="text-[11px] font-bold text-tertiary uppercase tracking-wider block mb-1.5">Complaint / ASHA Notes</label>
+                    <textarea
+                      value={ashaComplaint}
+                      onChange={(e) => setAshaComplaint(e.target.value)}
+                      rows={3}
+                      className="w-full px-4 py-3 bg-surface-container-low rounded-2xl text-sm font-semibold text-on-surface border border-surface-container-high outline-none focus:border-primary"
+                      placeholder="Describe why this patient needs doctor support now."
+                    />
+                  </div>
+
+                  <div className="grid grid-cols-2 sm:grid-cols-6 gap-3">
+                    <div className="sm:col-span-2">
+                      <label className="text-[10px] font-bold text-tertiary uppercase block mb-1">Urgency</label>
+                      <select
+                        value={ashaPriority}
+                        onChange={(e) => setAshaPriority(e.target.value as typeof ashaPriority)}
+                        className="w-full px-3 py-2 bg-surface-container-low rounded-xl text-xs font-bold border border-surface-container-high outline-none focus:border-primary"
+                      >
+                        <option value="PRIORITY">Priority</option>
+                        <option value="ROUTINE">Routine</option>
+                        <option value="EMERGENCY">Emergency</option>
+                      </select>
+                    </div>
+                    <div>
+                      <label className="text-[10px] font-bold text-tertiary uppercase block mb-1">Sys BP</label>
+                      <input value={ashaVitals.systolic} onChange={(e) => setAshaVitals({ ...ashaVitals, systolic: e.target.value })} className="w-full px-3 py-2 bg-surface-container-low rounded-xl text-xs font-bold border border-surface-container-high outline-none focus:border-primary" />
+                    </div>
+                    <div>
+                      <label className="text-[10px] font-bold text-tertiary uppercase block mb-1">Dia BP</label>
+                      <input value={ashaVitals.diastolic} onChange={(e) => setAshaVitals({ ...ashaVitals, diastolic: e.target.value })} className="w-full px-3 py-2 bg-surface-container-low rounded-xl text-xs font-bold border border-surface-container-high outline-none focus:border-primary" />
+                    </div>
+                    <div>
+                      <label className="text-[10px] font-bold text-tertiary uppercase block mb-1">SpO2</label>
+                      <input value={ashaVitals.spo2} onChange={(e) => setAshaVitals({ ...ashaVitals, spo2: e.target.value })} className="w-full px-3 py-2 bg-surface-container-low rounded-xl text-xs font-bold border border-surface-container-high outline-none focus:border-primary" />
+                    </div>
+                    <div>
+                      <label className="text-[10px] font-bold text-tertiary uppercase block mb-1">Pulse</label>
+                      <input value={ashaVitals.heartRate} onChange={(e) => setAshaVitals({ ...ashaVitals, heartRate: e.target.value })} className="w-full px-3 py-2 bg-surface-container-low rounded-xl text-xs font-bold border border-surface-container-high outline-none focus:border-primary" />
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+	          {/* ── Patient Scheduled & Active Consultations Section ── */}
           <div className="bg-white rounded-[2rem] border border-primary/20 shadow-md p-6 lg:p-8 space-y-6">
             <div className="flex items-center justify-between">
               <div>
                 <span className="inline-flex items-center gap-2 px-3 py-1 bg-primary/10 text-primary text-[11px] font-bold rounded-full uppercase tracking-widest">
                   <span className="material-symbols-outlined text-sm">event</span>
-                  Your Appointments
+	                  {isFhw ? 'Assisted Requests' : 'Your Appointments'}
                 </span>
                 <h2 className="mt-2 font-headline text-2xl font-extrabold text-on-surface">
-                  Your Scheduled & Active Consultations
+	                  {isFhw ? 'Patient Requests Sent by ASHA' : 'Your Scheduled & Active Consultations'}
                 </h2>
               </div>
               {patientAppointments.length > 0 && (
@@ -711,7 +976,9 @@ export default function TelemedicinePage() {
                 </div>
                 <h4 className="font-headline font-bold text-on-surface text-base">No Active Consultations Scheduled</h4>
                 <p className="text-xs text-tertiary max-w-md mx-auto">
-                  Select any available specialist below to instantly launch or schedule a virtual care session.
+	                  {isFhw
+                      ? 'Select a patient above, then choose a doctor below to send an assisted teleconsult request.'
+                      : 'Select any available specialist below to instantly launch or schedule a virtual care session.'}
                 </p>
               </div>
             ) : (
@@ -750,9 +1017,12 @@ export default function TelemedicinePage() {
                               {isCallActive ? '● Active Room' : '📅 Scheduled'}
                             </span>
                           </div>
-                          <h3 className="font-headline font-bold text-lg text-on-surface truncate">{appt.doctor_name}</h3>
-                          <p className="text-xs text-primary font-semibold uppercase tracking-wider">{appt.specialty}</p>
-                        </div>
+	                          <h3 className="font-headline font-bold text-lg text-on-surface truncate">{appt.doctor_name}</h3>
+	                          <p className="text-xs text-primary font-semibold uppercase tracking-wider">{appt.specialty}</p>
+                            {isFhw && appt.patient_name && (
+                              <p className="text-xs text-tertiary mt-1 font-bold">Patient: {appt.patient_name}</p>
+                            )}
+	                        </div>
                       </div>
 
                       <div className="flex items-center gap-2 p-3 rounded-xl bg-surface-container-low text-xs text-on-surface">
@@ -787,12 +1057,12 @@ export default function TelemedicinePage() {
           <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4">
             <div>
               <h2 className="font-headline text-2xl lg:text-3xl font-extrabold tracking-tight text-on-surface">
-                Available Specialists
+	                {isFhw ? 'Choose Doctor for Selected Patient' : 'Available Specialists'}
               </h2>
             </div>
             <div className="flex items-center gap-2 px-4 py-2 rounded-2xl bg-surface-container-low text-sm font-bold text-on-surface-variant w-fit">
               <span className="material-symbols-outlined text-base text-secondary">bolt</span>
-              Instant video booking
+	              {isFhw ? 'Patient handoff mode' : 'Instant video booking'}
             </div>
           </div>
 
@@ -873,7 +1143,7 @@ export default function TelemedicinePage() {
                           <span className="material-symbols-outlined">
                             {isBooking ? 'hourglass_top' : 'video_call'}
                           </span>
-                          {isBooking ? 'Booking...' : 'Instant Call'}
+	                          {isBooking ? 'Sending...' : isFhw ? 'Connect Patient' : 'Instant Call'}
                         </button>
 
                         <button
@@ -955,11 +1225,13 @@ export default function TelemedicinePage() {
                             <span className="material-symbols-outlined">
                               {schedBooking ? 'hourglass_top' : 'event_available'}
                             </span>
-                            {schedBooking ? 'Scheduling...' : 'Confirm Scheduled Appointment'}
+	                            {schedBooking ? 'Scheduling...' : isFhw ? 'Schedule Patient Handoff' : 'Confirm Scheduled Appointment'}
                           </button>
 
                           <p className="text-[11px] text-tertiary text-center leading-relaxed">
-                            🔒 Your appointment will be sent to the doctor's schedule and confirmed in real time.
+	                            {isFhw
+                                ? 'The selected patient details will be sent to the doctor schedule in real time.'
+                                : "Your appointment will be sent to the doctor's schedule and confirmed in real time."}
                           </p>
                         </div>
                       )}

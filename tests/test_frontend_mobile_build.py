@@ -122,7 +122,7 @@ def test_referrals_page_audit_timeline_and_filters():
 
 
 def test_telemedicine_page_removed_secure_session():
-    """Verify telemedicine page has removed the Secure Session card."""
+    """Verify telemedicine page has ASHA patient-first handoff and removed the Secure Session card."""
     telemed_path = os.path.join(ROOT_DIR, "frontend", "app", "(dashboard)", "telemedicine", "page.tsx")
     assert os.path.exists(telemed_path)
     with open(telemed_path, "r", encoding="utf-8") as f:
@@ -130,6 +130,10 @@ def test_telemedicine_page_removed_secure_session():
 
     # Secure Session card must be removed
     assert "One tap starts a protected consultation session" not in content
+    assert "Select Patient Before Doctor" in content
+    assert "Patient / Beneficiary" in content
+    assert "Choose Doctor for Selected Patient" in content
+    assert "Connect Patient" in content
 
 
 def test_clean_headings_without_descriptive_definitions():
