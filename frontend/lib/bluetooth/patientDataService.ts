@@ -43,22 +43,37 @@ export class PatientDataService {
         return null;
       }
 
-      const patientId = user?.id || savedAuthUser?.id || 'pat-demo-001';
+      const patientId = user?.id || savedAuthUser?.id || '00000000-0000-4000-a000-000000000009';
       const userEmail = user?.email || savedAuthUser?.email || 'patient@curatrack.com';
       const fallbackName = user?.user_metadata?.full_name || savedAuthUser?.name || userEmail.split('@')[0] || 'Patient';
+      const isUUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(patientId);
 
       // 1. Fetch Profile
-      const { data: profile } = await supabase
-        .from('profiles')
-        .select('*')
-        .eq('id', patientId)
-        .maybeSingle();
+      let profile = null;
+      let patientProf = null;
 
-      const { data: patientProf } = await supabase
-        .from('patient_profile')
-        .select('*')
-        .eq('patient_id', patientId)
-        .maybeSingle();
+      if (isUUID) {
+        const { data: profData } = await supabase
+          .from('profiles')
+          .select('*')
+          .eq('id', patientId)
+          .maybeSingle();
+        profile = profData;
+
+        const { data: patProfData } = await supabase
+          .from('patient_profile')
+          .select('*')
+          .eq('patient_id', patientId)
+          .maybeSingle();
+        patientProf = patProfData;
+      } else {
+        const { data: profData } = await supabase
+          .from('profiles')
+          .select('*')
+          .eq('email', userEmail)
+          .maybeSingle();
+        profile = profData;
+      }
 
       // 2. Fetch Vitals
       const { data: vitalsRecords } = await supabase

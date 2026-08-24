@@ -73,10 +73,38 @@ export async function POST(req: NextRequest) {
         let userRole = officialAccount?.role || 'patient';
         let userName = officialAccount?.name || authUser?.user_metadata?.name || authUser?.user_metadata?.full_name || emailLower.split('@')[0];
 
+        const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+        const OFFICIAL_UUID_MAP: Record<string, string> = {
+            'facility@curatrack.com': '00000000-0000-4000-a000-000000000001',
+            'pharma@curatrack.com': '00000000-0000-4000-a000-000000000002',
+            'doctor@curatrack.com': '00000000-0000-4000-a000-000000000003',
+            'dr.david@curatrack.com': '00000000-0000-4000-a000-000000000004',
+            'dr.thorne@curatrack.com': '00000000-0000-4000-a000-000000000005',
+            'asha@curatrack.com': '00000000-0000-4000-a000-000000000006',
+            'fhw@curatrack.com': '00000000-0000-4000-a000-000000000007',
+            'admin@curatrack.com': '00000000-0000-4000-a000-000000000008',
+            'patient@curatrack.com': '00000000-0000-4000-a000-000000000009',
+        };
+
         if (!userId) {
             if (officialAccount) {
-                // Generate a deterministic official ID so official role login is always accessible
-                userId = `official-${emailLower.replace(/[^a-z0-9]/g, '-')}`;
+                // Check if official user already exists by email
+                try {
+                    const { data: existingProfile } = await supabase
+                        .from('profiles')
+                        .select('id, name, role')
+                        .eq('email', emailLower)
+                        .maybeSingle();
+                    if (existingProfile?.id) {
+                        userId = existingProfile.id;
+                        userRole = existingProfile.role || userRole;
+                        userName = existingProfile.name || userName;
+                    }
+                } catch {}
+
+                if (!userId) {
+                    userId = OFFICIAL_UUID_MAP[emailLower] || '00000000-0000-4000-a000-000000000099';
+                }
             } else {
                 return NextResponse.json(
                     { error: authError?.message || 'Invalid email or password' },
@@ -85,18 +113,34 @@ export async function POST(req: NextRequest) {
             }
         }
 
+        const isUuid = Boolean(userId && UUID_REGEX.test(userId));
+
         // Ensure database profile exists with the correct role
         try {
-            const { data: profile } = await supabase
-                .from('profiles')
-                .select('*')
-                .eq('id', userId)
-                .maybeSingle();
+            let profile = null;
+            if (isUuid) {
+                const { data } = await supabase
+                    .from('profiles')
+                    .select('*')
+                    .eq('id', userId)
+                    .maybeSingle();
+                profile = data;
+            } else {
+                const { data } = await supabase
+                    .from('profiles')
+                    .select('*')
+                    .eq('email', emailLower)
+                    .maybeSingle();
+                profile = data;
+            }
 
             if (profile) {
                 userRole = profile.role || userRole;
                 userName = profile.name || userName;
-            } else {
+                if (profile.id && UUID_REGEX.test(profile.id)) {
+                    userId = profile.id;
+                }
+            } else if (isUuid) {
                 await supabase.from('profiles').upsert({
                     id: userId,
                     name: userName,
