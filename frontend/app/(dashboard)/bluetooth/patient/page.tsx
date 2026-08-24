@@ -70,24 +70,21 @@ export default function PatientBluetoothTransferPage() {
     async function verifyAndLoadPatientData() {
       try {
         const supabase = createClient();
-        const { data: { user } } = await supabase.auth.getUser();
+        let user: any = null;
+        try {
+          const { data } = await supabase.auth.getUser();
+          user = data?.user;
+        } catch {}
 
-        if (!user) {
-          router.push('/login');
-          return;
-        }
+        let savedAuthUser: any = null;
+        try {
+          const raw = localStorage.getItem('curatrack_auth_user');
+          if (raw) savedAuthUser = JSON.parse(raw);
+        } catch {}
 
-        const { data: profile } = await supabase
-          .from('profiles')
-          .select('*')
-          .eq('id', user.id)
-          .maybeSingle();
+        const activeRole = localStorage.getItem('curatrack_active_role') || savedAuthUser?.role;
 
-        const isDoc = profile?.role === 'doctor' ||
-          user.user_metadata?.role === 'doctor' ||
-          user.email?.toLowerCase().includes('doctor');
-
-        if (isDoc) {
+        if (activeRole === 'doctor' || user?.user_metadata?.role === 'doctor' || user?.email?.toLowerCase().includes('doctor')) {
           console.warn('[PatientBTPage] Doctor role detected on patient route — redirecting');
           router.push('/bluetooth/doctor');
           return;
@@ -105,10 +102,10 @@ export default function PatientBluetoothTransferPage() {
         } else {
           const fallbackData: AuthenticatedPatientFullRecord = {
             patient: {
-              patientId: user.id || 'PAT-LOCAL-001',
-              name: (profile as any)?.name || user.user_metadata?.full_name || user.email?.split('@')[0] || 'Authenticated Patient',
-              bloodGroup: (profile as any)?.blood_group || 'O+',
-              gender: (profile as any)?.gender || 'Unspecified',
+              patientId: user?.id || savedAuthUser?.id || 'PAT-LOCAL-001',
+              name: savedAuthUser?.name || user?.user_metadata?.full_name || user?.email?.split('@')[0] || 'Authenticated Patient',
+              bloodGroup: 'O+',
+              gender: 'Female',
             },
             vitals: {
               heartRate: 74,

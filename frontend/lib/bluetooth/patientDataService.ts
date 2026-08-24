@@ -24,17 +24,28 @@ export class PatientDataService {
   static async getAuthenticatedPatientData(): Promise<AuthenticatedPatientFullRecord | null> {
     try {
       const supabase = createClient();
-      const { data: authData } = await supabase.auth.getUser().catch(() => ({ data: { user: null } }));
-      const user = authData?.user;
+      let user: any = null;
+      try {
+        const { data: authData } = await supabase.auth.getUser();
+        user = authData?.user;
+      } catch {}
 
-      if (!user) {
+      let savedAuthUser: any = null;
+      if (typeof window !== 'undefined') {
+        try {
+          const raw = localStorage.getItem('curatrack_auth_user');
+          if (raw) savedAuthUser = JSON.parse(raw);
+        } catch {}
+      }
+
+      if (!user && !savedAuthUser) {
         console.warn('[PatientDataService] No authenticated user found.');
         return null;
       }
 
-      const patientId = user.id;
-      const userEmail = user.email || 'patient@curatrack.com';
-      const fallbackName = user.user_metadata?.full_name || userEmail.split('@')[0] || 'Patient';
+      const patientId = user?.id || savedAuthUser?.id || 'pat-demo-001';
+      const userEmail = user?.email || savedAuthUser?.email || 'patient@curatrack.com';
+      const fallbackName = user?.user_metadata?.full_name || savedAuthUser?.name || userEmail.split('@')[0] || 'Patient';
 
       // 1. Fetch Profile
       const { data: profile } = await supabase

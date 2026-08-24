@@ -218,7 +218,7 @@ export default function FrontlineHealthWorkerPage() {
 
                     <div className="flex items-center gap-3 flex-wrap">
                         <Link
-                            href="/bluetooth/patient"
+                            href="/bluetooth/fhw"
                             className="bg-white/15 hover:bg-white/25 text-white font-bold text-xs px-4 py-3 rounded-2xl flex items-center gap-2 backdrop-blur transition-all"
                         >
                             <span className="material-symbols-outlined text-lg">bluetooth</span>

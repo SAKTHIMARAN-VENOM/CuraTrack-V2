@@ -37,7 +37,7 @@ const FHW_NAV_ITEMS = [
     { href: '/triage', icon: 'medical_information', label: 'Community Triage' },
     { href: '/referrals', icon: 'alt_route', label: 'Village Referrals' },
     { href: '/telemedicine', icon: 'video_chat', label: 'Assisted Teleconsult' },
-    { href: '/bluetooth/patient', icon: 'bluetooth', label: 'Offline Field Sync' },
+    { href: '/bluetooth/fhw', icon: 'bluetooth', label: 'Offline Field Sync' },
     { href: '/alerts', icon: 'notifications_active', label: 'Outbreak Alerts' },
     { href: '/profile', icon: 'person', label: 'ASHA Profile' }
 ];
