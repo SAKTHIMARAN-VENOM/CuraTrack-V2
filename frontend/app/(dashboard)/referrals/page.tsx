@@ -146,9 +146,6 @@ export default function ReferralPipelinePage() {
                             <span>Public Health Referral Network • End-to-End Tracking</span>
                         </div>
                         <h1 className="text-3xl font-extrabold tracking-tight">Clinical Referral Pipeline</h1>
-                        <p className="text-teal-100 text-sm mt-2 max-w-2xl leading-relaxed">
-                            Structured continuity of care linking Ayushman Arogya Mandir (Sub-Centre) ➔ PHC ➔ CHC ➔ District Hospital with real-time status handshakes and ABHA ID integration.
-                        </p>
                     </div>
 
                     <div className="flex items-center gap-3">
@@ -184,40 +181,65 @@ export default function ReferralPipelinePage() {
                 ))}
             </div>
 
-            {/* Filter Tabs & Urgency Filters */}
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-surface-container-high pb-4">
-                <div className="flex flex-wrap gap-1.5">
-                    {['ALL', 'CREATED', 'ACCEPTED', 'IN_TRANSIT', 'CONSULTED', 'COMPLETED'].map((status) => (
-                        <button
-                            key={status}
-                            onClick={() => setFilterStatus(status)}
-                            className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all ${
-                                filterStatus === status
-                                    ? 'bg-primary text-white shadow-sm'
-                                    : 'bg-surface-container-low text-tertiary hover:bg-surface-container'
-                            }`}
+            {/* Filter Dropdowns */}
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-surface-container-high pb-4 bg-white p-4 rounded-2xl shadow-xs">
+                <div className="flex flex-col sm:flex-row sm:items-center gap-3 w-full sm:w-auto">
+                    <div className="flex items-center gap-2 text-tertiary">
+                        <span className="material-symbols-outlined text-primary text-lg">filter_alt</span>
+                        <span className="text-xs font-bold text-on-surface">Filters:</span>
+                    </div>
+
+                    {/* Status Dropdown */}
+                    <div className="relative min-w-[190px]">
+                        <select
+                            id="referral-status-filter"
+                            value={filterStatus}
+                            onChange={(e) => setFilterStatus(e.target.value)}
+                            className="w-full appearance-none bg-surface-container-low border border-surface-container-high text-on-surface text-xs font-bold rounded-xl px-3.5 py-2.5 pr-8 outline-none focus:border-primary focus:ring-1 focus:ring-primary transition-all cursor-pointer"
                         >
-                            {status.replace('_', ' ')}
-                        </button>
-                    ))}
+                            <option value="ALL">All Statuses</option>
+                            <option value="CREATED">Created</option>
+                            <option value="ACCEPTED">Accepted</option>
+                            <option value="IN_TRANSIT">In Transit</option>
+                            <option value="CONSULTED">Consulted</option>
+                            <option value="COMPLETED">Completed</option>
+                        </select>
+                        <span className="material-symbols-outlined absolute right-2.5 top-1/2 -translate-y-1/2 text-tertiary pointer-events-none text-base">
+                            expand_more
+                        </span>
+                    </div>
+
+                    {/* Urgency Dropdown */}
+                    <div className="relative min-w-[170px]">
+                        <select
+                            id="referral-urgency-filter"
+                            value={filterUrgency}
+                            onChange={(e) => setFilterUrgency(e.target.value)}
+                            className="w-full appearance-none bg-surface-container-low border border-surface-container-high text-on-surface text-xs font-bold rounded-xl px-3.5 py-2.5 pr-8 outline-none focus:border-primary focus:ring-1 focus:ring-primary transition-all cursor-pointer"
+                        >
+                            <option value="ALL">All Urgency Levels</option>
+                            <option value="EMERGENCY">Emergency</option>
+                            <option value="URGENT">Urgent</option>
+                            <option value="ROUTINE">Routine</option>
+                        </select>
+                        <span className="material-symbols-outlined absolute right-2.5 top-1/2 -translate-y-1/2 text-tertiary pointer-events-none text-base">
+                            expand_more
+                        </span>
+                    </div>
                 </div>
 
-                <div className="flex items-center gap-2">
-                    <span className="text-xs font-semibold text-tertiary">Urgency:</span>
-                    {['ALL', 'EMERGENCY', 'URGENT', 'ROUTINE'].map((urg) => (
-                        <button
-                            key={urg}
-                            onClick={() => setFilterUrgency(urg)}
-                            className={`px-2.5 py-1 rounded-lg text-[11px] font-bold ${
-                                filterUrgency === urg
-                                    ? 'bg-on-surface text-white'
-                                    : 'bg-surface-container-low text-tertiary hover:bg-surface-container'
-                            }`}
-                        >
-                            {urg}
-                        </button>
-                    ))}
-                </div>
+                {(filterStatus !== 'ALL' || filterUrgency !== 'ALL') && (
+                    <button
+                        onClick={() => {
+                            setFilterStatus('ALL');
+                            setFilterUrgency('ALL');
+                        }}
+                        className="text-xs font-bold text-primary hover:text-primary/70 flex items-center gap-1 self-start sm:self-auto transition-colors"
+                    >
+                        <span className="material-symbols-outlined text-sm">restart_alt</span>
+                        <span>Reset Filters</span>
+                    </button>
+                )}
             </div>
 
             {/* Referral Cards List */}

@@ -79,3 +79,43 @@ def test_render_yaml_validity():
         content = f.read()
     assert "uvicorn main:app" in content
     assert "curatrack-backend" in content
+
+
+def test_fhw_page_dropdown_filters_and_clean_heading():
+    """Verify ASHA catchment center page contains dropdown filters and removed outbreak radar."""
+    fhw_path = os.path.join(ROOT_DIR, "frontend", "app", "(dashboard)", "fhw", "page.tsx")
+    assert os.path.exists(fhw_path)
+    with open(fhw_path, "r", encoding="utf-8") as f:
+        content = f.read()
+
+    # Outbreak radar banner must be removed
+    assert "Active Village Catchment Outbreak Radar" not in content
+    assert "SURVEILLANCE ACTIVE" not in content
+
+    # Dropdown select filters must exist
+    assert "id=\"fhw-category-filter\"" in content
+    assert "id=\"fhw-risk-filter\"" in content
+    assert "<select" in content
+
+
+def test_clean_headings_without_descriptive_definitions():
+    """Verify pages have clean headings without redundant descriptive paragraphs."""
+    pages_to_check = [
+        os.path.join(ROOT_DIR, "frontend", "app", "(dashboard)", "fhw", "page.tsx"),
+        os.path.join(ROOT_DIR, "frontend", "app", "(dashboard)", "facility", "page.tsx"),
+        os.path.join(ROOT_DIR, "frontend", "app", "(dashboard)", "drug-checker", "page.tsx"),
+        os.path.join(ROOT_DIR, "frontend", "app", "(dashboard)", "referrals", "page.tsx"),
+        os.path.join(ROOT_DIR, "frontend", "app", "(dashboard)", "triage", "page.tsx"),
+    ]
+
+    for p in pages_to_check:
+        assert os.path.exists(p)
+        with open(p, "r", encoding="utf-8") as f:
+            content = f.read()
+        # Verify specific removed descriptive paragraphs are gone
+        assert "Proactive community surveillance for maternal ANC" not in content
+        assert "Manage your facility's doctor roster" not in content
+        assert "Real-time polypharmacy interaction screening" not in content
+        assert "Structured continuity of care linking Ayushman" not in content
+        assert "Rule-based urgency classification connecting rural" not in content
+

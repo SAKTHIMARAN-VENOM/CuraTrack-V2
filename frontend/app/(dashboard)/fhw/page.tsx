@@ -35,22 +35,6 @@ export default function FrontlineHealthWorkerPage() {
     const [initiatingConsult, setInitiatingConsult] = useState<boolean>(false);
     const [consultComplaint, setConsultComplaint] = useState<string>('');
 
-    const [outbreakAlerts, setOutbreakAlerts] = useState<any[]>([
-        {
-            disease: 'Dengue & Vector-Borne Outbreak',
-            urgency: 'HIGH',
-            month: 'August - Monsoon Season',
-            advisory: 'Stagnant rainwater accumulation in village pots; conduct anti-larval spray & fever survey.',
-            precaution: 'Check indoor water storage every 7 days. Report any high-grade fever with thrombocytopenia immediately.'
-        },
-        {
-            disease: 'Acute Viral Gastroenteritis',
-            urgency: 'MODERATE',
-            month: 'August - Monsoon Season',
-            advisory: 'Water contamination risk in open village wells; distribute Halazone/chlorine tablets and ORS.',
-            precaution: 'Boil drinking water and initiate immediate zinc + ORS therapy for pediatric diarrhea.'
-        }
-    ]);
     const [isOnline, setIsOnline] = useState<boolean>(true);
     const [offlineSyncPending, setOfflineSyncPending] = useState<number>(0);
     const [syncSuccessMsg, setSyncSuccessMsg] = useState<string | null>(null);
@@ -214,12 +198,17 @@ export default function FrontlineHealthWorkerPage() {
                             <span>Frontline Health Worker (ASHA / ANM) Catchment Center</span>
                         </div>
                         <h1 className="text-3xl font-extrabold tracking-tight">Village Health & High-Risk Tracking</h1>
-                        <p className="text-teal-100 text-sm mt-2 max-w-2xl leading-relaxed">
-                            Proactive community surveillance for maternal ANC, infant immunization, chronic NCDs, and instant Assisted Teleconsultation for rural households.
-                        </p>
                     </div>
 
                     <div className="flex items-center gap-3 flex-wrap">
+                        <button
+                            onClick={handleSyncOfflineData}
+                            className="bg-white/15 hover:bg-white/25 text-white font-bold text-xs px-4 py-3 rounded-2xl flex items-center gap-2 backdrop-blur transition-all"
+                        >
+                            <span className="material-symbols-outlined text-base">sync</span>
+                            <span>Sync Surveys ({offlineSyncPending})</span>
+                        </button>
+
                         <Link
                             href="/bluetooth/fhw"
                             className="bg-white/15 hover:bg-white/25 text-white font-bold text-xs px-4 py-3 rounded-2xl flex items-center gap-2 backdrop-blur transition-all"
@@ -246,67 +235,6 @@ export default function FrontlineHealthWorkerPage() {
                     <span>{syncSuccessMsg}</span>
                 </div>
             )}
-
-            {/* ASHA OUTBREAK ALERTS BANNER (ISSUE 2 RESOLUTION) */}
-            <div className="bg-gradient-to-br from-amber-500/10 via-amber-50 to-orange-50 border border-amber-300/80 rounded-3xl p-6 shadow-sm space-y-4">
-                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-                    <div className="flex items-center gap-3">
-                        <div className="w-10 h-10 rounded-2xl bg-amber-500 text-white flex items-center justify-center font-bold shadow-sm">
-                            <span className="material-symbols-outlined text-xl">notifications_active</span>
-                        </div>
-                        <div>
-                            <div className="flex items-center gap-2">
-                                <h2 className="text-base font-headline font-extrabold text-amber-950">Active Village Catchment Outbreak Radar</h2>
-                                <span className="bg-red-600 text-white text-[10px] font-black px-2 py-0.5 rounded-full uppercase tracking-wider animate-pulse">
-                                    SURVEILLANCE ACTIVE
-                                </span>
-                            </div>
-                            <p className="text-xs text-amber-900 mt-0.5">
-                                Public health epidemic warnings & waterborne disease protocols for Borvihir Pada and surrounding blocks.
-                            </p>
-                        </div>
-                    </div>
-
-                    <div className="flex items-center gap-2 self-start sm:self-auto">
-                        <button
-                            onClick={handleSyncOfflineData}
-                            className="flex items-center gap-1.5 px-3.5 py-2 bg-white border border-amber-300 text-amber-950 font-bold text-xs rounded-xl shadow-xs hover:bg-amber-50 transition-all"
-                        >
-                            <span className="material-symbols-outlined text-sm">sync</span>
-                            <span>Sync Field Surveys ({offlineSyncPending})</span>
-                        </button>
-
-                        <Link
-                            href="/alerts"
-                            className="flex items-center gap-1.5 px-4 py-2 bg-amber-600 hover:bg-amber-700 text-white font-bold text-xs rounded-xl shadow-sm transition-all"
-                        >
-                            <span>Full Outbreak Map</span>
-                            <span className="material-symbols-outlined text-sm">arrow_forward</span>
-                        </Link>
-                    </div>
-                </div>
-
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                    {outbreakAlerts.map((alert, idx) => (
-                        <div key={idx} className="bg-white/90 backdrop-blur p-4 rounded-2xl border border-amber-200/80 shadow-xs space-y-1.5">
-                            <div className="flex items-center justify-between">
-                                <span className="text-xs font-bold text-amber-950 flex items-center gap-1.5">
-                                    <span className="material-symbols-outlined text-base text-red-600">emergency</span>
-                                    <span>{alert.disease}</span>
-                                </span>
-                                <span className="bg-red-100 text-red-800 text-[10px] font-extrabold px-2 py-0.5 rounded-md">
-                                    {alert.urgency} RISK
-                                </span>
-                            </div>
-                            <p className="text-xs text-slate-700 font-medium">{alert.advisory}</p>
-                            <div className="pt-1 flex items-center gap-1 text-[11px] text-amber-900 font-bold">
-                                <span className="material-symbols-outlined text-xs text-amber-600">lightbulb</span>
-                                <span>Action: {alert.precaution}</span>
-                            </div>
-                        </div>
-                    ))}
-                </div>
-            </div>
 
             {/* Metric KPI Cards */}
             <div className="grid grid-cols-1 sm:grid-cols-4 gap-4">
@@ -407,40 +335,64 @@ export default function FrontlineHealthWorkerPage() {
                 </div>
             )}
 
-            {/* Filter Tabs */}
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-surface-container-high pb-4">
-                <div className="flex flex-wrap gap-1.5">
-                    {['ALL', 'Maternal ANC', 'Child Immunization', 'NCD Chronic', 'TB / Communicable'].map((cat) => (
-                        <button
-                            key={cat}
-                            onClick={() => setFilterCategory(cat)}
-                            className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all ${
-                                filterCategory === cat
-                                    ? 'bg-primary text-white shadow-sm'
-                                    : 'bg-surface-container-low text-tertiary hover:bg-surface-container'
-                            }`}
+            {/* Filter Dropdowns */}
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-surface-container-high pb-4 bg-white p-4 rounded-2xl shadow-xs">
+                <div className="flex flex-col sm:flex-row sm:items-center gap-3 w-full sm:w-auto">
+                    <div className="flex items-center gap-2 text-tertiary">
+                        <span className="material-symbols-outlined text-primary text-lg">filter_alt</span>
+                        <span className="text-xs font-bold text-on-surface">Filters:</span>
+                    </div>
+
+                    {/* Category Dropdown */}
+                    <div className="relative min-w-[200px]">
+                        <select
+                            id="fhw-category-filter"
+                            value={filterCategory}
+                            onChange={(e) => setFilterCategory(e.target.value)}
+                            className="w-full appearance-none bg-surface-container-low border border-surface-container-high text-on-surface text-xs font-bold rounded-xl px-3.5 py-2.5 pr-8 outline-none focus:border-primary focus:ring-1 focus:ring-primary transition-all cursor-pointer"
                         >
-                            {cat}
-                        </button>
-                    ))}
+                            <option value="ALL">All Categories</option>
+                            <option value="Maternal ANC">Maternal ANC</option>
+                            <option value="Child Immunization">Child Immunization</option>
+                            <option value="NCD Chronic">NCD Chronic</option>
+                            <option value="TB / Communicable">TB / Communicable</option>
+                        </select>
+                        <span className="material-symbols-outlined absolute right-2.5 top-1/2 -translate-y-1/2 text-tertiary pointer-events-none text-base">
+                            expand_more
+                        </span>
+                    </div>
+
+                    {/* Risk Level Dropdown */}
+                    <div className="relative min-w-[170px]">
+                        <select
+                            id="fhw-risk-filter"
+                            value={filterRisk}
+                            onChange={(e) => setFilterRisk(e.target.value)}
+                            className="w-full appearance-none bg-surface-container-low border border-surface-container-high text-on-surface text-xs font-bold rounded-xl px-3.5 py-2.5 pr-8 outline-none focus:border-primary focus:ring-1 focus:ring-primary transition-all cursor-pointer"
+                        >
+                            <option value="ALL">All Risk Levels</option>
+                            <option value="HIGH">High Risk</option>
+                            <option value="MODERATE">Moderate Risk</option>
+                            <option value="LOW">Low Risk</option>
+                        </select>
+                        <span className="material-symbols-outlined absolute right-2.5 top-1/2 -translate-y-1/2 text-tertiary pointer-events-none text-base">
+                            expand_more
+                        </span>
+                    </div>
                 </div>
 
-                <div className="flex items-center gap-2">
-                    <span className="text-xs font-semibold text-tertiary">Risk:</span>
-                    {['ALL', 'HIGH', 'MODERATE', 'LOW'].map((r) => (
-                        <button
-                            key={r}
-                            onClick={() => setFilterRisk(r)}
-                            className={`px-2.5 py-1 rounded-lg text-[11px] font-bold ${
-                                filterRisk === r
-                                    ? 'bg-on-surface text-white'
-                                    : 'bg-surface-container-low text-tertiary hover:bg-surface-container'
-                            }`}
-                        >
-                            {r}
-                        </button>
-                    ))}
-                </div>
+                {(filterCategory !== 'ALL' || filterRisk !== 'ALL') && (
+                    <button
+                        onClick={() => {
+                            setFilterCategory('ALL');
+                            setFilterRisk('ALL');
+                        }}
+                        className="text-xs font-bold text-primary hover:text-primary/70 flex items-center gap-1 self-start sm:self-auto transition-colors"
+                    >
+                        <span className="material-symbols-outlined text-sm">restart_alt</span>
+                        <span>Reset Filters</span>
+                    </button>
+                )}
             </div>
 
             {/* Beneficiaries Grid */}

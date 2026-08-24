@@ -82,9 +82,6 @@ export default function FacilityOperationsPage() {
                             <span>Facility Manager Command Centre</span>
                         </div>
                         <h1 className="text-3xl font-extrabold tracking-tight">Nandurbar Sub-District Hospital & CHC</h1>
-                        <p className="text-teal-100 text-sm mt-2 max-w-2xl leading-relaxed">
-                            Manage your facility's doctor roster, Essential Drug List (EDL) inventory & stock alerts, and ward-level bed availability in real time.
-                        </p>
                     </div>
 
                     <div className="flex items-center gap-3">

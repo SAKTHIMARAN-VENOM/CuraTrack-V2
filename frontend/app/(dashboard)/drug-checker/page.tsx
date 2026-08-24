@@ -146,9 +146,6 @@ export default function DrugCheckerPage() {
             <span>Clinical Pharmacology & Multidrug Safety Suite</span>
           </div>
           <h1 className="text-3xl lg:text-4xl font-extrabold tracking-tight">Drug Interaction & EDL Safety Checker</h1>
-          <p className="text-teal-100 text-sm mt-2 max-w-2xl leading-relaxed">
-            Real-time polypharmacy interaction screening, adverse event prediction, and pregnancy/renal safety analysis powered by OpenFDA & National Essential Drugs List (EDL).
-          </p>
         </div>
 
         <div className="flex items-center gap-3 flex-wrap">

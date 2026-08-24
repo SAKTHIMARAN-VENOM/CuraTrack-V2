@@ -191,9 +191,6 @@ export default function ASHAOfflineFieldSyncPage() {
             <span>Frontline Field Operations (Offline Ready)</span>
           </div>
           <h1 className="text-3xl font-extrabold tracking-tight">ASHA Offline Field Care Hub</h1>
-          <p className="text-teal-100 text-sm mt-2 max-w-2xl leading-relaxed">
-            Record village surveys, high-risk maternal ANC checks, and child immunization visits in remote zones with zero cellular signal. Records automatically synchronize upon hospital reconnection.
-          </p>
         </div>
 
         <div className="flex items-center gap-3 flex-wrap">
