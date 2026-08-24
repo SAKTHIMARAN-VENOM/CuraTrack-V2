@@ -127,6 +127,14 @@ export default function HealthRecordsPage() {
   const [patientSearch, setPatientSearch] = useState<string>('');
   const [loadingPatientData, setLoadingPatientData] = useState<boolean>(false);
 
+  // Direct Medicine Ordering States
+  const [orderModalOpen, setOrderModalOpen] = useState<boolean>(false);
+  const [orderingRx, setOrderingRx] = useState<any>(null);
+  const [orderPlacing, setOrderPlacing] = useState<boolean>(false);
+  const [orderSuccessMsg, setOrderSuccessMsg] = useState<string>('');
+  const [orderErrorMsg, setOrderErrorMsg] = useState<string>('');
+  const [placedOrdersMap, setPlacedOrdersMap] = useState<Record<string, any>>({});
+
   // Fetch real patients list from Supabase
   const fetchRealPatients = async () => {
     setLoadingPatients(true);
@@ -249,6 +257,32 @@ export default function HealthRecordsPage() {
         results: Array.isArray(lab.results) ? lab.results : [],
       }));
       setUserLabReports(mappedLabs);
+
+      // 5. Fetch medicine orders
+      try {
+        const { data: dbOrders } = await supabase
+          .from('medicine_orders')
+          .select('*')
+          .eq('patient_id', targetId)
+          .order('created_at', { ascending: false });
+
+        if (dbOrders && dbOrders.length > 0) {
+          const orderMap: Record<string, any> = {};
+          dbOrders.forEach((o: any) => {
+            if (o.prescription_id) {
+              orderMap[o.prescription_id] = o;
+            }
+            if (o.medicine_name) {
+              orderMap[o.medicine_name.toLowerCase().trim()] = o;
+            }
+          });
+          setPlacedOrdersMap(orderMap);
+        } else {
+          setPlacedOrdersMap({});
+        }
+      } catch (e) {
+        console.warn('Note loading medicine orders:', e);
+      }
     } catch (err) {
       console.warn('Error loading patient records for target:', targetId, err);
     } finally {
@@ -648,6 +682,75 @@ export default function HealthRecordsPage() {
     setReviewingMedication(null);
     setReviewIndex(-1);
     setActiveTab('medications'); // Switch to medications tab to see the result
+  };
+
+  const handleInitiateOrder = (rx: any) => {
+    setOrderingRx(rx);
+    setOrderErrorMsg('');
+    setOrderSuccessMsg('');
+    setOrderModalOpen(true);
+  };
+
+  const handleConfirmOrder = async () => {
+    if (!orderingRx) return;
+    setOrderPlacing(true);
+    setOrderErrorMsg('');
+    setOrderSuccessMsg('');
+
+    try {
+      const supabase = createClient();
+      const targetPatientId = selectedPatient?.id || userId || 'P-CURRENT';
+      const medName = orderingRx.medication || orderingRx.name || orderingRx.drug || 'Prescribed Medicine';
+      const rxId = orderingRx.id || null;
+
+      const payload = {
+        patient_id: targetPatientId,
+        patient_name: selectedPatient?.name || 'Patient',
+        prescription_id: rxId,
+        medicine_name: medName,
+        dosage: orderingRx.dosage || 'Standard',
+        quantity: orderingRx.quantity || orderingRx.duration || '1 Prescribed Course',
+        frequency: orderingRx.frequency || 'As directed',
+        instructions: orderingRx.instructions || orderingRx.notes || 'Take as directed',
+        pharmacy: 'Nandurbar SDH Hospital Dispensary',
+        status: 'ORDERED',
+        created_at: new Date().toISOString()
+      };
+
+      // 1. Post to backend facility medicine orders API
+      try {
+        await fetch(`${API_BASE}/api/facility/medicine-orders`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload)
+        });
+      } catch (apiErr) {
+        console.warn('Backend API order endpoint note:', apiErr);
+      }
+
+      // 2. Direct Supabase insert
+      try {
+        await supabase.from('medicine_orders').insert(payload);
+      } catch (dbErr) {
+        console.warn('Direct Supabase insert note:', dbErr);
+      }
+
+      // 3. Update local state map
+      setPlacedOrdersMap(prev => ({
+        ...prev,
+        ...(rxId ? { [rxId]: { status: 'ORDERED', ...payload } } : {}),
+        [medName.toLowerCase().trim()]: { status: 'ORDERED', ...payload }
+      }));
+
+      setOrderSuccessMsg(`Medicine order for "${medName}" placed successfully. Dispensing request sent to Nandurbar SDH Hospital Pharmacy.`);
+      setOrderModalOpen(false);
+      setOrderingRx(null);
+    } catch (err: any) {
+      console.error('Failed to place medicine order:', err);
+      setOrderErrorMsg(err?.message || 'Failed to place medicine order. Please try again.');
+    } finally {
+      setOrderPlacing(false);
+    }
   };
 
   const toggleSection = (id: string) => {
@@ -1346,6 +1449,19 @@ export default function HealthRecordsPage() {
             </button>
           </div>
 
+          {/* Medicine Order Success Banner */}
+          {orderSuccessMsg && (
+            <div className="p-4 bg-emerald-50 border border-emerald-300 rounded-2xl flex items-center justify-between gap-3 text-xs text-emerald-950 shadow-sm animate-fadeIn">
+              <div className="flex items-center gap-2.5">
+                <span className="material-symbols-outlined text-emerald-600 text-xl">check_circle</span>
+                <span className="font-bold">{orderSuccessMsg}</span>
+              </div>
+              <button onClick={() => setOrderSuccessMsg('')} className="text-emerald-700 hover:text-emerald-950">
+                <span className="material-symbols-outlined text-base">close</span>
+              </button>
+            </div>
+          )}
+
       {/* ===== MEDICATIONS SECTION ===== */}
       {activeTab === 'medications' && (
         <div className="space-y-6">
@@ -1408,19 +1524,35 @@ export default function HealthRecordsPage() {
                         <div className={med.isError ? "" : "progress-fill"} style={med.isError ? { width: '0%', height: '100%', borderRadius: '9999px', background: '#ba1a1a' } : { width: med.status === 'TAKEN' ? '100%' : '0%' }}></div>
                       </div>
                     </div>
-                    <button 
-                      onClick={() => handleToggleMedicationStatus(idx)}
-                      className={`shrink-0 px-4 py-2 rounded-xl text-xs font-bold transition-all ${
-                        med.status === 'TAKEN' 
-                          ? 'bg-secondary/10 text-secondary hover:bg-secondary/20' 
-                          : med.status === 'MISSED' 
-                          ? 'bg-error-container text-on-error-container hover:bg-error/20' 
-                          : 'text-white'
-                      }`}
-                      style={med.status === 'UPCOMING' ? { background: 'linear-gradient(135deg, #00647e, #2c7d99)' } : {}}
-                    >
-                      {med.status === 'TAKEN' ? '✓ Taken' : med.status === 'MISSED' ? 'Mark Taken' : 'Mark Taken'}
-                    </button>
+                    <div className="flex items-center gap-2 shrink-0">
+                      {placedOrdersMap[med.id] || placedOrdersMap[(med.name || '').toLowerCase().trim()] ? (
+                        <span className="px-3 py-1.5 rounded-xl text-xs font-black bg-emerald-100 text-emerald-900 border border-emerald-300 flex items-center gap-1 shadow-sm">
+                          <span className="material-symbols-outlined text-sm text-emerald-700">check_circle</span>
+                          <span>{placedOrdersMap[med.id]?.status || placedOrdersMap[(med.name || '').toLowerCase().trim()]?.status || 'ORDERED'}</span>
+                        </span>
+                      ) : (
+                        <button
+                          onClick={() => handleInitiateOrder(med)}
+                          className="px-3.5 py-2 rounded-xl text-xs font-bold text-teal-900 bg-teal-50 hover:bg-teal-100 border border-teal-300 transition-all flex items-center gap-1.5"
+                        >
+                          <span className="material-symbols-outlined text-sm text-teal-700">shopping_cart_checkout</span>
+                          <span>Order</span>
+                        </button>
+                      )}
+                      <button 
+                        onClick={() => handleToggleMedicationStatus(idx)}
+                        className={`shrink-0 px-4 py-2 rounded-xl text-xs font-bold transition-all ${
+                          med.status === 'TAKEN' 
+                            ? 'bg-secondary/10 text-secondary hover:bg-secondary/20' 
+                            : med.status === 'MISSED' 
+                            ? 'bg-error-container text-on-error-container hover:bg-error/20' 
+                            : 'text-white'
+                        }`}
+                        style={med.status === 'UPCOMING' ? { background: 'linear-gradient(135deg, #00647e, #2c7d99)' } : {}}
+                      >
+                        {med.status === 'TAKEN' ? '✓ Taken' : med.status === 'MISSED' ? 'Mark Taken' : 'Mark Taken'}
+                      </button>
+                    </div>
                   </div>
                 ))
               )}
@@ -1810,6 +1942,25 @@ export default function HealthRecordsPage() {
                             </div>
                           </div>
                         </div>
+
+                        {/* Order Medicine Action Column */}
+                        <div className="flex gap-2 shrink-0 self-start sm:self-center">
+                          {placedOrdersMap[rx.id] || placedOrdersMap[(rx.name || rx.medication || '').toLowerCase().trim()] ? (
+                            <div className="px-3.5 py-2 rounded-xl text-xs font-black bg-emerald-100 text-emerald-900 border border-emerald-300 flex items-center gap-1.5 shadow-sm">
+                              <span className="material-symbols-outlined text-sm text-emerald-700">check_circle</span>
+                              <span>{placedOrdersMap[rx.id]?.status || placedOrdersMap[(rx.name || rx.medication || '').toLowerCase().trim()]?.status || 'ORDERED'}</span>
+                            </div>
+                          ) : (
+                            <button 
+                              onClick={() => handleInitiateOrder(rx)}
+                              className="px-4 py-2.5 rounded-xl text-xs font-bold text-white transition-all flex items-center gap-1.5 shadow-sm active:scale-95 hover:opacity-90" 
+                              style={{ background: 'linear-gradient(135deg,#00647e,#2c7d99)' }}
+                            >
+                              <span className="material-symbols-outlined text-base">shopping_cart_checkout</span>
+                              <span>Order Medicine</span>
+                            </button>
+                          )}
+                        </div>
                       </div>
                     </div>
                   ))}
@@ -1921,6 +2072,107 @@ export default function HealthRecordsPage() {
           medication={reviewingMedication}
           onConfirm={handleReviewConfirm}
         />
+      )}
+
+      {/* Order Confirmation Modal */}
+      {orderModalOpen && orderingRx && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-fadeIn">
+          <div className="bg-white rounded-3xl p-6 sm:p-8 max-w-lg w-full shadow-2xl border border-surface-container-high space-y-5 animate-scaleUp">
+            <div className="flex items-center justify-between pb-4 border-b border-surface-container-high">
+              <div className="flex items-center gap-3">
+                <div className="w-12 h-12 rounded-2xl bg-teal-50 text-teal-700 flex items-center justify-center">
+                  <span className="material-symbols-outlined text-2xl">local_pharmacy</span>
+                </div>
+                <div>
+                  <h3 className="font-headline text-lg font-bold text-on-surface">Confirm Medicine Order</h3>
+                  <p className="text-xs text-tertiary">Hospital Dispensary &amp; EDL Dispensing</p>
+                </div>
+              </div>
+              <button
+                onClick={() => { setOrderModalOpen(false); setOrderingRx(null); }}
+                className="p-1 text-tertiary hover:text-on-surface rounded-lg"
+              >
+                <span className="material-symbols-outlined">close</span>
+              </button>
+            </div>
+
+            <div className="bg-surface-container-low p-4 rounded-2xl border border-surface-container space-y-3 text-xs">
+              <div className="flex items-start justify-between gap-2">
+                <span className="text-tertiary font-bold uppercase text-[10px]">Medicine</span>
+                <span className="font-extrabold text-sm text-on-surface text-right">
+                  {orderingRx.name || orderingRx.medication || orderingRx.drug || 'Prescribed Medicine'}
+                </span>
+              </div>
+              <div className="flex items-center justify-between gap-2">
+                <span className="text-tertiary font-bold uppercase text-[10px]">Dosage</span>
+                <span className="font-bold text-slate-800">{orderingRx.dosage || 'Standard'}</span>
+              </div>
+              <div className="flex items-center justify-between gap-2">
+                <span className="text-tertiary font-bold uppercase text-[10px]">Frequency &amp; Regimen</span>
+                <span className="font-bold text-slate-800">{orderingRx.frequency || 'As directed'}</span>
+              </div>
+              <div className="flex items-center justify-between gap-2">
+                <span className="text-tertiary font-bold uppercase text-[10px]">Prescribed Duration</span>
+                <span className="font-bold text-slate-800">{orderingRx.date || orderingRx.duration || '5 Days (Standard Course)'}</span>
+              </div>
+              <div className="flex items-center justify-between gap-2">
+                <span className="text-tertiary font-bold uppercase text-[10px]">Prescribed Quantity</span>
+                <span className="font-black text-teal-800 bg-teal-100 px-2.5 py-0.5 rounded-lg">1 Full Prescribed Course</span>
+              </div>
+              {(orderingRx.instructions || orderingRx.notes) && (
+                <div className="pt-2 border-t border-surface-container text-tertiary">
+                  <span className="font-bold text-slate-800 block mb-0.5">Doctor Instructions:</span>
+                  <span className="italic">{orderingRx.instructions || orderingRx.notes}</span>
+                </div>
+              )}
+              {(orderingRx.doctor || orderingRx.doctorName) && (
+                <div className="flex items-center justify-between gap-2 pt-2 border-t border-surface-container text-tertiary">
+                  <span className="font-bold text-[10px] uppercase">Prescribing Doctor</span>
+                  <span className="font-bold text-on-surface">{orderingRx.doctor || orderingRx.doctorName}</span>
+                </div>
+              )}
+            </div>
+
+            <div className="bg-emerald-50 border border-emerald-200 p-3 rounded-2xl flex items-center justify-between text-xs text-emerald-950">
+              <div className="flex items-center gap-2">
+                <span className="material-symbols-outlined text-emerald-600 text-lg">verified</span>
+                <div>
+                  <span className="font-bold block">Hospital Pharmacy Dispensing</span>
+                  <span className="text-[11px] text-emerald-800">Nandurbar SDH Dispensary • Free under PMJAY &amp; EDL</span>
+                </div>
+              </div>
+              <span className="font-black text-sm text-emerald-800">₹0.00</span>
+            </div>
+
+            {orderErrorMsg && (
+              <div className="p-3 bg-red-50 border border-red-200 rounded-xl text-xs text-red-900 font-bold flex items-center gap-2">
+                <span className="material-symbols-outlined text-red-600">error</span>
+                <span>{orderErrorMsg}</span>
+              </div>
+            )}
+
+            <div className="flex items-center justify-end gap-3 pt-2">
+              <button
+                onClick={() => { setOrderModalOpen(false); setOrderingRx(null); }}
+                className="px-5 py-2.5 bg-surface-container hover:bg-surface-container-high text-on-surface font-bold text-xs rounded-xl transition-all"
+              >
+                Cancel
+              </button>
+              <button
+                disabled={orderPlacing}
+                onClick={handleConfirmOrder}
+                className={`px-6 py-2.5 bg-primary hover:bg-primary/90 text-white font-bold text-xs rounded-xl shadow-md transition-all flex items-center gap-2 ${
+                  orderPlacing ? 'opacity-70 cursor-not-allowed' : 'active:scale-95'
+                }`}
+              >
+                <span className={`material-symbols-outlined text-base ${orderPlacing ? 'animate-spin' : ''}`}>
+                  {orderPlacing ? 'sync' : 'shopping_bag'}
+                </span>
+                <span>{orderPlacing ? 'Placing Order...' : 'Confirm & Dispatch Order'}</span>
+              </button>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );

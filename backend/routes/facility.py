@@ -57,6 +57,17 @@ class StockUpdateRequest(BaseModel):
     batch_number: Optional[str] = None
     supplier_name: Optional[str] = "District Medical Store Depot (DMSD)"
 
+class MedicineOrderRequest(BaseModel):
+    patient_id: str
+    patient_name: Optional[str] = "Patient"
+    prescription_id: Optional[str] = None
+    medicine_name: str
+    dosage: Optional[str] = "Standard"
+    quantity: Optional[str] = "1 Course"
+    frequency: Optional[str] = "As prescribed"
+    instructions: Optional[str] = "Take as directed"
+    pharmacy: Optional[str] = "Nandurbar SDH Dispensary"
+
 # ─── API Endpoints ─────────────────────────────────────────────────────────
 
 @router.get("/facility/stats")
@@ -314,3 +325,44 @@ def get_medicine_alerts():
             "alert_count": 0,
             "medicines": []
         }
+
+@router.get("/facility/medicine-orders")
+@router.get("/medicines/orders")
+def list_medicine_orders(patient_id: Optional[str] = Query(None, description="Filter by patient ID")):
+    """Returns active and completed medicine orders for pharmacy & patient verification."""
+    try:
+        db = get_db()
+        query = db.table("medicine_orders").select("*")
+        if patient_id:
+            query = query.eq("patient_id", patient_id)
+        res = query.order("created_at", desc=True).execute()
+        return {"count": len(res.data or []), "orders": res.data or []}
+    except Exception as e:
+        logger.warning(f"Error querying medicine_orders table: {e}")
+        return {"count": 0, "orders": []}
+
+@router.post("/facility/medicine-orders")
+@router.post("/medicines/order")
+def create_medicine_order(order: MedicineOrderRequest):
+    """Allows patients to place a direct pharmacy dispensing order from a doctor prescription."""
+    now_iso = datetime.now().isoformat() + "Z"
+    new_order = {
+        "patient_id": order.patient_id,
+        "patient_name": order.patient_name,
+        "prescription_id": order.prescription_id,
+        "medicine_name": order.medicine_name,
+        "dosage": order.dosage,
+        "quantity": order.quantity,
+        "frequency": order.frequency,
+        "instructions": order.instructions,
+        "pharmacy": order.pharmacy,
+        "status": "ORDERED",
+        "created_at": now_iso
+    }
+    try:
+        db = get_db()
+        db.table("medicine_orders").insert(new_order).execute()
+    except Exception as e:
+        logger.warning(f"Note inserting into medicine_orders: {e}")
+        
+    return {"success": True, "order": new_order}

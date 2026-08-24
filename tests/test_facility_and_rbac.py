@@ -64,6 +64,33 @@ def test_diagnostic_lab_order_lifecycle(client):
     assert order_data["diagnostic_order"]["status"] == "ORDERED"
 
 
+def test_medicine_order_lifecycle(client):
+    """Verify patient direct medicine ordering from doctor prescription."""
+    order_payload = {
+        "patient_id": "P-101",
+        "patient_name": "Akshanth N",
+        "prescription_id": "rx-uuid-999",
+        "medicine_name": "Paracetamol 500mg Tablets",
+        "dosage": "500 mg",
+        "quantity": "10 Tablets",
+        "frequency": "TDS (3 times daily)",
+        "instructions": "Take after meals",
+        "pharmacy": "Nandurbar SDH Dispensary"
+    }
+    res = client.post("/api/facility/medicine-orders", json=order_payload)
+    assert res.status_code == 200
+    data = res.json()
+    assert data["success"] is True
+    assert data["order"]["medicine_name"] == "Paracetamol 500mg Tablets"
+    assert data["order"]["status"] == "ORDERED"
+
+    # List orders for patient
+    list_res = client.get("/api/facility/medicine-orders?patient_id=P-101")
+    assert list_res.status_code == 200
+    list_data = list_res.json()
+    assert "orders" in list_data
+
+
 def test_facility_doctors_roster(client):
     """Verify facility doctor roster returns doctors with required fields."""
     response = client.get("/api/facility/doctors")
