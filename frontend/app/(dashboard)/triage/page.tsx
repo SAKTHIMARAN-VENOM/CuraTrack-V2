@@ -694,16 +694,6 @@ function DigitalTriageContent() {
                 <span>Doctor: <strong className="text-teal-300">{currentDoctorName}</strong></span>
               </div>
             </div>
-
-            <div className="flex items-center gap-2 shrink-0">
-              <Link
-                href="/fhw"
-                className="px-4 py-2 bg-teal-600 hover:bg-teal-700 text-white font-bold text-xs rounded-xl transition-all flex items-center gap-1.5"
-              >
-                <span className="material-symbols-outlined text-base">volunteer_activism</span>
-                <span>ASHA Center</span>
-              </Link>
-            </div>
           </div>
 
           {/* Red Flag Warning Box */}
@@ -1047,6 +1037,7 @@ function DigitalTriageContent() {
                   <span className="material-symbols-outlined text-base">forward_to_inbox</span>
                   <span>Create Public Health Referral Pass</span>
                 </Link>
+<<<<<<< HEAD
 
                 <Link
                   href="/fhw"
@@ -1054,6 +1045,8 @@ function DigitalTriageContent() {
                 >
                   Return to ASHA Catchment Center →
                 </Link>
+=======
+>>>>>>> 20decef (style(triage): remove Doctor Portal button from active patient header and encounter CTAs)
               </div>
             </div>
           ) : (
