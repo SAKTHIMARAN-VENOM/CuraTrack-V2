@@ -576,14 +576,6 @@ export default function DoctorPortal() {
           </div>
 
           <div
-            className="nav-link flex items-center gap-3 px-4 py-3 rounded-xl font-headline font-medium text-sm transition-all cursor-pointer bg-teal-50 hover:bg-teal-100 text-teal-800 border border-teal-200"
-            onClick={() => router.push('/bluetooth/doctor')}
-          >
-            <span className="material-symbols-outlined text-teal-600">bluetooth</span>
-            <span className="font-bold">Bluetooth Offline Care</span>
-          </div>
-
-          <div
             className={`nav-link flex items-center gap-3 px-4 py-3 rounded-xl font-headline font-medium text-sm transition-all cursor-pointer ${
               currentView === 'records'
                 ? 'bg-[#e8f6fa] text-[#00647e] font-bold'

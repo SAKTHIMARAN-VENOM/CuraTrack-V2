@@ -32,6 +32,11 @@ import { createClient } from '@/lib/supabase/client';
 
 export default function DoctorBluetoothReceiverPage() {
   const router = useRouter();
+
+  useEffect(() => {
+    router.replace('/doctor');
+  }, [router]);
+
   const [manager] = useState(() => BluetoothManager.getInstance());
 
   const [loadingAuth, setLoadingAuth] = useState<boolean>(true);

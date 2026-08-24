@@ -73,7 +73,12 @@ export default function BluetoothTransferHubPage() {
           } catch {}
         }
 
-        setUserRole(isDoc ? 'doctor' : 'patient');
+        if (isDoc) {
+          router.replace('/doctor');
+          return;
+        }
+
+        setUserRole('patient');
       } catch (err) {
         console.error('[BluetoothHub] Auth check error:', err);
         setUserRole('patient');
@@ -247,31 +252,6 @@ export default function BluetoothTransferHubPage() {
 
               <div className="mt-8 flex items-center justify-between text-primary font-bold text-sm pt-6 border-t border-slate-100">
                 <span>Find Nearby Doctor & Start Transfer</span>
-                <ArrowRight className="w-5 h-5 group-hover:translate-x-1 transition-transform" />
-              </div>
-            </div>
-          </Link>
-        </div>
-      )}
-
-      {userRole === 'doctor' && (
-        <div className="grid grid-cols-1 gap-6">
-          <Link href="/bluetooth/doctor" className="group">
-            <div className="bg-white hover:bg-surface-container-low/50 border border-outline-variant/30 hover:border-secondary/40 p-8 rounded-3xl transition-all shadow-sm hover:shadow-md relative overflow-hidden flex flex-col justify-between">
-              <div>
-                <div className="w-14 h-14 rounded-2xl bg-secondary/10 text-secondary border border-secondary/20 flex items-center justify-center mb-6 group-hover:scale-105 transition-transform">
-                  <Stethoscope className="w-7 h-7" />
-                </div>
-                <h2 className="text-2xl font-headline font-bold text-on-surface group-hover:text-secondary transition-colors">
-                  Doctor Mode — Offline Consultation Suite
-                </h2>
-                <p className="text-tertiary text-sm mt-2 max-w-2xl leading-relaxed">
-                  Toggle broadcasting availability, approve incoming patient pair requests, inspect received medical summaries, and issue offline treatment instructions.
-                </p>
-              </div>
-
-              <div className="mt-8 flex items-center justify-between text-secondary font-bold text-sm pt-6 border-t border-slate-100">
-                <span>Open Doctor Consultation Suite</span>
                 <ArrowRight className="w-5 h-5 group-hover:translate-x-1 transition-transform" />
               </div>
             </div>

@@ -23,7 +23,6 @@ const DOCTOR_NAV_ITEMS = [
     { href: '/doctor', icon: 'dashboard', label: 'Clinical OPD Queue' },
     { href: '/doctor/clinical-schedule', icon: 'calendar_month', label: 'Consultation Schedule' },
     { href: '/referrals', icon: 'alt_route', label: 'Referral Pipeline' },
-    { href: '/bluetooth/doctor', icon: 'bluetooth', label: 'Offline Consult' },
     { href: '/drug-checker', icon: 'pill', label: 'Drug Safety' },
     { href: '/records', icon: 'folder_shared', label: 'Patient Records' },
     { href: '/profile', icon: 'person', label: 'Doctor Profile' }
