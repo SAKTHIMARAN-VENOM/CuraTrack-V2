@@ -38,30 +38,45 @@ export default function BluetoothTransferHubPage() {
   useEffect(() => {
     async function checkUserAuth() {
       try {
-        const supabase = createClient();
-        const { data: { user } } = await supabase.auth.getUser();
+        let authUser: any = null;
+        let savedAuthUser: any = null;
+        try {
+          const raw = localStorage.getItem('curatrack_auth_user');
+          if (raw) savedAuthUser = JSON.parse(raw);
+        } catch {}
 
-        if (!user) {
-          router.push('/login');
-          return;
+        const activeRole = localStorage.getItem('curatrack_active_role') || savedAuthUser?.role;
+
+        try {
+          const supabase = createClient();
+          const { data } = await supabase.auth.getUser();
+          authUser = data?.user;
+        } catch {}
+
+        const currentId = authUser?.id || savedAuthUser?.id || 'demo-user';
+        setCurrentUserId(currentId);
+
+        let isDoc = activeRole === 'doctor' || savedAuthUser?.role === 'doctor';
+        if (!isDoc && authUser?.id) {
+          try {
+            const supabase = createClient();
+            const { data: profile } = await supabase
+              .from('profiles')
+              .select('role')
+              .eq('id', authUser.id)
+              .maybeSingle();
+
+            isDoc = profile?.role === 'doctor' || 
+                    authUser?.user_metadata?.role === 'doctor' || 
+                    authUser?.email?.toLowerCase().includes('doctor') || 
+                    authUser?.email?.toLowerCase().includes('dr.');
+          } catch {}
         }
-
-        setCurrentUserId(user.id);
-
-        const { data: profile } = await supabase
-          .from('profiles')
-          .select('role')
-          .eq('id', user.id)
-          .maybeSingle();
-
-        const isDoc = profile?.role === 'doctor' || 
-                      user.user_metadata?.role === 'doctor' || 
-                      user.email?.toLowerCase().includes('doctor') || 
-                      user.email?.toLowerCase().includes('dr.');
 
         setUserRole(isDoc ? 'doctor' : 'patient');
       } catch (err) {
         console.error('[BluetoothHub] Auth check error:', err);
+        setUserRole('patient');
       } finally {
         setLoadingAuth(false);
       }

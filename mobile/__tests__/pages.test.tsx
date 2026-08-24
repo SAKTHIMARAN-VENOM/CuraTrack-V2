@@ -73,9 +73,9 @@ describe('Mobile Screen Rendering & UI Components', () => {
     );
 
     expect(screen.getByRole('heading', { level: 1, name: /Vitals Overview/i })).toBeInTheDocument();
-    expect(screen.getByText(/Sync Wearables/i)).toBeInTheDocument();
-    expect(screen.getByText(/Pulse Rate/i)).toBeInTheDocument();
-    expect(screen.getByText(/Blood Oxygen/i)).toBeInTheDocument();
+    expect(screen.getByText(/^Sync$/i)).toBeInTheDocument();
+    expect(screen.getAllByText(/Heart Rate/i)[0]).toBeInTheDocument();
+    expect(screen.getByText(/Blood Pressure/i)).toBeInTheDocument();
   });
 
   it('EmergencyPage renders 108 Indian Ambulance dispatch button', () => {
@@ -85,7 +85,7 @@ describe('Mobile Screen Rendering & UI Components', () => {
       </AppProvider>
     );
 
-    expect(screen.getByText(/108 EMERGENCY SOS/i)).toBeInTheDocument();
-    expect(screen.getByText(/National Emergency: 112/i)).toBeInTheDocument();
+    expect(screen.getByText(/108 Ambulance & 112 Emergency/i)).toBeInTheDocument();
+    expect(screen.getByText(/Emergency SOS Dispatch/i)).toBeInTheDocument();
   });
 });

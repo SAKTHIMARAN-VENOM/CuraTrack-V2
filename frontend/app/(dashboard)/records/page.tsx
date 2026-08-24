@@ -110,11 +110,23 @@ export default function HealthRecordsPage() {
   const [refillStatus, setRefillStatus] = useState<string | null>(null);
   const [userId, setUserId] = useState<string>('demo-patient-001');
   const [isOffline, setIsOffline] = useState<boolean>(false);
+  const [currentRole, setCurrentRole] = useState<string>('patient');
+  const [facilityArchiveTab, setFacilityArchiveTab] = useState<'dispenses' | 'edl_receipts' | 'labs' | 'waste_logs'>('dispenses');
+  const [facilitySearchQuery, setFacilitySearchQuery] = useState<string>('');
 
   useEffect(() => {
     // 1. Check logged-in user and fetch user-scoped data from Supabase
     const loadSupabaseData = async () => {
       try {
+        let savedAuthUser: any = null;
+        try {
+          const raw = localStorage.getItem('curatrack_auth_user');
+          if (raw) savedAuthUser = JSON.parse(raw);
+        } catch {}
+
+        const activeRole = localStorage.getItem('curatrack_active_role') || savedAuthUser?.role || 'patient';
+        setCurrentRole(activeRole);
+
         const supabase = createClient();
         const { data: { user } } = await supabase.auth.getUser();
         if (user) {
@@ -792,6 +804,333 @@ export default function HealthRecordsPage() {
       </div>
     );
   };
+
+  // FACILITY & PHARMACY ARCHIVE VIEW (FOR FACILITY MANAGERS)
+  if (currentRole === 'facility_manager') {
+    const PHARMACY_DISPENSES = [
+      { id: 'DSP-2026-081', token: 'TKN-042', patientName: 'Kavita Bai', medicine: 'Paracetamol 500mg + Amoxicillin 500mg', qty: '10 Tabs / 15 Caps', prescribedBy: 'Dr. David Ross', dispensedBy: 'R. Verma (Pharmacist)', date: 'Today, 11:30 AM', status: 'DISPENSED' },
+      { id: 'DSP-2026-082', token: 'TKN-043', patientName: 'Ramesh Tadvi', medicine: 'Metformin 500mg + Telmisartan 40mg', qty: '30 Tabs / 30 Tabs', prescribedBy: 'Dr. David Ross', dispensedBy: 'R. Verma (Pharmacist)', date: 'Today, 12:15 PM', status: 'DISPENSED' },
+      { id: 'DSP-2026-083', token: 'TKN-044', patientName: 'Sunita Gavit', medicine: 'IFA Tablets + Calcium + Vit D3', qty: '60 Tabs / 30 Tabs', prescribedBy: 'Dr. Ananya Sen', dispensedBy: 'R. Verma (Pharmacist)', date: 'Today, 01:00 PM', status: 'DISPENSED' },
+      { id: 'DSP-2026-084', token: 'TKN-045', patientName: 'Prakash Patil', medicine: 'Oral Rehydration Salts (ORS) + Zinc', qty: '5 Sachets / 14 Tabs', prescribedBy: 'Dr. Rajesh Kulkarni', dispensedBy: 'R. Verma (Pharmacist)', date: 'Today, 02:20 PM', status: 'DISPENSED' },
+      { id: 'DSP-2026-085', token: 'TKN-046', patientName: 'Anandi Bai', medicine: 'Azithromycin 500mg + Paracetamol 500mg', qty: '3 Tabs / 10 Tabs', prescribedBy: 'Dr. Priya Sharma', dispensedBy: 'R. Verma (Pharmacist)', date: 'Yesterday, 04:10 PM', status: 'DISPENSED' },
+    ];
+
+    const EDL_BATCH_RECEIPTS = [
+      { batchNo: 'BATCH-MH-2026-A10', item: 'Paracetamol 500mg IP Tablets', supplier: 'Maharashtra Medical Supplies Corp (MMSCL)', qty: '10,000 Tabs', receivedDate: '2026-08-20', expiryDate: '2028-05-30', storageBay: 'Rack A - Bin 04', status: 'VERIFIED_EDL' },
+      { batchNo: 'BATCH-MH-2026-C44', item: 'Amoxicillin 500mg Capsules', supplier: 'MMSCL Central Warehouse Nashik', qty: '5,000 Caps', receivedDate: '2026-08-18', expiryDate: '2027-11-30', storageBay: 'Rack B - Bin 02', status: 'VERIFIED_EDL' },
+      { batchNo: 'BATCH-MH-2026-I09', item: 'Iron Folic Acid (IFA) Large', supplier: 'National Health Mission Depot', qty: '20,000 Tabs', receivedDate: '2026-08-15', expiryDate: '2028-08-30', storageBay: 'Rack D - Bin 01', status: 'VERIFIED_EDL' },
+      { batchNo: 'BATCH-MH-2026-O12', item: 'ORS WHO Formula Packets', supplier: 'HLL Lifecare Ltd', qty: '2,500 Sachets', receivedDate: '2026-08-12', expiryDate: '2029-01-30', storageBay: 'Rack E - Bin 08', status: 'VERIFIED_EDL' },
+      { batchNo: 'BATCH-MH-2026-T88', item: 'Telmisartan 40mg Tablets', supplier: 'MMSCL Pharma Depot', qty: '4,000 Tabs', receivedDate: '2026-08-08', expiryDate: '2028-02-28', storageBay: 'Rack A - Bin 09', status: 'VERIFIED_EDL' }
+    ];
+
+    const LAB_ARCHIVES = [
+      { orderId: 'LAB-MH-881', testName: 'Complete Blood Count (CBC)', patientName: 'Kavita Bai', specimen: 'Whole Blood (EDTA)', orderedBy: 'Dr. David Ross', completedDate: 'Today, 10:45 AM', verifiedStatus: 'VERIFIED_NORMAL' },
+      { orderId: 'LAB-MH-882', testName: 'Sickle Cell Solubility Test', patientName: 'Ramesh Tadvi', specimen: 'Venous Blood', orderedBy: 'Dr. David Ross', completedDate: 'Today, 11:15 AM', verifiedStatus: 'TRAIT_CONFIRMED' },
+      { orderId: 'LAB-MH-883', testName: 'Rapid Malarial Antigen (Pf/Pv)', patientName: 'Sunita Gavit', specimen: 'Capillary Blood', orderedBy: 'Dr. Ananya Sen', completedDate: 'Today, 12:40 PM', verifiedStatus: 'NEGATIVE' },
+      { orderId: 'LAB-MH-884', testName: 'Fasting Blood Glucose', patientName: 'Prakash Patil', specimen: 'Plasma (Fluoride)', orderedBy: 'Dr. Rajesh Kulkarni', completedDate: 'Today, 01:10 PM', verifiedStatus: 'VERIFIED_NORMAL' },
+    ];
+
+    const WASTE_DISPOSAL_LOGS = [
+      { disposalId: 'DSP-LOG-019', batchNo: 'BATCH-OLD-2024-X9', itemName: 'Cotrimoxazole Susp (Expired)', quantity: '40 Bottles', disposalMethod: 'High-Temp Incineration (Bio-Medical Waste Facility)', date: '2026-08-10', authorizedBy: 'Anil Deshmukh (Ops)' },
+      { disposalId: 'DSP-LOG-020', batchNo: 'BATCH-OLD-2024-Y2', itemName: 'Expired Rapid Test Strips (Batch 2024)', quantity: '150 Kits', disposalMethod: 'Autoclaving & Shredding Protocol', date: '2026-08-05', authorizedBy: 'Anil Deshmukh (Ops)' },
+    ];
+
+    const filteredDispenses = PHARMACY_DISPENSES.filter(d => 
+      !facilitySearchQuery || 
+      d.patientName.toLowerCase().includes(facilitySearchQuery.toLowerCase()) || 
+      d.medicine.toLowerCase().includes(facilitySearchQuery.toLowerCase()) ||
+      d.token.toLowerCase().includes(facilitySearchQuery.toLowerCase())
+    );
+
+    const filteredEDL = EDL_BATCH_RECEIPTS.filter(e => 
+      !facilitySearchQuery || 
+      e.item.toLowerCase().includes(facilitySearchQuery.toLowerCase()) || 
+      e.batchNo.toLowerCase().includes(facilitySearchQuery.toLowerCase()) ||
+      e.supplier.toLowerCase().includes(facilitySearchQuery.toLowerCase())
+    );
+
+    const filteredLabs = LAB_ARCHIVES.filter(l => 
+      !facilitySearchQuery || 
+      l.testName.toLowerCase().includes(facilitySearchQuery.toLowerCase()) || 
+      l.patientName.toLowerCase().includes(facilitySearchQuery.toLowerCase()) ||
+      l.orderId.toLowerCase().includes(facilitySearchQuery.toLowerCase())
+    );
+
+    const filteredWaste = WASTE_DISPOSAL_LOGS.filter(w => 
+      !facilitySearchQuery || 
+      w.itemName.toLowerCase().includes(facilitySearchQuery.toLowerCase()) || 
+      w.batchNo.toLowerCase().includes(facilitySearchQuery.toLowerCase())
+    );
+
+    return (
+      <div className="flex-1 p-6 lg:p-10 max-w-7xl mx-auto w-full space-y-8">
+        {/* Header Banner */}
+        <div className="bg-gradient-to-r from-blue-900 via-primary to-teal-900 rounded-3xl p-8 text-white shadow-xl flex flex-col sm:flex-row sm:items-center justify-between gap-6">
+          <div>
+            <div className="inline-flex items-center gap-2 px-3 py-1 bg-white/10 backdrop-blur rounded-full text-xs font-semibold tracking-wide text-blue-200 mb-2">
+              <span className="material-symbols-outlined text-sm">folder_shared</span>
+              <span>Facility Operations & Pharmacy Audit</span>
+            </div>
+            <h1 className="text-3xl font-extrabold tracking-tight">Facility & Pharmacy Archive</h1>
+            <p className="text-blue-100 text-sm mt-1 max-w-xl">
+              Comprehensive institutional records of pharmacy dispensing ledgers, EDL procurement batch receipts, laboratory diagnostic logs, and bio-medical disposal audits.
+            </p>
+          </div>
+
+          <div className="flex items-center gap-3 shrink-0">
+            <button
+              onClick={() => {
+                alert('Facility Archive Audit Log exported to CSV.');
+              }}
+              className="px-4 py-3 bg-white/15 hover:bg-white/25 text-white font-bold text-xs rounded-2xl flex items-center gap-2 backdrop-blur transition-all"
+            >
+              <span className="material-symbols-outlined text-lg">download</span>
+              <span>Export Audit CSV</span>
+            </button>
+          </div>
+        </div>
+
+        {/* KPI Metrics */}
+        <div className="grid grid-cols-1 sm:grid-cols-4 gap-4">
+          <div className="bg-white border border-surface-container-high p-5 rounded-3xl shadow-card">
+            <span className="text-[11px] font-bold uppercase tracking-wider text-tertiary block">Total Dispensed Today</span>
+            <span className="text-3xl font-black text-on-surface mt-1 block">{PHARMACY_DISPENSES.length}</span>
+            <span className="text-[10px] text-teal-600 font-semibold">100% Prescription adherence</span>
+          </div>
+
+          <div className="bg-white border border-surface-container-high p-5 rounded-3xl shadow-card">
+            <span className="text-[11px] font-bold uppercase tracking-wider text-tertiary block">Active EDL Batches</span>
+            <span className="text-3xl font-black text-on-surface mt-1 block">{EDL_BATCH_RECEIPTS.length}</span>
+            <span className="text-[10px] text-blue-600 font-semibold">Verified stock entries</span>
+          </div>
+
+          <div className="bg-white border border-surface-container-high p-5 rounded-3xl shadow-card">
+            <span className="text-[11px] font-bold uppercase tracking-wider text-tertiary block">Lab Archive Tests</span>
+            <span className="text-3xl font-black text-on-surface mt-1 block">{LAB_ARCHIVES.length}</span>
+            <span className="text-[10px] text-purple-600 font-semibold">Completed and verified</span>
+          </div>
+
+          <div className="bg-white border border-surface-container-high p-5 rounded-3xl shadow-card">
+            <span className="text-[11px] font-bold uppercase tracking-wider text-tertiary block">Disposal Audits</span>
+            <span className="text-3xl font-black text-on-surface mt-1 block">{WASTE_DISPOSAL_LOGS.length}</span>
+            <span className="text-[10px] text-amber-600 font-semibold">Bio-medical certified</span>
+          </div>
+        </div>
+
+        {/* Search & Tabs */}
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-surface-container-high pb-4">
+          <div className="flex flex-wrap gap-2">
+            <button
+              onClick={() => setFacilityArchiveTab('dispenses')}
+              className={`px-4 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 ${
+                facilityArchiveTab === 'dispenses' ? 'bg-primary text-white shadow-sm' : 'bg-surface-container-low text-tertiary hover:bg-surface-container'
+              }`}
+            >
+              <span className="material-symbols-outlined text-sm">pill</span>
+              <span>Pharmacy Dispenses ({filteredDispenses.length})</span>
+            </button>
+
+            <button
+              onClick={() => setFacilityArchiveTab('edl_receipts')}
+              className={`px-4 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 ${
+                facilityArchiveTab === 'edl_receipts' ? 'bg-primary text-white shadow-sm' : 'bg-surface-container-low text-tertiary hover:bg-surface-container'
+              }`}
+            >
+              <span className="material-symbols-outlined text-sm">inventory_2</span>
+              <span>EDL Stock Ingestions ({filteredEDL.length})</span>
+            </button>
+
+            <button
+              onClick={() => setFacilityArchiveTab('labs')}
+              className={`px-4 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 ${
+                facilityArchiveTab === 'labs' ? 'bg-primary text-white shadow-sm' : 'bg-surface-container-low text-tertiary hover:bg-surface-container'
+              }`}
+            >
+              <span className="material-symbols-outlined text-sm">biotech</span>
+              <span>Diagnostic Lab Archive ({filteredLabs.length})</span>
+            </button>
+
+            <button
+              onClick={() => setFacilityArchiveTab('waste_logs')}
+              className={`px-4 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 ${
+                facilityArchiveTab === 'waste_logs' ? 'bg-primary text-white shadow-sm' : 'bg-surface-container-low text-tertiary hover:bg-surface-container'
+              }`}
+            >
+              <span className="material-symbols-outlined text-sm">delete_sweep</span>
+              <span>Disposal & Waste Logs ({filteredWaste.length})</span>
+            </button>
+          </div>
+
+          <div className="relative">
+            <span className="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-tertiary text-sm">search</span>
+            <input
+              type="text"
+              placeholder="Search archive logs..."
+              value={facilitySearchQuery}
+              onChange={e => setFacilitySearchQuery(e.target.value)}
+              className="pl-9 pr-4 py-2 bg-surface-container-low rounded-xl text-xs font-bold border border-surface-container-high outline-none focus:border-primary w-full sm:w-64"
+            />
+          </div>
+        </div>
+
+        {/* Tab 1: Pharmacy Dispenses */}
+        {facilityArchiveTab === 'dispenses' && (
+          <div className="bg-white rounded-3xl border border-surface-container-high overflow-hidden shadow-card">
+            <div className="overflow-x-auto">
+              <table className="w-full text-left text-xs">
+                <thead className="bg-surface-container-low text-tertiary uppercase font-black text-[10px] tracking-wider border-b border-surface-container-high">
+                  <tr>
+                    <th className="p-4">Dispense ID & Token</th>
+                    <th className="p-4">Patient Name</th>
+                    <th className="p-4">Prescribed Medicine & Qty</th>
+                    <th className="p-4">Prescribing Clinician</th>
+                    <th className="p-4">Dispensing Pharmacist</th>
+                    <th className="p-4">Timestamp</th>
+                    <th className="p-4 text-right">Status</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-surface-container-high">
+                  {filteredDispenses.map((row) => (
+                    <tr key={row.id} className="hover:bg-surface-container-low/50 transition-colors">
+                      <td className="p-4 font-mono font-bold text-primary">
+                        <div>{row.id}</div>
+                        <div className="text-[10px] text-tertiary">{row.token}</div>
+                      </td>
+                      <td className="p-4 font-bold text-on-surface">{row.patientName}</td>
+                      <td className="p-4">
+                        <div className="font-semibold text-slate-800">{row.medicine}</div>
+                        <div className="text-[10px] text-tertiary">{row.qty}</div>
+                      </td>
+                      <td className="p-4 text-slate-700">{row.prescribedBy}</td>
+                      <td className="p-4 text-slate-700">{row.dispensedBy}</td>
+                      <td className="p-4 text-tertiary font-mono text-[11px]">{row.date}</td>
+                      <td className="p-4 text-right">
+                        <span className="px-2.5 py-1 rounded-full text-[10px] font-black uppercase tracking-wider bg-teal-100 text-teal-800 border border-teal-200">
+                          {row.status}
+                        </span>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        )}
+
+        {/* Tab 2: EDL Batch Ingestions */}
+        {facilityArchiveTab === 'edl_receipts' && (
+          <div className="bg-white rounded-3xl border border-surface-container-high overflow-hidden shadow-card">
+            <div className="overflow-x-auto">
+              <table className="w-full text-left text-xs">
+                <thead className="bg-surface-container-low text-tertiary uppercase font-black text-[10px] tracking-wider border-b border-surface-container-high">
+                  <tr>
+                    <th className="p-4">Batch Number</th>
+                    <th className="p-4">EDL Item Description</th>
+                    <th className="p-4">Procurement Supplier</th>
+                    <th className="p-4">Quantity Received</th>
+                    <th className="p-4">Receipt Date</th>
+                    <th className="p-4">Expiry Date</th>
+                    <th className="p-4">Storage Bay</th>
+                    <th className="p-4 text-right">EDL Verification</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-surface-container-high">
+                  {filteredEDL.map((row) => (
+                    <tr key={row.batchNo} className="hover:bg-surface-container-low/50 transition-colors">
+                      <td className="p-4 font-mono font-bold text-primary">{row.batchNo}</td>
+                      <td className="p-4 font-bold text-on-surface">{row.item}</td>
+                      <td className="p-4 text-slate-700">{row.supplier}</td>
+                      <td className="p-4 font-bold text-slate-900">{row.qty}</td>
+                      <td className="p-4 text-tertiary font-mono">{row.receivedDate}</td>
+                      <td className="p-4 text-slate-700 font-mono">{row.expiryDate}</td>
+                      <td className="p-4 text-slate-600">{row.storageBay}</td>
+                      <td className="p-4 text-right">
+                        <span className="px-2.5 py-1 rounded-full text-[10px] font-black uppercase tracking-wider bg-blue-100 text-blue-800 border border-blue-200">
+                          {row.status}
+                        </span>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        )}
+
+        {/* Tab 3: Diagnostic Lab Archive */}
+        {facilityArchiveTab === 'labs' && (
+          <div className="bg-white rounded-3xl border border-surface-container-high overflow-hidden shadow-card">
+            <div className="overflow-x-auto">
+              <table className="w-full text-left text-xs">
+                <thead className="bg-surface-container-low text-tertiary uppercase font-black text-[10px] tracking-wider border-b border-surface-container-high">
+                  <tr>
+                    <th className="p-4">Order ID</th>
+                    <th className="p-4">Diagnostic Test</th>
+                    <th className="p-4">Patient Name</th>
+                    <th className="p-4">Specimen Type</th>
+                    <th className="p-4">Ordering Clinician</th>
+                    <th className="p-4">Completed Timestamp</th>
+                    <th className="p-4 text-right">Verified Status</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-surface-container-high">
+                  {filteredLabs.map((row) => (
+                    <tr key={row.orderId} className="hover:bg-surface-container-low/50 transition-colors">
+                      <td className="p-4 font-mono font-bold text-primary">{row.orderId}</td>
+                      <td className="p-4 font-bold text-on-surface">{row.testName}</td>
+                      <td className="p-4 font-semibold text-slate-800">{row.patientName}</td>
+                      <td className="p-4 text-slate-600">{row.specimen}</td>
+                      <td className="p-4 text-slate-700">{row.orderedBy}</td>
+                      <td className="p-4 text-tertiary font-mono">{row.completedDate}</td>
+                      <td className="p-4 text-right">
+                        <span className="px-2.5 py-1 rounded-full text-[10px] font-black uppercase tracking-wider bg-teal-100 text-teal-800 border border-teal-200">
+                          {row.verifiedStatus}
+                        </span>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        )}
+
+        {/* Tab 4: Waste Disposal Logs */}
+        {facilityArchiveTab === 'waste_logs' && (
+          <div className="bg-white rounded-3xl border border-surface-container-high overflow-hidden shadow-card">
+            <div className="overflow-x-auto">
+              <table className="w-full text-left text-xs">
+                <thead className="bg-surface-container-low text-tertiary uppercase font-black text-[10px] tracking-wider border-b border-surface-container-high">
+                  <tr>
+                    <th className="p-4">Disposal ID</th>
+                    <th className="p-4">Batch Number</th>
+                    <th className="p-4">Expired Drug / Consumable</th>
+                    <th className="p-4">Disposal Quantity</th>
+                    <th className="p-4">Disposal Protocol</th>
+                    <th className="p-4">Date</th>
+                    <th className="p-4 text-right">Authorized Officer</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-surface-container-high">
+                  {filteredWaste.map((row) => (
+                    <tr key={row.disposalId} className="hover:bg-surface-container-low/50 transition-colors">
+                      <td className="p-4 font-mono font-bold text-primary">{row.disposalId}</td>
+                      <td className="p-4 font-mono text-slate-700">{row.batchNo}</td>
+                      <td className="p-4 font-bold text-on-surface">{row.itemName}</td>
+                      <td className="p-4 font-bold text-red-700">{row.quantity}</td>
+                      <td className="p-4 text-slate-600">{row.disposalMethod}</td>
+                      <td className="p-4 text-tertiary font-mono">{row.date}</td>
+                      <td className="p-4 text-right font-semibold text-slate-800">{row.authorizedBy}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        )}
+      </div>
+    );
+  }
 
   return (
     <div className="flex-1 p-8 lg:p-10 max-w-7xl mx-auto w-full space-y-8">

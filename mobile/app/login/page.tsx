@@ -52,14 +52,6 @@ export default function LoginPage() {
     }
   };
 
-  const handleBiometricLogin = () => {
-    setIsLoading(true);
-    setTimeout(() => {
-      setIsLoading(false);
-      router.push('/');
-    }, 400);
-  };
-
   const displayError = localError || authError;
 
   return (
@@ -80,40 +72,12 @@ export default function LoginPage() {
         <div className="bg-white dark:bg-slate-900 rounded-3xl border border-slate-200 dark:border-slate-800 shadow-xl p-6 sm:p-8 relative overflow-hidden">
           <div className="absolute top-0 left-0 w-full h-1.5 bg-gradient-to-r from-primary to-teal-400"></div>
 
-          {/* Quick Demo Accounts */}
-          <div className="mb-4 p-3 bg-slate-50 dark:bg-slate-800/60 rounded-2xl border border-slate-200 dark:border-slate-700">
-            <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500 block mb-2">1-Click Demo Login</span>
-            <div className="grid grid-cols-2 gap-1.5">
-              <button
-                type="button"
-                onClick={() => { setEmail('patient@curatrack.in'); setPassword('Patient@123'); }}
-                className="p-2 rounded-xl bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-left text-xs font-semibold text-slate-800 dark:text-slate-200 hover:border-primary"
-              >
-                👤 Patient
-              </button>
-              <button
-                type="button"
-                onClick={() => { setEmail('doctor@curatrack.in'); setPassword('Doctor@123'); }}
-                className="p-2 rounded-xl bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-left text-xs font-semibold text-slate-800 dark:text-slate-200 hover:border-primary"
-              >
-                🩺 Doctor
-              </button>
-              <button
-                type="button"
-                onClick={() => { setEmail('asha@curatrack.in'); setPassword('Asha@123'); }}
-                className="p-2 rounded-xl bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-left text-xs font-semibold text-slate-800 dark:text-slate-200 hover:border-primary"
-              >
-                👩‍⚕️ ASHA
-              </button>
-              <button
-                type="button"
-                onClick={() => { setEmail('facility@curatrack.in'); setPassword('Facility@123'); }}
-                className="p-2 rounded-xl bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-left text-xs font-semibold text-slate-800 dark:text-slate-200 hover:border-primary"
-              >
-                🏥 Facility
-              </button>
+          {/* Error Alert */}
+          {displayError && (
+            <div className="mb-4 p-3 bg-red-50 dark:bg-red-950/30 border border-red-200 dark:border-red-900/60 rounded-xl text-xs text-red-700 dark:text-red-300 font-medium">
+              {displayError}
             </div>
-          </div>
+          )}
 
           <form onSubmit={handleSubmit} className="space-y-4">
             {/* Email Field */}
@@ -190,7 +154,7 @@ export default function LoginPage() {
           </div>
 
           {/* Google Sign In Button */}
-          <div className="mt-4 space-y-3">
+          <div className="mt-4">
             <button
               type="button"
               onClick={handleGoogleLogin}
@@ -211,19 +175,6 @@ export default function LoginPage() {
                 </>
               )}
             </button>
-
-            {/* Biometric Quick Login */}
-            <div className="flex flex-col items-center gap-2 pt-1">
-              <button
-                type="button"
-                onClick={handleBiometricLogin}
-                className="w-12 h-12 rounded-full bg-primary/10 hover:bg-primary/20 text-primary dark:text-primary-fixed flex items-center justify-center transition-all active:scale-90 border border-primary/20 shadow-sm"
-                title="Sign in with FaceID / Biometrics"
-              >
-                <Fingerprint className="w-6 h-6" />
-              </button>
-              <span className="text-[11px] text-slate-500 font-medium">Use Touch ID / Face ID</span>
-            </div>
           </div>
         </div>
 

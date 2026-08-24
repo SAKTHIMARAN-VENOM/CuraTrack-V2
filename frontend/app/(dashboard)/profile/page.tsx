@@ -5,48 +5,90 @@ import { createClient } from '@/lib/supabase/client';
 import { API_BASE } from '@/lib/api';
 
 export default function ProfilePage() {
+    const [currentRole, setCurrentRole] = useState<string>('patient');
     const [qrImage, setQrImage] = useState<string | null>(null);
     const [qrLoading, setQrLoading] = useState(false);
     const [qrError, setQrError] = useState<string | null>(null);
     const [expiresAt, setExpiresAt] = useState<number | null>(null);
     const [countdown, setCountdown] = useState<string>('');
     const [isExpired, setIsExpired] = useState(false);
-    const [userName, setUserName] = useState<string>('Patient');
+
+    // Profile States
+    const [userName, setUserName] = useState<string>('');
     const [userEmail, setUserEmail] = useState<string>('');
-    const [userAge, setUserAge] = useState<string>('Not set');
-    const [userGender, setUserGender] = useState<string>('Not set');
+    const [userPhone, setUserPhone] = useState<string>('+91 98201 44521');
+    const [userAge, setUserAge] = useState<string>('28');
+    const [userGender, setUserGender] = useState<string>('Female');
     const [userBlood, setUserBlood] = useState<string>('O+');
 
-    // Fetch user name and metadata from Supabase
+    // Manager Profile States
+    const [facilityName, setFacilityName] = useState<string>('Nandurbar Sub-District Hospital');
+    const [facilityType, setFacilityType] = useState<string>('Sub-District Hospital (SDH)');
+    const [district, setDistrict] = useState<string>('Nandurbar, Maharashtra');
+    const [facilityCode, setFacilityCode] = useState<string>('FAC-MH-NDB-104');
+    const [emergencyContact, setEmergencyContact] = useState<string>('+91 2564 220199');
+    const [operatingHours, setOperatingHours] = useState<string>('24x7 Emergency & 08:00 - 20:00 OPD');
+    const [edlScope, setEdlScope] = useState<string>('120 Essential Medicines & 45 Diagnostics');
+    const [isSaving, setIsSaving] = useState<boolean>(false);
+    const [saveSuccess, setSaveSuccess] = useState<string | null>(null);
+
+    // Fetch user name and metadata
     useEffect(() => {
         const fetchUser = async () => {
-            const supabase = createClient();
-            const { data: { user } } = await supabase.auth.getUser();
-            if (user) {
-                if (user.user_metadata?.name) {
-                    setUserName(user.user_metadata.name);
-                } else if (user.email) {
-                    setUserName(user.email.split('@')[0]);
-                }
-                if (user.email) setUserEmail(user.email);
-                if (user.user_metadata?.age) setUserAge(String(user.user_metadata.age));
-                if (user.user_metadata?.gender) setUserGender(user.user_metadata.gender);
-                if (user.user_metadata?.blood_group) setUserBlood(user.user_metadata.blood_group);
+            let savedAuthUser: any = null;
+            try {
+                const raw = localStorage.getItem('curatrack_auth_user');
+                if (raw) savedAuthUser = JSON.parse(raw);
+            } catch {}
 
-                // Fetch profile table if available
-                const { data: profile } = await supabase.from('profiles').select('*').eq('id', user.id).maybeSingle();
-                if (profile) {
-                    if (profile.name) setUserName(profile.name);
-                    if (profile.age) setUserAge(String(profile.age));
-                    if (profile.gender) setUserGender(profile.gender);
-                    if (profile.blood_group) setUserBlood(profile.blood_group);
-                }
+            const activeRole = localStorage.getItem('curatrack_active_role') || savedAuthUser?.role || 'patient';
+            setCurrentRole(activeRole);
+
+            const supabase = createClient();
+            let authUser: any = null;
+            try {
+                const { data } = await supabase.auth.getUser();
+                authUser = data?.user;
+            } catch {}
+
+            const email = authUser?.email || savedAuthUser?.email || '';
+            setUserEmail(email);
+
+            let profileData: any = null;
+            if (authUser?.id) {
+                try {
+                    const { data: profile } = await supabase.from('profiles').select('*').eq('id', authUser.id).maybeSingle();
+                    profileData = profile;
+                } catch {}
             }
+
+            const initialName = profileData?.name || 
+                                authUser?.user_metadata?.name || 
+                                authUser?.user_metadata?.full_name || 
+                                savedAuthUser?.name || 
+                                (activeRole === 'facility_manager' ? 'Anil Deshmukh (Hospital Ops)' : activeRole === 'doctor' ? 'Dr. David Ross' : activeRole === 'fhw' ? 'Sunita Tai (ASHA #402)' : 'Kavita Bai');
+            setUserName(initialName);
+
+            // Load persisted manager settings if any
+            try {
+                const rawMgr = localStorage.getItem('curatrack_manager_profile');
+                if (rawMgr) {
+                    const mgr = JSON.parse(rawMgr);
+                    if (mgr.facilityName) setFacilityName(mgr.facilityName);
+                    if (mgr.facilityType) setFacilityType(mgr.facilityType);
+                    if (mgr.district) setDistrict(mgr.district);
+                    if (mgr.facilityCode) setFacilityCode(mgr.facilityCode);
+                    if (mgr.emergencyContact) setEmergencyContact(mgr.emergencyContact);
+                    if (mgr.operatingHours) setOperatingHours(mgr.operatingHours);
+                    if (mgr.edlScope) setEdlScope(mgr.edlScope);
+                    if (mgr.userPhone) setUserPhone(mgr.userPhone);
+                }
+            } catch {}
         };
         fetchUser();
     }, []);
 
-    // Countdown timer
+    // Countdown timer for Patient QR
     useEffect(() => {
         if (!expiresAt) return;
 
@@ -69,6 +111,51 @@ export default function ProfilePage() {
         return () => clearInterval(interval);
     }, [expiresAt]);
 
+    const handleSaveManagerProfile = async (e: React.FormEvent) => {
+        e.preventDefault();
+        setIsSaving(true);
+        setSaveSuccess(null);
+
+        try {
+            const mgrData = {
+                userName,
+                userEmail,
+                userPhone,
+                facilityName,
+                facilityType,
+                district,
+                facilityCode,
+                emergencyContact,
+                operatingHours,
+                edlScope,
+                updatedAt: new Date().toISOString()
+            };
+
+            localStorage.setItem('curatrack_manager_profile', JSON.stringify(mgrData));
+
+            const supabase = createClient();
+            const { data: { user } } = await supabase.auth.getUser();
+            if (user?.id) {
+                await supabase.from('profiles').upsert({
+                    id: user.id,
+                    name: userName,
+                    email: userEmail,
+                    role: 'facility_manager',
+                    profile_completed: true,
+                    updated_at: new Date().toISOString()
+                });
+            }
+
+            setSaveSuccess('Manager Profile & Facility Configuration updated successfully!');
+            setTimeout(() => setSaveSuccess(null), 4000);
+        } catch (err: any) {
+            setSaveSuccess('Profile saved locally.');
+            setTimeout(() => setSaveSuccess(null), 3000);
+        } finally {
+            setIsSaving(false);
+        }
+    };
+
     const generateQR = useCallback(async () => {
         setQrLoading(true);
         setQrError(null);
@@ -78,15 +165,12 @@ export default function ProfilePage() {
         try {
             const supabase = createClient();
             const { data: { user } } = await supabase.auth.getUser();
-            if (!user) {
-                setQrError('You must be logged in to generate a QR code.');
-                return;
-            }
+            const uId = user?.id || 'demo-patient-001';
 
             const res = await fetch(`${API_BASE}/api/qr/generate`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ userId: user.id, userName: userName }),
+                body: JSON.stringify({ userId: uId, userName: userName || 'Citizen Patient' }),
             });
 
             if (!res.ok) {
@@ -104,6 +188,177 @@ export default function ProfilePage() {
         }
     }, [userName]);
 
+    // FACILITY MANAGER PROFILE VIEW
+    if (currentRole === 'facility_manager') {
+        return (
+            <div className="flex-1 p-6 lg:p-10 bg-surface max-w-7xl mx-auto w-full space-y-8">
+                {/* Header */}
+                <div className="bg-gradient-to-r from-blue-900 via-primary to-teal-900 rounded-3xl p-8 text-white shadow-xl flex flex-col sm:flex-row sm:items-center justify-between gap-6">
+                    <div>
+                        <div className="inline-flex items-center gap-2 px-3 py-1 bg-white/10 backdrop-blur rounded-full text-xs font-semibold tracking-wide text-blue-200 mb-2">
+                            <span className="material-symbols-outlined text-sm">local_hospital</span>
+                            <span>Hospital Administration & Operational Authority</span>
+                        </div>
+                        <h1 className="text-3xl font-extrabold tracking-tight">Facility Manager Profile</h1>
+                        <p className="text-blue-100 text-sm mt-1 max-w-xl">
+                            Configure institutional credentials, facility classification, emergency response hotlines, and EDL pharmacy oversight.
+                        </p>
+                    </div>
+
+                    <div className="p-4 bg-white/10 backdrop-blur rounded-2xl border border-white/20 text-center shrink-0">
+                        <span className="text-[10px] uppercase font-bold tracking-widest text-blue-200 block">Facility ID</span>
+                        <span className="text-lg font-mono font-black text-white">{facilityCode}</span>
+                    </div>
+                </div>
+
+                {saveSuccess && (
+                    <div className="p-4 bg-teal-50 border border-teal-200 rounded-2xl text-teal-900 text-xs font-bold flex items-center gap-2 animate-in fade-in">
+                        <span className="material-symbols-outlined text-teal-600">check_circle</span>
+                        <span>{saveSuccess}</span>
+                    </div>
+                )}
+
+                {/* Form Card */}
+                <form onSubmit={handleSaveManagerProfile} className="bg-white rounded-3xl border border-surface-container-high p-8 shadow-card space-y-8">
+                    {/* Section 1: Manager Personal & Contact */}
+                    <div className="space-y-4">
+                        <div className="flex items-center gap-2 border-b border-surface-container-high pb-2">
+                            <span className="material-symbols-outlined text-primary">person</span>
+                            <h2 className="text-base font-bold text-on-surface">Officer In-Charge Information</h2>
+                        </div>
+
+                        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                            <div>
+                                <label className="block text-xs font-bold text-tertiary uppercase tracking-wider mb-1.5">Officer Name</label>
+                                <input
+                                    type="text"
+                                    value={userName}
+                                    onChange={(e) => setUserName(e.target.value)}
+                                    className="w-full px-4 py-3 bg-surface-container-low rounded-xl text-xs font-bold text-on-surface border border-surface-container-high outline-none focus:border-primary"
+                                    required
+                                />
+                            </div>
+
+                            <div>
+                                <label className="block text-xs font-bold text-tertiary uppercase tracking-wider mb-1.5">Official Email</label>
+                                <input
+                                    type="email"
+                                    value={userEmail}
+                                    onChange={(e) => setUserEmail(e.target.value)}
+                                    className="w-full px-4 py-3 bg-surface-container-low rounded-xl text-xs font-bold text-on-surface border border-surface-container-high outline-none focus:border-primary"
+                                    required
+                                />
+                            </div>
+
+                            <div>
+                                <label className="block text-xs font-bold text-tertiary uppercase tracking-wider mb-1.5">Official Phone</label>
+                                <input
+                                    type="text"
+                                    value={userPhone}
+                                    onChange={(e) => setUserPhone(e.target.value)}
+                                    className="w-full px-4 py-3 bg-surface-container-low rounded-xl text-xs font-bold text-on-surface border border-surface-container-high outline-none focus:border-primary"
+                                    required
+                                />
+                            </div>
+                        </div>
+                    </div>
+
+                    {/* Section 2: Hospital & Facility Attributes */}
+                    <div className="space-y-4">
+                        <div className="flex items-center gap-2 border-b border-surface-container-high pb-2">
+                            <span className="material-symbols-outlined text-primary">domain</span>
+                            <h2 className="text-base font-bold text-on-surface">Institutional Facility Details</h2>
+                        </div>
+
+                        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                            <div>
+                                <label className="block text-xs font-bold text-tertiary uppercase tracking-wider mb-1.5">Facility Name</label>
+                                <input
+                                    type="text"
+                                    value={facilityName}
+                                    onChange={(e) => setFacilityName(e.target.value)}
+                                    className="w-full px-4 py-3 bg-surface-container-low rounded-xl text-xs font-bold text-on-surface border border-surface-container-high outline-none focus:border-primary"
+                                    required
+                                />
+                            </div>
+
+                            <div>
+                                <label className="block text-xs font-bold text-tertiary uppercase tracking-wider mb-1.5">Facility Classification</label>
+                                <select
+                                    value={facilityType}
+                                    onChange={(e) => setFacilityType(e.target.value)}
+                                    className="w-full px-4 py-3 bg-surface-container-low rounded-xl text-xs font-bold text-on-surface border border-surface-container-high outline-none focus:border-primary"
+                                >
+                                    <option value="Sub-District Hospital (SDH)">Sub-District Hospital (SDH)</option>
+                                    <option value="Community Health Center (CHC)">Community Health Center (CHC)</option>
+                                    <option value="Primary Health Center (PHC)">Primary Health Center (PHC)</option>
+                                    <option value="District General Hospital (DH)">District General Hospital (DH)</option>
+                                </select>
+                            </div>
+
+                            <div>
+                                <label className="block text-xs font-bold text-tertiary uppercase tracking-wider mb-1.5">District / State</label>
+                                <input
+                                    type="text"
+                                    value={district}
+                                    onChange={(e) => setDistrict(e.target.value)}
+                                    className="w-full px-4 py-3 bg-surface-container-low rounded-xl text-xs font-bold text-on-surface border border-surface-container-high outline-none focus:border-primary"
+                                    required
+                                />
+                            </div>
+                        </div>
+
+                        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                            <div>
+                                <label className="block text-xs font-bold text-tertiary uppercase tracking-wider mb-1.5">Emergency Hotline</label>
+                                <input
+                                    type="text"
+                                    value={emergencyContact}
+                                    onChange={(e) => setEmergencyContact(e.target.value)}
+                                    className="w-full px-4 py-3 bg-surface-container-low rounded-xl text-xs font-bold text-on-surface border border-surface-container-high outline-none focus:border-primary"
+                                    required
+                                />
+                            </div>
+
+                            <div>
+                                <label className="block text-xs font-bold text-tertiary uppercase tracking-wider mb-1.5">Operating Hours</label>
+                                <input
+                                    type="text"
+                                    value={operatingHours}
+                                    onChange={(e) => setOperatingHours(e.target.value)}
+                                    className="w-full px-4 py-3 bg-surface-container-low rounded-xl text-xs font-bold text-on-surface border border-surface-container-high outline-none focus:border-primary"
+                                />
+                            </div>
+
+                            <div>
+                                <label className="block text-xs font-bold text-tertiary uppercase tracking-wider mb-1.5">EDL Inventory Scope</label>
+                                <input
+                                    type="text"
+                                    value={edlScope}
+                                    onChange={(e) => setEdlScope(e.target.value)}
+                                    className="w-full px-4 py-3 bg-surface-container-low rounded-xl text-xs font-bold text-on-surface border border-surface-container-high outline-none focus:border-primary"
+                                />
+                            </div>
+                        </div>
+                    </div>
+
+                    {/* Action Button */}
+                    <div className="flex justify-end pt-4 border-t border-surface-container-high">
+                        <button
+                            type="submit"
+                            disabled={isSaving}
+                            className="px-8 py-3.5 bg-primary hover:bg-primary/95 text-white font-bold text-xs rounded-2xl shadow-md shadow-primary/20 transition-all flex items-center gap-2 disabled:opacity-50"
+                        >
+                            <span className="material-symbols-outlined text-base">save</span>
+                            <span>{isSaving ? 'Saving Updates...' : 'Update Manager Profile'}</span>
+                        </button>
+                    </div>
+                </form>
+            </div>
+        );
+    }
+
+    // DEFAULT PATIENT / CLINICIAN SECURE HEALTH ID VIEW
     return (
         <div className="flex-1 p-8 lg:p-12 bg-surface max-w-7xl mx-auto w-full">
             <div className="grid grid-cols-1 lg:grid-cols-12 gap-12 items-start">
@@ -121,7 +376,7 @@ export default function ProfilePage() {
                     <div className="space-y-1">
                         <div className="p-6 bg-surface-container-low rounded-xl group transition-all hover:bg-surface-container shadow-sm border border-surface-container">
                             <p className="text-xs font-bold text-tertiary uppercase tracking-widest mb-1">Full Name</p>
-                            <p className="text-xl font-headline font-bold text-on-surface">{userName}</p>
+                            <p className="text-xl font-headline font-bold text-on-surface">{userName || 'Citizen Patient'}</p>
                             {userEmail && <p className="text-xs text-tertiary mt-0.5">{userEmail}</p>}
                         </div>
                         <div className="grid grid-cols-1 sm:grid-cols-3 gap-1 mt-1">
@@ -259,3 +514,4 @@ export default function ProfilePage() {
         </div>
     );
 }
+

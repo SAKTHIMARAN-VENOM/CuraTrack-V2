@@ -7,54 +7,6 @@ import { createClient } from '@/lib/supabase/client';
 type AuthMode = 'login' | 'signup';
 type UserRole = 'patient' | 'doctor' | 'fhw' | 'facility_manager' | 'admin';
 
-const DEMO_CREDENTIALS: { role: UserRole; title: string; email: string; pass: string; icon: string; badge: string; desc: string }[] = [
-    {
-        role: 'patient',
-        title: 'Patient / Citizen',
-        email: 'patient@curatrack.in',
-        pass: 'Patient@123',
-        icon: 'person',
-        badge: 'Citizen Care',
-        desc: 'Vitals, Self-Triage, Teleconsult, PMJAY, QR Passport'
-    },
-    {
-        role: 'doctor',
-        title: 'Medical Officer / Doctor',
-        email: 'doctor@curatrack.in',
-        pass: 'Doctor@123',
-        icon: 'stethoscope',
-        badge: 'Clinical Care',
-        desc: 'OPD Queue, Clinical Triage, Referrals, Lab Orders'
-    },
-    {
-        role: 'fhw',
-        title: 'ASHA / ANM Frontline Worker',
-        email: 'asha@curatrack.in',
-        pass: 'Asha@123',
-        icon: 'volunteer_activism',
-        badge: 'Community Health',
-        desc: 'Catchment Survey, Maternal ANC, Assisted Teleconsult'
-    },
-    {
-        role: 'facility_manager',
-        title: 'Facility & Pharmacy In-Charge',
-        email: 'facility@curatrack.in',
-        pass: 'Facility@123',
-        icon: 'local_hospital',
-        badge: 'Facility Ops',
-        desc: 'EDL Drug Stock, Diagnostic Lab Queue, OPD Flow'
-    },
-    {
-        role: 'admin',
-        title: 'District Health Administrator',
-        email: 'admin@curatrack.in',
-        pass: 'Admin@123',
-        icon: 'admin_panel_settings',
-        badge: 'District Admin',
-        desc: 'Doctor Verification, Quality Audits, Facility Stats'
-    }
-];
-
 export default function LoginPage() {
     const router = useRouter();
     const [mode, setMode] = useState<AuthMode>('login');
@@ -96,12 +48,6 @@ export default function LoginPage() {
         }
     };
 
-    const handleSelectDemoUser = (demo: typeof DEMO_CREDENTIALS[0]) => {
-        setEmail(demo.email);
-        setPassword(demo.pass);
-        setError('');
-    };
-
     const routeByRole = (role: string) => {
         switch (role) {
             case 'doctor':
@@ -130,8 +76,8 @@ export default function LoginPage() {
         try {
             const endpoint = mode === 'login' ? '/api/auth/login' : '/api/auth/signup';
             const body = mode === 'login'
-                ? { email, password }
-                : { email, password, name, role: signupRole, doctorLicenseKey };
+                ? { email: email.trim().toLowerCase(), password }
+                : { email: email.trim().toLowerCase(), password, name, role: signupRole, doctorLicenseKey };
 
             const res = await fetch(endpoint, {
                 method: 'POST',
@@ -142,16 +88,16 @@ export default function LoginPage() {
             const data = await res.json();
 
             if (!res.ok) {
-                setError(data.error || 'Something went wrong');
+                setError(data.error || 'Invalid email or password');
                 return;
             }
 
-            const detectedRole = data.user?.role || (email.includes('doctor') ? 'doctor' : email.includes('asha') ? 'fhw' : email.includes('facility') ? 'facility_manager' : email.includes('admin') ? 'admin' : 'patient');
-            const authPayload = data.user || { role: detectedRole, email };
-            localStorage.setItem('curatrack_active_role', detectedRole);
+            const verifiedRole = data.user?.role || 'patient';
+            const authPayload = data.user || { role: verifiedRole, email: email.trim().toLowerCase() };
+            localStorage.setItem('curatrack_active_role', verifiedRole);
             localStorage.setItem('curatrack_auth_user', JSON.stringify(authPayload));
             document.cookie = `curatrack_auth=${encodeURIComponent(JSON.stringify(authPayload))}; path=/; max-age=604800; SameSite=Lax`;
-            routeByRole(detectedRole);
+            routeByRole(verifiedRole);
         } catch (err) {
             setError('Network error. Please try again.');
         } finally {
@@ -244,37 +190,6 @@ export default function LoginPage() {
                             </div>
                         )}
 
-                        {/* Quick Demo Credentials Picker (Login Mode Only) */}
-                        {mode === 'login' && (
-                            <div className="p-4 bg-surface-container-low rounded-2xl border border-surface-container space-y-2.5">
-                                <div className="flex items-center justify-between">
-                                    <span className="text-[11px] font-extrabold uppercase tracking-wider text-tertiary">Quick Stakeholder Demo Logins</span>
-                                    <span className="text-[10px] text-teal-700 bg-teal-100 font-bold px-2 py-0.5 rounded-full">1-Click Fill</span>
-                                </div>
-
-                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                                    {DEMO_CREDENTIALS.map((demo) => (
-                                        <button
-                                            key={demo.role}
-                                            type="button"
-                                            onClick={() => handleSelectDemoUser(demo)}
-                                            className={`p-2.5 rounded-xl text-left border transition-all flex items-center gap-2.5 ${
-                                                email === demo.email
-                                                    ? 'bg-primary/10 border-primary text-primary shadow-sm'
-                                                    : 'bg-white border-surface-container-high hover:border-primary/40 text-on-surface'
-                                            }`}
-                                        >
-                                            <span className="material-symbols-outlined text-lg shrink-0">{demo.icon}</span>
-                                            <div className="min-w-0">
-                                                <span className="text-xs font-bold block truncate">{demo.title}</span>
-                                                <span className="text-[10px] text-tertiary font-mono block truncate">{demo.email}</span>
-                                            </div>
-                                        </button>
-                                    ))}
-                                </div>
-                            </div>
-                        )}
-
                         <form className="space-y-4" onSubmit={handleSubmit}>
                             {/* Name field (signup only) */}
                             {mode === 'signup' && (
@@ -341,9 +256,6 @@ export default function LoginPage() {
                             <div className="space-y-1">
                                 <div className="flex justify-between items-center">
                                     <label className="block text-xs font-semibold text-tertiary">Password</label>
-                                    {mode === 'login' && (
-                                        <span className="text-[10px] text-tertiary">Demo: <strong>Patient@123 / Doctor@123</strong></span>
-                                    )}
                                 </div>
                                 <div className="relative">
                                     <input

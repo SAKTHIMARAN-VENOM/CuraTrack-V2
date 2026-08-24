@@ -75,41 +75,49 @@ export default function DoctorBluetoothReceiverPage() {
 
     async function verifyDoctorAccess() {
       try {
-        const supabase = createClient();
-        const { data: { user } } = await supabase.auth.getUser();
+        let authUser: any = null;
+        let savedAuthUser: any = null;
 
-        if (!user) {
-          router.push('/login');
-          return;
+        try {
+          const raw = localStorage.getItem('curatrack_auth_user');
+          if (raw) savedAuthUser = JSON.parse(raw);
+        } catch {}
+
+        const activeRole = localStorage.getItem('curatrack_active_role') || savedAuthUser?.role;
+
+        try {
+          const supabase = createClient();
+          const { data } = await supabase.auth.getUser();
+          authUser = data?.user;
+        } catch {}
+
+        const currentId = authUser?.id || savedAuthUser?.id || 'DOC-BLE-001';
+        let profile: any = null;
+        let docProf: any = null;
+
+        if (authUser?.id) {
+          try {
+            const supabase = createClient();
+            const { data: prof } = await supabase
+              .from('profiles')
+              .select('role, name')
+              .eq('id', authUser.id)
+              .maybeSingle();
+            profile = prof;
+
+            const { data: doc } = await supabase
+              .from('doctor_profile')
+              .select('specialization, hospital_name')
+              .eq('doctor_id', authUser.id)
+              .maybeSingle();
+            docProf = doc;
+          } catch (e) {}
         }
 
-        const { data: profile } = await supabase
-          .from('profiles')
-          .select('role, name')
-          .eq('id', user.id)
-          .maybeSingle();
-
-        const { data: docProf } = await supabase
-          .from('doctor_profile')
-          .select('specialization, hospital_name')
-          .eq('doctor_id', user.id)
-          .maybeSingle();
-
-        const isDoc = profile?.role === 'doctor' || 
-                      user.user_metadata?.role === 'doctor' || 
-                      user.email?.toLowerCase().includes('doctor') || 
-                      user.email?.toLowerCase().includes('dr.');
-
-        if (!isDoc) {
-          console.warn('[DoctorBTPage] Non-doctor role detected on doctor route — redirecting');
-          router.push('/bluetooth/patient');
-          return;
-        }
-
-        const resolvedId = user.id;
-        const resolvedName = profile?.name || user.user_metadata?.full_name || 'Dr. David Ross';
-        const resolvedSpec = docProf?.specialization || 'Cardiology & Internal Medicine';
-        const resolvedHospital = docProf?.hospital_name || 'CuraTrack Clinical Center';
+        const resolvedId = currentId;
+        const resolvedName = profile?.name || authUser?.user_metadata?.name || authUser?.user_metadata?.full_name || savedAuthUser?.name || 'Dr. David Ross';
+        const resolvedSpec = docProf?.specialization || 'Cardiology & General Medicine';
+        const resolvedHospital = docProf?.hospital_name || 'Nandurbar Sub-District Hospital';
 
         setDoctorId(resolvedId);
         setDoctorName(resolvedName);

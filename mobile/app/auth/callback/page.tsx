@@ -38,7 +38,28 @@ export default function AuthCallbackPage() {
         }
 
         const { data: { session } } = await supabase.auth.getSession();
-        if (session) {
+        if (session?.user) {
+          try {
+            const { data: prof } = await supabase
+              .from('profiles')
+              .select('role')
+              .eq('id', session.user.id)
+              .maybeSingle();
+
+            if (!prof) {
+              await supabase.from('profiles').upsert({
+                id: session.user.id,
+                name: session.user.user_metadata?.full_name || session.user.user_metadata?.name || 'Citizen Patient',
+                email: session.user.email,
+                role: 'patient',
+                profile_completed: true,
+                updated_at: new Date().toISOString()
+              });
+            }
+          } catch (e) {
+            console.warn("Mobile OAuth profile sync:", e);
+          }
+
           setStatusMessage("Successfully authenticated! Redirecting to Dashboard...");
           router.push('/');
         } else {

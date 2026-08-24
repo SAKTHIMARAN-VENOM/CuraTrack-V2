@@ -405,45 +405,16 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     setAuthError(null);
     try {
       const emailLower = email.trim().toLowerCase();
-      let { error } = await supabase.auth.signInWithPassword({ email: emailLower, password });
+      const { error, data } = await supabase.auth.signInWithPassword({ email: emailLower, password });
       
-      if (error && (error.message.includes('Invalid login credentials') || emailLower.endsWith('@curatrack.in'))) {
-        const isDoc = emailLower.includes('doctor') || emailLower.includes('dr.');
-        const isAsha = emailLower.includes('asha') || emailLower.includes('fhw');
-        const defaultName = isDoc ? 'Dr. David Ross' : isAsha ? 'Sunita Tai (ASHA)' : 'Kavita Bai';
-        const role = isDoc ? 'doctor' : isAsha ? 'fhw' : 'patient';
-
-        const signUpRes = await supabase.auth.signUp({
-          email: emailLower,
-          password,
-          options: {
-            data: { full_name: defaultName, role },
-            emailRedirectTo: getAuthRedirectUrl('/auth/callback'),
-          },
-        });
-
-        if (signUpRes.data?.user) {
-          const retrySignIn = await supabase.auth.signInWithPassword({ email: emailLower, password });
-          if (!retrySignIn.error) {
-            error = null;
-          }
-        }
+      if (error || !data?.user) {
+        const errorMsg = error?.message || 'Invalid email or password';
+        setAuthError(errorMsg);
+        return { error: errorMsg };
       }
 
-      if (error && !emailLower.endsWith('@curatrack.in')) {
-        setAuthError(error.message);
-        return { error: error.message };
-      }
-
-      // If demo account, set active user profile
-      if (emailLower.endsWith('@curatrack.in')) {
-        const isDoc = emailLower.includes('doctor');
-        const isAsha = emailLower.includes('asha');
-        setUser((prev) => ({
-          ...prev,
-          name: isDoc ? 'Dr. David Ross' : isAsha ? 'Sunita Tai (ASHA #402)' : 'Kavita Bai',
-          email: emailLower,
-        }));
+      if (data?.user) {
+        await loadUserDataFromDatabase(data.user.id, data.user.email);
       }
 
       return {};

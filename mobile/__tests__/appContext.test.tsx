@@ -40,7 +40,7 @@ vi.mock('@/lib/supabaseClient', () => ({
         return { data: { subscription: { unsubscribe: vi.fn() } } };
       }),
       signInWithOAuth: vi.fn().mockResolvedValue({ error: null }),
-      signInWithPassword: vi.fn().mockResolvedValue({ error: null }),
+      signInWithPassword: vi.fn().mockResolvedValue({ data: { user: { id: 'user-123', email: 'test@curatrack.com' } }, error: null }),
       signUp: vi.fn().mockResolvedValue({ error: null }),
       signOut: vi.fn().mockResolvedValue({ error: null }),
     },
