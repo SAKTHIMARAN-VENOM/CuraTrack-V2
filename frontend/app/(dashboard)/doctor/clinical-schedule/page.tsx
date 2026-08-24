@@ -199,11 +199,11 @@ export default function ClinicalSchedulePage() {
 
         <div className="flex items-center gap-3 flex-wrap">
           <Link
-            href="/facility"
+            href="/doctor"
             className="px-4 py-3 bg-white/15 hover:bg-white/25 text-white font-bold text-xs rounded-2xl flex items-center gap-2 backdrop-blur transition-all"
           >
-            <span className="material-symbols-outlined text-lg">arrow_back</span>
-            <span>Facility Operations</span>
+            <span className="material-symbols-outlined text-lg">dashboard</span>
+            <span>Doctor Portal</span>
           </Link>
 
           <button
