@@ -22,15 +22,19 @@ def test_essential_medicines_inventory_and_stock_update(client):
     assert data["count"] > 0
     assert "critical_alerts_count" in data
 
-    # Update stock for MED-001
+    # Update stock for the first medicine dynamically
+    target_med = data["medicines"][0]
+    target_id = target_med["id"]
+    initial_stock = target_med["stock_units"]
+
     update_payload = {
-        "medicine_id": "MED-001",
+        "medicine_id": target_id,
         "units_added": 1000
     }
     update_res = client.post("/api/facility/medicines/update-stock", json=update_payload)
     assert update_res.status_code == 200
     assert update_res.json()["success"] is True
-    assert update_res.json()["updated_medicine"]["stock_units"] >= 5500
+    assert update_res.json()["updated_medicine"]["stock_units"] >= initial_stock + 1000
 
 
 def test_diagnostic_lab_order_lifecycle(client):
