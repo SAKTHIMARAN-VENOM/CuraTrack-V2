@@ -78,6 +78,7 @@ export interface UserProfile {
 
 export interface VitalsData {
   steps: number;
+  heart_points?: number;
   heart_rate: number;
   spo2: number;
   sleep_hours: number;
@@ -88,6 +89,7 @@ export interface VitalsData {
 
 const defaultVitals: VitalsData = {
   steps: 0,
+  heart_points: 0,
   heart_rate: 0,
   spo2: 98,
   sleep_hours: 0,
@@ -358,6 +360,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         const data = await res.json();
         setVitals({
           steps: data.steps || 0,
+          heart_points: data.heart_points || 0,
           heart_rate: data.heart_rate || 0,
           spo2: data.spo2 || 98,
           sleep_hours: data.sleep_hours || 0,

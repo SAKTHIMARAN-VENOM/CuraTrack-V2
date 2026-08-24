@@ -57,45 +57,136 @@ export async function GET(req: NextRequest) {
         midnight.setHours(0, 0, 0, 0);
         const startTimeMillis = midnight.getTime().toString();
         const endTimeMillis = now.toString();
+        const startTimeNanos = `${startTimeMillis}000000`;
+        const endTimeNanos = `${endTimeMillis}000000`;
 
-        // Fetch Steps (Daily Total) - Query estimated_steps first to match Google Fit Mobile App
-        const fetchSteps = async (dataSourceId?: string) => {
-            const reqBody: any = {
-                aggregateBy: [{ 
-                    dataTypeName: 'com.google.step_count.delta',
-                    ...(dataSourceId ? { dataSourceId } : {})
-                }],
-                bucketByTime: { durationMillis: '86400000' }, 
-                startTimeMillis,
-                endTimeMillis
-            };
-            const res = await fitness.users.dataset.aggregate({
-                userId: 'me',
-                requestBody: reqBody
-            });
-            let total = 0;
-            const buckets = res.data.bucket;
-            if (buckets && buckets.length > 0) {
-                buckets.forEach(bucket => {
-                    bucket.dataset?.[0]?.point?.forEach(point => {
-                        point.value?.forEach(val => { total += val.intVal || 0; });
-                    });
+        // 1. Direct dataset query for authoritative merged step count
+        const fetchStepsFromDataset = async (dataSourceId: string): Promise<number> => {
+            try {
+                const res = await fitness.users.dataSources.datasets.get({
+                    userId: 'me',
+                    dataSourceId,
+                    datasetId: `${startTimeNanos}-${endTimeNanos}`
                 });
+                let total = 0;
+                const points = res.data.point;
+                if (points && points.length > 0) {
+                    for (const pt of points) {
+                        if (pt.value && pt.value.length > 0) {
+                            for (const val of pt.value) {
+                                if (typeof val.intVal === 'number') {
+                                    total += val.intVal;
+                                } else if (typeof val.fpVal === 'number') {
+                                    total += Math.round(val.fpVal);
+                                }
+                            }
+                        }
+                    }
+                }
+                return total;
+            } catch (err) {
+                return 0;
             }
-            return total;
         };
 
-        let dailySteps = 0;
-        try {
-            dailySteps = await fetchSteps("derived:com.google.step_count.delta:com.google.android.gms:estimated_steps");
-            if (dailySteps === 0) {
-                dailySteps = await fetchSteps("derived:com.google.step_count.delta:com.google.android.gms:merge_step_delta");
+        // 2. Comprehensive Aggregate Query across all datasets/buckets strictly for com.google.step_count.delta
+        const fetchStepsFromAggregate = async (dataSourceId?: string): Promise<number> => {
+            try {
+                const reqBody: any = {
+                    aggregateBy: [{ 
+                        dataTypeName: 'com.google.step_count.delta',
+                        ...(dataSourceId ? { dataSourceId } : {})
+                    }],
+                    bucketByTime: { durationMillis: '86400000' }, 
+                    startTimeMillis,
+                    endTimeMillis
+                };
+                const res = await fitness.users.dataset.aggregate({
+                    userId: 'me',
+                    requestBody: reqBody
+                });
+                let total = 0;
+                const buckets = res.data.bucket;
+                if (buckets && buckets.length > 0) {
+                    for (const bucket of buckets) {
+                        if (bucket.dataset) {
+                            for (const ds of bucket.dataset) {
+                                if (ds.point) {
+                                    for (const pt of ds.point) {
+                                        if (pt.value) {
+                                            for (const val of pt.value) {
+                                                if (typeof val.intVal === 'number') {
+                                                    total += val.intVal;
+                                                } else if (typeof val.fpVal === 'number') {
+                                                    total += Math.round(val.fpVal);
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+                return total;
+            } catch (err) {
+                return 0;
             }
-            if (dailySteps === 0) {
-                dailySteps = await fetchSteps();
+        };
+
+        // Resolve daily physical step count:
+        // Priority 1: Official Google Fit merged steps stream (merge_step_delta) via direct dataset
+        let dailySteps = await fetchStepsFromDataset("derived:com.google.step_count.delta:com.google.android.gms:merge_step_delta");
+
+        // Priority 2: Merged steps via Aggregate API
+        if (dailySteps === 0) {
+            dailySteps = await fetchStepsFromAggregate("derived:com.google.step_count.delta:com.google.android.gms:merge_step_delta");
+        }
+
+        // Priority 3: Aggregate standard com.google.step_count.delta
+        if (dailySteps === 0) {
+            dailySteps = await fetchStepsFromAggregate();
+        }
+
+        // Priority 4: Platform raw step delta stream
+        if (dailySteps === 0) {
+            dailySteps = await fetchStepsFromDataset("derived:com.google.step_count.delta:com.google.android.gms:platform_step_delta");
+        }
+
+        // Priority 5: Estimated steps fallback
+        if (dailySteps === 0) {
+            dailySteps = await fetchStepsFromDataset("derived:com.google.step_count.delta:com.google.android.gms:estimated_steps");
+        }
+        if (dailySteps === 0) {
+            dailySteps = await fetchStepsFromAggregate("derived:com.google.step_count.delta:com.google.android.gms:estimated_steps");
+        }
+
+        // Fetch Heart Points (com.google.heart_minutes) separately so it's never mixed with steps
+        let heartPoints = 0;
+        try {
+            const hpRes = await fitness.users.dataset.aggregate({
+                userId: 'me',
+                requestBody: {
+                    aggregateBy: [{ dataTypeName: 'com.google.heart_minutes' }],
+                    bucketByTime: { durationMillis: '86400000' },
+                    startTimeMillis,
+                    endTimeMillis
+                }
+            });
+            if (hpRes.data.bucket) {
+                for (const bucket of hpRes.data.bucket) {
+                    bucket.dataset?.forEach(ds => {
+                        ds.point?.forEach(pt => {
+                            pt.value?.forEach(val => {
+                                if (typeof val.fpVal === 'number') heartPoints += Math.round(val.fpVal);
+                                else if (typeof val.intVal === 'number') heartPoints += val.intVal;
+                            });
+                        });
+                    });
+                }
             }
         } catch (e) {
-            dailySteps = await fetchSteps();
+            // Heart minutes optional
         }
 
         // Fetch Heart Rate
@@ -176,6 +267,7 @@ export async function GET(req: NextRequest) {
         return NextResponse.json({
             isAuthenticated: true,
             steps: dailySteps,
+            heart_points: heartPoints,
             heart_rate: latestBpm,
             heartRateData,
             spo2: 98,

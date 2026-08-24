@@ -5,6 +5,7 @@ router = APIRouter()
 
 FIT_STATE = {
     "steps": 0,
+    "heart_points": 0,
     "goal": 8000,
     "percentage": 0,
     "lastUpdated": "No wearable device synced",

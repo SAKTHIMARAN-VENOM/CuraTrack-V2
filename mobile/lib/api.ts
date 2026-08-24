@@ -158,7 +158,7 @@ export async function generatePassport(input: string | { patient_id: string; nam
 
 // ⌚ 4. Wearables, Vitals & AI Health Insights
 export async function getFitData() {
-  return await fetchAPI<{ steps: number; heart_rate: number; spo2: number; sleep_hours: number }>('/api/fit-data');
+  return await fetchAPI<{ steps: number; heart_points?: number; heart_rate: number; spo2: number; sleep_hours: number }>('/api/fit-data');
 }
 
 export async function getFitAuthUrl() {
