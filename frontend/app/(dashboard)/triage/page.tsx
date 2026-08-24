@@ -554,14 +554,14 @@ function DigitalTriageContent() {
   return (
     <div className="space-y-8 max-w-7xl mx-auto pb-16">
       {/* Header banner */}
-      <div className="bg-gradient-to-r from-primary via-[#004d40] to-teal-900 rounded-3xl p-8 text-white shadow-xl relative overflow-hidden">
-        <div className="absolute right-0 top-0 w-96 h-96 bg-white/5 rounded-full blur-3xl pointer-events-none"></div>
+      <div className="bg-gradient-to-r from-[#006666] via-[#007575] to-[#008080] rounded-3xl p-8 text-white shadow-xl relative overflow-hidden">
+        <div className="absolute right-0 top-0 w-96 h-96 bg-[#E6F2F2]/10 rounded-full blur-3xl pointer-events-none"></div>
         <div className="relative z-10 space-y-2">
-          <div className="inline-flex items-center gap-2 px-3 py-1 bg-white/10 backdrop-blur rounded-full text-xs font-semibold tracking-wide text-teal-200">
+          <div className="inline-flex items-center gap-2 px-3 py-1 bg-[#E6F2F2]/15 backdrop-blur rounded-full text-xs font-semibold tracking-wide text-[#E6F2F2] border border-[#E6F2F2]/20">
             <span className="material-symbols-outlined text-sm">clinical_notes</span>
             <span>Clinical Protocol • Primary Healthcare Hierarchy</span>
           </div>
-          <h1 className="text-3xl font-extrabold tracking-tight">Smart Clinical Triage &amp; Facility Routing</h1>
+          <h1 className="text-3xl font-extrabold tracking-tight text-white">Smart Clinical Triage &amp; Facility Routing</h1>
         </div>
       </div>
 
@@ -697,41 +697,41 @@ function DigitalTriageContent() {
         /* ========================================================================= */
         <div className="space-y-6 animate-in fade-in duration-300">
           {/* Patient Header with "← Back to Patients" Control */}
-          <div className="bg-gradient-to-r from-primary via-[#004d40] to-teal-900 p-6 rounded-3xl text-white shadow-xl flex flex-col md:flex-row md:items-center justify-between gap-6 relative overflow-hidden">
-            <div className="absolute right-0 top-0 w-80 h-80 bg-white/5 rounded-full blur-3xl pointer-events-none"></div>
+          <div className="bg-gradient-to-r from-[#006666] via-[#007575] to-[#008080] p-6 rounded-3xl text-white shadow-xl flex flex-col md:flex-row md:items-center justify-between gap-6 relative overflow-hidden">
+            <div className="absolute right-0 top-0 w-80 h-80 bg-[#E6F2F2]/10 rounded-full blur-3xl pointer-events-none"></div>
             <div className="space-y-1.5 relative z-10">
               <div className="flex flex-wrap items-center gap-2">
                 <button
                   onClick={handleBackToPatientList}
-                  className="px-3 py-1 bg-white/15 hover:bg-white/25 text-white text-xs font-extrabold rounded-lg flex items-center gap-1 transition-all mr-2 backdrop-blur border border-white/10"
+                  className="px-3 py-1 bg-[#E6F2F2]/15 hover:bg-[#E6F2F2]/25 text-white text-xs font-extrabold rounded-lg flex items-center gap-1 transition-all mr-2 backdrop-blur border border-[#E6F2F2]/20"
                 >
                   <span className="material-symbols-outlined text-sm">arrow_back</span>
                   <span>Back to Patients</span>
                 </button>
-                <span className="px-2.5 py-0.5 rounded-full bg-teal-400/20 text-teal-200 font-mono text-[10px] font-bold border border-teal-400/30">
+                <span className="px-2.5 py-0.5 rounded-full bg-[#E6F2F2]/20 text-[#E6F2F2] font-mono text-[10px] font-bold border border-[#E6F2F2]/30">
                   ACTIVE PATIENT
                 </span>
-                <span className="text-xs text-teal-200/60">•</span>
-                <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-white/10 text-teal-100 border border-white/20">
+                <span className="text-xs text-[#E6F2F2]/60">•</span>
+                <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-[#E6F2F2]/15 text-[#E6F2F2] border border-[#E6F2F2]/20">
                   {selectedPatient.tokenNo || 'TKN-001'} • {selectedPatient.consultType || 'Teleconsult'}
                 </span>
                 <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${
                   selectedPatient.latestStatus === 'IN-CONSULT' ? 'bg-amber-400/20 text-amber-300 border border-amber-400/30' :
                   selectedPatient.latestStatus === 'COMPLETED' ? 'bg-emerald-400/20 text-emerald-300 border border-emerald-400/30' :
-                  'bg-teal-400/20 text-teal-200 border border-teal-400/30'
+                  'bg-[#E6F2F2]/20 text-[#E6F2F2] border border-[#E6F2F2]/30'
                 }`}>
                   Status: {selectedPatient.latestStatus}
                 </span>
               </div>
               <h3 className="text-2xl font-black text-white">{selectedPatient.name}</h3>
-              <div className="flex flex-wrap items-center gap-3 text-xs text-teal-100/80">
-                <span>ABHA: <strong className="font-mono text-teal-200">{selectedPatient.abhaId || 'N/A'}</strong></span>
+              <div className="flex flex-wrap items-center gap-3 text-xs text-[#E6F2F2]/90">
+                <span>ABHA: <strong className="font-mono text-white">{selectedPatient.abhaId || 'N/A'}</strong></span>
                 <span>•</span>
                 <span>{selectedPatient.age ? `${selectedPatient.age} Years` : 'Age: N/A'} • {selectedPatient.gender || 'Unspecified'}</span>
                 <span>•</span>
                 <span>Blood: <strong className="text-rose-300">{selectedPatient.bloodGroup || 'N/A'}</strong></span>
                 <span>•</span>
-                <span>Doctor: <strong className="text-teal-200 font-bold">{currentDoctorName}</strong></span>
+                <span>Doctor: <strong className="text-white font-bold">{currentDoctorName}</strong></span>
               </div>
             </div>
           </div>
