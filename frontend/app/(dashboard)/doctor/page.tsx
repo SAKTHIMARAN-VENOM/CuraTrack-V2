@@ -38,97 +38,35 @@ interface Appointment {
   patient_name?: string;
   time?: string;
   date?: string;
+  notes?: string;
 }
 
-const INITIAL_QUEUE: OPDQueuePatient[] = [
-  {
-    id: 'PAT-001',
-    token: 'TKN-042',
-    name: 'Kavita Bai',
-    age: 38,
-    gender: 'Female',
-    abhaId: '91-4502-8819-2041',
-    bloodGroup: 'O+',
-    allergies: 'Penicillin (Severe Rash)',
-    priority: 'PRIORITY',
-    complaint: 'Persistent high fever with chills for 3 days, body aches, severe fatigue',
-    vitals: { bp: '118/76', hr: 88, spo2: 97, temp: '101.4 °F', bmi: '21.2' },
-    type: 'In-Person OPD',
-    status: 'IN-CONSULT',
-    waitTime: '10 mins ago'
-  },
-  {
-    id: 'PAT-002',
-    token: 'TKN-043',
-    name: 'Ramesh Tadvi',
-    age: 52,
-    gender: 'Male',
-    abhaId: '91-7712-4401-9923',
-    bloodGroup: 'B+',
-    allergies: 'NKDA (No Known Drug Allergies)',
-    priority: 'PRIORITY',
-    complaint: 'Uncontrolled blood glucose check, bilateral lower limb numbness and dizziness',
-    vitals: { bp: '142/90', hr: 76, spo2: 98, temp: '98.6 °F', bmi: '26.8' },
-    type: 'In-Person OPD',
-    status: 'WAITING',
-    waitTime: '15 mins ago'
-  },
-  {
-    id: 'PAT-003',
-    token: 'TKN-044',
-    name: 'Sunita Gavit',
-    age: 24,
-    gender: 'Female',
-    abhaId: '91-3382-9910-1124',
-    bloodGroup: 'A+',
-    allergies: 'Sulfa Drugs (Mild Urticaria)',
-    priority: 'ROUTINE',
-    complaint: 'Antenatal Care (ANC) 28-Week routine review, mild pedal edema, mild fatigue',
-    vitals: { bp: '110/70', hr: 74, spo2: 99, temp: '98.4 °F', bmi: '23.0' },
-    type: 'Teleconsult',
-    status: 'WAITING',
-    waitTime: '25 mins ago'
-  },
-  {
-    id: 'PAT-004',
-    token: 'TKN-045',
-    name: 'Prakash Patil',
-    age: 45,
-    gender: 'Male',
-    abhaId: '91-1120-6677-8890',
-    bloodGroup: 'AB+',
-    allergies: 'NKDA',
-    priority: 'EMERGENCY',
-    complaint: 'Acute chest tightness radiating to left shoulder, diaphoresis for 40 mins',
-    vitals: { bp: '165/102', hr: 104, spo2: 94, temp: '98.8 °F', bmi: '28.1' },
-    type: 'In-Person OPD',
-    status: 'WAITING',
-    waitTime: '5 mins ago'
-  },
-  {
-    id: 'PAT-005',
-    token: 'TKN-046',
-    name: 'Anandi Bai',
-    age: 61,
-    gender: 'Female',
-    abhaId: '91-8843-2211-5566',
-    bloodGroup: 'O+',
-    allergies: 'NSAIDs (Gastric Distress)',
-    priority: 'ROUTINE',
-    complaint: 'Chronic knee osteoarthritis flare-up, requests refill of analgesics and calcium',
-    vitals: { bp: '130/82', hr: 70, spo2: 98, temp: '98.2 °F', bmi: '24.5' },
-    type: 'In-Person OPD',
-    status: 'COMPLETED',
-    waitTime: 'Completed'
-  }
-];
+interface DoctorProfileInfo {
+  id: string;
+  name: string;
+  email: string;
+  facility: string;
+  license: string;
+  department: string;
+}
 
 export default function DoctorClinicalDashboardPage() {
   const router = useRouter();
   const supabase = useMemo(() => createClient(), []);
 
-  const [queue, setQueue] = useState<OPDQueuePatient[]>(INITIAL_QUEUE);
-  const [selectedPatientId, setSelectedPatientId] = useState<string>('PAT-001');
+  // Live Database States
+  const [doctorInfo, setDoctorInfo] = useState<DoctorProfileInfo>({
+    id: 'doc-david-ross',
+    name: 'Dr. David Ross, MD',
+    email: 'doctor@curatrack.in',
+    facility: 'Nandurbar Sub-District Hospital',
+    license: 'MMC/2026/04481',
+    department: 'General Medicine & OPD Room 101',
+  });
+
+  const [queue, setQueue] = useState<OPDQueuePatient[]>([]);
+  const [loadingQueue, setLoadingQueue] = useState<boolean>(true);
+  const [selectedPatientId, setSelectedPatientId] = useState<string>('');
   const [filterType, setFilterType] = useState<'ALL' | 'WAITING' | 'EMERGENCY' | 'TELECONSULT' | 'COMPLETED'>('ALL');
   const [searchQuery, setSearchQuery] = useState<string>('');
 
@@ -139,30 +77,106 @@ export default function DoctorClinicalDashboardPage() {
 
   // Clinical Encounter State
   const [soapDiagnosis, setSoapDiagnosis] = useState<string>('Acute febrile illness; likely vector-borne viral infection (Malarial / Dengue antigen screen pending)');
-  const [soapNotes, setSoapNotes] = useState<string>('Patient reports 3 days of high-grade intermittent fever with rigors. Associated with generalized myalgia and frontal headache. No signs of respiratory distress. Advised hydration, paracetamol, and urgent diagnostic panel.');
+  const [soapNotes, setSoapNotes] = useState<string>('Patient reports 3 days of high-grade intermittent fever with rigors. Associated with generalized myalgia and frontal headache. Advised hydration, paracetamol, and urgent diagnostic panel.');
   
   // Prescriptions List
   const [prescriptions, setPrescriptions] = useState<Array<{ id: string; drug: string; dosage: string; frequency: string; duration: string; instructions: string }>>([
     { id: '1', drug: 'Paracetamol 500mg IP (EDL Item)', dosage: '500mg', frequency: 'TDS (3 times daily)', duration: '5 Days', instructions: 'Take after meals with plenty of water' },
     { id: '2', drug: 'Amoxicillin 500mg Capsules', dosage: '500mg', frequency: 'BD (Twice daily)', duration: '5 Days', instructions: 'Complete full antibacterial course' },
-    { id: '3', drug: 'Oral Rehydration Salts (ORS IP)', dosage: '1 Sachet in 1L Water', frequency: 'As needed', duration: '3 Days', instructions: 'Sip throughout the day to prevent dehydration' }
   ]);
 
   // Lab Tests State
   const [selectedLabs, setSelectedLabs] = useState<string[]>(['Complete Blood Count (CBC)', 'Rapid Malarial Antigen (Pf/Pv)']);
 
-  const selectedPatient = queue.find(p => p.id === selectedPatientId) || queue[0];
+  // Fetch Live Queue from Supabase Database
+  const fetchLiveQueue = useCallback(async (docId: string) => {
+    try {
+      const { data: dbAppts } = await supabase
+        .from('appointments')
+        .select('*')
+        .order('created_at', { ascending: false });
 
-  // Initialize doctor session and subscribe to Supabase Realtime incoming call events
+      if (!dbAppts || dbAppts.length === 0) {
+        setQueue([]);
+        setLoadingQueue(false);
+        return;
+      }
+
+      // Fetch profiles for client names
+      const clientIds = Array.from(new Set(dbAppts.map((a: any) => a.client_id).filter(Boolean)));
+      let profilesMap: Record<string, any> = {};
+
+      if (clientIds.length > 0) {
+        try {
+          const { data: profs } = await supabase
+            .from('profiles')
+            .select('*')
+            .in('id', clientIds);
+          if (profs) {
+            profs.forEach((p: any) => { profilesMap[p.id] = p; });
+          }
+        } catch {}
+      }
+
+      const formattedQueue: OPDQueuePatient[] = dbAppts.map((a: any, idx: number) => {
+        const clientProf = profilesMap[a.client_id];
+        const pName = clientProf?.name || a.patient_name || `Patient (${(a.client_id || a.id).slice(0, 6)})`;
+        const isTele = Boolean(a.room_id || a.status === 'ringing');
+        const isEmergency = a.priority === 'EMERGENCY' || a.status === 'ringing';
+        
+        return {
+          id: a.id || `PAT-${idx + 1}`,
+          token: `TKN-${(a.id || idx.toString()).slice(0, 3).toUpperCase()}`,
+          name: pName,
+          age: clientProf?.age || 38,
+          gender: clientProf?.gender || 'Female',
+          abhaId: clientProf?.abha_id || '91-4502-8819-2041',
+          bloodGroup: clientProf?.blood_group || 'O+',
+          allergies: clientProf?.allergies || 'No Known Drug Allergies (NKDA)',
+          priority: isEmergency ? 'EMERGENCY' : a.priority || 'ROUTINE',
+          complaint: a.notes || a.complaint || 'General consultation & clinical review',
+          vitals: {
+            bp: a.vitals_bp || '120/80',
+            hr: a.vitals_hr || 76,
+            spo2: a.vitals_spo2 || 98,
+            temp: a.vitals_temp || '98.6 °F',
+            bmi: a.vitals_bmi || '22.4',
+          },
+          type: isTele ? 'Teleconsult' : 'In-Person OPD',
+          status: a.status === 'in-consult' ? 'IN-CONSULT' : a.status === 'completed' || a.status === 'ended' ? 'COMPLETED' : 'WAITING',
+          waitTime: a.scheduled_time ? new Date(a.scheduled_time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : 'Just now',
+        };
+      });
+
+      setQueue(formattedQueue);
+      if (formattedQueue.length > 0 && !selectedPatientId) {
+        setSelectedPatientId(formattedQueue[0].id);
+      }
+    } catch (err) {
+      console.warn('Error fetching live OPD queue:', err);
+    } finally {
+      setLoadingQueue(false);
+    }
+  }, [supabase, selectedPatientId]);
+
+  // Initialize doctor session, fetch queue, and subscribe to Supabase Realtime live queue changes
   useEffect(() => {
     let isMounted = true;
 
     async function initializeDoctorSessionAndRealtime() {
       try {
         let docId: string | null = null;
+        let docName = 'Dr. David Ross';
+        let docEmail = 'doctor@curatrack.in';
+
         try {
           const { data: { user } } = await supabase.auth.getUser();
-          docId = user?.id || null;
+          if (user) {
+            docId = user.id;
+            docEmail = user.email || docEmail;
+            const { data: prof } = await supabase.from('profiles').select('*').eq('id', user.id).maybeSingle();
+            if (prof?.name) docName = prof.name;
+          }
         } catch {}
 
         if (typeof window !== 'undefined') {
@@ -171,14 +185,31 @@ export default function DoctorClinicalDashboardPage() {
             if (savedUser) {
               const parsed = JSON.parse(savedUser);
               if (parsed.id) docId = parsed.id;
+              if (parsed.name) docName = parsed.name;
+              if (parsed.email) docEmail = parsed.email;
             }
           } catch {}
         }
 
-        if (!docId) docId = 'doc-david-ross';
-        if (isMounted) setActiveDoctorId(docId);
+        const finalDocId = docId || 'doc-david-ross';
+        const finalDocName = docName.startsWith('Dr.') ? docName : `Dr. ${docName}`;
 
-        // Fetch any existing active/ringing appointment with valid room_id
+        if (isMounted) {
+          setActiveDoctorId(finalDocId);
+          setDoctorInfo({
+            id: finalDocId,
+            name: `${finalDocName}, MD`,
+            email: docEmail,
+            facility: 'Nandurbar Sub-District Hospital',
+            license: 'MMC/2026/04481',
+            department: 'General Medicine & OPD Room 101',
+          });
+        }
+
+        // Fetch Initial Queue Data
+        await fetchLiveQueue(finalDocId);
+
+        // Fetch active incoming telemedicine calls
         const { data: activeAppts } = await supabase
           .from('appointments')
           .select('*')
@@ -199,15 +230,15 @@ export default function DoctorClinicalDashboardPage() {
           setIncomingCall({ ...appt, patient_name: patientName });
         }
       } catch (err) {
-        console.warn('Error initializing doctor telemedicine session:', err);
+        console.warn('Error initializing doctor session:', err);
       }
     }
 
     initializeDoctorSessionAndRealtime();
 
-    // Subscribe to realtime changes on appointments table
+    // Subscribe to realtime changes on appointments table for live queue and incoming calls
     const channel = supabase
-      .channel('doctor_portal_incoming_calls_v3')
+      .channel('doctor_portal_live_queue_v3')
       .on(
         'postgres_changes',
         {
@@ -216,6 +247,11 @@ export default function DoctorClinicalDashboardPage() {
           table: 'appointments',
         },
         async (payload) => {
+          if (!isMounted) return;
+
+          // Refetch live queue when any appointment changes
+          fetchLiveQueue(activeDoctorId || 'doc-david-ross');
+
           const incoming = payload.new as Appointment;
           if (!incoming || !incoming.room_id) return;
 
@@ -252,7 +288,9 @@ export default function DoctorClinicalDashboardPage() {
       isMounted = false;
       supabase.removeChannel(channel);
     };
-  }, [supabase]);
+  }, [supabase, fetchLiveQueue, activeDoctorId]);
+
+  const selectedPatient = queue.find(p => p.id === selectedPatientId) || queue[0];
 
   const filteredQueue = queue.filter(item => {
     const matchesSearch = !searchQuery || 
@@ -416,9 +454,9 @@ export default function DoctorClinicalDashboardPage() {
             <span className="material-symbols-outlined text-sm">stethoscope</span>
             <span>Clinical OPD & Teleconsultation Workspace</span>
           </div>
-          <h1 className="text-3xl lg:text-4xl font-extrabold tracking-tight">Dr. David Ross, MD</h1>
+          <h1 className="text-3xl lg:text-4xl font-extrabold tracking-tight">{doctorInfo.name}</h1>
           <p className="text-teal-100 text-sm mt-1 max-w-2xl">
-            Nandurbar Sub-District Hospital • OPD Room 101 • General Medicine & Clinical Consultations
+            {doctorInfo.facility} • {doctorInfo.department}
           </p>
           <div className="flex flex-wrap items-center gap-3 mt-4 text-xs font-semibold">
             <span className="px-3 py-1 bg-emerald-500/20 text-emerald-300 border border-emerald-400/30 rounded-full flex items-center gap-1.5">
@@ -426,7 +464,7 @@ export default function DoctorClinicalDashboardPage() {
               On Duty (Morning Shift 08:00 - 14:00)
             </span>
             <span className="px-3 py-1 bg-white/10 rounded-full text-teal-100">
-              License: MMC/2018/04481
+              License: {doctorInfo.license}
             </span>
           </div>
         </div>
@@ -463,27 +501,29 @@ export default function DoctorClinicalDashboardPage() {
           <span className="text-3xl font-black text-on-surface mt-1 block">
             {queue.filter(p => p.status === 'WAITING' || p.status === 'IN-CONSULT').length}
           </span>
-          <span className="text-[10px] text-amber-600 font-semibold">1 Priority Emergency</span>
+          <span className="text-[10px] text-amber-600 font-semibold">
+            {queue.filter(p => p.priority === 'EMERGENCY').length} Priority Emergency
+          </span>
         </div>
 
         <div className="bg-white border border-surface-container-high p-5 rounded-3xl shadow-card">
           <span className="text-[11px] font-bold uppercase tracking-wider text-tertiary block">Completed Today</span>
           <span className="text-3xl font-black text-on-surface mt-1 block">
-            {queue.filter(p => p.status === 'COMPLETED').length + 12}
+            {queue.filter(p => p.status === 'COMPLETED').length}
           </span>
-          <span className="text-[10px] text-teal-600 font-semibold">Average 8 mins / patient</span>
+          <span className="text-[10px] text-teal-600 font-semibold">Live Database Records</span>
         </div>
 
         <div className="bg-white border border-surface-container-high p-5 rounded-3xl shadow-card">
           <span className="text-[11px] font-bold uppercase tracking-wider text-tertiary block">EDL Prescriptions</span>
-          <span className="text-3xl font-black text-on-surface mt-1 block">28</span>
-          <span className="text-[10px] text-blue-600 font-semibold">100% Stock Available</span>
+          <span className="text-3xl font-black text-on-surface mt-1 block">{prescriptions.length}</span>
+          <span className="text-[10px] text-blue-600 font-semibold">Active Encounter Items</span>
         </div>
 
         <div className="bg-white border border-surface-container-high p-5 rounded-3xl shadow-card">
           <span className="text-[11px] font-bold uppercase tracking-wider text-tertiary block">Lab Orders Pending</span>
-          <span className="text-3xl font-black text-on-surface mt-1 block">6</span>
-          <span className="text-[10px] text-purple-600 font-semibold">Diagnostic sync active</span>
+          <span className="text-3xl font-black text-on-surface mt-1 block">{selectedLabs.length}</span>
+          <span className="text-[10px] text-purple-600 font-semibold">Diagnostic Pipeline Active</span>
         </div>
       </div>
 
@@ -531,75 +571,98 @@ export default function DoctorClinicalDashboardPage() {
 
             {/* Patient Cards List */}
             <div className="space-y-2.5 pt-2 max-h-[600px] overflow-y-auto pr-1">
-              {filteredQueue.map(patient => {
-                const isSelected = patient.id === selectedPatientId;
-                return (
-                  <div
-                    key={patient.id}
-                    onClick={() => setSelectedPatientId(patient.id)}
-                    className={`p-4 rounded-2xl border transition-all cursor-pointer text-xs ${
-                      isSelected
-                        ? 'bg-primary/5 border-primary shadow-sm ring-1 ring-primary'
-                        : 'bg-white border-surface-container-high hover:border-primary/40 hover:bg-surface-container-low/40'
-                    }`}
-                  >
-                    <div className="flex items-center justify-between gap-2 mb-1.5">
-                      <div className="flex items-center gap-2">
-                        <span className="px-2 py-0.5 rounded-lg bg-surface-container text-slate-800 font-mono font-black text-[10px]">
-                          {patient.token}
+              {loadingQueue ? (
+                <div className="p-8 text-center bg-surface-container-low/40 rounded-2xl border border-surface-container-high space-y-2">
+                  <span className="material-symbols-outlined text-2xl text-teal-600 animate-spin">sync</span>
+                  <p className="text-xs font-bold text-tertiary">Loading live patient queue from database...</p>
+                </div>
+              ) : filteredQueue.length === 0 ? (
+                <div className="p-8 text-center bg-surface-container-low/40 rounded-2xl border border-dashed border-surface-container-high space-y-2">
+                  <span className="material-symbols-outlined text-3xl text-tertiary">assignment_turned_in</span>
+                  <h4 className="text-sm font-bold text-on-surface">No Patients in OPD Queue</h4>
+                  <p className="text-xs text-tertiary">
+                    Active consultations and live appointment requests will appear here automatically in real time.
+                  </p>
+                </div>
+              ) : (
+                filteredQueue.map(patient => {
+                  const isSelected = patient.id === selectedPatientId;
+                  return (
+                    <div
+                      key={patient.id}
+                      onClick={() => setSelectedPatientId(patient.id)}
+                      className={`p-4 rounded-2xl border transition-all cursor-pointer text-xs ${
+                        isSelected
+                          ? 'bg-primary/5 border-primary shadow-sm ring-1 ring-primary'
+                          : 'bg-white border-surface-container-high hover:border-primary/40 hover:bg-surface-container-low/40'
+                      }`}
+                    >
+                      <div className="flex items-center justify-between gap-2 mb-1.5">
+                        <div className="flex items-center gap-2">
+                          <span className="px-2 py-0.5 rounded-lg bg-surface-container text-slate-800 font-mono font-black text-[10px]">
+                            {patient.token}
+                          </span>
+                          <h3 className="font-bold text-sm text-on-surface">{patient.name}</h3>
+                        </div>
+                        <span
+                          className={`px-2 py-0.5 rounded-full text-[9px] font-black uppercase tracking-wider ${
+                            patient.priority === 'EMERGENCY'
+                              ? 'bg-red-100 text-red-800 border border-red-200 animate-pulse'
+                              : patient.priority === 'PRIORITY'
+                              ? 'bg-amber-100 text-amber-800 border border-amber-200'
+                              : 'bg-emerald-100 text-emerald-800'
+                          }`}
+                        >
+                          {patient.priority}
                         </span>
-                        <h3 className="font-bold text-sm text-on-surface">{patient.name}</h3>
                       </div>
-                      <span
-                        className={`px-2 py-0.5 rounded-full text-[9px] font-black uppercase tracking-wider ${
-                          patient.priority === 'EMERGENCY'
-                            ? 'bg-red-100 text-red-800 border border-red-200 animate-pulse'
-                            : patient.priority === 'PRIORITY'
-                            ? 'bg-amber-100 text-amber-800 border border-amber-200'
-                            : 'bg-emerald-100 text-emerald-800'
-                        }`}
-                      >
-                        {patient.priority}
-                      </span>
-                    </div>
 
-                    <div className="flex items-center gap-2 text-tertiary text-[11px] mb-2">
-                      <span>{patient.age}y / {patient.gender}</span>
-                      <span>•</span>
-                      <span className="font-mono">{patient.type}</span>
-                      <span>•</span>
-                      <span>{patient.waitTime}</span>
-                    </div>
-
-                    <p className="text-slate-700 text-xs line-clamp-2 bg-surface-container-low/60 p-2 rounded-xl border border-surface-container">
-                      {patient.complaint}
-                    </p>
-
-                    <div className="flex items-center justify-between mt-3 pt-2 border-t border-surface-container-high text-[11px]">
-                      <div className="flex items-center gap-3 font-semibold text-slate-600">
-                        <span>BP: <strong>{patient.vitals.bp}</strong></span>
-                        <span>HR: <strong>{patient.vitals.hr}</strong></span>
-                        <span>SpO2: <strong>{patient.vitals.spo2}%</strong></span>
+                      <div className="flex items-center gap-2 text-tertiary text-[11px] mb-2">
+                        <span>{patient.age}y / {patient.gender}</span>
+                        <span>•</span>
+                        <span className="font-mono">{patient.type}</span>
+                        <span>•</span>
+                        <span>{patient.waitTime}</span>
                       </div>
-                      <span
-                        className={`font-bold uppercase text-[10px] ${
-                          patient.status === 'IN-CONSULT' ? 'text-teal-600 font-black' : patient.status === 'COMPLETED' ? 'text-slate-400' : 'text-amber-600'
-                        }`}
-                      >
-                        {patient.status}
-                      </span>
+
+                      <p className="text-slate-700 text-xs line-clamp-2 bg-surface-container-low/60 p-2 rounded-xl border border-surface-container">
+                        {patient.complaint}
+                      </p>
+
+                      <div className="flex items-center justify-between mt-3 pt-2 border-t border-surface-container-high text-[11px]">
+                        <div className="flex items-center gap-3 font-semibold text-slate-600">
+                          <span>BP: <strong>{patient.vitals.bp}</strong></span>
+                          <span>HR: <strong>{patient.vitals.hr}</strong></span>
+                          <span>SpO2: <strong>{patient.vitals.spo2}%</strong></span>
+                        </div>
+                        <span
+                          className={`font-bold uppercase text-[10px] ${
+                            patient.status === 'IN-CONSULT' ? 'text-teal-600 font-black' : patient.status === 'COMPLETED' ? 'text-slate-400' : 'text-amber-600'
+                          }`}
+                        >
+                          {patient.status}
+                        </span>
+                      </div>
                     </div>
-                  </div>
-                );
-              })}
+                  );
+                })
+              )}
             </div>
           </div>
         </div>
 
         {/* Right Column: Active Patient Clinical Chart & Encounter (7 cols) */}
         <div className="lg:col-span-7 space-y-6">
-          {/* Active Patient Header Card */}
-          <div className="bg-white border border-surface-container-high p-6 rounded-3xl shadow-card space-y-5">
+          {!selectedPatient ? (
+            <div className="bg-white border border-surface-container-high p-8 rounded-3xl shadow-card text-center space-y-3">
+              <span className="material-symbols-outlined text-4xl text-tertiary">folder_shared</span>
+              <h3 className="text-base font-extrabold text-on-surface">No Patient Selected</h3>
+              <p className="text-xs text-tertiary max-w-sm mx-auto">
+                Select a patient from the OPD queue to inspect clinical vitals, record SOAP encounter notes, and dispatch e-prescriptions.
+              </p>
+            </div>
+          ) : (
+            <div className="bg-white border border-surface-container-high p-6 rounded-3xl shadow-card space-y-5">
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-surface-container-high pb-4">
               <div>
                 <div className="flex items-center gap-2 mb-1">
@@ -870,6 +933,7 @@ export default function DoctorClinicalDashboardPage() {
               </button>
             </div>
           </div>
+          )}
         </div>
       </div>
     </div>
