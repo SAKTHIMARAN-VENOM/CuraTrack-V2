@@ -32,6 +32,7 @@ def test_frontend_project_structure():
         "app/(dashboard)/benefits/page.tsx",
         "app/(dashboard)/bluetooth/page.tsx",
         "app/(dashboard)/bluetooth/fhw/page.tsx",
+        "app/(dashboard)/drug-checker/page.tsx",
         "app/(dashboard)/profile/page.tsx",
         "app/call/[roomId]/page.tsx",
         "app/passport/[token]/page.tsx",
