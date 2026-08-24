@@ -249,12 +249,12 @@ export default function ClinicalSchedulePage() {
 
         <div className="bg-white border border-surface-container-high p-5 rounded-3xl shadow-card flex items-center justify-between">
           <div>
-            <span className="text-[11px] font-bold uppercase tracking-wider text-tertiary block">Total Live OPD Queue</span>
-            <span className="text-3xl font-black text-on-surface mt-1 block">{totalQueue}</span>
-            <span className="text-[10px] text-blue-600 font-semibold">Patients awaiting consult</span>
+            <span className="text-[11px] font-bold uppercase tracking-wider text-tertiary block">Active Departments</span>
+            <span className="text-3xl font-black text-on-surface mt-1 block">5</span>
+            <span className="text-[10px] text-blue-600 font-semibold">Specialty coverage staffed</span>
           </div>
           <div className="w-12 h-12 rounded-2xl bg-blue-50 text-blue-700 flex items-center justify-center">
-            <span className="material-symbols-outlined text-2xl">groups</span>
+            <span className="material-symbols-outlined text-2xl">domain</span>
           </div>
         </div>
 
@@ -356,15 +356,11 @@ export default function ClinicalSchedulePage() {
               <div className="pt-3 border-t border-surface-container-high flex items-center justify-between">
                 <div className="flex items-center gap-1.5">
                   <span className="w-2 h-2 rounded-full bg-teal-500 animate-pulse"></span>
-                  <span className="text-xs font-bold text-slate-800">{doc.patientsInQueue} Waiting in Queue</span>
+                  <span className="text-xs font-bold text-slate-800">Shift Active & Available</span>
                 </div>
-                <Link
-                  href="/doctor"
-                  className="text-xs font-bold text-primary hover:underline flex items-center gap-1"
-                >
-                  <span>OPD Desk</span>
-                  <span className="material-symbols-outlined text-sm">arrow_forward</span>
-                </Link>
+                <span className="text-[11px] text-tertiary font-medium">
+                  {doc.department}
+                </span>
               </div>
             </div>
           );

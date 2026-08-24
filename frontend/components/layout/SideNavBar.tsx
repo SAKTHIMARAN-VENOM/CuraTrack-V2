@@ -44,7 +44,6 @@ const FHW_NAV_ITEMS = [
 
 const FACILITY_NAV_ITEMS = [
     { href: '/facility', icon: 'local_hospital', label: 'Facility Operations' },
-    { href: '/doctor/clinical-schedule', icon: 'calendar_month', label: 'Doctor Roster' },
     { href: '/records', icon: 'folder_shared', label: 'Facility Archive' },
     { href: '/profile', icon: 'person', label: 'Manager Profile' }
 ];
