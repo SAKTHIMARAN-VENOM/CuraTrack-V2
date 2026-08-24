@@ -706,16 +706,6 @@ function DigitalTriageContent() {
                 <span>Doctor: <strong className="text-teal-300">{currentDoctorName}</strong></span>
               </div>
             </div>
-
-            <div className="flex items-center gap-2 shrink-0">
-              <Link
-                href="/doctor"
-                className="px-4 py-2 bg-teal-600 hover:bg-teal-700 text-white font-bold text-xs rounded-xl transition-all flex items-center gap-1.5"
-              >
-                <span className="material-symbols-outlined text-base">dashboard</span>
-                <span>Doctor Portal</span>
-              </Link>
-            </div>
           </div>
 
           {/* Red Flag Warning Box */}
