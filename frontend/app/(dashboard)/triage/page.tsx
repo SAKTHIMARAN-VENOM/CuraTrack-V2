@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useCallback, Suspense } from 'react';
+import { useState, useEffect, useCallback, useMemo, Suspense } from 'react';
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { apiFetch } from '@/lib/api';
@@ -18,6 +18,9 @@ interface RealPatientInfo {
   latestStatus?: string;
   lastVisit?: string;
   complaint?: string;
+  tokenNo?: string;
+  consultType?: string;
+  appointmentId?: string;
 }
 
 interface TriageHistoryItem {
@@ -30,6 +33,7 @@ interface TriageHistoryItem {
   observations: string;
   summary: string;
   recommendedFacility: string;
+  reasons?: string[];
 }
 
 function DigitalTriageContent() {
@@ -38,6 +42,7 @@ function DigitalTriageContent() {
   const initialPatientId = searchParams.get('patientId') || '';
   const initialApptId = searchParams.get('apptId') || '';
 
+  const [categories, setCategories] = useState<Record<string, string[]>>({});
   const [redFlagList, setRedFlagList] = useState<string[]>([]);
   const [loadingTaxonomy, setLoadingTaxonomy] = useState(true);
 
@@ -51,7 +56,7 @@ function DigitalTriageContent() {
   const [triageHistory, setTriageHistory] = useState<TriageHistoryItem[]>([]);
 
   // Form inputs
-  const [symptomDescription, setSymptomDescription] = useState<string>('');
+  const [selectedSymptoms, setSelectedSymptoms] = useState<string[]>([]);
   const [selectedRedFlags, setSelectedRedFlags] = useState<string[]>([]);
   const [severity, setSeverity] = useState<number>(4);
   const [durationDays, setDurationDays] = useState<number>(1);
@@ -60,37 +65,33 @@ function DigitalTriageContent() {
   const [spo2, setSpo2] = useState<string>('');
   const [heartRate, setHeartRate] = useState<string>('');
   const [systolicBp, setSystolicBp] = useState<string>('');
+  const [diastolicBp, setDiastolicBp] = useState<string>('');
   const [temperature, setTemperature] = useState<string>('');
   const [clinicalNotes, setClinicalNotes] = useState<string>('');
 
   // Assessment result
   const [evaluating, setEvaluating] = useState<boolean>(false);
   const [triageResult, setTriageResult] = useState<any>(null);
+  const [activeTab, setActiveTab] = useState<string>('Respiratory');
   const [saveSuccessMessage, setSaveSuccessMessage] = useState<string>('');
-
-  const commonSymptomChips = [
-    "Persistent Cough (> 2 weeks)",
-    "Shortness of breath on exertion",
-    "High fever with chills",
-    "Chest tightness / heaviness",
-    "Acute Diarrhea / Vomiting",
-    "Severe abdominal pain",
-    "Sudden onset headache",
-    "Dizziness / Vertigo",
-    "Decreased fetal movements",
-    "Extreme fatigue / body aches",
-    "Wheezing / Stridor",
-    "Pediatric dehydration"
-  ];
 
   // 1. Fetch symptom taxonomy from backend
   useEffect(() => {
     const fetchTaxonomy = async () => {
       try {
         const data = await apiFetch('/api/triage/symptoms');
+        if (data.categories) setCategories(data.categories);
         if (data.red_flags) setRedFlagList(data.red_flags);
       } catch (err) {
         console.warn('Failed to load symptom taxonomy from backend, using fallback:', err);
+        setCategories({
+          "Respiratory": ["Persistent Cough (> 2 weeks)", "Shortness of breath on exertion", "Sore throat & difficulty swallowing", "Wheezing / Stridor", "Chest tightness"],
+          "Cardiovascular": ["Chest pain / Heavy pressure", "Palpitations / Rapid heartbeat", "Swelling in feet / ankles (Edema)", "Dizziness when standing"],
+          "Gastrointestinal": ["Acute Diarrhea (> 3 episodes/day)", "Severe abdominal pain / cramping", "Persistent nausea / vomiting", "Loss of appetite"],
+          "Neurological": ["Severe sudden onset headache", "Dizziness / Vertigo", "Numbness or weakness in limbs", "Confusion / Altered sensorium"],
+          "Maternal & Reproductive": ["Decreased fetal movements", "Severe lower abdominal pain during pregnancy", "Vaginal bleeding / discharge"],
+          "Pediatric & General": ["High fever (> 102°F)", "Fever with chills (Suspected Malaria/Dengue)", "Persistent body aches / Fatigue", "Severe dehydration"]
+        });
         setRedFlagList([
           "Severe central chest pain radiating to left arm or jaw",
           "Extreme breathlessness at rest (Cannot speak full sentences)",
@@ -105,14 +106,6 @@ function DigitalTriageContent() {
     };
     fetchTaxonomy();
   }, []);
-
-  const appendSymptomTag = (tag: string) => {
-    setSymptomDescription(prev => {
-      if (!prev.trim()) return tag;
-      if (prev.toLowerCase().includes(tag.toLowerCase())) return prev;
-      return `${prev.trim()}, ${tag}`;
-    });
-  };
 
   // 2. Fetch authenticated doctor info and patient list
   useEffect(() => {
@@ -131,7 +124,7 @@ function DigitalTriageContent() {
           if (docProf?.name) setCurrentDoctorName(docProf.name);
         }
 
-        // Fetch patient profiles
+        // Fetch registered patient profiles
         const { data: profs } = await supabase
           .from('profiles')
           .select('*')
@@ -145,28 +138,36 @@ function DigitalTriageContent() {
 
         const apptMap: Record<string, any> = {};
         if (appts) {
-          for (const a of appts) {
+          for (let i = 0; i < appts.length; i++) {
+            const a = appts[i];
             if (a.client_id && !apptMap[a.client_id]) {
-              apptMap[a.client_id] = a;
+              apptMap[a.client_id] = { ...a, tokenIndex: i + 1 };
             }
           }
         }
 
         if (profs && profs.length > 0) {
-          const mappedPatients: RealPatientInfo[] = profs.map(p => {
+          const mappedPatients: RealPatientInfo[] = profs.map((p, idx) => {
             const appt = apptMap[p.id];
+            const tokenNum = appt?.tokenIndex ? `TKN-${String(appt.tokenIndex).padStart(3, '0')}` : `TKN-${String(idx + 1).padStart(3, '0')}`;
+            const cType = appt?.type || (appt?.room_id ? 'Teleconsult' : 'In-Person Consultation');
+            const statusLabel = appt?.status === 'in-consult' ? 'In Consultation' : appt?.status === 'completed' ? 'Completed' : 'Waiting';
+
             return {
               id: p.id,
               name: p.name && p.name.trim().length > 0 ? p.name.trim() : (p.email ? p.email.split('@')[0] : 'Patient'),
               email: p.email,
-              age: p.age || 32,
+              age: p.age || '',
               gender: p.gender || 'Unspecified',
-              bloodGroup: p.blood_group || 'O+',
+              bloodGroup: p.blood_group || '',
               abhaId: p.abha_id || `91-4502-8819-${p.id.slice(0, 4)}`,
               allergies: p.allergies || 'No Known Drug Allergies (NKDA)',
-              latestStatus: appt?.status === 'in-consult' ? 'In Consultation' : appt?.status === 'completed' ? 'Completed' : 'Registered Patient',
+              latestStatus: statusLabel,
               lastVisit: appt?.date || (appt?.created_at ? new Date(appt.created_at).toLocaleDateString() : 'Recent'),
               complaint: appt?.notes || '',
+              tokenNo: tokenNum,
+              consultType: cType,
+              appointmentId: appt?.id || ''
             };
           });
           setPatients(mappedPatients);
@@ -195,8 +196,8 @@ function DigitalTriageContent() {
     setSaveSuccessMessage('');
     setTriageResult(null);
 
-    // Reset fields cleanly
-    setSymptomDescription(patient.complaint || '');
+    // Reset fields cleanly to prevent cross-patient data leaks
+    setSelectedSymptoms([]);
     setSelectedRedFlags([]);
     setPatientAge(patient.age || '');
     setIsPregnant(patient.gender?.toLowerCase() === 'female');
@@ -204,10 +205,11 @@ function DigitalTriageContent() {
     setSpo2('');
     setHeartRate('');
     setSystolicBp('');
+    setDiastolicBp('');
     setTemperature('');
 
     try {
-      // 1. Fetch latest appointment for vitals
+      // 1. Fetch latest appointment for recorded vitals & complaints
       const { data: apptData } = await supabase
         .from('appointments')
         .select('*')
@@ -217,15 +219,13 @@ function DigitalTriageContent() {
 
       if (apptData && apptData.length > 0) {
         const appt = apptData[0];
-        if (appt.notes && !patient.complaint) {
-          setClinicalNotes(appt.notes);
-          if (!patient.complaint) setSymptomDescription(appt.notes);
-        }
-        if (appt.vitals_spo2) setSpo2(String(appt.vitals_spo2).replace('%', ''));
-        if (appt.vitals_hr) setHeartRate(String(appt.vitals_hr));
+        if (appt.notes) setClinicalNotes(appt.notes);
+        if (appt.vitals_spo2) setSpo2(String(appt.vitals_spo2).replace('%', '').trim());
+        if (appt.vitals_hr) setHeartRate(String(appt.vitals_hr).trim());
         if (appt.vitals_bp) {
-          const sys = String(appt.vitals_bp).split('/')[0];
-          if (sys) setSystolicBp(sys.trim());
+          const parts = String(appt.vitals_bp).split('/');
+          if (parts[0]) setSystolicBp(parts[0].trim());
+          if (parts[1]) setDiastolicBp(parts[1].trim());
         }
         if (appt.vitals_temp) setTemperature(String(appt.vitals_temp).replace('°C', '').replace('°F', '').trim());
       }
@@ -249,7 +249,7 @@ function DigitalTriageContent() {
             date: n.date || (n.created_at ? new Date(n.created_at).toLocaleDateString() : 'Recent'),
             doctor: n.doctor || 'Attending Physician',
             urgency,
-            urgencyLabel: urgency === 'RED' ? 'EMERGENCY TIER' : urgency === 'YELLOW' ? 'PRIORITY TIER' : 'ROUTINE TIER',
+            urgencyLabel: urgency === 'RED' ? 'EMERGENCY TIER (RED)' : urgency === 'YELLOW' ? 'PRIORITY TIER (YELLOW)' : 'ROUTINE TIER (GREEN)',
             symptoms: n.complaint || 'General symptoms',
             observations: n.observations || '',
             summary: n.summary || '',
@@ -265,18 +265,172 @@ function DigitalTriageContent() {
     }
   }, []);
 
+  // Supabase Real-Time Listener for Active Patient
+  useEffect(() => {
+    if (!selectedPatient) return;
+    const supabase = createClient();
+
+    const channel = supabase
+      .channel(`triage_patient_sync_${selectedPatient.id}`)
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'appointments', filter: `client_id=eq.${selectedPatient.id}` },
+        (payload: any) => {
+          if (payload.new) {
+            const updated = payload.new;
+            setSelectedPatient(prev => prev ? {
+              ...prev,
+              latestStatus: updated.status === 'in-consult' ? 'In Consultation' : updated.status === 'completed' ? 'Completed' : 'Waiting',
+              complaint: updated.notes || prev.complaint
+            } : null);
+          }
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [selectedPatient?.id]);
+
   const handleSelectPatient = (patient: RealPatientInfo) => {
     setSelectedPatient(patient);
     loadPatientData(patient);
   };
 
-  const toggleRedFlag = (flag: string) => {
-    if (selectedRedFlags.includes(flag)) {
-      setSelectedRedFlags(selectedRedFlags.filter(f => f !== flag));
+  const toggleSymptom = (symptom: string) => {
+    if (selectedSymptoms.includes(symptom)) {
+      setSelectedSymptoms(selectedSymptoms.filter(s => s !== symptom));
     } else {
-      setSelectedRedFlags([...selectedRedFlags, flag]);
+      setSelectedSymptoms([...selectedSymptoms, symptom]);
     }
   };
+
+  const toggleRedFlag = (flag: string) => {
+    let nextFlags: string[] = [];
+    if (selectedRedFlags.includes(flag)) {
+      nextFlags = selectedRedFlags.filter(f => f !== flag);
+    } else {
+      nextFlags = [...selectedRedFlags, flag];
+    }
+    setSelectedRedFlags(nextFlags);
+
+    // Immediate emergency feedback when danger signs are toggled
+    if (nextFlags.length > 0) {
+      setTriageResult({
+        urgency: 'RED',
+        urgency_label: 'EMERGENCY TIER (RED)',
+        recommended_facility: 'District Hospital / 24x7 Emergency Centre',
+        reasons: nextFlags.map(f => `Emergency red-flag danger sign present: "${f}"`),
+        immediate_actions: [
+          'Immediate clinical evaluation & stabilization',
+          'Administer high-flow supplemental oxygen',
+          'Prepare emergency transport / 108 ambulance dispatch',
+          'Continuous telemetry & SpO2 vital monitoring'
+        ],
+        potential_conditions: ['Acute Cardiorespiratory Emergency', 'Severe Hypoxemia / Sepsis', 'Acute Abdominal Emergency'],
+        teleconsult_recommended: true
+      });
+    } else if (triageResult && triageResult.reasons?.some((r: string) => r.includes('Emergency red-flag'))) {
+      setTriageResult(null);
+    }
+  };
+
+  // Rule-based Triage Engine (Client-Side Transparent Evaluation + Backend Fallback)
+  const evaluateTriageRules = useMemo(() => {
+    const reasons: string[] = [];
+    let urgency: 'RED' | 'YELLOW' | 'GREEN' = 'GREEN';
+    let urgencyLabel = 'ROUTINE CARE TIER (GREEN)';
+    let facility = 'Ayushman Arogya Mandir / Sub-Centre (Home Monitoring)';
+    const actions: string[] = [];
+    const conditions: string[] = [];
+
+    const numSpo2 = spo2 ? parseFloat(spo2) : null;
+    const numHr = heartRate ? parseFloat(heartRate) : null;
+    const numBp = systolicBp ? parseFloat(systolicBp) : null;
+    const numTemp = temperature ? parseFloat(temperature) : null;
+
+    // 1. Check RED emergency criteria
+    if (selectedRedFlags.length > 0) {
+      urgency = 'RED';
+      selectedRedFlags.forEach(f => reasons.push(`Emergency red flag detected: "${f}"`));
+    }
+    if (numSpo2 !== null && numSpo2 < 92) {
+      urgency = 'RED';
+      reasons.push(`SpO2 oxygen saturation is critical (${numSpo2}% < 92% emergency threshold)`);
+    }
+    if (numBp !== null && (numBp >= 180 || numBp <= 80)) {
+      urgency = 'RED';
+      reasons.push(`Systolic blood pressure is in crisis range (${numBp} mmHg)`);
+    }
+    if (numHr !== null && (numHr > 130 || numHr < 45)) {
+      urgency = 'RED';
+      reasons.push(`Heart rate is critically abnormal (${numHr} bpm)`);
+    }
+    if (severity >= 9) {
+      urgency = 'RED';
+      reasons.push(`Patient reported critical distress level (${severity}/10)`);
+    }
+
+    if (urgency === 'RED') {
+      urgencyLabel = 'EMERGENCY TIER (RED)';
+      facility = 'District Hospital / 24x7 Emergency Care Centre';
+      actions.push('Immediate physician assessment and stabilization');
+      actions.push('Administer high-flow supplemental oxygen');
+      actions.push('Prepare emergency transfer protocol / 108 ambulance dispatch');
+      conditions.push('Severe Cardiorespiratory Distress', 'Acute Hemodynamic Instability');
+      return { urgency, urgency_label: urgencyLabel, recommended_facility: facility, reasons, immediate_actions: actions, potential_conditions: conditions };
+    }
+
+    // 2. Check YELLOW priority criteria
+    if (numSpo2 !== null && numSpo2 >= 92 && numSpo2 <= 95) {
+      urgency = 'YELLOW';
+      reasons.push(`SpO2 saturation is borderline (${numSpo2}%)`);
+    }
+    if (numBp !== null && numBp >= 140 && numBp < 180) {
+      urgency = 'YELLOW';
+      reasons.push(`Stage 2 Hypertension detected (${numBp} mmHg)`);
+    }
+    if (numHr !== null && ((numHr >= 105 && numHr <= 130) || (numHr >= 45 && numHr <= 55))) {
+      urgency = 'YELLOW';
+      reasons.push(`Tachycardia or borderline bradycardia observed (${numHr} bpm)`);
+    }
+    if (numTemp !== null && numTemp >= 38.3) {
+      urgency = 'YELLOW';
+      reasons.push(`High fever recorded (${numTemp}°C / ${(numTemp * 9/5 + 32).toFixed(1)}°F)`);
+    }
+    if (severity >= 5 && severity <= 8) {
+      urgency = 'YELLOW';
+      reasons.push(`Moderate to severe symptom distress score (${severity}/10)`);
+    }
+    if (durationDays > 3) {
+      urgency = 'YELLOW';
+      reasons.push(`Symptoms persistent over ${durationDays} days`);
+    }
+    if (selectedSymptoms.some(s => s.includes('Diarrhea') || s.includes('Shortness of breath') || s.includes('Chest pain') || s.includes('Vaginal bleeding'))) {
+      urgency = 'YELLOW';
+      reasons.push('High-risk primary symptom presentation reported');
+    }
+
+    if (urgency === 'YELLOW') {
+      urgencyLabel = 'PRIORITY TIER (YELLOW)';
+      facility = 'Primary Health Centre (PHC) / Community Health Centre (CHC)';
+      actions.push('Physician teleconsultation within 24 hours');
+      actions.push('Vital sign monitoring every 4 to 6 hours');
+      actions.push('Initiate oral rehydration / empiric EDL protocol as indicated');
+      conditions.push('Acute Infection / Febrile Illness', 'Moderate Respiratory / GI Distress');
+      return { urgency, urgency_label: urgencyLabel, recommended_facility: facility, reasons, immediate_actions: actions, potential_conditions: conditions };
+    }
+
+    // 3. GREEN routine criteria
+    reasons.push('Vital signs are within normal clinical thresholds');
+    reasons.push('No emergency danger signs or severe distress reported');
+    if (selectedSymptoms.length > 0) reasons.push(`Mild self-limiting presentation: ${selectedSymptoms.slice(0, 2).join(', ')}`);
+    actions.push('Symptomatic home care and hydration');
+    actions.push('Follow-up with ASHA / FHW if symptoms worsen');
+    conditions.push('Mild Viral Illness / Self-limiting Complaint');
+    return { urgency: 'GREEN', urgency_label: urgencyLabel, recommended_facility: facility, reasons, immediate_actions: actions, potential_conditions: conditions };
+  }, [selectedRedFlags, spo2, heartRate, systolicBp, temperature, severity, durationDays, selectedSymptoms]);
 
   // Run Triage & Persist Result to Supabase Database
   const handleRunTriage = async (e: React.FormEvent) => {
@@ -290,18 +444,13 @@ function DigitalTriageContent() {
     setSaveSuccessMessage('');
 
     try {
-      const parsedSymptoms = symptomDescription
-        .split(/[\n,;]+/)
-        .map(s => s.trim())
-        .filter(s => s.length > 0);
-
       const payload = {
         patient_id: selectedPatient.id,
         patient_name: selectedPatient.name,
         age: patientAge ? Number(patientAge) : 32,
         gender: selectedPatient.gender || 'Other',
         pregnant: isPregnant,
-        symptoms: parsedSymptoms.length > 0 ? parsedSymptoms : (symptomDescription ? [symptomDescription] : []),
+        symptoms: selectedSymptoms,
         severity: Number(severity),
         duration_days: Number(durationDays),
         red_flags: selectedRedFlags,
@@ -309,18 +458,27 @@ function DigitalTriageContent() {
         heart_rate: heartRate ? parseFloat(heartRate) : undefined,
         systolic_bp: systolicBp ? parseFloat(systolicBp) : undefined,
         temperature: temperature ? parseFloat(temperature) : undefined,
-        notes: clinicalNotes || symptomDescription || undefined
+        notes: clinicalNotes || undefined
       };
 
-      // 1. Calculate clinical triage assessment from engine
-      const result = await apiFetch('/api/triage/assess', {
-        method: 'POST',
-        body: JSON.stringify(payload)
-      });
+      let result: any = null;
+      try {
+        result = await apiFetch('/api/triage/assess', {
+          method: 'POST',
+          body: JSON.stringify(payload)
+        });
+      } catch (backendErr) {
+        console.warn('Backend assess API fallback to local rule engine:', backendErr);
+        result = evaluateTriageRules;
+      }
 
+      // Merge transparent rule reasons if not present
+      if (!result.reasons || result.reasons.length === 0) {
+        result.reasons = evaluateTriageRules.reasons;
+      }
       setTriageResult(result);
 
-      // 2. Persist triage record to Supabase
+      // Persist triage record to Supabase
       const supabase = createClient();
       const todayStr = new Date().toISOString().split('T')[0];
       const urgencyTier = result.urgency || 'GREEN';
@@ -332,14 +490,14 @@ function DigitalTriageContent() {
         specialty: 'Clinical Triage & Emergency Medicine',
         date: todayStr,
         visit_type: 'Triage Assessment',
-        complaint: symptomDescription || 'Triage evaluation',
-        observations: `[Urgency: ${result.urgency_label || urgencyTier}] Actions: ${(result.immediate_actions || []).join('; ') || 'Standard observation'}`,
+        complaint: selectedSymptoms.join(', ') || clinicalNotes || 'Triage evaluation',
+        observations: `[Urgency: ${result.urgency_label || urgencyTier}] Reasons: ${(result.reasons || []).join('; ') || 'Standard observations'}`,
         summary: `Triage ${urgencyTier}: ${result.recommended_facility || 'General Facility'}`,
-        plan: `Differential: ${(result.potential_conditions || []).join(', ') || 'Under evaluation'}`,
+        plan: `Differential: ${(result.potential_conditions || []).join(', ') || 'Under evaluation'}. Actions: ${(result.immediate_actions || []).join(', ')}`,
       });
 
       // Update active appointment priority in Supabase if an appointment exists
-      const targetApptId = initialApptId || undefined;
+      const targetApptId = selectedPatient.appointmentId || initialApptId;
       const dbPriority = urgencyTier === 'RED' ? 'EMERGENCY' : urgencyTier === 'YELLOW' ? 'PRIORITY' : 'ROUTINE';
 
       if (targetApptId) {
@@ -382,6 +540,13 @@ function DigitalTriageContent() {
 
           <div className="flex items-center gap-3">
             <Link
+              href="/doctor"
+              className="bg-white/15 hover:bg-white/25 text-white font-bold text-xs px-4 py-3 rounded-2xl flex items-center gap-2 backdrop-blur transition-all"
+            >
+              <span className="material-symbols-outlined text-lg">dashboard</span>
+              <span>Doctor Portal</span>
+            </Link>
+            <Link
               href="/telemedicine"
               className="bg-white/15 hover:bg-white/25 text-white font-bold text-xs px-4 py-3 rounded-2xl flex items-center gap-2 backdrop-blur transition-all"
             >
@@ -423,23 +588,23 @@ function DigitalTriageContent() {
           )}
         </div>
 
-        {/* If No Patient Selected: Display Searchable Real Patient List */}
+        {/* If No Patient Selected: Display Clear Selection State */}
         {!selectedPatient ? (
           <div className="bg-white border border-surface-container-high p-8 rounded-3xl shadow-card space-y-6">
             <div className="text-center max-w-md mx-auto space-y-2">
               <div className="w-14 h-14 bg-primary/10 rounded-2xl flex items-center justify-center mx-auto text-primary">
                 <span className="material-symbols-outlined text-3xl">person_search</span>
               </div>
-              <h3 className="text-lg font-extrabold text-on-surface">Select a Patient for Clinical Triage</h3>
+              <h3 className="text-lg font-extrabold text-on-surface">Select a Patient to Begin Clinical Triage</h3>
               <p className="text-xs text-tertiary">
-                Choose a verified patient from the outpatient directory to pre-fill known telemetry vitals and evaluate emergency prioritization tiers.
+                Choose a verified patient from the Live Outpatient Queue directory below to pre-populate telemetry vitals and evaluate emergency prioritization tiers.
               </p>
             </div>
 
             {loadingPatients ? (
               <div className="py-12 text-center text-xs font-bold text-teal-600 flex items-center justify-center gap-2">
                 <span className="material-symbols-outlined animate-spin">sync</span>
-                <span>Loading real patient records from Supabase...</span>
+                <span>Loading outpatient queue from Supabase...</span>
               </div>
             ) : (
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
@@ -465,26 +630,30 @@ function DigitalTriageContent() {
                             <h4 className="font-extrabold text-sm text-on-surface group-hover:text-primary transition-colors">
                               {patient.name}
                             </h4>
-                            <p className="text-[11px] font-mono text-tertiary">ABHA: {patient.abhaId}</p>
+                            <p className="text-[11px] font-mono text-tertiary">ABHA: {patient.abhaId || 'N/A'}</p>
                           </div>
                         </div>
-                        <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-teal-50 text-teal-800 border border-teal-200">
-                          {patient.latestStatus}
+                        <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${
+                          patient.latestStatus === 'In Consultation' ? 'bg-amber-100 text-amber-800' :
+                          patient.latestStatus === 'Completed' ? 'bg-emerald-100 text-emerald-800' :
+                          'bg-teal-50 text-teal-800 border border-teal-200'
+                        }`}>
+                          {patient.tokenNo} • {patient.latestStatus}
                         </span>
                       </div>
 
                       <div className="grid grid-cols-3 gap-2 pt-2 border-t border-surface-container-high text-[11px] text-tertiary">
                         <div>
                           <span className="block text-[9px] uppercase font-bold">Age/Sex</span>
-                          <span className="font-bold text-slate-800">{patient.age}y, {patient.gender}</span>
+                          <span className="font-bold text-slate-800">{patient.age ? `${patient.age}y` : 'N/A'}, {patient.gender}</span>
                         </div>
                         <div>
                           <span className="block text-[9px] uppercase font-bold">Blood</span>
-                          <span className="font-bold text-red-700">{patient.bloodGroup}</span>
+                          <span className="font-bold text-red-700">{patient.bloodGroup || 'N/A'}</span>
                         </div>
                         <div>
-                          <span className="block text-[9px] uppercase font-bold">Last Visit</span>
-                          <span className="font-bold text-slate-800">{patient.lastVisit}</span>
+                          <span className="block text-[9px] uppercase font-bold">Consult</span>
+                          <span className="font-bold text-slate-800 truncate">{patient.consultType || 'In-Person'}</span>
                         </div>
                       </div>
                     </div>
@@ -493,34 +662,52 @@ function DigitalTriageContent() {
             )}
           </div>
         ) : (
-          /* Selected Patient Demographics Header */
+          /* Real Patient Header Context Card */
           <div className="bg-gradient-to-r from-teal-900 via-slate-900 to-blue-950 p-6 rounded-3xl text-white shadow-xl flex flex-col md:flex-row md:items-center justify-between gap-6">
-            <div className="space-y-1">
-              <div className="flex items-center gap-2">
+            <div className="space-y-1.5">
+              <div className="flex flex-wrap items-center gap-2">
                 <span className="px-2.5 py-0.5 rounded-full bg-teal-400/20 text-teal-300 font-mono text-[10px] font-bold border border-teal-400/30">
-                  Target Patient for Triage
+                  PATIENT
                 </span>
                 <span className="text-xs text-slate-400">•</span>
                 <span className="text-xs font-mono text-slate-300">ID: {selectedPatient.id}</span>
+                <span className="text-xs text-slate-400">•</span>
+                <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-teal-500/20 text-teal-200 border border-teal-500/30">
+                  Token: {selectedPatient.tokenNo || 'TKN-001'} • {selectedPatient.consultType || 'Teleconsult'}
+                </span>
+                <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${
+                  selectedPatient.latestStatus === 'In Consultation' ? 'bg-amber-400/20 text-amber-300 border border-amber-400/30' :
+                  selectedPatient.latestStatus === 'Completed' ? 'bg-emerald-400/20 text-emerald-300 border border-emerald-400/30' :
+                  'bg-blue-400/20 text-blue-300 border border-blue-400/30'
+                }`}>
+                  Status: {selectedPatient.latestStatus?.toUpperCase() || 'WAITING'}
+                </span>
               </div>
               <h3 className="text-2xl font-black text-white">{selectedPatient.name}</h3>
               <div className="flex flex-wrap items-center gap-3 text-xs text-slate-300">
-                <span>ABHA: <strong className="font-mono text-teal-200">{selectedPatient.abhaId}</strong></span>
+                <span>ABHA: <strong className="font-mono text-teal-200">{selectedPatient.abhaId || 'N/A'}</strong></span>
                 <span>•</span>
-                <span>{selectedPatient.age} Years, {selectedPatient.gender}</span>
+                <span>{selectedPatient.age ? `${selectedPatient.age} Years` : 'Age: N/A'} • {selectedPatient.gender || 'Unspecified'}</span>
                 <span>•</span>
-                <span>Blood: <strong className="text-red-400">{selectedPatient.bloodGroup}</strong></span>
+                <span>Blood: <strong className="text-red-400">{selectedPatient.bloodGroup || 'N/A'}</strong></span>
                 <span>•</span>
                 <span>Doctor: <strong className="text-teal-300">{currentDoctorName}</strong></span>
               </div>
             </div>
 
             <div className="flex items-center gap-2 shrink-0">
+              <button
+                onClick={() => setSelectedPatient(null)}
+                className="px-3.5 py-2 bg-white/10 hover:bg-white/20 text-white font-bold text-xs rounded-xl border border-white/20 transition-all flex items-center gap-1.5"
+              >
+                <span className="material-symbols-outlined text-sm">swap_horiz</span>
+                <span>Switch Patient</span>
+              </button>
               <Link
                 href="/doctor"
-                className="px-4 py-2 bg-white/10 hover:bg-white/20 text-white font-bold text-xs rounded-xl border border-white/20 transition-all flex items-center gap-1.5"
+                className="px-4 py-2 bg-teal-600 hover:bg-teal-700 text-white font-bold text-xs rounded-xl transition-all flex items-center gap-1.5"
               >
-                <span className="material-symbols-outlined text-base">dashboard</span>
+                <span className="material-symbols-outlined text-base">arrow_back</span>
                 <span>Doctor Portal</span>
               </Link>
             </div>
@@ -571,64 +758,61 @@ function DigitalTriageContent() {
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
         {/* Form Input Column (7 cols) */}
         <form onSubmit={handleRunTriage} className="lg:col-span-7 space-y-6">
-          {/* Symptoms Description Compartment */}
-          <div className="bg-white rounded-3xl p-6 border border-surface-container-high shadow-card space-y-4">
+          {/* Symptoms Selection by Category */}
+          <div className="bg-white rounded-3xl p-6 border border-surface-container-high shadow-card space-y-5">
             <div className="flex items-center justify-between border-b border-surface-container-high pb-4">
               <div>
                 <h2 className="font-bold text-base text-on-surface flex items-center gap-2">
-                  <span className="material-symbols-outlined text-primary">description</span>
-                  <span>Primary Symptoms & Chief Complaints</span>
+                  <span className="material-symbols-outlined text-primary">symptoms</span>
+                  <span>Primary Symptoms Present</span>
                 </h2>
-                <p className="text-xs text-tertiary mt-0.5">
-                  Enter detailed patient-reported symptoms, onset description, and clinical complaints
-                </p>
+                <p className="text-xs text-tertiary mt-0.5">Select all chief complaints reported by patient / ASHA worker</p>
               </div>
-              {symptomDescription.trim() && (
+              <span className="text-xs font-bold px-2.5 py-1 bg-primary/10 text-primary rounded-full">
+                {selectedSymptoms.length} selected
+              </span>
+            </div>
+
+            {/* Category Filter Tabs */}
+            <div className="flex flex-wrap gap-1.5 pb-2">
+              {Object.keys(categories).map((cat) => (
                 <button
+                  key={cat}
                   type="button"
-                  onClick={() => setSymptomDescription('')}
-                  className="text-xs font-semibold text-rose-600 hover:text-rose-700 flex items-center gap-1 transition-colors"
+                  onClick={() => setActiveTab(cat)}
+                  className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all ${
+                    activeTab === cat
+                      ? 'bg-primary text-white shadow-sm'
+                      : 'bg-surface-container-low text-tertiary hover:bg-surface-container'
+                  }`}
                 >
-                  <span className="material-symbols-outlined text-sm">close</span>
-                  <span>Clear text</span>
+                  {cat}
                 </button>
-              )}
+              ))}
             </div>
 
-            {/* Free-text Description Input */}
-            <div className="relative">
-              <textarea
-                value={symptomDescription}
-                onChange={(e) => setSymptomDescription(e.target.value)}
-                placeholder="Type the patient's symptoms here in detail...&#10;&#10;Examples:&#10;• Severe continuous dry cough for 3 weeks, chest pain while breathing, fever with chills&#10;• Acute watery diarrhea 5 times since morning, vomiting, severe abdominal cramping&#10;• Shortness of breath on mild walking, dizziness, ankle swelling"
-                rows={6}
-                className="w-full p-4 bg-surface-container-low rounded-2xl text-xs font-medium text-on-surface border border-surface-container-high outline-none focus:border-primary focus:ring-2 focus:ring-primary/20 transition-all resize-y leading-relaxed"
-              />
-              <div className="flex justify-between items-center text-[11px] text-tertiary mt-1 px-1">
-                <span>Clinical Observation Narrative</span>
-                <span>{symptomDescription.length} characters • {symptomDescription.trim() ? symptomDescription.trim().split(/\s+/).length : 0} words</span>
-              </div>
-            </div>
-
-            {/* Quick Suggestion Chips */}
-            <div className="pt-2 border-t border-surface-container-high/60">
-              <div className="flex items-center gap-1.5 text-xs font-semibold text-tertiary mb-2.5">
-                <span className="material-symbols-outlined text-sm text-primary">touch_app</span>
-                <span>Quick Add Common Clinical Keywords:</span>
-              </div>
-              <div className="flex flex-wrap gap-1.5">
-                {commonSymptomChips.map((chip, idx) => (
+            {/* Symptoms in active category */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+              {(categories[activeTab] || []).map((symptom) => {
+                const selected = selectedSymptoms.includes(symptom);
+                return (
                   <button
-                    key={idx}
+                    key={symptom}
                     type="button"
-                    onClick={() => appendSymptomTag(chip)}
-                    className="text-[11px] font-semibold px-2.5 py-1 rounded-lg bg-surface-container-low hover:bg-primary/10 hover:text-primary hover:border-primary border border-surface-container-high/80 text-on-surface transition-all flex items-center gap-1"
+                    onClick={() => toggleSymptom(symptom)}
+                    className={`p-3 rounded-2xl text-left text-xs font-medium border flex items-center justify-between transition-all ${
+                      selected
+                        ? 'bg-primary/10 border-primary text-primary font-bold shadow-sm'
+                        : 'bg-surface-container-low border-transparent text-on-surface hover:bg-surface-container'
+                    }`}
                   >
-                    <span className="material-symbols-outlined text-[13px] opacity-70">add</span>
-                    <span>{chip}</span>
+                    <span>{symptom}</span>
+                    <span className="material-symbols-outlined text-base">
+                      {selected ? 'check_circle' : 'add_circle'}
+                    </span>
                   </button>
-                ))}
-              </div>
+                );
+              })}
             </div>
           </div>
 
@@ -665,7 +849,7 @@ function DigitalTriageContent() {
                 <label className="block text-xs font-semibold text-tertiary mb-1">Patient Age</label>
                 <input
                   type="number"
-                  placeholder="e.g. 32"
+                  placeholder="Not recorded"
                   value={patientAge}
                   onChange={(e) => setPatientAge(e.target.value ? parseInt(e.target.value) : '')}
                   className="w-full p-2.5 bg-surface-container-low rounded-xl text-xs font-bold text-on-surface border border-surface-container-high outline-none focus:border-primary"
@@ -792,6 +976,21 @@ function DigitalTriageContent() {
                 </div>
               </div>
 
+              {/* Triage Decision Reasons */}
+              {triageResult.reasons && triageResult.reasons.length > 0 && (
+                <div className="p-4 bg-surface-container-low rounded-2xl border border-surface-container space-y-2">
+                  <span className="text-[11px] font-bold text-tertiary uppercase tracking-wider block">Clinical Rationale &amp; Risk Factors</span>
+                  <ul className="space-y-1 text-xs font-semibold text-on-surface">
+                    {triageResult.reasons.map((r: string, idx: number) => (
+                      <li key={idx} className="flex items-start gap-1.5">
+                        <span className="text-primary font-bold">•</span>
+                        <span>{r}</span>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+
               {/* Recommended Facility */}
               <div className="bg-surface-container-low p-4 rounded-2xl border border-surface-container">
                 <span className="text-[11px] font-bold text-tertiary uppercase tracking-wider block">Recommended Care Facility</span>
@@ -857,6 +1056,13 @@ function DigitalTriageContent() {
                   <span className="material-symbols-outlined text-base">forward_to_inbox</span>
                   <span>Create Public Health Referral Pass</span>
                 </Link>
+
+                <Link
+                  href="/doctor"
+                  className="w-full py-2.5 text-center text-xs font-bold text-primary hover:underline block"
+                >
+                  Continue Clinical Encounter in Doctor Portal →
+                </Link>
               </div>
             </div>
           ) : (
@@ -868,7 +1074,7 @@ function DigitalTriageContent() {
               <p className="text-xs text-tertiary mt-1.5 max-w-xs leading-relaxed">
                 {selectedPatient
                   ? `Select symptoms and verify telemetry vitals for ${selectedPatient.name}, then click Run Clinical Triage.`
-                  : 'Select a patient from the outpatient directory above to run an evidence-based clinical triage assessment.'}
+                  : 'Select a patient from the outpatient queue above to run an evidence-based clinical triage assessment.'}
               </p>
             </div>
           )}
