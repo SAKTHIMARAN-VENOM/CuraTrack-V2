@@ -872,9 +872,6 @@ export default function HealthRecordsPage() {
               <span>Facility Operations & Pharmacy Audit</span>
             </div>
             <h1 className="text-3xl font-extrabold tracking-tight">Facility & Pharmacy Archive</h1>
-            <p className="text-blue-100 text-sm mt-1 max-w-xl">
-              Comprehensive institutional records of pharmacy dispensing ledgers, EDL procurement batch receipts, laboratory diagnostic logs, and bio-medical disposal audits.
-            </p>
           </div>
 
           <div className="flex items-center gap-3 shrink-0">

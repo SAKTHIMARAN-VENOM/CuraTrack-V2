@@ -179,9 +179,8 @@ export default function BenefitsPage() {
     return (
         <div className="p-8 max-w-7xl mx-auto w-full">
             {/* Page Title & Greeting */}
-            <section className="mb-12">
-                <h1 className="text-4xl font-extrabold tracking-tight text-on-surface mb-2">Benefits &amp; Schemes</h1>
-                <p className="text-tertiary text-lg max-w-2xl">Maximize your coverage with AI-matched healthcare schemes and seamless insurance claim processing.</p>
+            <section className="mb-8">
+                <h1 className="text-4xl font-extrabold tracking-tight text-on-surface">Benefits &amp; Schemes</h1>
             </section>
 
             {/* Bento Grid Layout */}

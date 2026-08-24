@@ -195,9 +195,6 @@ export default function BluetoothTransferHubPage() {
                 {userRole} Mode
               </span>
             </div>
-            <p className="text-tertiary text-sm mt-0.5">
-              Zero-internet medical data transfer & doctor consultations for remote areas.
-            </p>
           </div>
         </div>
 

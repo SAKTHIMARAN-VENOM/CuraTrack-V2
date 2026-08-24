@@ -22,15 +22,19 @@ def test_essential_medicines_inventory_and_stock_update(client):
     assert data["count"] > 0
     assert "critical_alerts_count" in data
 
-    # Update stock for MED-001
+    # Update stock for the first medicine dynamically
+    target_med = data["medicines"][0]
+    target_id = target_med["id"]
+    initial_stock = target_med["stock_units"]
+
     update_payload = {
-        "medicine_id": "MED-001",
+        "medicine_id": target_id,
         "units_added": 1000
     }
     update_res = client.post("/api/facility/medicines/update-stock", json=update_payload)
     assert update_res.status_code == 200
     assert update_res.json()["success"] is True
-    assert update_res.json()["updated_medicine"]["stock_units"] >= 5500
+    assert update_res.json()["updated_medicine"]["stock_units"] >= initial_stock + 1000
 
 
 def test_diagnostic_lab_order_lifecycle(client):
@@ -58,6 +62,63 @@ def test_diagnostic_lab_order_lifecycle(client):
     assert order_data["success"] is True
     assert order_data["diagnostic_order"]["patient_name"] == "Suresh Kale"
     assert order_data["diagnostic_order"]["status"] == "ORDERED"
+
+
+def test_facility_doctors_roster(client):
+    """Verify facility doctor roster returns doctors with required fields."""
+    response = client.get("/api/facility/doctors")
+    assert response.status_code == 200
+    data = response.json()
+    assert "doctors" in data
+    assert data["count"] > 0
+    assert "on_duty" in data
+    assert "off_duty" in data
+
+    # Check a doctor has required fields
+    doc = data["doctors"][0]
+    assert "name" in doc
+    assert "specialty" in doc
+    assert "status" in doc
+    assert "shift" in doc
+
+    # Filter by ON_DUTY
+    on_duty_res = client.get("/api/facility/doctors?status=ON_DUTY")
+    assert on_duty_res.status_code == 200
+    on_duty_data = on_duty_res.json()
+    assert all(d["status"] == "ON_DUTY" for d in on_duty_data["doctors"])
+
+
+def test_facility_beds_detailed(client):
+    """Verify ward-level bed breakdown returns all required fields."""
+    response = client.get("/api/facility/beds")
+    assert response.status_code == 200
+    data = response.json()
+    assert "total_beds" in data
+    assert "total_occupied" in data
+    assert "total_available" in data
+    assert "occupancy_rate" in data
+    assert "wards" in data
+    assert len(data["wards"]) > 0
+
+    # Each ward should have total, occupied, available
+    ward = data["wards"][0]
+    assert "ward" in ward
+    assert "total" in ward
+    assert "occupied" in ward
+    assert "available" in ward
+
+
+def test_facility_medicine_alerts(client):
+    """Verify medicine alerts endpoint returns only non-ADEQUATE medicines."""
+    response = client.get("/api/facility/medicine-alerts")
+    assert response.status_code == 200
+    data = response.json()
+    assert "alert_count" in data
+    assert "medicines" in data
+    # All returned medicines should be LOW_STOCK or CRITICAL
+    for med in data["medicines"]:
+        assert med["status"] in ("LOW_STOCK", "CRITICAL_STOCKOUT_RISK")
+
 
 
 def test_rbac_onboarding_fhw(client):

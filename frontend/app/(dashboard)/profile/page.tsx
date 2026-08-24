@@ -200,9 +200,6 @@ export default function ProfilePage() {
                             <span>Hospital Administration & Operational Authority</span>
                         </div>
                         <h1 className="text-3xl font-extrabold tracking-tight">Facility Manager Profile</h1>
-                        <p className="text-blue-100 text-sm mt-1 max-w-xl">
-                            Configure institutional credentials, facility classification, emergency response hotlines, and EDL pharmacy oversight.
-                        </p>
                     </div>
 
                     <div className="p-4 bg-white/10 backdrop-blur rounded-2xl border border-white/20 text-center shrink-0">
@@ -367,9 +364,6 @@ export default function ProfilePage() {
                     <div className="space-y-2">
                         <span className="inline-block px-3 py-1 bg-secondary-container text-on-secondary-container text-xs font-bold rounded-full">ENCRYPTED ACCESS</span>
                         <h2 className="text-4xl lg:text-5xl font-headline font-extrabold tracking-tight text-on-surface">Your Secure Health ID</h2>
-                        <p className="text-tertiary font-body text-lg leading-relaxed max-w-sm">
-                            Present this code to your healthcare provider for instant, secure access to your clinical profile and history.
-                        </p>
                     </div>
 
                     {/* Data List: Profile Fields */}

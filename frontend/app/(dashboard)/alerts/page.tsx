@@ -141,7 +141,6 @@ export default function AlertsPage() {
                         </span>
                     </div>
                     <h2 className="text-4xl font-extrabold font-headline tracking-tight text-on-surface">Seasonal Health Alerts</h2>
-                    <p className="text-tertiary mt-1 text-base">Regional disease outbreak forecasts and health precautions for {currentMonthName}</p>
                 </div>
             </div>
 

@@ -121,9 +121,6 @@ export default function DigitalTriagePage() {
                             <span>Clinical Protocol • Primary Healthcare Hierarchy</span>
                         </div>
                         <h1 className="text-3xl font-extrabold tracking-tight">Smart Clinical Triage & Facility Routing</h1>
-                        <p className="text-teal-100 text-sm mt-2 max-w-2xl leading-relaxed">
-                            Rule-based urgency classification connecting rural beneficiaries, ASHA workers, and patients directly to the appropriate level of care (Sub-Centre ➔ PHC ➔ CHC ➔ District Hospital).
-                        </p>
                     </div>
 
                     <div className="flex items-center gap-3">

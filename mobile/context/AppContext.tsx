@@ -180,12 +180,25 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   // ─── Database Data Loader ─────────────────────────────────────────────
   const loadUserDataFromDatabase = useCallback(async (userId: string, email?: string) => {
     try {
+      const isUUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(userId);
+      let profile = null;
+
       // 1. Fetch Profile
-      const { data: profile } = await supabase
-        .from('profiles')
-        .select('*')
-        .eq('id', userId)
-        .maybeSingle();
+      if (isUUID) {
+        const { data } = await supabase
+          .from('profiles')
+          .select('*')
+          .eq('id', userId)
+          .maybeSingle();
+        profile = data;
+      } else if (email) {
+        const { data } = await supabase
+          .from('profiles')
+          .select('*')
+          .eq('email', email)
+          .maybeSingle();
+        profile = data;
+      }
 
       if (profile) {
         setUser((prev) => ({

@@ -109,7 +109,6 @@ export default function AdminPortalPage() {
                     </div>
                     <div>
                         <h1 className="font-headline font-bold text-2xl text-on-surface">Administrator Control Portal</h1>
-                        <p className="text-xs text-tertiary">Review and approve practitioner credentials and system governance.</p>
                     </div>
                 </div>
                 <button onClick={fetchPendingDoctors} className="px-4 py-2 bg-surface-container hover:bg-surface-container-high rounded-xl text-xs font-bold text-on-surface">

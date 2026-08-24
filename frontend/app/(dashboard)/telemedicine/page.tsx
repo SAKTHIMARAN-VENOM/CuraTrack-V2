@@ -447,11 +447,6 @@ export default function TelemedicinePage() {
               <h1 className="mt-4 font-headline text-4xl lg:text-5xl font-extrabold tracking-tight text-on-surface leading-none">
                 {heroName} Center
               </h1>
-              <p className="mt-3 max-w-2xl text-base lg:text-lg text-tertiary leading-relaxed">
-                {isDoctor
-                  ? 'Review incoming consultations, jump into active rooms, and keep response times calm and predictable.'
-                  : 'Connect with a specialist in minutes through secure video consultations designed to feel clear, calm, and trustworthy.'}
-              </p>
             </div>
 
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
