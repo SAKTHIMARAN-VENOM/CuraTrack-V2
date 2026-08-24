@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo, useCallback } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { createClient } from '@/lib/supabase/client';
@@ -26,6 +26,18 @@ interface OPDQueuePatient {
   type: 'In-Person OPD' | 'Teleconsult' | 'Emergency Follow-Up';
   status: 'WAITING' | 'IN-CONSULT' | 'COMPLETED';
   waitTime: string;
+}
+
+interface Appointment {
+  id: string;
+  client_id: string;
+  doctor_id: string;
+  scheduled_time?: string;
+  room_id: string;
+  status: string;
+  patient_name?: string;
+  time?: string;
+  date?: string;
 }
 
 const INITIAL_QUEUE: OPDQueuePatient[] = [
@@ -113,10 +125,17 @@ const INITIAL_QUEUE: OPDQueuePatient[] = [
 
 export default function DoctorClinicalDashboardPage() {
   const router = useRouter();
+  const supabase = useMemo(() => createClient(), []);
+
   const [queue, setQueue] = useState<OPDQueuePatient[]>(INITIAL_QUEUE);
   const [selectedPatientId, setSelectedPatientId] = useState<string>('PAT-001');
   const [filterType, setFilterType] = useState<'ALL' | 'WAITING' | 'EMERGENCY' | 'TELECONSULT' | 'COMPLETED'>('ALL');
   const [searchQuery, setSearchQuery] = useState<string>('');
+
+  // Telemedicine Realtime & Incoming Call State
+  const [incomingCall, setIncomingCall] = useState<Appointment | null>(null);
+  const [activeDoctorId, setActiveDoctorId] = useState<string | null>(null);
+  const [realtimeConnected, setRealtimeConnected] = useState<boolean>(false);
 
   // Clinical Encounter State
   const [soapDiagnosis, setSoapDiagnosis] = useState<string>('Acute febrile illness; likely vector-borne viral infection (Malarial / Dengue antigen screen pending)');
@@ -133,6 +152,107 @@ export default function DoctorClinicalDashboardPage() {
   const [selectedLabs, setSelectedLabs] = useState<string[]>(['Complete Blood Count (CBC)', 'Rapid Malarial Antigen (Pf/Pv)']);
 
   const selectedPatient = queue.find(p => p.id === selectedPatientId) || queue[0];
+
+  // Initialize doctor session and subscribe to Supabase Realtime incoming call events
+  useEffect(() => {
+    let isMounted = true;
+
+    async function initializeDoctorSessionAndRealtime() {
+      try {
+        let docId: string | null = null;
+        try {
+          const { data: { user } } = await supabase.auth.getUser();
+          docId = user?.id || null;
+        } catch {}
+
+        if (typeof window !== 'undefined') {
+          try {
+            const savedUser = localStorage.getItem('curatrack_auth_user');
+            if (savedUser) {
+              const parsed = JSON.parse(savedUser);
+              if (parsed.id) docId = parsed.id;
+            }
+          } catch {}
+        }
+
+        if (!docId) docId = 'doc-david-ross';
+        if (isMounted) setActiveDoctorId(docId);
+
+        // Fetch any existing active/ringing appointment with valid room_id
+        const { data: activeAppts } = await supabase
+          .from('appointments')
+          .select('*')
+          .not('room_id', 'is', null)
+          .in('status', ['active', 'ringing'])
+          .order('created_at', { ascending: false })
+          .limit(1);
+
+        if (isMounted && activeAppts && activeAppts.length > 0) {
+          const appt = activeAppts[0];
+          let patientName = 'Kavita Bai';
+          if (appt.client_id) {
+            try {
+              const { data: prof } = await supabase.from('profiles').select('name').eq('id', appt.client_id).maybeSingle();
+              if (prof?.name) patientName = prof.name;
+            } catch {}
+          }
+          setIncomingCall({ ...appt, patient_name: patientName });
+        }
+      } catch (err) {
+        console.warn('Error initializing doctor telemedicine session:', err);
+      }
+    }
+
+    initializeDoctorSessionAndRealtime();
+
+    // Subscribe to realtime changes on appointments table
+    const channel = supabase
+      .channel('doctor_portal_incoming_calls_v3')
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'appointments',
+        },
+        async (payload) => {
+          const incoming = payload.new as Appointment;
+          if (!incoming || !incoming.room_id) return;
+
+          if (incoming.status === 'active' || incoming.status === 'ringing') {
+            let patientName = incoming.patient_name || 'Patient';
+            if (incoming.client_id) {
+              try {
+                const { data: prof } = await supabase.from('profiles').select('name').eq('id', incoming.client_id).maybeSingle();
+                if (prof?.name) patientName = prof.name;
+              } catch {}
+            }
+
+            if (isMounted) {
+              setIncomingCall({
+                ...incoming,
+                patient_name: patientName || 'Kavita Bai',
+              });
+              setRealtimeConnected(true);
+            }
+          } else if (incoming.status === 'ended' || incoming.status === 'cancelled' || incoming.status === 'completed') {
+            if (isMounted) {
+              setIncomingCall(prev => (prev?.id === incoming.id ? null : prev));
+            }
+          }
+        }
+      )
+      .subscribe((status) => {
+        if (status === 'SUBSCRIBED' && isMounted) {
+          setRealtimeConnected(true);
+        }
+      });
+
+    return () => {
+      isMounted = false;
+      supabase.removeChannel(channel);
+    };
+  }, [supabase]);
 
   const filteredQueue = queue.filter(item => {
     const matchesSearch = !searchQuery || 
@@ -152,9 +272,68 @@ export default function DoctorClinicalDashboardPage() {
     setQueue(prev => prev.map(p => p.id === patientId ? { ...p, status: nextStatus } : p));
   };
 
-  const handleStartTeleconsult = () => {
-    const roomId = `room_doc_${selectedPatient.token.toLowerCase()}_${Date.now()}`;
-    router.push(`/call/${roomId}?role=doctor`);
+  const handleAcceptCall = useCallback((targetRoomId?: string) => {
+    const roomIdToJoin = targetRoomId || incomingCall?.room_id;
+    if (!roomIdToJoin) return;
+    router.push(`/call/${roomIdToJoin}?role=doctor`);
+  }, [incomingCall, router]);
+
+  const handleDeclineCall = useCallback(async () => {
+    if (!incomingCall) return;
+    const apptId = incomingCall.id;
+    setIncomingCall(null);
+
+    try {
+      await supabase
+        .from('appointments')
+        .update({ status: 'ended' })
+        .eq('id', apptId);
+    } catch (err) {
+      console.warn('Error declining appointment:', err);
+    }
+  }, [incomingCall, supabase]);
+
+  const handleStartTeleconsult = async () => {
+    // 1. If an incoming call is active, join that room!
+    if (incomingCall?.room_id) {
+      handleAcceptCall(incomingCall.room_id);
+      return;
+    }
+
+    // 2. Query Supabase for any existing active room for this patient/doctor
+    try {
+      const { data: activeAppts } = await supabase
+        .from('appointments')
+        .select('*')
+        .not('room_id', 'is', null)
+        .in('status', ['active', 'ringing'])
+        .order('created_at', { ascending: false })
+        .limit(1);
+
+      if (activeAppts && activeAppts.length > 0 && activeAppts[0].room_id) {
+        router.push(`/call/${activeAppts[0].room_id}?role=doctor`);
+        return;
+      }
+    } catch (e) {}
+
+    // 3. Fallback: Generate room_id AND register in Supabase so patient and doctor share the SAME room!
+    const newRoomId = crypto.randomUUID();
+    const docId = activeDoctorId || 'doc-david-ross';
+    const patId = selectedPatient.id || 'PAT-001';
+
+    try {
+      await supabase.from('appointments').insert({
+        client_id: patId,
+        doctor_id: docId,
+        room_id: newRoomId,
+        status: 'active',
+        scheduled_time: new Date().toISOString(),
+        date: new Date().toISOString().split('T')[0],
+        time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+      });
+    } catch (e) {}
+
+    router.push(`/call/${newRoomId}?role=doctor`);
   };
 
   const handleAddDrug = (e: React.FormEvent<HTMLFormElement>) => {
@@ -184,7 +363,52 @@ export default function DoctorClinicalDashboardPage() {
   };
 
   return (
-    <div className="flex-1 p-6 lg:p-10 max-w-7xl mx-auto w-full space-y-8">
+    <div className="flex-1 p-6 lg:p-10 max-w-7xl mx-auto w-full space-y-8 relative">
+      {/* Floating Incoming Teleconsultation Banner/Modal */}
+      {incomingCall && (
+        <div className="fixed top-6 right-6 z-50 max-w-md w-full bg-slate-900/95 backdrop-blur-xl border border-teal-500/40 p-6 rounded-3xl shadow-2xl text-white animate-bounce-short">
+          <div className="flex items-center justify-between gap-3 mb-3">
+            <div className="flex items-center gap-2">
+              <span className="relative flex h-3 w-3">
+                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                <span className="relative inline-flex rounded-full h-3 w-3 bg-emerald-500"></span>
+              </span>
+              <span className="text-xs font-black uppercase tracking-wider text-emerald-400">Incoming Teleconsultation</span>
+            </div>
+            <span className="px-2.5 py-0.5 rounded-full bg-teal-500/20 text-teal-300 text-[10px] font-mono border border-teal-500/30">
+              Live Ringing
+            </span>
+          </div>
+
+          <div className="space-y-1 mb-4">
+            <h4 className="text-xl font-black text-white">{incomingCall.patient_name || 'Kavita Bai'}</h4>
+            <p className="text-xs text-slate-300">
+              Patient is waiting in virtual consultation room
+            </p>
+            <p className="text-[11px] font-mono text-teal-300/80 truncate">
+              Room ID: {incomingCall.room_id}
+            </p>
+          </div>
+
+          <div className="grid grid-cols-2 gap-3 pt-2">
+            <button
+              onClick={handleDeclineCall}
+              className="py-2.5 px-4 bg-slate-800 hover:bg-slate-700 text-slate-300 font-bold text-xs rounded-2xl border border-slate-700 transition-all flex items-center justify-center gap-1.5"
+            >
+              <span className="material-symbols-outlined text-base text-red-400">call_end</span>
+              <span>Decline</span>
+            </button>
+            <button
+              onClick={() => handleAcceptCall(incomingCall.room_id)}
+              className="py-2.5 px-4 bg-emerald-500 hover:bg-emerald-600 text-slate-950 font-extrabold text-xs rounded-2xl shadow-lg shadow-emerald-500/20 transition-all flex items-center justify-center gap-1.5 active:scale-95"
+            >
+              <span className="material-symbols-outlined text-base">video_call</span>
+              <span>Accept & Join</span>
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* Header Banner */}
       <div className="bg-gradient-to-r from-teal-900 via-primary to-cyan-900 rounded-3xl p-8 text-white shadow-xl flex flex-col lg:flex-row lg:items-center justify-between gap-6">
         <div>
