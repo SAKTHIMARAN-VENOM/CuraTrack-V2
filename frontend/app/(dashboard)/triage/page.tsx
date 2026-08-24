@@ -526,6 +526,18 @@ function DigitalTriageContent() {
 
   return (
     <div className="space-y-8 max-w-7xl mx-auto pb-16">
+      {/* Header banner */}
+      <div className="bg-gradient-to-r from-primary via-[#004d40] to-teal-900 rounded-3xl p-8 text-white shadow-xl relative overflow-hidden">
+        <div className="absolute right-0 top-0 w-96 h-96 bg-white/5 rounded-full blur-3xl pointer-events-none"></div>
+        <div className="relative z-10 space-y-2">
+          <div className="inline-flex items-center gap-2 px-3 py-1 bg-white/10 backdrop-blur rounded-full text-xs font-semibold tracking-wide text-teal-200">
+            <span className="material-symbols-outlined text-sm">clinical_notes</span>
+            <span>Clinical Protocol • Primary Healthcare Hierarchy</span>
+          </div>
+          <h1 className="text-3xl font-extrabold tracking-tight">Smart Clinical Triage &amp; Facility Routing</h1>
+        </div>
+      </div>
+
       {/* ========================================================================= */}
       {/* WORKFLOW VIEW 1: PATIENT SELECTION LIST (When no patient is selected)    */}
       {/* ========================================================================= */}
@@ -693,6 +705,16 @@ function DigitalTriageContent() {
                 <span>•</span>
                 <span>Doctor: <strong className="text-teal-300">{currentDoctorName}</strong></span>
               </div>
+            </div>
+
+            <div className="flex items-center gap-2 shrink-0">
+              <Link
+                href="/doctor"
+                className="px-4 py-2 bg-teal-600 hover:bg-teal-700 text-white font-bold text-xs rounded-xl transition-all flex items-center gap-1.5"
+              >
+                <span className="material-symbols-outlined text-base">dashboard</span>
+                <span>Doctor Portal</span>
+              </Link>
             </div>
           </div>
 
@@ -1037,16 +1059,13 @@ function DigitalTriageContent() {
                   <span className="material-symbols-outlined text-base">forward_to_inbox</span>
                   <span>Create Public Health Referral Pass</span>
                 </Link>
-<<<<<<< HEAD
 
                 <Link
-                  href="/fhw"
+                  href="/doctor"
                   className="w-full py-2.5 text-center text-xs font-bold text-primary hover:underline block"
                 >
-                  Return to ASHA Catchment Center →
+                  Continue Clinical Encounter in Doctor Portal →
                 </Link>
-=======
->>>>>>> 20decef (style(triage): remove Doctor Portal button from active patient header and encounter CTAs)
               </div>
             </div>
           ) : (
