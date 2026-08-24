@@ -1006,13 +1006,6 @@ export default function DoctorOPDPage() {
             <span className="material-symbols-outlined text-lg">calendar_month</span>
             <span>Duty Roster</span>
           </Link>
-          <Link
-            href="/bluetooth/doctor"
-            className="px-4 py-3 bg-teal-500/30 hover:bg-teal-500/40 text-white font-bold text-xs rounded-2xl flex items-center gap-2 border border-teal-400/40 backdrop-blur transition-all"
-          >
-            <span className="material-symbols-outlined text-lg">bluetooth</span>
-            <span>BLE Offline Care</span>
-          </Link>
           <button
             onClick={handleStartTeleconsult}
             className="px-5 py-3 bg-white text-primary hover:bg-teal-50 font-extrabold text-xs rounded-2xl flex items-center gap-2 shadow-lg transition-all active:scale-95"
