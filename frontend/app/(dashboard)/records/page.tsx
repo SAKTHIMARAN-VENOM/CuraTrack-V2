@@ -1524,35 +1524,37 @@ export default function HealthRecordsPage() {
                         <div className={med.isError ? "" : "progress-fill"} style={med.isError ? { width: '0%', height: '100%', borderRadius: '9999px', background: '#ba1a1a' } : { width: med.status === 'TAKEN' ? '100%' : '0%' }}></div>
                       </div>
                     </div>
-                    <div className="flex items-center gap-2 shrink-0">
-                      {placedOrdersMap[med.id] || placedOrdersMap[(med.name || '').toLowerCase().trim()] ? (
-                        <span className="px-3 py-1.5 rounded-xl text-xs font-black bg-emerald-100 text-emerald-900 border border-emerald-300 flex items-center gap-1 shadow-sm">
-                          <span className="material-symbols-outlined text-sm text-emerald-700">check_circle</span>
-                          <span>{placedOrdersMap[med.id]?.status || placedOrdersMap[(med.name || '').toLowerCase().trim()]?.status || 'ORDERED'}</span>
-                        </span>
-                      ) : (
-                        <button
-                          onClick={() => handleInitiateOrder(med)}
-                          className="px-3.5 py-2 rounded-xl text-xs font-bold text-teal-900 bg-teal-50 hover:bg-teal-100 border border-teal-300 transition-all flex items-center gap-1.5"
-                        >
-                          <span className="material-symbols-outlined text-sm text-teal-700">shopping_cart_checkout</span>
-                          <span>Order</span>
-                        </button>
-                      )}
-                      <button 
-                        onClick={() => handleToggleMedicationStatus(idx)}
-                        className={`shrink-0 px-4 py-2 rounded-xl text-xs font-bold transition-all ${
-                          med.status === 'TAKEN' 
-                            ? 'bg-secondary/10 text-secondary hover:bg-secondary/20' 
-                            : med.status === 'MISSED' 
-                            ? 'bg-error-container text-on-error-container hover:bg-error/20' 
-                            : 'text-white'
-                        }`}
-                        style={med.status === 'UPCOMING' ? { background: 'linear-gradient(135deg, #00647e, #2c7d99)' } : {}}
-                      >
-                        {med.status === 'TAKEN' ? '✓ Taken' : med.status === 'MISSED' ? 'Mark Taken' : 'Mark Taken'}
-                      </button>
-                    </div>
+                    {currentRole === 'patient' && (
+                      <div className="flex items-center gap-2 shrink-0">
+                        {placedOrdersMap[med.id] || placedOrdersMap[(med.name || '').toLowerCase().trim()] ? (
+                          <span className="px-3 py-1.5 rounded-xl text-xs font-black bg-emerald-100 text-emerald-900 border border-emerald-300 flex items-center gap-1 shadow-sm">
+                            <span className="material-symbols-outlined text-sm text-emerald-700">check_circle</span>
+                            <span>{placedOrdersMap[med.id]?.status || placedOrdersMap[(med.name || '').toLowerCase().trim()]?.status || 'ORDERED'}</span>
+                          </span>
+                        ) : (
+                          <button
+                            onClick={() => handleInitiateOrder(med)}
+                            className="px-3.5 py-2 rounded-xl text-xs font-bold text-teal-900 bg-teal-50 hover:bg-teal-100 border border-teal-300 transition-all flex items-center gap-1.5"
+                          >
+                            <span className="material-symbols-outlined text-sm text-teal-700">shopping_cart_checkout</span>
+                            <span>Order</span>
+                          </button>
+                        )}
+                      </div>
+                    )}
+                    <button 
+                      onClick={() => handleToggleMedicationStatus(idx)}
+                      className={`shrink-0 px-4 py-2 rounded-xl text-xs font-bold transition-all ${
+                        med.status === 'TAKEN' 
+                          ? 'bg-secondary/10 text-secondary hover:bg-secondary/20' 
+                          : med.status === 'MISSED' 
+                          ? 'bg-error-container text-on-error-container hover:bg-error/20' 
+                          : 'text-white'
+                      }`}
+                      style={med.status === 'UPCOMING' ? { background: 'linear-gradient(135deg, #00647e, #2c7d99)' } : {}}
+                    >
+                      {med.status === 'TAKEN' ? '✓ Taken' : med.status === 'MISSED' ? 'Mark Taken' : 'Mark Taken'}
+                    </button>
                   </div>
                 ))
               )}
@@ -1943,24 +1945,26 @@ export default function HealthRecordsPage() {
                           </div>
                         </div>
 
-                        {/* Order Medicine Action Column */}
-                        <div className="flex gap-2 shrink-0 self-start sm:self-center">
-                          {placedOrdersMap[rx.id] || placedOrdersMap[(rx.name || rx.medication || '').toLowerCase().trim()] ? (
-                            <div className="px-3.5 py-2 rounded-xl text-xs font-black bg-emerald-100 text-emerald-900 border border-emerald-300 flex items-center gap-1.5 shadow-sm">
-                              <span className="material-symbols-outlined text-sm text-emerald-700">check_circle</span>
-                              <span>{placedOrdersMap[rx.id]?.status || placedOrdersMap[(rx.name || rx.medication || '').toLowerCase().trim()]?.status || 'ORDERED'}</span>
-                            </div>
-                          ) : (
-                            <button 
-                              onClick={() => handleInitiateOrder(rx)}
-                              className="px-4 py-2.5 rounded-xl text-xs font-bold text-white transition-all flex items-center gap-1.5 shadow-sm active:scale-95 hover:opacity-90" 
-                              style={{ background: 'linear-gradient(135deg,#00647e,#2c7d99)' }}
-                            >
-                              <span className="material-symbols-outlined text-base">shopping_cart_checkout</span>
-                              <span>Order Medicine</span>
-                            </button>
-                          )}
-                        </div>
+                        {/* Order Medicine Action Column - Patient Portal Only */}
+                        {currentRole === 'patient' && (
+                          <div className="flex gap-2 shrink-0 self-start sm:self-center">
+                            {placedOrdersMap[rx.id] || placedOrdersMap[(rx.name || rx.medication || '').toLowerCase().trim()] ? (
+                              <div className="px-3.5 py-2 rounded-xl text-xs font-black bg-emerald-100 text-emerald-900 border border-emerald-300 flex items-center gap-1.5 shadow-sm">
+                                <span className="material-symbols-outlined text-sm text-emerald-700">check_circle</span>
+                                <span>{placedOrdersMap[rx.id]?.status || placedOrdersMap[(rx.name || rx.medication || '').toLowerCase().trim()]?.status || 'ORDERED'}</span>
+                              </div>
+                            ) : (
+                              <button 
+                                onClick={() => handleInitiateOrder(rx)}
+                                className="px-4 py-2.5 rounded-xl text-xs font-bold text-white transition-all flex items-center gap-1.5 shadow-sm active:scale-95 hover:opacity-90" 
+                                style={{ background: 'linear-gradient(135deg,#00647e,#2c7d99)' }}
+                              >
+                                <span className="material-symbols-outlined text-base">shopping_cart_checkout</span>
+                                <span>Order Medicine</span>
+                              </button>
+                            )}
+                          </div>
+                        )}
                       </div>
                     </div>
                   ))}
@@ -2074,8 +2078,8 @@ export default function HealthRecordsPage() {
         />
       )}
 
-      {/* Order Confirmation Modal */}
-      {orderModalOpen && orderingRx && (
+      {/* Order Confirmation Modal - Patient Portal Only */}
+      {currentRole === 'patient' && orderModalOpen && orderingRx && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-fadeIn">
           <div className="bg-white rounded-3xl p-6 sm:p-8 max-w-lg w-full shadow-2xl border border-surface-container-high space-y-5 animate-scaleUp">
             <div className="flex items-center justify-between pb-4 border-b border-surface-container-high">
