@@ -29,14 +29,17 @@ export async function POST(req: NextRequest) {
         const supabase = await createClient();
 
         // 1. Attempt Supabase Auth Sign In
-        let { data, error } = await supabase.auth.signInWithPassword({
+        const signInRes = await supabase.auth.signInWithPassword({
             email: emailLower,
             password,
         });
 
+        let authUser = signInRes.data?.user;
+        let authError = signInRes.error;
+
         // 2. If user does not exist in Supabase Auth yet but is an official stakeholder account, auto-provision
         const officialAccount = OFFICIAL_ROLE_ACCOUNTS[emailLower];
-        if ((error || !data?.user) && officialAccount) {
+        if (!authUser && officialAccount) {
             try {
                 // Try signing up the official account in Supabase
                 const signupRes = await supabase.auth.signUp({
@@ -51,13 +54,13 @@ export async function POST(req: NextRequest) {
                 });
 
                 if (signupRes.data?.user) {
-                    data = signupRes.data;
-                    error = null;
+                    authUser = signupRes.data.user;
+                    authError = null;
                 } else {
                     const secondAttempt = await supabase.auth.signInWithPassword({ email: emailLower, password });
                     if (secondAttempt.data?.user) {
-                        data = secondAttempt.data;
-                        error = null;
+                        authUser = secondAttempt.data.user;
+                        authError = null;
                     }
                 }
             } catch (signupErr) {
@@ -66,9 +69,9 @@ export async function POST(req: NextRequest) {
         }
 
         // Determine user details
-        let userId = data?.user?.id;
+        let userId = authUser?.id;
         let userRole = officialAccount?.role || 'patient';
-        let userName = officialAccount?.name || data?.user?.user_metadata?.name || data?.user?.user_metadata?.full_name || emailLower.split('@')[0];
+        let userName = officialAccount?.name || authUser?.user_metadata?.name || authUser?.user_metadata?.full_name || emailLower.split('@')[0];
 
         if (!userId) {
             if (officialAccount) {
@@ -76,7 +79,7 @@ export async function POST(req: NextRequest) {
                 userId = `official-${emailLower.replace(/[^a-z0-9]/g, '-')}`;
             } else {
                 return NextResponse.json(
-                    { error: error?.message || 'Invalid email or password' },
+                    { error: authError?.message || 'Invalid email or password' },
                     { status: 401 }
                 );
             }

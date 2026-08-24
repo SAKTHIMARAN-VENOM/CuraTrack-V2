@@ -408,33 +408,35 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     setAuthError(null);
     try {
       const emailLower = email.trim().toLowerCase();
-      let { error, data } = await supabase.auth.signInWithPassword({ email: emailLower, password });
+      const signInRes = await supabase.auth.signInWithPassword({ email: emailLower, password });
+      let authUser = signInRes.data?.user;
+      let authError = signInRes.error;
 
       const isOfficialAccount = emailLower.endsWith('@curatrack.com') || emailLower.includes('facility') || emailLower.includes('doctor') || emailLower.includes('asha') || emailLower.includes('admin') || emailLower.includes('patient');
 
-      if ((error || !data?.user) && isOfficialAccount) {
+      if (!authUser && isOfficialAccount) {
         try {
           const signupRes = await supabase.auth.signUp({
             email: emailLower,
             password,
           });
           if (signupRes.data?.user) {
-            data = signupRes.data;
-            error = null;
+            authUser = signupRes.data.user;
+            authError = null;
           } else {
             const secondAttempt = await supabase.auth.signInWithPassword({ email: emailLower, password });
             if (secondAttempt.data?.user) {
-              data = secondAttempt.data;
-              error = null;
+              authUser = secondAttempt.data.user;
+              authError = null;
             }
           }
         } catch {}
       }
       
-      const userId = data?.user?.id || (isOfficialAccount ? `official-${emailLower.replace(/[^a-z0-9]/g, '-')}` : null);
+      const userId = authUser?.id || (isOfficialAccount ? `official-${emailLower.replace(/[^a-z0-9]/g, '-')}` : null);
 
       if (!userId) {
-        const errorMsg = error?.message || 'Invalid email or password';
+        const errorMsg = authError?.message || 'Invalid email or password';
         setAuthError(errorMsg);
         return { error: errorMsg };
       }
