@@ -697,40 +697,41 @@ function DigitalTriageContent() {
         /* ========================================================================= */
         <div className="space-y-6 animate-in fade-in duration-300">
           {/* Patient Header with "← Back to Patients" Control */}
-          <div className="bg-gradient-to-r from-teal-900 via-slate-900 to-blue-950 p-6 rounded-3xl text-white shadow-xl flex flex-col md:flex-row md:items-center justify-between gap-6">
-            <div className="space-y-1.5">
+          <div className="bg-gradient-to-r from-primary via-[#004d40] to-teal-900 p-6 rounded-3xl text-white shadow-xl flex flex-col md:flex-row md:items-center justify-between gap-6 relative overflow-hidden">
+            <div className="absolute right-0 top-0 w-80 h-80 bg-white/5 rounded-full blur-3xl pointer-events-none"></div>
+            <div className="space-y-1.5 relative z-10">
               <div className="flex flex-wrap items-center gap-2">
                 <button
                   onClick={handleBackToPatientList}
-                  className="px-3 py-1 bg-white/20 hover:bg-white/30 text-white text-xs font-extrabold rounded-lg flex items-center gap-1 transition-all mr-2"
+                  className="px-3 py-1 bg-white/15 hover:bg-white/25 text-white text-xs font-extrabold rounded-lg flex items-center gap-1 transition-all mr-2 backdrop-blur border border-white/10"
                 >
                   <span className="material-symbols-outlined text-sm">arrow_back</span>
                   <span>Back to Patients</span>
                 </button>
-                <span className="px-2.5 py-0.5 rounded-full bg-teal-400/20 text-teal-300 font-mono text-[10px] font-bold border border-teal-400/30">
+                <span className="px-2.5 py-0.5 rounded-full bg-teal-400/20 text-teal-200 font-mono text-[10px] font-bold border border-teal-400/30">
                   ACTIVE PATIENT
                 </span>
-                <span className="text-xs text-slate-400">•</span>
-                <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-teal-500/20 text-teal-200 border border-teal-500/30">
+                <span className="text-xs text-teal-200/60">•</span>
+                <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-white/10 text-teal-100 border border-white/20">
                   {selectedPatient.tokenNo || 'TKN-001'} • {selectedPatient.consultType || 'Teleconsult'}
                 </span>
                 <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${
                   selectedPatient.latestStatus === 'IN-CONSULT' ? 'bg-amber-400/20 text-amber-300 border border-amber-400/30' :
                   selectedPatient.latestStatus === 'COMPLETED' ? 'bg-emerald-400/20 text-emerald-300 border border-emerald-400/30' :
-                  'bg-blue-400/20 text-blue-300 border border-blue-400/30'
+                  'bg-teal-400/20 text-teal-200 border border-teal-400/30'
                 }`}>
                   Status: {selectedPatient.latestStatus}
                 </span>
               </div>
               <h3 className="text-2xl font-black text-white">{selectedPatient.name}</h3>
-              <div className="flex flex-wrap items-center gap-3 text-xs text-slate-300">
+              <div className="flex flex-wrap items-center gap-3 text-xs text-teal-100/80">
                 <span>ABHA: <strong className="font-mono text-teal-200">{selectedPatient.abhaId || 'N/A'}</strong></span>
                 <span>•</span>
                 <span>{selectedPatient.age ? `${selectedPatient.age} Years` : 'Age: N/A'} • {selectedPatient.gender || 'Unspecified'}</span>
                 <span>•</span>
-                <span>Blood: <strong className="text-red-400">{selectedPatient.bloodGroup || 'N/A'}</strong></span>
+                <span>Blood: <strong className="text-rose-300">{selectedPatient.bloodGroup || 'N/A'}</strong></span>
                 <span>•</span>
-                <span>Doctor: <strong className="text-teal-300">{currentDoctorName}</strong></span>
+                <span>Doctor: <strong className="text-teal-200 font-bold">{currentDoctorName}</strong></span>
               </div>
             </div>
           </div>
