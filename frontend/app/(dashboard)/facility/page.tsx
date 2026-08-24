@@ -100,12 +100,12 @@ export default function FacilityOperationsPage() {
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                 <div className="bg-white border border-surface-container-high p-5 rounded-3xl shadow-card flex items-center justify-between cursor-pointer hover:border-primary/40 transition-all" onClick={() => setActiveTab('doctors')}>
                     <div>
-                        <span className="text-[11px] font-bold uppercase tracking-wider text-tertiary block">Doctors On Duty</span>
+                        <span className="text-[11px] font-bold uppercase tracking-wider text-tertiary block">Available Doctors</span>
                         <div className="flex items-baseline gap-2 mt-1">
-                            <span className="text-3xl font-black text-on-surface">{onDutyCount}</span>
-                            <span className="text-xs text-tertiary font-bold">/ {doctors.length} total</span>
+                            <span className="text-3xl font-black text-teal-700">{onDutyCount}</span>
+                            <span className="text-xs text-tertiary font-bold">on duty</span>
                         </div>
-                        <span className="text-[10px] text-teal-600 font-semibold">Active across OPD, ANC, Emergency</span>
+                        <span className="text-[10px] text-teal-600 font-semibold">Active & ready for consultations</span>
                     </div>
                     <div className="w-12 h-12 rounded-2xl bg-blue-50 text-blue-700 flex items-center justify-center">
                         <span className="material-symbols-outlined text-2xl">stethoscope</span>
@@ -184,23 +184,16 @@ export default function FacilityOperationsPage() {
                 </button>
             </div>
 
-            {/* TAB 1: My Doctors */}
+            {/* TAB 1: My Doctors (Available Doctors Only) */}
             {activeTab === 'doctors' && (
                 <div className="space-y-6">
-                    <div className="flex flex-wrap gap-1.5">
-                        {['ALL', 'ON_DUTY', 'OFF_DUTY'].map((st) => (
-                            <button
-                                key={st}
-                                onClick={() => setDocFilter(st)}
-                                className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all ${
-                                    docFilter === st
-                                        ? 'bg-primary text-white shadow-sm'
-                                        : 'bg-surface-container-low text-tertiary hover:bg-surface-container'
-                                }`}
-                            >
-                                {st.replace(/_/g, ' ')}
-                            </button>
-                        ))}
+                    <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-2">
+                            <span className="inline-flex items-center gap-1.5 px-3 py-1 bg-teal-100 text-teal-800 rounded-full text-xs font-bold">
+                                <span className="w-2 h-2 rounded-full bg-teal-600 animate-pulse"></span>
+                                Available On-Duty Medical Officers ({doctors.filter(d => d.status === 'ON_DUTY').length})
+                            </span>
+                        </div>
                     </div>
 
                     {loading ? (
@@ -209,63 +202,43 @@ export default function FacilityOperationsPage() {
                         </div>
                     ) : (
                         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
-                            {doctors.map((doc) => (
+                            {doctors.filter(d => d.status === 'ON_DUTY').map((doc) => (
                                 <div
                                     key={doc.id}
-                                    className="bg-white rounded-3xl p-6 border border-surface-container-high shadow-card space-y-4"
+                                    className="bg-white rounded-3xl p-6 border border-surface-container-high shadow-card space-y-4 hover:shadow-lg transition-all"
                                 >
                                     <div className="flex items-start justify-between">
                                         <div className="flex items-center gap-3">
-                                            <div className={`w-12 h-12 rounded-2xl flex items-center justify-center text-white font-black text-lg ${
-                                                doc.status === 'ON_DUTY' ? 'bg-teal-600' : 'bg-slate-400'
-                                            }`}>
+                                            <div className="w-12 h-12 rounded-2xl flex items-center justify-center text-white font-black text-lg bg-teal-600 shadow-sm">
                                                 {doc.name.split(' ').map((n: string) => n[0]).slice(0, 2).join('')}
                                             </div>
                                             <div>
                                                 <h3 className="text-base font-bold text-on-surface">{doc.name}</h3>
-                                                <span className="text-xs text-tertiary">{doc.specialty}</span>
+                                                <span className="text-xs text-tertiary font-medium">{doc.specialty}</span>
                                             </div>
                                         </div>
-                                        <span className={`text-[10px] font-extrabold uppercase px-2.5 py-0.5 rounded-full ${
-                                            doc.status === 'ON_DUTY'
-                                                ? 'bg-teal-100 text-teal-800'
-                                                : 'bg-slate-100 text-slate-600'
-                                        }`}>
-                                            {doc.status.replace(/_/g, ' ')}
+                                        <span className="text-[10px] font-extrabold uppercase px-2.5 py-0.5 rounded-full bg-teal-100 text-teal-800">
+                                            AVAILABLE
                                         </span>
                                     </div>
 
-                                    <div className="text-xs text-tertiary space-y-1">
-                                        <div className="flex items-center gap-1.5">
-                                            <span className="material-symbols-outlined text-sm text-primary">school</span>
-                                            <span>{doc.qualification}</span>
+                                    <div className="text-xs text-tertiary space-y-2 bg-surface-container-low p-4 rounded-2xl">
+                                        <div className="flex items-center gap-2">
+                                            <span className="material-symbols-outlined text-base text-primary">school</span>
+                                            <span className="font-semibold text-on-surface">{doc.qualification || 'MBBS, MD'}</span>
                                         </div>
-                                        <div className="flex items-center gap-1.5">
-                                            <span className="material-symbols-outlined text-sm text-primary">schedule</span>
-                                            <span>{doc.shift}</span>
+                                        <div className="flex items-center gap-2">
+                                            <span className="material-symbols-outlined text-base text-primary">schedule</span>
+                                            <span>{doc.shift || 'General Shift (08:00 AM - 02:00 PM)'}</span>
                                         </div>
-                                        <div className="flex items-center gap-1.5">
-                                            <span className="material-symbols-outlined text-sm text-primary">door_open</span>
-                                            <span>{doc.room}</span>
+                                        <div className="flex items-center gap-2">
+                                            <span className="material-symbols-outlined text-base text-primary">door_open</span>
+                                            <span>{doc.room || 'OPD Room 101'}</span>
                                         </div>
-                                    </div>
-
-                                    <div className="grid grid-cols-2 gap-2 bg-surface-container-low p-3.5 rounded-2xl text-xs">
-                                        <div>
-                                            <span className="text-[10px] uppercase font-bold text-tertiary block">Current Token</span>
-                                            <span className="text-base font-black text-on-surface">
-                                                {doc.current_opd_token || '—'}
-                                            </span>
+                                        <div className="flex items-center gap-2">
+                                            <span className="material-symbols-outlined text-base text-primary">phone</span>
+                                            <span className="font-bold text-on-surface">{doc.phone || '+91 98230 11223'}</span>
                                         </div>
-                                        <div>
-                                            <span className="text-[10px] uppercase font-bold text-tertiary block">Patients Today</span>
-                                            <span className="text-base font-black text-teal-700">{doc.patients_seen_today}</span>
-                                        </div>
-                                    </div>
-
-                                    <div className="flex items-center gap-2 text-xs text-tertiary">
-                                        <span className="material-symbols-outlined text-sm">phone</span>
-                                        <span className="font-bold">{doc.phone}</span>
                                     </div>
                                 </div>
                             ))}

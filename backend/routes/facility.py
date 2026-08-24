@@ -236,14 +236,15 @@ def update_medicine_stock(update: StockUpdateRequest):
 
 @router.get("/facility/doctors")
 def get_facility_doctors(
-    status: Optional[str] = Query(None, description="Filter by ON_DUTY / OFF_DUTY")
+    status: Optional[str] = Query(None, description="Filter by ON_DUTY / OFF_DUTY / AVAILABLE")
 ):
-    """Returns the roster of doctors assigned to this facility."""
+    """Returns the roster of doctors assigned to this facility with doctor details only."""
     try:
         db = get_db()
-        query = db.table("facility_doctors").select("*")
+        query = db.table("facility_doctors").select("id, name, specialty, qualification, status, shift, phone, room")
         if status and status != "ALL":
-            query = query.eq("status", status)
+            match_status = "ON_DUTY" if status.upper() == "AVAILABLE" else status.upper()
+            query = query.eq("status", match_status)
             
         res = query.execute()
         results = res.data or []
