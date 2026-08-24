@@ -69,7 +69,24 @@ interface DoctorProfileInfo {
   department: string;
 }
 
-export default function DoctorClinicalDashboardPage() {
+interface PatientTriageDetails {
+  urgency: 'EMERGENCY' | 'PRIORITY' | 'ROUTINE';
+  urgencyLabel: string;
+  description: string;
+  complaint: string;
+  symptoms: string[];
+  communityAssessment?: {
+    screener: string;
+    date: string;
+    summary: string;
+    observations: string;
+    plan: string;
+  } | null;
+  pastDiagnoses: string[];
+  medicalAlerts: Array<{ type: 'danger' | 'warning' | 'info'; text: string; icon: string }>;
+}
+
+export default function DoctorOPDPage() {
   const router = useRouter();
   const supabase = useMemo(() => createClient(), []);
 
@@ -100,6 +117,9 @@ export default function DoctorClinicalDashboardPage() {
   const [incomingCall, setIncomingCall] = useState<Appointment | null>(null);
   const [activeDoctorId, setActiveDoctorId] = useState<string | null>(null);
   const [realtimeConnected, setRealtimeConnected] = useState<boolean>(false);
+
+  // Patient Clinical Assessment & Triage State
+  const [patientTriage, setPatientTriage] = useState<PatientTriageDetails | null>(null);
 
   // Clinical Encounter State - dynamically loaded per selected patient
   const [soapDiagnosis, setSoapDiagnosis] = useState<string>('');
@@ -394,27 +414,28 @@ export default function DoctorClinicalDashboardPage() {
       setSoapNotes('');
       setPrescriptions([]);
       setSelectedLabs([]);
+      setPatientTriage(null);
       return;
     }
 
     setLoadingClinicalRecords(true);
 
     try {
-      // 1. Fetch latest Doctor Notes / Encounter for this patient
-      const { data: notesData } = await supabase
+      // 1. Fetch all Doctor Notes / Encounter / Triage for this patient
+      const { data: allNotes } = await supabase
         .from('doctor_notes')
         .select('*')
         .eq('patient_id', patientClientId)
-        .order('created_at', { ascending: false })
-        .limit(1);
+        .order('created_at', { ascending: false });
+
+      const notesData = allNotes && allNotes.length > 0 ? [allNotes[0]] : [];
 
       // 2. Fetch active Diagnoses for this patient
       const { data: diagData } = await supabase
         .from('diagnoses')
         .select('*')
         .eq('patient_id', patientClientId)
-        .order('created_at', { ascending: false })
-        .limit(1);
+        .order('created_at', { ascending: false });
 
       // 3. Fetch active Prescriptions for this patient
       const { data: rxData } = await supabase
@@ -429,6 +450,112 @@ export default function DoctorClinicalDashboardPage() {
         .select('*')
         .eq('patient_id', patientClientId)
         .order('created_at', { ascending: false });
+
+      // Find current selected patient queue object
+      const currentPat = queue.find(p => (p.clientId || p.id) === patientClientId);
+      const patPriority = currentPat?.priority || 'ROUTINE';
+
+      let urgencyLabel = '🟢 GREEN — Routine';
+      let urgencyDesc = 'Normal consultation (Standard OPD workflow)';
+      if (patPriority === 'EMERGENCY') {
+        urgencyLabel = '🔴 RED — Emergency';
+        urgencyDesc = 'Immediate clinical attention required';
+      } else if (patPriority === 'PRIORITY') {
+        urgencyLabel = '🟡 YELLOW — Priority';
+        urgencyDesc = 'Needs prompt assessment';
+      }
+
+      // Check if ASHA / Community Triage Screening note exists
+      const triageNote = allNotes?.find(n => 
+        n.visit_type === 'Triage Assessment' || 
+        n.visit_type === 'Community Triage' ||
+        (n.observations && n.observations.includes('[Urgency:'))
+      );
+
+      let communityAssessment = null;
+      if (triageNote) {
+        communityAssessment = {
+          screener: triageNote.doctor || currentPat?.ashaName || 'ASHA Worker',
+          date: triageNote.date || (triageNote.created_at ? new Date(triageNote.created_at).toLocaleDateString() : 'Recent'),
+          summary: triageNote.summary || '',
+          observations: triageNote.observations || '',
+          plan: triageNote.plan || '',
+        };
+      }
+
+      // Extract real medical alerts from vitals and diagnoses
+      const alerts: Array<{ type: 'danger' | 'warning' | 'info'; text: string; icon: string }> = [];
+
+      if (currentPat?.vitals) {
+        const spo2Val = parseFloat(String(currentPat.vitals.spo2).replace('%', ''));
+        if (!isNaN(spo2Val) && spo2Val <= 92 && spo2Val > 0) {
+          alerts.push({
+            type: 'danger',
+            text: `Critical Hypoxemia (SpO2: ${currentPat.vitals.spo2}) — Immediate oxygen therapy indicated`,
+            icon: 'air'
+          });
+        }
+
+        const bpStr = currentPat.vitals.bp || '';
+        if (bpStr.includes('/')) {
+          const [sys, dia] = bpStr.split('/').map(Number);
+          if ((sys && sys >= 140) || (dia && dia >= 90)) {
+            alerts.push({
+              type: 'warning',
+              text: `Elevated Blood Pressure (${bpStr} mmHg) — Monitor for hypertensive urgency`,
+              icon: 'vital_signs'
+            });
+          }
+        }
+
+        const hrVal = parseFloat(String(currentPat.vitals.hr));
+        if (!isNaN(hrVal) && hrVal > 100) {
+          alerts.push({
+            type: 'warning',
+            text: `Tachycardia (${hrVal} bpm) — Elevated heart rate alert`,
+            icon: 'ecg_heart'
+          });
+        } else if (!isNaN(hrVal) && hrVal < 50 && hrVal > 0) {
+          alerts.push({
+            type: 'warning',
+            text: `Bradycardia (${hrVal} bpm) — Abnormally low heart rate`,
+            icon: 'ecg_heart'
+          });
+        }
+
+        const tempStr = currentPat.vitals.temp || '';
+        const tempVal = parseFloat(tempStr.replace('°F', '').replace('°C', ''));
+        if (!isNaN(tempVal) && ((tempVal >= 100.4 && tempStr.includes('F')) || (tempVal >= 38 && tempStr.includes('C')) || tempVal >= 100.4)) {
+          alerts.push({
+            type: 'warning',
+            text: `Febrile Core Temperature (${tempStr}) — Fever protocol active`,
+            icon: 'device_thermostat'
+          });
+        }
+      }
+
+      // Chronic active diagnoses from database
+      const pastDiagNames = (diagData || []).map((d: any) => d.name).filter(Boolean);
+      for (const diag of pastDiagNames) {
+        if (/sickle|anemia|diabetes|hypertension|cardiac|asthma|copd|epilepsy|kidney|pregnancy|cancer/i.test(diag)) {
+          alerts.push({
+            type: 'info',
+            text: `Underlying Condition: ${diag}`,
+            icon: 'health_and_safety'
+          });
+        }
+      }
+
+      setPatientTriage({
+        urgency: patPriority,
+        urgencyLabel,
+        description: urgencyDesc,
+        complaint: currentPat?.complaint || (notesData[0]?.complaint || 'General clinical consultation'),
+        symptoms: currentPat?.complaint ? [currentPat.complaint] : [],
+        communityAssessment,
+        pastDiagnoses: pastDiagNames,
+        medicalAlerts: alerts,
+      });
 
       // Set Diagnosis
       if (diagData && diagData.length > 0 && diagData[0].name) {
@@ -448,7 +575,6 @@ export default function DoctorClinicalDashboardPage() {
         ].filter(Boolean).join('\n');
         setSoapNotes(obs);
       } else {
-        const currentPat = queue.find(p => (p.clientId || p.id) === patientClientId);
         setSoapNotes(currentPat?.complaint && currentPat.complaint !== 'General clinical consultation' ? `Chief Complaint: ${currentPat.complaint}` : '');
       }
 
@@ -496,6 +622,7 @@ export default function DoctorClinicalDashboardPage() {
       setSoapNotes('');
       setPrescriptions([]);
       setSelectedLabs([]);
+      setPatientTriage(null);
       return;
     }
 
@@ -1208,6 +1335,13 @@ export default function DoctorClinicalDashboardPage() {
 	              </div>
 
               <div className="flex items-center gap-2">
+                <Link
+                  href={`/records?patientId=${selectedPatient.clientId || selectedPatient.id}`}
+                  className="px-3.5 py-2 bg-purple-50 hover:bg-purple-100 text-purple-900 border border-purple-200 font-bold text-xs rounded-xl shadow-sm transition-all flex items-center gap-1.5"
+                >
+                  <span className="material-symbols-outlined text-sm text-purple-700">folder_shared</span>
+                  <span>Patient Record</span>
+                </Link>
                 {selectedPatient.status !== 'IN-CONSULT' && (
                   <button
                     onClick={() => handleStatusChange(selectedPatient.id, 'IN-CONSULT')}
@@ -1240,14 +1374,120 @@ export default function DoctorClinicalDashboardPage() {
                 </div>
               )}
 
-	            {/* Allergy Warning Banner */}
-            <div className="bg-red-50 border border-red-200 p-3.5 rounded-2xl flex items-center gap-3 text-xs text-red-900">
-              <span className="material-symbols-outlined text-red-600 text-lg">warning</span>
-              <div>
-                <span className="font-extrabold uppercase tracking-wide">Allergy & Safety Alert: </span>
-                <span className="font-semibold">{selectedPatient.allergies}</span>
+              {/* Patient-Specific Clinical Triage & Urgency Assessment */}
+              <div className={`p-4 rounded-2xl border transition-all ${
+                selectedPatient.priority === 'EMERGENCY'
+                  ? 'bg-red-50/70 border-red-200 text-red-950 shadow-sm'
+                  : selectedPatient.priority === 'PRIORITY'
+                  ? 'bg-amber-50/70 border-amber-200 text-amber-950 shadow-sm'
+                  : 'bg-emerald-50/50 border-emerald-200 text-emerald-950 shadow-sm'
+              }`}>
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mb-2 pb-2 border-b border-black/5">
+                  <div className="flex items-center gap-2">
+                    <span className="material-symbols-outlined text-lg">
+                      {selectedPatient.priority === 'EMERGENCY' ? 'emergency' : selectedPatient.priority === 'PRIORITY' ? 'warning' : 'check_circle'}
+                    </span>
+                    <span className="font-extrabold text-xs uppercase tracking-wider">
+                      Patient Clinical Triage Assessment
+                    </span>
+                  </div>
+                  <span className={`px-2.5 py-1 rounded-full text-xs font-black uppercase tracking-wider ${
+                    selectedPatient.priority === 'EMERGENCY'
+                      ? 'bg-red-600 text-white'
+                      : selectedPatient.priority === 'PRIORITY'
+                      ? 'bg-amber-500 text-white'
+                      : 'bg-emerald-600 text-white'
+                  }`}>
+                    {patientTriage?.urgencyLabel || (selectedPatient.priority === 'EMERGENCY' ? '🔴 RED — Emergency' : selectedPatient.priority === 'PRIORITY' ? '🟡 YELLOW — Priority' : '🟢 GREEN — Routine')}
+                  </span>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
+                  <div>
+                    <span className="text-[10px] font-bold uppercase tracking-wider opacity-70 block mb-0.5">Triage Classification</span>
+                    <p className="font-bold text-xs">
+                      {patientTriage?.description || (selectedPatient.priority === 'EMERGENCY' ? 'Immediate clinical attention required' : selectedPatient.priority === 'PRIORITY' ? 'Needs prompt assessment' : 'Normal consultation')}
+                    </p>
+                  </div>
+                  <div>
+                    <span className="text-[10px] font-bold uppercase tracking-wider opacity-70 block mb-0.5">Reported Chief Complaint</span>
+                    <p className="font-semibold text-xs text-slate-800">
+                      {selectedPatient.complaint || 'General clinical consultation'}
+                    </p>
+                  </div>
+                </div>
+
+                {/* ASHA Community Screening Review (if present) */}
+                {patientTriage?.communityAssessment && (
+                  <div className="mt-3 pt-2.5 border-t border-black/5 bg-white/70 p-3 rounded-xl border border-black/5 text-xs text-slate-800">
+                    <div className="flex items-center justify-between gap-2 mb-1">
+                      <div className="flex items-center gap-1.5 text-teal-800 font-extrabold text-[11px] uppercase">
+                        <span className="material-symbols-outlined text-sm">volunteer_activism</span>
+                        <span>Community Triage Screening • {patientTriage.communityAssessment.screener}</span>
+                      </div>
+                      <span className="text-[10px] text-tertiary font-bold">{patientTriage.communityAssessment.date}</span>
+                    </div>
+                    {patientTriage.communityAssessment.observations && (
+                      <p className="text-[11px] text-slate-700 font-medium">
+                        <strong className="font-bold text-slate-900">ASHA Observations:</strong> {patientTriage.communityAssessment.observations.replace(/\[Urgency: [^\]]+\]\s*/g, '')}
+                      </p>
+                    )}
+                    {patientTriage.communityAssessment.plan && (
+                      <p className="text-[11px] text-slate-700 font-medium mt-0.5">
+                        <strong className="font-bold text-slate-900">Recommended Pathway:</strong> {patientTriage.communityAssessment.plan}
+                      </p>
+                    )}
+                  </div>
+                )}
               </div>
-            </div>
+
+	            {/* Allergy Warning & Medical Safety Alerts Section */}
+              <div className="space-y-2">
+                {selectedPatient.allergies && selectedPatient.allergies !== 'None' && selectedPatient.allergies !== 'No Known Drug Allergies (NKDA)' ? (
+                  <div className="bg-red-50 border border-red-300 p-3.5 rounded-2xl flex items-start gap-3 text-xs text-red-950 shadow-sm">
+                    <span className="material-symbols-outlined text-red-600 text-xl shrink-0 mt-0.5">warning</span>
+                    <div>
+                      <span className="font-black text-red-900 uppercase tracking-wide block">⚠️ Allergies & Adverse Reactions</span>
+                      <span className="font-extrabold text-sm text-red-800">{selectedPatient.allergies}</span>
+                      <span className="text-[11px] text-red-700 block mt-0.5">Verify all prescription orders against recorded drug allergies.</span>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="bg-emerald-50 border border-emerald-200 p-3 rounded-2xl flex items-center justify-between text-xs text-emerald-950">
+                    <div className="flex items-center gap-2">
+                      <span className="material-symbols-outlined text-emerald-600 text-lg">verified_user</span>
+                      <span className="font-bold">Allergy Safety: <strong className="text-emerald-800 font-black">No known allergies (NKDA)</strong></span>
+                    </div>
+                    <span className="text-[10px] text-emerald-700 font-bold bg-emerald-100/80 px-2 py-0.5 rounded-lg border border-emerald-300">Verified</span>
+                  </div>
+                )}
+
+                {patientTriage?.medicalAlerts && patientTriage.medicalAlerts.length > 0 && (
+                  <div className="bg-amber-50/80 border border-amber-200 p-3 rounded-2xl space-y-1.5 text-xs text-amber-950">
+                    <div className="flex items-center gap-1.5 font-extrabold text-[11px] text-amber-900 uppercase tracking-wide">
+                      <span className="material-symbols-outlined text-sm text-amber-700">notifications_active</span>
+                      <span>Important Medical & Telemetry Alerts</span>
+                    </div>
+                    <div className="flex flex-wrap gap-1.5">
+                      {patientTriage.medicalAlerts.map((alert, idx) => (
+                        <span
+                          key={idx}
+                          className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-xl text-[11px] font-bold border ${
+                            alert.type === 'danger'
+                              ? 'bg-red-100 text-red-900 border-red-300'
+                              : alert.type === 'warning'
+                              ? 'bg-amber-100 text-amber-900 border-amber-300'
+                              : 'bg-blue-100 text-blue-900 border-blue-300'
+                          }`}
+                        >
+                          <span className="material-symbols-outlined text-xs">{alert.icon}</span>
+                          <span>{alert.text}</span>
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
 
             {/* Vitals Ribbon */}
             <div>
@@ -1497,6 +1737,13 @@ export default function DoctorClinicalDashboardPage() {
                 >
                   <span className="material-symbols-outlined text-base">alt_route</span>
                   <span>Refer Patient</span>
+                </Link>
+                <Link
+                  href={`/records?patientId=${selectedPatient.clientId || selectedPatient.id}`}
+                  className="px-4 py-2.5 bg-purple-50 hover:bg-purple-100 text-purple-900 border border-purple-200 font-bold text-xs rounded-xl transition-all flex items-center gap-1.5"
+                >
+                  <span className="material-symbols-outlined text-base text-purple-700">folder_shared</span>
+                  <span>Patient Record</span>
                 </Link>
               </div>
 
