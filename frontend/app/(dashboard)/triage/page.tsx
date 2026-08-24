@@ -697,11 +697,11 @@ function DigitalTriageContent() {
 
             <div className="flex items-center gap-2 shrink-0">
               <Link
-                href="/doctor"
+                href="/fhw"
                 className="px-4 py-2 bg-teal-600 hover:bg-teal-700 text-white font-bold text-xs rounded-xl transition-all flex items-center gap-1.5"
               >
-                <span className="material-symbols-outlined text-base">dashboard</span>
-                <span>Doctor Portal</span>
+                <span className="material-symbols-outlined text-base">volunteer_activism</span>
+                <span>ASHA Center</span>
               </Link>
             </div>
           </div>
@@ -1049,10 +1049,10 @@ function DigitalTriageContent() {
                 </Link>
 
                 <Link
-                  href="/doctor"
+                  href="/fhw"
                   className="w-full py-2.5 text-center text-xs font-bold text-primary hover:underline block"
                 >
-                  Continue Clinical Encounter in Doctor Portal →
+                  Return to ASHA Catchment Center →
                 </Link>
               </div>
             </div>

@@ -89,6 +89,7 @@ export default function DoctorClinicalDashboardPage() {
 
   // Facility awareness: beds & medicine alerts
   const [bedsData, setBedsData] = useState<any>(null);
+  const [loadingBeds, setLoadingBeds] = useState<boolean>(true);
   const [medAlerts, setMedAlerts] = useState<any[]>([]);
   const [showBedPanel, setShowBedPanel] = useState<boolean>(false);
 
@@ -474,14 +475,15 @@ export default function DoctorClinicalDashboardPage() {
         setPrescriptions([]);
       }
 
-      // Set Lab Orders
+      // Set Labs
       if (labData && labData.length > 0) {
-        setSelectedLabs(Array.from(new Set(labData.map((l: any) => l.test_name).filter(Boolean))));
+        const labs = labData.map((l: any) => l.test_name || l.test).filter(Boolean);
+        setSelectedLabs(Array.from(new Set(labs)));
       } else {
         setSelectedLabs([]);
       }
     } catch (err) {
-      console.warn('Error loading patient clinical records:', err);
+      console.warn('Error loading patient clinical history:', err);
     } finally {
       setLoadingClinicalRecords(false);
     }
@@ -503,22 +505,56 @@ export default function DoctorClinicalDashboardPage() {
     loadPatientClinicalRecords(patientClientId);
   }, [selectedPatient?.clientId, selectedPatient?.id, loadPatientClinicalRecords]);
 
-  // Fetch facility bed availability & medicine stock alerts
+  // Fetch facility bed availability from live database
+  const fetchBedsData = useCallback(async () => {
+    try {
+      const beds = await apiFetch('/api/facility/beds');
+      setBedsData(beds);
+    } catch (e) {
+      console.warn('Error loading bed data for doctor:', e);
+    } finally {
+      setLoadingBeds(false);
+    }
+  }, []);
+
+  // Facility Bed Availability Real-Time Listener & Initial Fetch
   useEffect(() => {
-    async function fetchFacilityData() {
+    let isMounted = true;
+    fetchBedsData();
+
+    async function fetchAlerts() {
       try {
-        const [beds, alerts] = await Promise.all([
-          apiFetch('/api/facility/beds'),
-          apiFetch('/api/facility/medicine-alerts')
-        ]);
-        setBedsData(beds);
-        if (alerts.medicines) setMedAlerts(alerts.medicines);
+        const alerts = await apiFetch('/api/facility/medicine-alerts');
+        if (isMounted && alerts.medicines) setMedAlerts(alerts.medicines);
       } catch (e) {
-        console.warn('Error loading facility data for doctor:', e);
+        console.warn('Error loading medicine alerts for doctor:', e);
       }
     }
-    fetchFacilityData();
-  }, []);
+    fetchAlerts();
+
+    // Dedicated Supabase Realtime subscription specifically for facility_beds
+    const channel = supabase
+      .channel('doctor_portal_facility_beds_realtime')
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'facility_beds',
+        },
+        () => {
+          if (isMounted) {
+            fetchBedsData();
+          }
+        }
+      )
+      .subscribe();
+
+    return () => {
+      isMounted = false;
+      supabase.removeChannel(channel);
+    };
+  }, [supabase, fetchBedsData]);
 
   const filteredQueue = queue.filter(item => {
     const matchesSearch = !searchQuery || 
@@ -908,12 +944,20 @@ export default function DoctorClinicalDashboardPage() {
               <div className="text-left">
                 <span className="text-xs font-bold text-on-surface block">Inpatient Bed Availability</span>
                 <span className="text-[10px] text-tertiary">
-                  {bedsData?.total_available ?? 13} beds available • {bedsData?.occupancy_rate ?? 76}% occupancy
+                  {loadingBeds ? (
+                    'Loading live bed status...'
+                  ) : bedsData && typeof bedsData.total_available === 'number' ? (
+                    `${bedsData.total_available} beds available • ${bedsData.occupancy_rate}% occupancy`
+                  ) : (
+                    'Bed status currently unavailable'
+                  )}
                 </span>
               </div>
             </div>
             <div className="flex items-center gap-2">
-              <span className="text-2xl font-black text-teal-700">{bedsData?.total_available ?? 13}</span>
+              <span className="text-2xl font-black text-teal-700">
+                {loadingBeds ? '—' : (bedsData?.total_available ?? '—')}
+              </span>
               <span className={`material-symbols-outlined text-tertiary transition-transform ${showBedPanel ? 'rotate-180' : ''}`}>expand_more</span>
             </div>
           </button>
@@ -1164,13 +1208,6 @@ export default function DoctorClinicalDashboardPage() {
 	              </div>
 
               <div className="flex items-center gap-2">
-                <Link
-                  href={`/triage?patientId=${selectedPatient.clientId || selectedPatient.id}&apptId=${selectedPatient.id}`}
-                  className="px-3.5 py-2 bg-amber-50 hover:bg-amber-100 text-amber-900 border border-amber-300 font-bold text-xs rounded-xl shadow-sm transition-all flex items-center gap-1"
-                >
-                  <span className="material-symbols-outlined text-sm text-amber-700">emergency</span>
-                  <span>Clinical Triage</span>
-                </Link>
                 {selectedPatient.status !== 'IN-CONSULT' && (
                   <button
                     onClick={() => handleStatusChange(selectedPatient.id, 'IN-CONSULT')}
@@ -1460,13 +1497,6 @@ export default function DoctorClinicalDashboardPage() {
                 >
                   <span className="material-symbols-outlined text-base">alt_route</span>
                   <span>Refer Patient</span>
-                </Link>
-                <Link
-                  href={`/triage?patientId=${selectedPatient.clientId || selectedPatient.id}&apptId=${selectedPatient.id}`}
-                  className="px-4 py-2.5 bg-amber-50 hover:bg-amber-100 text-amber-900 border border-amber-300 font-bold text-xs rounded-xl transition-all flex items-center gap-1.5"
-                >
-                  <span className="material-symbols-outlined text-base text-amber-700">emergency</span>
-                  <span>Clinical Triage</span>
                 </Link>
               </div>
 
