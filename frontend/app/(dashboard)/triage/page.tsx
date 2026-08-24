@@ -526,18 +526,6 @@ function DigitalTriageContent() {
 
   return (
     <div className="space-y-8 max-w-7xl mx-auto pb-16">
-      {/* Header banner */}
-      <div className="bg-gradient-to-r from-primary via-[#004d40] to-teal-900 rounded-3xl p-8 text-white shadow-xl relative overflow-hidden">
-        <div className="absolute right-0 top-0 w-96 h-96 bg-white/5 rounded-full blur-3xl pointer-events-none"></div>
-        <div className="relative z-10 space-y-2">
-          <div className="inline-flex items-center gap-2 px-3 py-1 bg-white/10 backdrop-blur rounded-full text-xs font-semibold tracking-wide text-teal-200">
-            <span className="material-symbols-outlined text-sm">clinical_notes</span>
-            <span>Clinical Protocol • Primary Healthcare Hierarchy</span>
-          </div>
-          <h1 className="text-3xl font-extrabold tracking-tight">Smart Clinical Triage &amp; Facility Routing</h1>
-        </div>
-      </div>
-
       {/* ========================================================================= */}
       {/* WORKFLOW VIEW 1: PATIENT SELECTION LIST (When no patient is selected)    */}
       {/* ========================================================================= */}
