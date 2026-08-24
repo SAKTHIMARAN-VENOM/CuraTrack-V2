@@ -1107,6 +1107,13 @@ export default function DoctorClinicalDashboardPage() {
               </div>
 
               <div className="flex items-center gap-2">
+                <Link
+                  href={`/triage?patientId=${selectedPatient.clientId || selectedPatient.id}&apptId=${selectedPatient.id}`}
+                  className="px-3.5 py-2 bg-amber-50 hover:bg-amber-100 text-amber-900 border border-amber-300 font-bold text-xs rounded-xl shadow-sm transition-all flex items-center gap-1"
+                >
+                  <span className="material-symbols-outlined text-sm text-amber-700">emergency</span>
+                  <span>Clinical Triage</span>
+                </Link>
                 {selectedPatient.status !== 'IN-CONSULT' && (
                   <button
                     onClick={() => handleStatusChange(selectedPatient.id, 'IN-CONSULT')}
@@ -1383,6 +1390,13 @@ export default function DoctorClinicalDashboardPage() {
                 >
                   <span className="material-symbols-outlined text-base">alt_route</span>
                   <span>Refer Patient</span>
+                </Link>
+                <Link
+                  href={`/triage?patientId=${selectedPatient.clientId || selectedPatient.id}&apptId=${selectedPatient.id}`}
+                  className="px-4 py-2.5 bg-amber-50 hover:bg-amber-100 text-amber-900 border border-amber-300 font-bold text-xs rounded-xl transition-all flex items-center gap-1.5"
+                >
+                  <span className="material-symbols-outlined text-base text-amber-700">emergency</span>
+                  <span>Clinical Triage</span>
                 </Link>
               </div>
 

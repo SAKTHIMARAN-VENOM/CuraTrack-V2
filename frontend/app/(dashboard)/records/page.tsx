@@ -1621,10 +1621,30 @@ export default function HealthRecordsPage() {
                           <div>
                             <div className="flex items-center gap-2">
                               <p className="font-headline font-bold text-on-surface">{note.doctor}</p>
-                              <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-primary/10 text-primary">NEW</span>
+                              <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-primary/10 text-primary">RECORDED</span>
                             </div>
                             <p className="text-xs text-tertiary">{note.specialty || 'General'} · {note.date}</p>
-                            {note.visitType && <span className="inline-block mt-1.5 px-2 py-0.5 rounded-full text-[10px] font-bold status-badge-stable">{note.visitType.toUpperCase()}</span>}
+                            {(note.visit_type === 'Triage Assessment' || note.visitType === 'Triage Assessment') ? (
+                              <span className={`inline-block mt-1.5 px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase ${
+                                note.summary?.includes('RED') || note.observations?.includes('EMERGENCY')
+                                  ? 'bg-red-100 text-red-800 border border-red-300'
+                                  : note.summary?.includes('YELLOW') || note.observations?.includes('PRIORITY')
+                                  ? 'bg-amber-100 text-amber-800 border border-amber-300'
+                                  : 'bg-emerald-100 text-emerald-800 border border-emerald-300'
+                              }`}>
+                                {note.summary?.includes('RED') || note.observations?.includes('EMERGENCY')
+                                  ? '🚨 TRIAGE: RED (EMERGENCY)'
+                                  : note.summary?.includes('YELLOW') || note.observations?.includes('PRIORITY')
+                                  ? '⚠️ TRIAGE: YELLOW (PRIORITY)'
+                                  : '✅ TRIAGE: GREEN (ROUTINE)'}
+                              </span>
+                            ) : (
+                              (note.visitType || note.visit_type) && (
+                                <span className="inline-block mt-1.5 px-2 py-0.5 rounded-full text-[10px] font-bold status-badge-stable">
+                                  {(note.visitType || note.visit_type).toUpperCase()}
+                                </span>
+                              )
+                            )}
                           </div>
                         </div>
                       </div>
@@ -1632,14 +1652,20 @@ export default function HealthRecordsPage() {
                     <div className="p-6 lg:p-8 space-y-5">
                       {note.complaint && (
                         <div>
-                          <p className="text-xs font-bold text-tertiary uppercase tracking-widest mb-2">Chief Complaint</p>
+                          <p className="text-xs font-bold text-tertiary uppercase tracking-widest mb-2">Chief Complaint / Symptoms</p>
                           <p className="text-sm text-on-surface leading-relaxed">{note.complaint}</p>
                         </div>
                       )}
                       {note.observations && (
                         <div>
-                          <p className="text-xs font-bold text-tertiary uppercase tracking-widest mb-2">Clinical Observations</p>
+                          <p className="text-xs font-bold text-tertiary uppercase tracking-widest mb-2">Clinical Observations & Findings</p>
                           <p className="text-sm text-on-surface leading-relaxed">{note.observations}</p>
+                        </div>
+                      )}
+                      {note.summary && (
+                        <div>
+                          <p className="text-xs font-bold text-tertiary uppercase tracking-widest mb-2">Triage & Care Summary</p>
+                          <p className="text-sm font-semibold text-primary leading-relaxed">{note.summary}</p>
                         </div>
                       )}
                       {note.plan && (
