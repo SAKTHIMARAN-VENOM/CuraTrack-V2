@@ -19,14 +19,15 @@ interface OPDQueuePatient {
   complaint: string;
   vitals: {
     bp: string;
-    hr: number;
-    spo2: number;
+    hr: number | string;
+    spo2: number | string;
     temp: string;
     bmi: string;
   };
   type: 'In-Person OPD' | 'Teleconsult' | 'Emergency Follow-Up';
   status: 'WAITING' | 'IN-CONSULT' | 'COMPLETED';
   waitTime: string;
+  roomId?: string;
 }
 
 interface Appointment {
@@ -40,6 +41,13 @@ interface Appointment {
   time?: string;
   date?: string;
   notes?: string;
+  priority?: string;
+  vitals_bp?: string;
+  vitals_hr?: number | string;
+  vitals_spo2?: number | string;
+  vitals_temp?: string;
+  vitals_bmi?: string;
+  token?: string;
 }
 
 interface DoctorProfileInfo {
@@ -59,7 +67,7 @@ export default function DoctorClinicalDashboardPage() {
   const [doctorInfo, setDoctorInfo] = useState<DoctorProfileInfo>({
     id: 'doc-david-ross',
     name: 'Dr. David Ross, MD',
-    email: 'doctor@curatrack.in',
+    email: 'dr.david.ross@curatrack.com',
     facility: 'Nandurbar Sub-District Hospital',
     license: 'MMC/2026/04481',
     department: 'General Medicine & OPD Room 101',
@@ -104,10 +112,14 @@ export default function DoctorClinicalDashboardPage() {
         .order('created_at', { ascending: false });
 
       if (docId) {
-        query = query.or(`doctor_id.eq.${docId},doctor_id.ilike.%doc-%`);
+        query = query.or(`doctor_id.eq.${docId},doctor_id.eq.doc-david-ross,doctor_id.ilike.%doc-%`);
       }
 
-      const { data: dbAppts } = await query;
+      const { data: dbAppts, error: dbError } = await query;
+
+      if (dbError) {
+        console.warn('Error querying appointments for doctor:', dbError);
+      }
 
       if (!dbAppts || dbAppts.length === 0) {
         setQueue([]);
@@ -115,49 +127,86 @@ export default function DoctorClinicalDashboardPage() {
         return;
       }
 
-      // Fetch profiles for client names
+      // Fetch profiles for client names individually to avoid RLS collection errors
       const clientIds = Array.from(new Set(dbAppts.map((a: any) => a.client_id).filter(Boolean)));
-      let profilesMap: Record<string, any> = {};
+      const profilesMap: Record<string, any> = {};
 
       if (clientIds.length > 0) {
-        try {
-          const { data: profs } = await supabase
-            .from('profiles')
-            .select('*')
-            .in('id', clientIds);
-          if (profs) {
-            profs.forEach((p: any) => { profilesMap[p.id] = p; });
-          }
-        } catch {}
+        await Promise.all(
+          clientIds.map(async (cid) => {
+            try {
+              const { data: prof } = await supabase
+                .from('profiles')
+                .select('id, name, email, gender, blood_group')
+                .eq('id', cid)
+                .maybeSingle();
+              if (prof) {
+                profilesMap[cid] = prof;
+              }
+            } catch (err) {
+              console.warn(`Error resolving profile for client ${cid}:`, err);
+            }
+          })
+        );
       }
 
       const formattedQueue: OPDQueuePatient[] = dbAppts.map((a: any, idx: number) => {
         const clientProf = profilesMap[a.client_id];
-        const pName = clientProf?.name || a.patient_name || `Patient (${(a.client_id || a.id).slice(0, 6)})`;
-        const isTele = Boolean(a.room_id || a.status === 'ringing');
+        let pName = a.patient_name;
+        if (!pName && clientProf) {
+          if (clientProf.name && clientProf.name.trim().length > 0) {
+            pName = clientProf.name.trim();
+          } else if (clientProf.email) {
+            const emailPrefix = clientProf.email.split('@')[0].replace(/[._-]/g, ' ');
+            pName = emailPrefix
+              .split(' ')
+              .filter(Boolean)
+              .map((w: string) => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase())
+              .join(' ');
+          }
+        }
+        if (!pName) {
+          pName = 'Patient';
+        }
+
+        const isTele = Boolean(a.room_id || a.status === 'ringing' || a.type === 'video');
         const isEmergency = a.priority === 'EMERGENCY' || a.status === 'ringing';
         
+        let uiStatus: 'WAITING' | 'IN-CONSULT' | 'COMPLETED' = 'WAITING';
+        if (a.status === 'in-consult' || a.status === 'in_progress') {
+          uiStatus = 'IN-CONSULT';
+        } else if (a.status === 'completed' || a.status === 'ended') {
+          uiStatus = 'COMPLETED';
+        } else {
+          uiStatus = 'WAITING';
+        }
+
+        const formattedTime = a.scheduled_time 
+          ? new Date(a.scheduled_time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+          : a.time || 'Just now';
+
         return {
-          id: a.id || `PAT-${idx + 1}`,
-          token: `TKN-${(a.id || idx.toString()).slice(0, 3).toUpperCase()}`,
+          id: a.id,
+          token: a.token || `TKN-${String(idx + 1).padStart(3, '0')}`,
           name: pName,
-          age: clientProf?.age || 38,
-          gender: clientProf?.gender || 'Female',
-          abhaId: clientProf?.abha_id || '91-4502-8819-2041',
-          bloodGroup: clientProf?.blood_group || 'O+',
-          allergies: clientProf?.allergies || 'No Known Drug Allergies (NKDA)',
-          priority: isEmergency ? 'EMERGENCY' : a.priority || 'ROUTINE',
-          complaint: a.notes || a.complaint || 'General consultation & clinical review',
+          age: clientProf?.age || (a.age ? Number(a.age) : 32),
+          gender: clientProf?.gender || a.gender || 'Unspecified',
+          abhaId: clientProf?.abha_id || a.abha_id || '91-4502-8819-2041',
+          bloodGroup: clientProf?.blood_group || a.blood_group || 'O+',
+          allergies: clientProf?.allergies || a.allergies || 'No Known Drug Allergies (NKDA)',
+          priority: isEmergency ? 'EMERGENCY' : a.priority === 'PRIORITY' ? 'PRIORITY' : 'ROUTINE',
+          complaint: a.notes || a.complaint || (isTele ? 'Teleconsultation consultation request' : 'General clinical consultation'),
           vitals: {
-            bp: a.vitals_bp || '120/80',
-            hr: a.vitals_hr || 76,
-            spo2: a.vitals_spo2 || 98,
-            temp: a.vitals_temp || '98.6 °F',
-            bmi: a.vitals_bmi || '22.4',
+            bp: a.vitals_bp || 'N/A',
+            hr: a.vitals_hr || 'N/A',
+            spo2: a.vitals_spo2 ? `${a.vitals_spo2}%` : 'N/A',
+            temp: a.vitals_temp || 'N/A',
+            bmi: a.vitals_bmi || 'N/A',
           },
           type: isTele ? 'Teleconsult' : 'In-Person OPD',
-          status: a.status === 'in-consult' ? 'IN-CONSULT' : a.status === 'completed' || a.status === 'ended' ? 'COMPLETED' : 'WAITING',
-          waitTime: a.scheduled_time ? new Date(a.scheduled_time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : 'Just now',
+          status: uiStatus,
+          waitTime: formattedTime,
+          roomId: a.room_id || undefined,
         };
       });
 
@@ -179,8 +228,8 @@ export default function DoctorClinicalDashboardPage() {
     async function initializeDoctorSessionAndRealtime() {
       try {
         let docId: string | null = null;
-        let docName = 'Medical Officer';
-        let docEmail = 'doctor@curatrack.in';
+        let docName = 'Dr. David Ross';
+        let docEmail = 'dr.david.ross@curatrack.com';
 
         try {
           const { data: { user } } = await supabase.auth.getUser();
@@ -236,8 +285,12 @@ export default function DoctorClinicalDashboardPage() {
           let patientName = 'Patient';
           if (appt.client_id) {
             try {
-              const { data: prof } = await supabase.from('profiles').select('name').eq('id', appt.client_id).maybeSingle();
-              if (prof?.name) patientName = prof.name;
+              const { data: prof } = await supabase.from('profiles').select('name, email').eq('id', appt.client_id).maybeSingle();
+              if (prof?.name) {
+                patientName = prof.name;
+              } else if (prof?.email) {
+                patientName = prof.email.split('@')[0].replace(/[._-]/g, ' ');
+              }
             } catch {}
           }
           setIncomingCall({ ...appt, patient_name: patientName });
@@ -272,8 +325,12 @@ export default function DoctorClinicalDashboardPage() {
             let patientName = incoming.patient_name || 'Patient';
             if (incoming.client_id) {
               try {
-                const { data: prof } = await supabase.from('profiles').select('name').eq('id', incoming.client_id).maybeSingle();
-                if (prof?.name) patientName = prof.name;
+                const { data: prof } = await supabase.from('profiles').select('name, email').eq('id', incoming.client_id).maybeSingle();
+                if (prof?.name) {
+                  patientName = prof.name;
+                } else if (prof?.email) {
+                  patientName = prof.email.split('@')[0].replace(/[._-]/g, ' ');
+                }
               } catch {}
             }
 
@@ -336,8 +393,14 @@ export default function DoctorClinicalDashboardPage() {
     return true;
   });
 
-  const handleStatusChange = (patientId: string, nextStatus: 'WAITING' | 'IN-CONSULT' | 'COMPLETED') => {
+  const handleStatusChange = async (patientId: string, nextStatus: 'WAITING' | 'IN-CONSULT' | 'COMPLETED') => {
+    const dbStatus = nextStatus === 'IN-CONSULT' ? 'in-consult' : nextStatus === 'COMPLETED' ? 'completed' : 'waiting';
     setQueue(prev => prev.map(p => p.id === patientId ? { ...p, status: nextStatus } : p));
+    try {
+      await supabase.from('appointments').update({ status: dbStatus }).eq('id', patientId);
+    } catch (err) {
+      console.warn('Error updating appointment status:', err);
+    }
   };
 
   const handleAcceptCall = useCallback((targetRoomId?: string) => {
@@ -368,13 +431,19 @@ export default function DoctorClinicalDashboardPage() {
       return;
     }
 
-    // 2. Query Supabase for any existing active room for this patient/doctor
+    // 2. If the selected patient has a room_id, join that room!
+    if (selectedPatient?.roomId) {
+      router.push(`/call/${selectedPatient.roomId}?role=doctor`);
+      return;
+    }
+
+    // 3. Query Supabase for any existing active room for this patient/doctor
     try {
       const { data: activeAppts } = await supabase
         .from('appointments')
         .select('*')
         .not('room_id', 'is', null)
-        .in('status', ['active', 'ringing'])
+        .in('status', ['active', 'ringing', 'booked'])
         .order('created_at', { ascending: false })
         .limit(1);
 
@@ -384,22 +453,24 @@ export default function DoctorClinicalDashboardPage() {
       }
     } catch (e) {}
 
-    // 3. Fallback: Generate room_id AND register in Supabase so patient and doctor share the SAME room!
+    // 4. Fallback: Generate room_id AND register in Supabase so patient and doctor share the SAME room!
     const newRoomId = crypto.randomUUID();
     const docId = activeDoctorId || 'doc-david-ross';
-    const patId = selectedPatient.id || 'PAT-001';
+    const patId = selectedPatient?.id;
 
-    try {
-      await supabase.from('appointments').insert({
-        client_id: patId,
-        doctor_id: docId,
-        room_id: newRoomId,
-        status: 'active',
-        scheduled_time: new Date().toISOString(),
-        date: new Date().toISOString().split('T')[0],
-        time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-      });
-    } catch (e) {}
+    if (patId) {
+      try {
+        await supabase.from('appointments').insert({
+          client_id: patId,
+          doctor_id: docId,
+          room_id: newRoomId,
+          status: 'active',
+          scheduled_time: new Date().toISOString(),
+          date: new Date().toISOString().split('T')[0],
+          time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+        });
+      } catch (e) {}
+    }
 
     router.push(`/call/${newRoomId}?role=doctor`);
   };
@@ -757,7 +828,7 @@ export default function DoctorClinicalDashboardPage() {
                         <div className="flex items-center gap-3 font-semibold text-slate-600">
                           <span>BP: <strong>{patient.vitals.bp}</strong></span>
                           <span>HR: <strong>{patient.vitals.hr}</strong></span>
-                          <span>SpO2: <strong>{patient.vitals.spo2}%</strong></span>
+                          <span>SpO2: <strong>{patient.vitals.spo2}</strong></span>
                         </div>
                         <span
                           className={`font-bold uppercase text-[10px] ${
@@ -840,27 +911,27 @@ export default function DoctorClinicalDashboardPage() {
                 <div className="bg-surface-container-low p-2.5 rounded-2xl border border-surface-container">
                   <span className="text-[10px] text-tertiary block">Blood Pressure</span>
                   <span className="font-black text-sm text-slate-900">{selectedPatient.vitals.bp}</span>
-                  <span className="text-[9px] text-emerald-600 font-semibold block">Normal</span>
+                  <span className="text-[9px] text-emerald-600 font-semibold block">Triage</span>
                 </div>
                 <div className="bg-surface-container-low p-2.5 rounded-2xl border border-surface-container">
                   <span className="text-[10px] text-tertiary block">Heart Rate</span>
-                  <span className="font-black text-sm text-slate-900">{selectedPatient.vitals.hr} bpm</span>
-                  <span className="text-[9px] text-teal-600 font-semibold block">Rhythm Regular</span>
+                  <span className="font-black text-sm text-slate-900">{selectedPatient.vitals.hr !== 'N/A' ? `${selectedPatient.vitals.hr} bpm` : 'N/A'}</span>
+                  <span className="text-[9px] text-teal-600 font-semibold block">Pulse</span>
                 </div>
                 <div className="bg-surface-container-low p-2.5 rounded-2xl border border-surface-container">
                   <span className="text-[10px] text-tertiary block">Oxygen (SpO2)</span>
-                  <span className="font-black text-sm text-slate-900">{selectedPatient.vitals.spo2}%</span>
-                  <span className="text-[9px] text-blue-600 font-semibold block">Adequate</span>
+                  <span className="font-black text-sm text-slate-900">{selectedPatient.vitals.spo2}</span>
+                  <span className="text-[9px] text-blue-600 font-semibold block">O2 Saturation</span>
                 </div>
                 <div className="bg-surface-container-low p-2.5 rounded-2xl border border-surface-container">
                   <span className="text-[10px] text-tertiary block">Body Temp</span>
                   <span className="font-black text-sm text-amber-700">{selectedPatient.vitals.temp}</span>
-                  <span className="text-[9px] text-amber-700 font-semibold block">Febrile</span>
+                  <span className="text-[9px] text-amber-700 font-semibold block">Thermometry</span>
                 </div>
                 <div className="bg-surface-container-low p-2.5 rounded-2xl border border-surface-container">
                   <span className="text-[10px] text-tertiary block">BMI Index</span>
                   <span className="font-black text-sm text-slate-900">{selectedPatient.vitals.bmi}</span>
-                  <span className="text-[9px] text-slate-600 font-semibold block">Healthy Range</span>
+                  <span className="text-[9px] text-slate-600 font-semibold block">Anthropometry</span>
                 </div>
               </div>
             </div>
