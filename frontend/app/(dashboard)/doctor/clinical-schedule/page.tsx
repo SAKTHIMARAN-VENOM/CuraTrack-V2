@@ -477,4 +477,3 @@ export default function ClinicalSchedulePage() {
     </div>
   );
 }
-
