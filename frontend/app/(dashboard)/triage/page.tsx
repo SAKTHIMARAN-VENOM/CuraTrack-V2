@@ -21,6 +21,7 @@ interface RealPatientInfo {
   tokenNo?: string;
   consultType?: string;
   appointmentId?: string;
+  priority?: string;
 }
 
 interface TriageHistoryItem {
@@ -42,6 +43,7 @@ function DigitalTriageContent() {
   const initialPatientId = searchParams.get('patientId') || '';
   const initialApptId = searchParams.get('apptId') || '';
 
+  const [categories, setCategories] = useState<Record<string, string[]>>({});
   const [redFlagList, setRedFlagList] = useState<string[]>([]);
   const [loadingTaxonomy, setLoadingTaxonomy] = useState(true);
 
@@ -54,8 +56,8 @@ function DigitalTriageContent() {
   const [currentDoctorId, setCurrentDoctorId] = useState<string>('');
   const [triageHistory, setTriageHistory] = useState<TriageHistoryItem[]>([]);
 
-  // Form inputs
-  const [symptomDescription, setSymptomDescription] = useState<string>('');
+  // Form inputs (Empty / Dynamic state only — ZERO fake numbers)
+  const [selectedSymptoms, setSelectedSymptoms] = useState<string[]>([]);
   const [selectedRedFlags, setSelectedRedFlags] = useState<string[]>([]);
   const [severity, setSeverity] = useState<number>(4);
   const [durationDays, setDurationDays] = useState<number>(1);
@@ -71,31 +73,26 @@ function DigitalTriageContent() {
   // Assessment result
   const [evaluating, setEvaluating] = useState<boolean>(false);
   const [triageResult, setTriageResult] = useState<any>(null);
+  const [activeTab, setActiveTab] = useState<string>('Respiratory');
   const [saveSuccessMessage, setSaveSuccessMessage] = useState<string>('');
-
-  const commonSymptomChips = [
-    "Persistent Cough (> 2 weeks)",
-    "Shortness of breath on exertion",
-    "High fever with chills",
-    "Chest tightness / heaviness",
-    "Acute Diarrhea / Vomiting",
-    "Severe abdominal pain",
-    "Sudden onset headache",
-    "Dizziness / Vertigo",
-    "Decreased fetal movements",
-    "Extreme fatigue / body aches",
-    "Wheezing / Stridor",
-    "Pediatric dehydration"
-  ];
 
   // 1. Fetch symptom taxonomy from backend
   useEffect(() => {
     const fetchTaxonomy = async () => {
       try {
         const data = await apiFetch('/api/triage/symptoms');
+        if (data.categories) setCategories(data.categories);
         if (data.red_flags) setRedFlagList(data.red_flags);
       } catch (err) {
         console.warn('Failed to load symptom taxonomy from backend, using fallback:', err);
+        setCategories({
+          "Respiratory": ["Persistent Cough (> 2 weeks)", "Shortness of breath on exertion", "Sore throat & difficulty swallowing", "Wheezing / Stridor", "Chest tightness"],
+          "Cardiovascular": ["Chest pain / Heavy pressure", "Palpitations / Rapid heartbeat", "Swelling in feet / ankles (Edema)", "Dizziness when standing"],
+          "Gastrointestinal": ["Acute Diarrhea (> 3 episodes/day)", "Severe abdominal pain / cramping", "Persistent nausea / vomiting", "Loss of appetite"],
+          "Neurological": ["Severe sudden onset headache", "Dizziness / Vertigo", "Numbness or weakness in limbs", "Confusion / Altered sensorium"],
+          "Maternal & Reproductive": ["Decreased fetal movements", "Severe lower abdominal pain during pregnancy", "Vaginal bleeding / discharge"],
+          "Pediatric & General": ["High fever (> 102°F)", "Fever with chills (Suspected Malaria/Dengue)", "Persistent body aches / Fatigue", "Severe dehydration"]
+        });
         setRedFlagList([
           "Severe central chest pain radiating to left arm or jaw",
           "Extreme breathlessness at rest (Cannot speak full sentences)",
@@ -111,105 +108,118 @@ function DigitalTriageContent() {
     fetchTaxonomy();
   }, []);
 
-  const appendSymptomTag = (tag: string) => {
-    setSymptomDescription(prev => {
-      if (!prev.trim()) return tag;
-      if (prev.toLowerCase().includes(tag.toLowerCase())) return prev;
-      return `${prev.trim()}, ${tag}`;
-    });
-  };
-
   // 2. Fetch authenticated doctor info and patient list
-  useEffect(() => {
-    const fetchDoctorAndPatients = async () => {
-      setLoadingPatients(true);
-      try {
-        const supabase = createClient();
-        const { data: { user } } = await supabase.auth.getUser();
-        if (user) {
-          setCurrentDoctorId(user.id);
-          const { data: docProf } = await supabase
-            .from('profiles')
-            .select('name')
-            .eq('id', user.id)
-            .maybeSingle();
-          if (docProf?.name) setCurrentDoctorName(docProf.name);
-        }
-
-        // Fetch registered patient profiles
-        const { data: profs } = await supabase
+  const fetchDoctorAndPatients = useCallback(async () => {
+    setLoadingPatients(true);
+    try {
+      const supabase = createClient();
+      const { data: { user } } = await supabase.auth.getUser();
+      if (user) {
+        setCurrentDoctorId(user.id);
+        const { data: docProf } = await supabase
           .from('profiles')
-          .select('*')
-          .neq('role', 'doctor')
-          .neq('role', 'facility_manager');
-
-        const { data: appts } = await supabase
-          .from('appointments')
-          .select('*')
-          .order('created_at', { ascending: false });
-
-        const apptMap: Record<string, any> = {};
-        if (appts) {
-          for (let i = 0; i < appts.length; i++) {
-            const a = appts[i];
-            if (a.client_id && !apptMap[a.client_id]) {
-              apptMap[a.client_id] = { ...a, tokenIndex: i + 1 };
-            }
-          }
-        }
-
-        if (profs && profs.length > 0) {
-          const mappedPatients: RealPatientInfo[] = profs.map((p, idx) => {
-            const appt = apptMap[p.id];
-            const tokenNum = appt?.tokenIndex ? `TKN-${String(appt.tokenIndex).padStart(3, '0')}` : `TKN-${String(idx + 1).padStart(3, '0')}`;
-            const cType = appt?.type || (appt?.room_id ? 'Teleconsult' : 'In-Person Consultation');
-            const statusLabel = appt?.status === 'in-consult' ? 'In Consultation' : appt?.status === 'completed' ? 'Completed' : 'Waiting';
-
-            return {
-              id: p.id,
-              name: p.name && p.name.trim().length > 0 ? p.name.trim() : (p.email ? p.email.split('@')[0] : 'Patient'),
-              email: p.email,
-              age: p.age || '',
-              gender: p.gender || 'Unspecified',
-              bloodGroup: p.blood_group || '',
-              abhaId: p.abha_id || `91-4502-8819-${p.id.slice(0, 4)}`,
-              allergies: p.allergies || 'No Known Drug Allergies (NKDA)',
-              latestStatus: statusLabel,
-              lastVisit: appt?.date || (appt?.created_at ? new Date(appt.created_at).toLocaleDateString() : 'Recent'),
-              complaint: appt?.notes || '',
-              tokenNo: tokenNum,
-              consultType: cType,
-              appointmentId: appt?.id || ''
-            };
-          });
-          setPatients(mappedPatients);
-
-          // Auto-select if patientId passed via query params
-          if (initialPatientId) {
-            const found = mappedPatients.find(p => p.id === initialPatientId);
-            if (found) {
-              handleSelectPatient(found);
-            }
-          }
-        }
-      } catch (err) {
-        console.warn('Error fetching triage doctor/patients:', err);
-      } finally {
-        setLoadingPatients(false);
+          .select('name')
+          .eq('id', user.id)
+          .maybeSingle();
+        if (docProf?.name) setCurrentDoctorName(docProf.name);
       }
-    };
 
-    fetchDoctorAndPatients();
+      // Fetch registered patient profiles
+      const { data: profs } = await supabase
+        .from('profiles')
+        .select('*')
+        .neq('role', 'doctor')
+        .neq('role', 'facility_manager');
+
+      const { data: appts } = await supabase
+        .from('appointments')
+        .select('*')
+        .order('created_at', { ascending: false });
+
+      const apptMap: Record<string, any> = {};
+      if (appts) {
+        for (let i = 0; i < appts.length; i++) {
+          const a = appts[i];
+          if (a.client_id && !apptMap[a.client_id]) {
+            apptMap[a.client_id] = { ...a, tokenIndex: i + 1 };
+          }
+        }
+      }
+
+      if (profs && profs.length > 0) {
+        const mappedPatients: RealPatientInfo[] = profs.map((p, idx) => {
+          const appt = apptMap[p.id];
+          const tokenNum = appt?.tokenIndex ? `TKN-${String(appt.tokenIndex).padStart(3, '0')}` : `TKN-${String(idx + 1).padStart(3, '0')}`;
+          const cType = appt?.type || (appt?.room_id ? 'Teleconsult' : 'In-Person OPD');
+          const statusLabel = appt?.status === 'in-consult' ? 'IN-CONSULT' : appt?.status === 'completed' ? 'COMPLETED' : 'WAITING';
+
+          return {
+            id: p.id,
+            name: p.name && p.name.trim().length > 0 ? p.name.trim() : (p.email ? p.email.split('@')[0] : 'Patient'),
+            email: p.email,
+            age: p.age || '',
+            gender: p.gender || 'Unspecified',
+            bloodGroup: p.blood_group || '',
+            abhaId: p.abha_id || `91-4502-8819-${p.id.slice(0, 4)}`,
+            allergies: p.allergies || 'No Known Drug Allergies (NKDA)',
+            latestStatus: statusLabel,
+            lastVisit: appt?.date || (appt?.created_at ? new Date(appt.created_at).toLocaleDateString() : 'Recent'),
+            complaint: appt?.notes || '',
+            tokenNo: tokenNum,
+            consultType: cType,
+            appointmentId: appt?.id || '',
+            priority: appt?.priority || ''
+          };
+        });
+        setPatients(mappedPatients);
+
+        // Auto-select if patientId passed via query params
+        if (initialPatientId) {
+          const found = mappedPatients.find(p => p.id === initialPatientId);
+          if (found) {
+            handleSelectPatient(found);
+          }
+        }
+      }
+    } catch (err) {
+      console.warn('Error fetching triage doctor/patients:', err);
+    } finally {
+      setLoadingPatients(false);
+    }
   }, [initialPatientId]);
 
-  // 3. Load full real clinical history & vitals for target patient
+  useEffect(() => {
+    fetchDoctorAndPatients();
+  }, [fetchDoctorAndPatients]);
+
+  // 3. Supabase Real-Time Patient Queue Subscription
+  useEffect(() => {
+    const supabase = createClient();
+
+    const channel = supabase
+      .channel('triage_realtime_queue')
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'appointments' },
+        () => {
+          fetchDoctorAndPatients();
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [fetchDoctorAndPatients]);
+
+  // 4. Load full real clinical history & vitals for target patient
   const loadPatientData = useCallback(async (patient: RealPatientInfo) => {
     const supabase = createClient();
     setSaveSuccessMessage('');
     setTriageResult(null);
 
     // Reset fields cleanly to prevent cross-patient data leaks
-    setSymptomDescription(patient.complaint || '');
+    setSelectedSymptoms([]);
     setSelectedRedFlags([]);
     setPatientAge(patient.age || '');
     setIsPregnant(patient.gender?.toLowerCase() === 'female');
@@ -221,7 +231,7 @@ function DigitalTriageContent() {
     setTemperature('');
 
     try {
-      // 1. Fetch latest appointment for recorded vitals & complaints
+      // Fetch latest appointment for recorded vitals & complaints
       const { data: apptData } = await supabase
         .from('appointments')
         .select('*')
@@ -231,10 +241,7 @@ function DigitalTriageContent() {
 
       if (apptData && apptData.length > 0) {
         const appt = apptData[0];
-        if (appt.notes) {
-          setClinicalNotes(appt.notes);
-          if (!patient.complaint) setSymptomDescription(appt.notes);
-        }
+        if (appt.notes) setClinicalNotes(appt.notes);
         if (appt.vitals_spo2) setSpo2(String(appt.vitals_spo2).replace('%', '').trim());
         if (appt.vitals_hr) setHeartRate(String(appt.vitals_hr).trim());
         if (appt.vitals_bp) {
@@ -245,7 +252,7 @@ function DigitalTriageContent() {
         if (appt.vitals_temp) setTemperature(String(appt.vitals_temp).replace('°C', '').replace('°F', '').trim());
       }
 
-      // 2. Fetch previous triage history from doctor_notes
+      // Fetch previous triage history from doctor_notes
       const { data: triageNotes } = await supabase
         .from('doctor_notes')
         .select('*')
@@ -280,37 +287,23 @@ function DigitalTriageContent() {
     }
   }, []);
 
-  // Supabase Real-Time Listener for Active Patient
-  useEffect(() => {
-    if (!selectedPatient) return;
-    const supabase = createClient();
-
-    const channel = supabase
-      .channel(`triage_patient_sync_${selectedPatient.id}`)
-      .on(
-        'postgres_changes',
-        { event: '*', schema: 'public', table: 'appointments', filter: `client_id=eq.${selectedPatient.id}` },
-        (payload: any) => {
-          if (payload.new) {
-            const updated = payload.new;
-            setSelectedPatient(prev => prev ? {
-              ...prev,
-              latestStatus: updated.status === 'in-consult' ? 'In Consultation' : updated.status === 'completed' ? 'Completed' : 'Waiting',
-              complaint: updated.notes || prev.complaint
-            } : null);
-          }
-        }
-      )
-      .subscribe();
-
-    return () => {
-      supabase.removeChannel(channel);
-    };
-  }, [selectedPatient?.id]);
-
   const handleSelectPatient = (patient: RealPatientInfo) => {
     setSelectedPatient(patient);
     loadPatientData(patient);
+  };
+
+  const handleBackToPatientList = () => {
+    setSelectedPatient(null);
+    setTriageResult(null);
+    setSaveSuccessMessage('');
+  };
+
+  const toggleSymptom = (symptom: string) => {
+    if (selectedSymptoms.includes(symptom)) {
+      setSelectedSymptoms(selectedSymptoms.filter(s => s !== symptom));
+    } else {
+      setSelectedSymptoms([...selectedSymptoms, symptom]);
+    }
   };
 
   const toggleRedFlag = (flag: string) => {
@@ -356,7 +349,6 @@ function DigitalTriageContent() {
     const numHr = heartRate ? parseFloat(heartRate) : null;
     const numBp = systolicBp ? parseFloat(systolicBp) : null;
     const numTemp = temperature ? parseFloat(temperature) : null;
-    const sympLower = (symptomDescription + ' ' + clinicalNotes).toLowerCase();
 
     // 1. Check RED emergency criteria
     if (selectedRedFlags.length > 0) {
@@ -415,9 +407,9 @@ function DigitalTriageContent() {
       urgency = 'YELLOW';
       reasons.push(`Symptoms persistent over ${durationDays} days`);
     }
-    if (sympLower.includes('diarrhea') || sympLower.includes('shortness of breath') || sympLower.includes('chest pain') || sympLower.includes('vomiting') || sympLower.includes('bleeding')) {
+    if (selectedSymptoms.some(s => s.includes('Diarrhea') || s.includes('Shortness of breath') || s.includes('Chest pain') || s.includes('Vaginal bleeding'))) {
       urgency = 'YELLOW';
-      reasons.push('High-risk primary symptom presentation reported in clinical narrative');
+      reasons.push('High-risk primary symptom presentation reported');
     }
 
     if (urgency === 'YELLOW') {
@@ -433,12 +425,12 @@ function DigitalTriageContent() {
     // 3. GREEN routine criteria
     reasons.push('Vital signs are within normal clinical thresholds');
     reasons.push('No emergency danger signs or severe distress reported');
-    if (symptomDescription.trim()) reasons.push(`Presenting complaints: ${symptomDescription.slice(0, 50)}...`);
+    if (selectedSymptoms.length > 0) reasons.push(`Mild self-limiting presentation: ${selectedSymptoms.slice(0, 2).join(', ')}`);
     actions.push('Symptomatic home care and hydration');
     actions.push('Follow-up with ASHA / FHW if symptoms worsen');
     conditions.push('Mild Viral Illness / Self-limiting Complaint');
     return { urgency: 'GREEN', urgency_label: urgencyLabel, recommended_facility: facility, reasons, immediate_actions: actions, potential_conditions: conditions };
-  }, [selectedRedFlags, spo2, heartRate, systolicBp, temperature, severity, durationDays, symptomDescription, clinicalNotes]);
+  }, [selectedRedFlags, spo2, heartRate, systolicBp, temperature, severity, durationDays, selectedSymptoms]);
 
   // Run Triage & Persist Result to Supabase Database
   const handleRunTriage = async (e: React.FormEvent) => {
@@ -452,18 +444,13 @@ function DigitalTriageContent() {
     setSaveSuccessMessage('');
 
     try {
-      const parsedSymptoms = symptomDescription
-        .split(/[\n,;]+/)
-        .map(s => s.trim())
-        .filter(s => s.length > 0);
-
       const payload = {
         patient_id: selectedPatient.id,
         patient_name: selectedPatient.name,
         age: patientAge ? Number(patientAge) : 32,
         gender: selectedPatient.gender || 'Other',
         pregnant: isPregnant,
-        symptoms: parsedSymptoms.length > 0 ? parsedSymptoms : (symptomDescription ? [symptomDescription] : []),
+        symptoms: selectedSymptoms,
         severity: Number(severity),
         duration_days: Number(durationDays),
         red_flags: selectedRedFlags,
@@ -471,7 +458,7 @@ function DigitalTriageContent() {
         heart_rate: heartRate ? parseFloat(heartRate) : undefined,
         systolic_bp: systolicBp ? parseFloat(systolicBp) : undefined,
         temperature: temperature ? parseFloat(temperature) : undefined,
-        notes: clinicalNotes || symptomDescription || undefined
+        notes: clinicalNotes || undefined
       };
 
       let result: any = null;
@@ -503,7 +490,7 @@ function DigitalTriageContent() {
         specialty: 'Clinical Triage & Emergency Medicine',
         date: todayStr,
         visit_type: 'Triage Assessment',
-        complaint: symptomDescription || clinicalNotes || 'Triage evaluation',
+        complaint: selectedSymptoms.join(', ') || clinicalNotes || 'Triage evaluation',
         observations: `[Urgency: ${result.urgency_label || urgencyTier}] Reasons: ${(result.reasons || []).join('; ') || 'Standard observations'}`,
         summary: `Triage ${urgencyTier}: ${result.recommended_facility || 'General Facility'}`,
         plan: `Differential: ${(result.potential_conditions || []).join(', ') || 'Under evaluation'}. Actions: ${(result.immediate_actions || []).join(', ')}`,
@@ -548,7 +535,7 @@ function DigitalTriageContent() {
               <span className="material-symbols-outlined text-sm">clinical_notes</span>
               <span>Clinical Protocol • Primary Healthcare Hierarchy</span>
             </div>
-            <h1 className="text-3xl font-extrabold tracking-tight">Smart Clinical Triage & Facility Routing</h1>
+            <h1 className="text-3xl font-extrabold tracking-tight">Smart Clinical Triage &amp; Facility Routing</h1>
           </div>
 
           <div className="flex items-center gap-3">
@@ -577,40 +564,37 @@ function DigitalTriageContent() {
         </div>
       </div>
 
-      {/* Patient Selection & Context Bar */}
-      <div className="space-y-4">
-        <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 bg-white p-4 rounded-3xl border border-surface-container-high shadow-card">
-          <div className="flex items-center gap-3 flex-1">
-            <span className="material-symbols-outlined text-tertiary">search</span>
-            <input
-              type="text"
-              placeholder="Search real patients by Name, ABHA ID, or UUID..."
-              value={patientSearch}
-              onChange={e => setPatientSearch(e.target.value)}
-              className="w-full text-xs font-semibold bg-transparent outline-none text-on-surface"
-            />
+      {/* ========================================================================= */}
+      {/* WORKFLOW VIEW 1: PATIENT SELECTION LIST (When no patient is selected)    */}
+      {/* ========================================================================= */}
+      {!selectedPatient ? (
+        <div className="space-y-6 animate-in fade-in duration-300">
+          {/* Search bar */}
+          <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 bg-white p-4 rounded-3xl border border-surface-container-high shadow-card">
+            <div className="flex items-center gap-3 flex-1">
+              <span className="material-symbols-outlined text-tertiary">search</span>
+              <input
+                type="text"
+                placeholder="Search active patients by Name, ABHA ID, or Token..."
+                value={patientSearch}
+                onChange={e => setPatientSearch(e.target.value)}
+                className="w-full text-xs font-semibold bg-transparent outline-none text-on-surface"
+              />
+            </div>
+            <div className="text-[11px] font-bold text-tertiary px-3">
+              {patients.length} Patients in Outpatient Queue
+            </div>
           </div>
-          {selectedPatient && (
-            <button
-              onClick={() => setSelectedPatient(null)}
-              className="px-3.5 py-1.5 bg-surface-container hover:bg-surface-container-high text-slate-700 text-xs font-bold rounded-xl transition-all flex items-center gap-1 shrink-0"
-            >
-              <span className="material-symbols-outlined text-sm">swap_horiz</span>
-              <span>Switch Patient</span>
-            </button>
-          )}
-        </div>
 
-        {/* If No Patient Selected: Display Clear Selection State */}
-        {!selectedPatient ? (
+          {/* Empty State Banner */}
           <div className="bg-white border border-surface-container-high p-8 rounded-3xl shadow-card space-y-6">
             <div className="text-center max-w-md mx-auto space-y-2">
-              <div className="w-14 h-14 bg-primary/10 rounded-2xl flex items-center justify-center mx-auto text-primary">
-                <span className="material-symbols-outlined text-3xl">person_search</span>
+              <div className="w-16 h-16 rounded-2xl bg-primary/10 text-primary flex items-center justify-center mx-auto mb-2">
+                <span className="material-symbols-outlined text-3xl">stethoscope</span>
               </div>
-              <h3 className="text-lg font-extrabold text-on-surface">Select a Patient to Begin Clinical Triage</h3>
-              <p className="text-xs text-tertiary">
-                Choose a verified patient from the Live Outpatient Queue directory below to pre-populate telemetry vitals and evaluate emergency prioritization tiers.
+              <h3 className="text-xl font-extrabold text-on-surface">Select a Patient to Begin Assessment</h3>
+              <p className="text-xs text-tertiary leading-relaxed">
+                Click on any patient from the live queue below. Clinical Triage will automatically load their real vitals, complaints, and medical history.
               </p>
             </div>
 
@@ -620,12 +604,13 @@ function DigitalTriageContent() {
                 <span>Loading outpatient queue from Supabase...</span>
               </div>
             ) : (
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 pt-2">
                 {patients
                   .filter(p => 
                     !patientSearch ||
                     p.name.toLowerCase().includes(patientSearch.toLowerCase()) ||
                     p.id.toLowerCase().includes(patientSearch.toLowerCase()) ||
+                    (p.tokenNo && p.tokenNo.toLowerCase().includes(patientSearch.toLowerCase())) ||
                     (p.abhaId && p.abhaId.toLowerCase().includes(patientSearch.toLowerCase()))
                   )
                   .map(patient => (
@@ -640,20 +625,33 @@ function DigitalTriageContent() {
                             {patient.name.charAt(0)}
                           </div>
                           <div>
-                            <h4 className="font-extrabold text-sm text-on-surface group-hover:text-primary transition-colors">
-                              {patient.name}
-                            </h4>
-                            <p className="text-[11px] font-mono text-tertiary">ABHA: {patient.abhaId || 'N/A'}</p>
+                            <div className="flex items-center gap-2">
+                              <span className="font-mono text-[11px] font-extrabold text-primary bg-primary/10 px-1.5 py-0.5 rounded">
+                                {patient.tokenNo}
+                              </span>
+                              <h4 className="font-extrabold text-sm text-on-surface group-hover:text-primary transition-colors">
+                                {patient.name}
+                              </h4>
+                            </div>
+                            <p className="text-[11px] font-mono text-tertiary mt-0.5">ABHA: {patient.abhaId || 'N/A'}</p>
                           </div>
                         </div>
-                        <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${
-                          patient.latestStatus === 'In Consultation' ? 'bg-amber-100 text-amber-800' :
-                          patient.latestStatus === 'Completed' ? 'bg-emerald-100 text-emerald-800' :
+                        <span className={`px-2 py-0.5 rounded-full text-[10px] font-black tracking-wider ${
+                          patient.latestStatus === 'IN-CONSULT' ? 'bg-amber-100 text-amber-800' :
+                          patient.latestStatus === 'COMPLETED' ? 'bg-emerald-100 text-emerald-800' :
                           'bg-teal-50 text-teal-800 border border-teal-200'
                         }`}>
-                          {patient.tokenNo} • {patient.latestStatus}
+                          {patient.latestStatus}
                         </span>
                       </div>
+
+                      {/* Chief Complaint if available */}
+                      {patient.complaint && (
+                        <div className="p-2 bg-white rounded-xl border border-surface-container text-xs text-slate-700">
+                          <span className="text-[10px] font-bold text-tertiary block uppercase">Chief Complaint:</span>
+                          <span className="font-medium line-clamp-1">{patient.complaint}</span>
+                        </div>
+                      )}
 
                       <div className="grid grid-cols-3 gap-2 pt-2 border-t border-surface-container-high text-[11px] text-tertiary">
                         <div>
@@ -661,12 +659,18 @@ function DigitalTriageContent() {
                           <span className="font-bold text-slate-800">{patient.age ? `${patient.age}y` : 'N/A'}, {patient.gender}</span>
                         </div>
                         <div>
-                          <span className="block text-[9px] uppercase font-bold">Blood</span>
-                          <span className="font-bold text-red-700">{patient.bloodGroup || 'N/A'}</span>
-                        </div>
-                        <div>
                           <span className="block text-[9px] uppercase font-bold">Consult</span>
                           <span className="font-bold text-slate-800 truncate">{patient.consultType || 'In-Person'}</span>
+                        </div>
+                        <div>
+                          <span className="block text-[9px] uppercase font-bold">Priority</span>
+                          <span className={`font-bold ${
+                            patient.priority === 'EMERGENCY' ? 'text-red-700' :
+                            patient.priority === 'PRIORITY' ? 'text-amber-700' :
+                            'text-slate-800'
+                          }`}>
+                            {patient.priority || 'Standard'}
+                          </span>
                         </div>
                       </div>
                     </div>
@@ -674,26 +678,36 @@ function DigitalTriageContent() {
               </div>
             )}
           </div>
-        ) : (
-          /* Real Patient Header Context Card */
+        </div>
+      ) : (
+        /* ========================================================================= */
+        /* WORKFLOW VIEW 2: ACTIVE PATIENT TRIAGE & ASSESSMENT FORM                 */
+        /* ========================================================================= */
+        <div className="space-y-6 animate-in fade-in duration-300">
+          {/* Patient Header with "← Back to Patients" Control */}
           <div className="bg-gradient-to-r from-teal-900 via-slate-900 to-blue-950 p-6 rounded-3xl text-white shadow-xl flex flex-col md:flex-row md:items-center justify-between gap-6">
             <div className="space-y-1.5">
               <div className="flex flex-wrap items-center gap-2">
+                <button
+                  onClick={handleBackToPatientList}
+                  className="px-3 py-1 bg-white/20 hover:bg-white/30 text-white text-xs font-extrabold rounded-lg flex items-center gap-1 transition-all mr-2"
+                >
+                  <span className="material-symbols-outlined text-sm">arrow_back</span>
+                  <span>Back to Patients</span>
+                </button>
                 <span className="px-2.5 py-0.5 rounded-full bg-teal-400/20 text-teal-300 font-mono text-[10px] font-bold border border-teal-400/30">
-                  PATIENT
+                  ACTIVE PATIENT
                 </span>
-                <span className="text-xs text-slate-400">•</span>
-                <span className="text-xs font-mono text-slate-300">ID: {selectedPatient.id}</span>
                 <span className="text-xs text-slate-400">•</span>
                 <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-teal-500/20 text-teal-200 border border-teal-500/30">
-                  Token: {selectedPatient.tokenNo || 'TKN-001'} • {selectedPatient.consultType || 'Teleconsult'}
+                  {selectedPatient.tokenNo || 'TKN-001'} • {selectedPatient.consultType || 'Teleconsult'}
                 </span>
                 <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${
-                  selectedPatient.latestStatus === 'In Consultation' ? 'bg-amber-400/20 text-amber-300 border border-amber-400/30' :
-                  selectedPatient.latestStatus === 'Completed' ? 'bg-emerald-400/20 text-emerald-300 border border-emerald-400/30' :
+                  selectedPatient.latestStatus === 'IN-CONSULT' ? 'bg-amber-400/20 text-amber-300 border border-amber-400/30' :
+                  selectedPatient.latestStatus === 'COMPLETED' ? 'bg-emerald-400/20 text-emerald-300 border border-emerald-400/30' :
                   'bg-blue-400/20 text-blue-300 border border-blue-400/30'
                 }`}>
-                  Status: {selectedPatient.latestStatus?.toUpperCase() || 'WAITING'}
+                  Status: {selectedPatient.latestStatus}
                 </span>
               </div>
               <h3 className="text-2xl font-black text-white">{selectedPatient.name}</h3>
@@ -709,319 +723,307 @@ function DigitalTriageContent() {
             </div>
 
             <div className="flex items-center gap-2 shrink-0">
-              <button
-                onClick={() => setSelectedPatient(null)}
-                className="px-3.5 py-2 bg-white/10 hover:bg-white/20 text-white font-bold text-xs rounded-xl border border-white/20 transition-all flex items-center gap-1.5"
-              >
-                <span className="material-symbols-outlined text-sm">swap_horiz</span>
-                <span>Switch Patient</span>
-              </button>
               <Link
                 href="/doctor"
                 className="px-4 py-2 bg-teal-600 hover:bg-teal-700 text-white font-bold text-xs rounded-xl transition-all flex items-center gap-1.5"
               >
-                <span className="material-symbols-outlined text-base">arrow_back</span>
+                <span className="material-symbols-outlined text-base">dashboard</span>
                 <span>Doctor Portal</span>
               </Link>
             </div>
           </div>
-        )}
-      </div>
 
-      {/* Red Flag Warning Box */}
-      <div className="bg-red-50 border border-red-200 rounded-2xl p-5 text-red-900 shadow-sm">
-        <div className="flex items-center gap-2.5 mb-2 font-bold text-sm text-red-800">
-          <span className="material-symbols-outlined text-xl text-red-600 animate-pulse">warning</span>
-          <span>Emergency Red-Flag Danger Signs (Instant 108 Ambulance Dispatch Tiers)</span>
-        </div>
-        <p className="text-xs text-red-700 mb-3">
-          If any of the following acute danger signs are present, mark them immediately for highest priority triage:
-        </p>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-2.5">
-          {redFlagList.map((flag, idx) => {
-            const isChecked = selectedRedFlags.includes(flag);
-            return (
-              <button
-                key={idx}
-                type="button"
-                onClick={() => toggleRedFlag(flag)}
-                className={`text-left text-xs p-2.5 rounded-xl border flex items-start gap-2 transition-all ${
-                  isChecked
-                    ? 'bg-red-600 text-white border-red-700 shadow-md font-semibold'
-                    : 'bg-white text-red-900 border-red-200 hover:bg-red-100/60'
-                }`}
-              >
-                <span className="material-symbols-outlined text-base shrink-0 mt-0.5">
-                  {isChecked ? 'check_box' : 'check_box_outline_blank'}
-                </span>
-                <span>{flag}</span>
-              </button>
-            );
-          })}
-        </div>
-      </div>
-
-      {saveSuccessMessage && (
-        <div className="p-4 bg-emerald-50 border border-emerald-300 rounded-2xl flex items-center gap-3 text-xs font-bold text-emerald-900 animate-fadeIn">
-          <span className="material-symbols-outlined text-emerald-600 text-lg">check_circle</span>
-          <span>{saveSuccessMessage}</span>
-        </div>
-      )}
-
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
-        {/* Form Input Column (7 cols) */}
-        <form onSubmit={handleRunTriage} className="lg:col-span-7 space-y-6">
-          {/* Symptoms Description Compartment */}
-          <div className="bg-white rounded-3xl p-6 border border-surface-container-high shadow-card space-y-4">
-            <div className="flex items-center justify-between border-b border-surface-container-high pb-4">
-              <div>
-                <h2 className="font-bold text-base text-on-surface flex items-center gap-2">
-                  <span className="material-symbols-outlined text-primary">description</span>
-                  <span>Primary Symptoms & Chief Complaints</span>
-                </h2>
-                <p className="text-xs text-tertiary mt-0.5">
-                  Enter detailed patient-reported symptoms, onset description, and clinical complaints
-                </p>
-              </div>
-              {symptomDescription.trim() && (
-                <button
-                  type="button"
-                  onClick={() => setSymptomDescription('')}
-                  className="text-xs font-semibold text-rose-600 hover:text-rose-700 flex items-center gap-1 transition-colors"
-                >
-                  <span className="material-symbols-outlined text-sm">close</span>
-                  <span>Clear text</span>
-                </button>
-              )}
+          {/* Red Flag Warning Box */}
+          <div className="bg-red-50 border border-red-200 rounded-2xl p-5 text-red-900 shadow-sm">
+            <div className="flex items-center gap-2.5 mb-2 font-bold text-sm text-red-800">
+              <span className="material-symbols-outlined text-xl text-red-600 animate-pulse">warning</span>
+              <span>Emergency Red-Flag Danger Signs (Instant 108 Ambulance Dispatch Tiers)</span>
             </div>
-
-            {/* Free-text Description Input */}
-            <div className="relative">
-              <textarea
-                value={symptomDescription}
-                onChange={(e) => setSymptomDescription(e.target.value)}
-                placeholder="Type the patient's symptoms here in detail...&#10;&#10;Examples:&#10;• Severe continuous dry cough for 3 weeks, chest pain while breathing, fever with chills&#10;• Acute watery diarrhea 5 times since morning, vomiting, severe abdominal cramping&#10;• Shortness of breath on mild walking, dizziness, ankle swelling"
-                rows={6}
-                className="w-full p-4 bg-surface-container-low rounded-2xl text-xs font-medium text-on-surface border border-surface-container-high outline-none focus:border-primary focus:ring-2 focus:ring-primary/20 transition-all resize-y leading-relaxed"
-              />
-              <div className="flex justify-between items-center text-[11px] text-tertiary mt-1 px-1">
-                <span>Clinical Observation Narrative</span>
-                <span>{symptomDescription.length} characters • {symptomDescription.trim() ? symptomDescription.trim().split(/\s+/).length : 0} words</span>
-              </div>
-            </div>
-
-            {/* Quick Suggestion Chips */}
-            <div className="pt-2 border-t border-surface-container-high/60">
-              <div className="flex items-center gap-1.5 text-xs font-semibold text-tertiary mb-2.5">
-                <span className="material-symbols-outlined text-sm text-primary">touch_app</span>
-                <span>Quick Add Common Clinical Keywords:</span>
-              </div>
-              <div className="flex flex-wrap gap-1.5">
-                {commonSymptomChips.map((chip, idx) => (
+            <p className="text-xs text-red-700 mb-3">
+              If any of the following acute danger signs are present, mark them immediately for highest priority triage:
+            </p>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-2.5">
+              {redFlagList.map((flag, idx) => {
+                const isChecked = selectedRedFlags.includes(flag);
+                return (
                   <button
                     key={idx}
                     type="button"
-                    onClick={() => appendSymptomTag(chip)}
-                    className="text-[11px] font-semibold px-2.5 py-1 rounded-lg bg-surface-container-low hover:bg-primary/10 hover:text-primary hover:border-primary border border-surface-container-high/80 text-on-surface transition-all flex items-center gap-1"
+                    onClick={() => toggleRedFlag(flag)}
+                    className={`text-left text-xs p-2.5 rounded-xl border flex items-start gap-2 transition-all ${
+                      isChecked
+                        ? 'bg-red-600 text-white border-red-700 shadow-md font-semibold'
+                        : 'bg-white text-red-900 border-red-200 hover:bg-red-100/60'
+                    }`}
                   >
-                    <span className="material-symbols-outlined text-[13px] opacity-70">add</span>
-                    <span>{chip}</span>
+                    <span className="material-symbols-outlined text-base shrink-0 mt-0.5">
+                      {isChecked ? 'check_box' : 'check_box_outline_blank'}
+                    </span>
+                    <span>{flag}</span>
                   </button>
-                ))}
-              </div>
+                );
+              })}
             </div>
           </div>
 
-          {/* Vitals, Severity & Duration */}
-          <div className="bg-white rounded-3xl p-6 border border-surface-container-high shadow-card space-y-5">
-            <h2 className="font-bold text-base text-on-surface flex items-center gap-2 border-b border-surface-container-high pb-4">
-              <span className="material-symbols-outlined text-primary">vital_signs</span>
-              <span>Clinical Severity & Objective Telemetry</span>
-            </h2>
-
-            {/* Severity Slider */}
-            <div>
-              <div className="flex justify-between items-center text-xs mb-2">
-                <span className="font-semibold text-on-surface-variant">Symptom Severity / Distress Score: <strong>{severity} / 10</strong></span>
-                <span className={`font-bold px-2 py-0.5 rounded text-[11px] ${
-                  severity >= 7 ? 'bg-red-100 text-red-700' : severity >= 4 ? 'bg-amber-100 text-amber-800' : 'bg-emerald-100 text-emerald-800'
-                }`}>
-                  {severity >= 8 ? 'Critical Distress' : severity >= 6 ? 'Severe Pain / Discomfort' : severity >= 4 ? 'Moderate' : 'Mild'}
-                </span>
-              </div>
-              <input
-                type="range"
-                min="1"
-                max="10"
-                value={severity}
-                onChange={(e) => setSeverity(parseInt(e.target.value))}
-                className="w-full accent-primary h-2 bg-surface-container rounded-lg cursor-pointer"
-              />
+          {saveSuccessMessage && (
+            <div className="p-4 bg-emerald-50 border border-emerald-300 rounded-2xl flex items-center gap-3 text-xs font-bold text-emerald-900 animate-fadeIn">
+              <span className="material-symbols-outlined text-emerald-600 text-lg">check_circle</span>
+              <span>{saveSuccessMessage}</span>
             </div>
+          )}
 
-            {/* Age, Duration, Pregnant */}
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-              <div>
-                <label className="block text-xs font-semibold text-tertiary mb-1">Patient Age</label>
-                <input
-                  type="number"
-                  placeholder="Not recorded"
-                  value={patientAge}
-                  onChange={(e) => setPatientAge(e.target.value ? parseInt(e.target.value) : '')}
-                  className="w-full p-2.5 bg-surface-container-low rounded-xl text-xs font-bold text-on-surface border border-surface-container-high outline-none focus:border-primary"
-                />
-              </div>
-              <div>
-                <label className="block text-xs font-semibold text-tertiary mb-1">Duration (Days)</label>
-                <input
-                  type="number"
-                  value={durationDays}
-                  onChange={(e) => setDurationDays(parseInt(e.target.value) || 1)}
-                  className="w-full p-2.5 bg-surface-container-low rounded-xl text-xs font-bold text-on-surface border border-surface-container-high outline-none focus:border-primary"
-                />
-              </div>
-              <div className="flex flex-col justify-end">
-                <label className="flex items-center gap-2 p-2.5 bg-surface-container-low rounded-xl border border-surface-container-high cursor-pointer">
-                  <input
-                    type="checkbox"
-                    checked={isPregnant}
-                    onChange={(e) => setIsPregnant(e.target.checked)}
-                    className="accent-primary w-4 h-4 rounded"
-                  />
-                  <span className="text-xs font-semibold text-on-surface">Pregnant Patient</span>
-                </label>
-              </div>
-            </div>
-
-            {/* Vitals Telemetry Inputs */}
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 pt-2">
-              <div>
-                <label className="block text-[11px] font-semibold text-tertiary mb-1">SpO2 Oxygen (%)</label>
-                <input
-                  type="number"
-                  placeholder="Not recorded"
-                  value={spo2}
-                  onChange={(e) => setSpo2(e.target.value)}
-                  className="w-full p-2.5 bg-surface-container-low rounded-xl text-xs font-bold text-on-surface border border-surface-container-high outline-none focus:border-primary"
-                />
-              </div>
-              <div>
-                <label className="block text-[11px] font-semibold text-tertiary mb-1">Heart Rate (BPM)</label>
-                <input
-                  type="number"
-                  placeholder="Not recorded"
-                  value={heartRate}
-                  onChange={(e) => setHeartRate(e.target.value)}
-                  className="w-full p-2.5 bg-surface-container-low rounded-xl text-xs font-bold text-on-surface border border-surface-container-high outline-none focus:border-primary"
-                />
-              </div>
-              <div>
-                <label className="block text-[11px] font-semibold text-tertiary mb-1">Systolic BP (mmHg)</label>
-                <input
-                  type="number"
-                  placeholder="Not recorded"
-                  value={systolicBp}
-                  onChange={(e) => setSystolicBp(e.target.value)}
-                  className="w-full p-2.5 bg-surface-container-low rounded-xl text-xs font-bold text-on-surface border border-surface-container-high outline-none focus:border-primary"
-                />
-              </div>
-              <div>
-                <label className="block text-[11px] font-semibold text-tertiary mb-1">Temp (°C / °F)</label>
-                <input
-                  type="text"
-                  placeholder="Not recorded"
-                  value={temperature}
-                  onChange={(e) => setTemperature(e.target.value)}
-                  className="w-full p-2.5 bg-surface-container-low rounded-xl text-xs font-bold text-on-surface border border-surface-container-high outline-none focus:border-primary"
-                />
-              </div>
-            </div>
-
-            {/* Clinical Notes */}
-            <div>
-              <label className="block text-[11px] font-semibold text-tertiary mb-1">Reported Complaint / Triage Notes</label>
-              <textarea
-                rows={2}
-                placeholder="Additional patient statements or triage observations..."
-                value={clinicalNotes}
-                onChange={(e) => setClinicalNotes(e.target.value)}
-                className="w-full p-2.5 bg-surface-container-low rounded-xl text-xs font-semibold text-on-surface border border-surface-container-high outline-none focus:border-primary"
-              />
-            </div>
-
-            <button
-              type="submit"
-              disabled={evaluating}
-              className="w-full py-4 bg-primary hover:bg-primary/90 text-white font-bold text-sm rounded-2xl shadow-lg transition-transform active:scale-[0.99] flex items-center justify-center gap-2 disabled:opacity-50"
-            >
-              {evaluating ? (
-                <>
-                  <span className="material-symbols-outlined animate-spin text-lg">refresh</span>
-                  <span>Evaluating Clinical Triage Algorithm...</span>
-                </>
-              ) : (
-                <>
-                  <span className="material-symbols-outlined text-lg">ecg_heart</span>
-                  <span>Run Clinical Triage Assessment</span>
-                </>
-              )}
-            </button>
-          </div>
-        </form>
-
-        {/* Triage Results Column (5 cols) */}
-        <div className="lg:col-span-5 space-y-6">
-          {triageResult ? (
-            <div className="bg-white rounded-3xl p-6 border border-surface-container-high shadow-xl space-y-6 animate-in fade-in duration-300">
-              {/* Urgency Badge Header */}
-              <div className={`p-5 rounded-2xl flex items-center gap-4 ${
-                triageResult.urgency === 'RED'
-                  ? 'bg-red-600 text-white'
-                  : triageResult.urgency === 'YELLOW'
-                  ? 'bg-amber-500 text-white'
-                  : 'bg-emerald-600 text-white'
-              }`}>
-                <div className="w-12 h-12 rounded-xl bg-white/20 backdrop-blur flex items-center justify-center shrink-0">
-                  <span className="material-symbols-outlined text-2xl">
-                    {triageResult.urgency === 'RED' ? 'e911_emergency' : triageResult.urgency === 'YELLOW' ? 'warning' : 'health_and_safety'}
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
+            {/* Form Input Column (7 cols) */}
+            <form onSubmit={handleRunTriage} className="lg:col-span-7 space-y-6">
+              {/* Symptoms Selection by Category */}
+              <div className="bg-white rounded-3xl p-6 border border-surface-container-high shadow-card space-y-5">
+                <div className="flex items-center justify-between border-b border-surface-container-high pb-4">
+                  <div>
+                    <h2 className="font-bold text-base text-on-surface flex items-center gap-2">
+                      <span className="material-symbols-outlined text-primary">symptoms</span>
+                      <span>Primary Symptoms Present</span>
+                    </h2>
+                    <p className="text-xs text-tertiary mt-0.5">Select all chief complaints reported by patient / ASHA worker</p>
+                  </div>
+                  <span className="text-xs font-bold px-2.5 py-1 bg-primary/10 text-primary rounded-full">
+                    {selectedSymptoms.length} selected
                   </span>
                 </div>
-                <div>
-                  <span className="text-[11px] font-bold uppercase tracking-wider opacity-90 block">Triage Classification</span>
-                  <h3 className="text-lg font-black">{triageResult.urgency_label}</h3>
+
+                {/* Category Filter Tabs */}
+                <div className="flex flex-wrap gap-1.5 pb-2">
+                  {Object.keys(categories).map((cat) => (
+                    <button
+                      key={cat}
+                      type="button"
+                      onClick={() => setActiveTab(cat)}
+                      className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all ${
+                        activeTab === cat
+                          ? 'bg-primary text-white shadow-sm'
+                          : 'bg-surface-container-low text-tertiary hover:bg-surface-container'
+                      }`}
+                    >
+                      {cat}
+                    </button>
+                  ))}
+                </div>
+
+                {/* Symptoms in active category */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                  {(categories[activeTab] || []).map((symptom) => {
+                    const selected = selectedSymptoms.includes(symptom);
+                    return (
+                      <button
+                        key={symptom}
+                        type="button"
+                        onClick={() => toggleSymptom(symptom)}
+                        className={`p-3 rounded-2xl text-left text-xs font-medium border flex items-center justify-between transition-all ${
+                          selected
+                            ? 'bg-primary/10 border-primary text-primary font-bold shadow-sm'
+                            : 'bg-surface-container-low border-transparent text-on-surface hover:bg-surface-container'
+                        }`}
+                      >
+                        <span>{symptom}</span>
+                        <span className="material-symbols-outlined text-base">
+                          {selected ? 'check_circle' : 'add_circle'}
+                        </span>
+                      </button>
+                    );
+                  })}
                 </div>
               </div>
 
-              {/* Triage Decision Reasons */}
-              {triageResult.reasons && triageResult.reasons.length > 0 && (
-                <div className="p-4 bg-surface-container-low rounded-2xl border border-surface-container space-y-2">
-                  <span className="text-[11px] font-bold text-tertiary uppercase tracking-wider block">Clinical Rationale &amp; Risk Factors</span>
-                  <ul className="space-y-1 text-xs font-semibold text-on-surface">
-                    {triageResult.reasons.map((r: string, idx: number) => (
-                      <li key={idx} className="flex items-start gap-1.5">
-                        <span className="text-primary font-bold">•</span>
-                        <span>{r}</span>
-                      </li>
-                    ))}
-                  </ul>
-                </div>
-              )}
+              {/* Vitals, Severity & Duration */}
+              <div className="bg-white rounded-3xl p-6 border border-surface-container-high shadow-card space-y-5">
+                <h2 className="font-bold text-base text-on-surface flex items-center gap-2 border-b border-surface-container-high pb-4">
+                  <span className="material-symbols-outlined text-primary">vital_signs</span>
+                  <span>Clinical Severity &amp; Objective Telemetry</span>
+                </h2>
 
-              {/* Recommended Facility */}
-              <div className="bg-surface-container-low p-4 rounded-2xl border border-surface-container">
-                <span className="text-[11px] font-bold text-tertiary uppercase tracking-wider block">Recommended Care Facility</span>
-                <p className="text-sm font-extrabold text-on-surface mt-1 flex items-center gap-1.5">
-                  <span className="material-symbols-outlined text-primary text-lg">apartment</span>
-                  <span>{triageResult.recommended_facility}</span>
-                </p>
-              </div>
-
-              {/* Potential Diagnoses */}
-              {triageResult.potential_conditions && triageResult.potential_conditions.length > 0 && (
+                {/* Severity Slider */}
                 <div>
-                  <h4 className="text-xs font-bold uppercase tracking-wider text-tertiary mb-2">Differential Indications</h4>
-                  <div className="flex flex-wrap gap-1.5">
-                    {triageResult.potential_conditions.map((cond: string, idx: number) => (
+                  <div className="flex justify-between items-center text-xs mb-2">
+                    <span className="font-semibold text-on-surface-variant">Symptom Severity / Distress Score: <strong>{severity} / 10</strong></span>
+                    <span className={`font-bold px-2 py-0.5 rounded text-[11px] ${
+                      severity >= 7 ? 'bg-red-100 text-red-700' : severity >= 4 ? 'bg-amber-100 text-amber-800' : 'bg-emerald-100 text-emerald-800'
+                    }`}>
+                      {severity >= 8 ? 'Critical Distress' : severity >= 6 ? 'Severe Pain / Discomfort' : severity >= 4 ? 'Moderate' : 'Mild'}
+                    </span>
+                  </div>
+                  <input
+                    type="range"
+                    min="1"
+                    max="10"
+                    value={severity}
+                    onChange={(e) => setSeverity(parseInt(e.target.value))}
+                    className="w-full accent-primary h-2 bg-surface-container rounded-lg cursor-pointer"
+                  />
+                </div>
+
+                {/* Age, Duration, Pregnant */}
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                  <div>
+                    <label className="block text-xs font-semibold text-tertiary mb-1">Patient Age</label>
+                    <input
+                      type="number"
+                      placeholder="Not recorded"
+                      value={patientAge}
+                      onChange={(e) => setPatientAge(e.target.value ? parseInt(e.target.value) : '')}
+                      className="w-full p-2.5 bg-surface-container-low rounded-xl text-xs font-bold text-on-surface border border-surface-container-high outline-none focus:border-primary"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-semibold text-tertiary mb-1">Duration (Days)</label>
+                    <input
+                      type="number"
+                      value={durationDays}
+                      onChange={(e) => setDurationDays(parseInt(e.target.value) || 1)}
+                      className="w-full p-2.5 bg-surface-container-low rounded-xl text-xs font-bold text-on-surface border border-surface-container-high outline-none focus:border-primary"
+                    />
+                  </div>
+                  <div className="flex flex-col justify-end">
+                    <label className="flex items-center gap-2 p-2.5 bg-surface-container-low rounded-xl border border-surface-container-high cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={isPregnant}
+                        onChange={(e) => setIsPregnant(e.target.checked)}
+                        className="accent-primary w-4 h-4 rounded"
+                      />
+                      <span className="text-xs font-semibold text-on-surface">Pregnant Patient</span>
+                    </label>
+                  </div>
+                </div>
+
+                {/* Vitals Telemetry Inputs */}
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 pt-2">
+                  <div>
+                    <label className="block text-[11px] font-semibold text-tertiary mb-1">SpO2 Oxygen (%)</label>
+                    <input
+                      type="number"
+                      placeholder="Not recorded"
+                      value={spo2}
+                      onChange={(e) => setSpo2(e.target.value)}
+                      className="w-full p-2.5 bg-surface-container-low rounded-xl text-xs font-bold text-on-surface border border-surface-container-high outline-none focus:border-primary"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-[11px] font-semibold text-tertiary mb-1">Heart Rate (BPM)</label>
+                    <input
+                      type="number"
+                      placeholder="Not recorded"
+                      value={heartRate}
+                      onChange={(e) => setHeartRate(e.target.value)}
+                      className="w-full p-2.5 bg-surface-container-low rounded-xl text-xs font-bold text-on-surface border border-surface-container-high outline-none focus:border-primary"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-[11px] font-semibold text-tertiary mb-1">Systolic BP (mmHg)</label>
+                    <input
+                      type="number"
+                      placeholder="Not recorded"
+                      value={systolicBp}
+                      onChange={(e) => setSystolicBp(e.target.value)}
+                      className="w-full p-2.5 bg-surface-container-low rounded-xl text-xs font-bold text-on-surface border border-surface-container-high outline-none focus:border-primary"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-[11px] font-semibold text-tertiary mb-1">Temp (°C / °F)</label>
+                    <input
+                      type="text"
+                      placeholder="Not recorded"
+                      value={temperature}
+                      onChange={(e) => setTemperature(e.target.value)}
+                      className="w-full p-2.5 bg-surface-container-low rounded-xl text-xs font-bold text-on-surface border border-surface-container-high outline-none focus:border-primary"
+                    />
+                  </div>
+                </div>
+
+                {/* Clinical Notes */}
+                <div>
+                  <label className="block text-[11px] font-semibold text-tertiary mb-1">Reported Complaint / Triage Notes</label>
+                  <textarea
+                    rows={2}
+                    placeholder="Additional patient statements or triage observations..."
+                    value={clinicalNotes}
+                    onChange={(e) => setClinicalNotes(e.target.value)}
+                    className="w-full p-2.5 bg-surface-container-low rounded-xl text-xs font-semibold text-on-surface border border-surface-container-high outline-none focus:border-primary"
+                  />
+                </div>
+
+                <button
+                  type="submit"
+                  disabled={evaluating}
+                  className="w-full py-4 bg-primary hover:bg-primary/90 text-white font-bold text-sm rounded-2xl shadow-lg transition-transform active:scale-[0.99] flex items-center justify-center gap-2 disabled:opacity-50"
+                >
+                  {evaluating ? (
+                    <>
+                      <span className="material-symbols-outlined animate-spin text-lg">refresh</span>
+                      <span>Evaluating Clinical Triage Algorithm...</span>
+                    </>
+                  ) : (
+                    <>
+                      <span className="material-symbols-outlined text-lg">ecg_heart</span>
+                      <span>Run Clinical Triage Assessment</span>
+                    </>
+                  )}
+                </button>
+              </div>
+            </form>
+
+            {/* Triage Results Column (5 cols) */}
+            <div className="lg:col-span-5 space-y-6">
+              {triageResult ? (
+                <div className="bg-white rounded-3xl p-6 border border-surface-container-high shadow-xl space-y-6 animate-in fade-in duration-300">
+                  {/* Urgency Badge Header */}
+                  <div className={`p-5 rounded-2xl flex items-center gap-4 ${
+                    triageResult.urgency === 'RED'
+                      ? 'bg-red-600 text-white'
+                      : triageResult.urgency === 'YELLOW'
+                      ? 'bg-amber-500 text-white'
+                      : 'bg-emerald-600 text-white'
+                  }`}>
+                    <div className="w-12 h-12 rounded-xl bg-white/20 backdrop-blur flex items-center justify-center shrink-0">
+                      <span className="material-symbols-outlined text-2xl">
+                        {triageResult.urgency === 'RED' ? 'e911_emergency' : triageResult.urgency === 'YELLOW' ? 'warning' : 'health_and_safety'}
+                      </span>
+                    </div>
+                    <div>
+                      <span className="text-[11px] font-bold uppercase tracking-wider opacity-90 block">Triage Classification</span>
+                      <h3 className="text-lg font-black">{triageResult.urgency_label}</h3>
+                    </div>
+                  </div>
+
+                  {/* Triage Decision Reasons */}
+                  {triageResult.reasons && triageResult.reasons.length > 0 && (
+                    <div className="p-4 bg-surface-container-low rounded-2xl border border-surface-container space-y-2">
+                      <span className="text-[11px] font-bold text-tertiary uppercase tracking-wider block">Clinical Rationale &amp; Risk Factors</span>
+                      <ul className="space-y-1 text-xs font-semibold text-on-surface">
+                        {triageResult.reasons.map((r: string, idx: number) => (
+                          <li key={idx} className="flex items-start gap-1.5">
+                            <span className="text-primary font-bold">•</span>
+                            <span>{r}</span>
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
+
+                  {/* Recommended Facility */}
+                  <div className="bg-surface-container-low p-4 rounded-2xl border border-surface-container">
+                    <span className="text-[11px] font-bold text-tertiary uppercase tracking-wider block">Recommended Care Facility</span>
+                    <p className="text-sm font-extrabold text-on-surface mt-1 flex items-center gap-1.5">
+                      <span className="material-symbols-outlined text-primary text-lg">apartment</span>
+                      <span>{triageResult.recommended_facility}</span>
+                    </p>
+                  </div>
+
+                  {/* Potential Diagnoses */}
+                  {triageResult.potential_conditions && triageResult.potential_conditions.length > 0 && (
+                    <div>
+                      <h4 className="text-xs font-bold uppercase tracking-wider text-tertiary mb-2">Differential Indications</h4>
+                      <div className="flex flex-wrap gap-1.5">
+                        {triageResult.potential_conditions.map((cond: string, idx: number) => (
                       <span key={idx} className="text-xs font-bold px-3 py-1 bg-primary/10 text-primary rounded-xl">
                         {cond}
                       </span>
@@ -1088,15 +1090,13 @@ function DigitalTriageContent() {
               </div>
               <h3 className="text-base font-bold text-on-surface">Triage Assessment Ready</h3>
               <p className="text-xs text-tertiary mt-1.5 max-w-xs leading-relaxed">
-                {selectedPatient
-                  ? `Select symptoms and verify telemetry vitals for ${selectedPatient.name}, then click Run Clinical Triage.`
-                  : 'Select a patient from the outpatient queue above to run an evidence-based clinical triage assessment.'}
+                Select symptoms and verify telemetry vitals for <strong>{selectedPatient.name}</strong>, then click <strong>Run Clinical Triage Assessment</strong>.
               </p>
             </div>
           )}
 
           {/* Previous Triage Assessments for this Patient */}
-          {selectedPatient && triageHistory.length > 0 && (
+          {triageHistory.length > 0 && (
             <div className="bg-white rounded-3xl p-6 border border-surface-container-high shadow-card space-y-4">
               <div className="flex items-center justify-between border-b border-surface-container-high pb-3">
                 <h4 className="text-xs font-bold uppercase tracking-wider text-on-surface flex items-center gap-2">
