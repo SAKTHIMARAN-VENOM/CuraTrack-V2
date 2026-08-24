@@ -1127,7 +1127,9 @@ function DigitalTriageContent() {
         </div>
       </div>
     </div>
-  );
+  )}
+</div>
+);
 }
 
 export default function DigitalTriagePage() {
