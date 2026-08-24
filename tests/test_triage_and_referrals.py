@@ -142,3 +142,19 @@ def test_referral_lifecycle_status_update(client):
     assert complete_res.status_code == 200
     assert complete_res.json()["referral"]["status"] == "COMPLETED"
     assert len(complete_res.json()["referral"]["timeline"]) >= 4
+
+
+def test_referral_history_filter_completed_exclusion(client):
+    """Verify default/ALL listing excludes COMPLETED referrals, while COMPLETED/HISTORY filter returns them."""
+    # Active pipeline (ALL or default)
+    active_res = client.get("/api/referrals")
+    assert active_res.status_code == 200
+    active_data = active_res.json()
+    assert all(r["status"] != "COMPLETED" for r in active_data["referrals"])
+
+    # Completed history filter
+    history_res = client.get("/api/referrals?status=COMPLETED")
+    assert history_res.status_code == 200
+    history_data = history_res.json()
+    assert history_data["count"] > 0
+    assert all(r["status"] == "COMPLETED" for r in history_data["referrals"])

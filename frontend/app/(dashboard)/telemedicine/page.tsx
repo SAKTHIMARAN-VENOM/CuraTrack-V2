@@ -558,9 +558,6 @@ export default function TelemedicinePage() {
                 <h2 className="font-headline text-2xl font-extrabold tracking-tight text-on-surface">
                   Incoming Call Requests
                 </h2>
-                <p className="text-tertiary mt-1">
-                  Join an active room the moment a patient reaches out.
-                </p>
               </div>
               <div className="px-4 py-2 rounded-2xl bg-surface-container-low text-sm font-bold text-on-surface-variant">
                 {activeRequests} active consultation{activeRequests === 1 ? '' : 's'}
@@ -691,9 +688,6 @@ export default function TelemedicinePage() {
                 <h2 className="mt-2 font-headline text-2xl font-extrabold text-on-surface">
                   Your Scheduled & Active Consultations
                 </h2>
-                <p className="text-sm text-tertiary mt-1">
-                  Join your virtual room when your appointment time arrives.
-                </p>
               </div>
               {patientAppointments.length > 0 && (
                 <div className="flex items-center gap-3">
@@ -795,9 +789,6 @@ export default function TelemedicinePage() {
               <h2 className="font-headline text-2xl lg:text-3xl font-extrabold tracking-tight text-on-surface">
                 Available Specialists
               </h2>
-              <p className="text-tertiary mt-1">
-                Choose a doctor and move directly into a secure consultation room.
-              </p>
             </div>
             <div className="flex items-center gap-2 px-4 py-2 rounded-2xl bg-surface-container-low text-sm font-bold text-on-surface-variant w-fit">
               <span className="material-symbols-outlined text-base text-secondary">bolt</span>
@@ -870,20 +861,6 @@ export default function TelemedicinePage() {
                         <div className="rounded-2xl bg-surface-container-low p-4">
                           <p className="text-[11px] font-bold uppercase tracking-widest text-tertiary mb-1">Wait Time</p>
                           <p className="text-sm font-bold text-on-surface">Approx. 15 min</p>
-                        </div>
-                      </div>
-
-                      <div className="rounded-[2rem] bg-surface-container-low p-6 mb-8 border border-outline-variant/10">
-                        <div className="flex items-start gap-4">
-                          <div className="w-11 h-11 rounded-2xl bg-white flex items-center justify-center shrink-0 shadow-sm">
-                            <span className="material-symbols-outlined text-secondary">encrypted</span>
-                          </div>
-                          <div>
-                            <p className="font-bold text-on-surface">Secure Session</p>
-                            <p className="text-xs text-tertiary leading-relaxed">
-                              One tap starts a protected consultation session and opens the call room immediately.
-                            </p>
-                          </div>
                         </div>
                       </div>
 

@@ -3,6 +3,23 @@
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { apiFetch } from '@/lib/api';
+import AnimatedSelect, { SelectOption } from '@/components/ui/AnimatedSelect';
+
+const STATUS_OPTIONS: SelectOption[] = [
+    { value: 'ALL', label: 'All Active Referrals', icon: 'alt_route', badge: 'Active', badgeColor: 'bg-primary/10 text-primary' },
+    { value: 'CREATED', label: '1. Created', icon: 'schedule', badge: 'New', badgeColor: 'bg-blue-100 text-blue-700' },
+    { value: 'ACCEPTED', label: '2. Accepted', icon: 'check_circle', badge: 'Accepted', badgeColor: 'bg-purple-100 text-purple-700' },
+    { value: 'IN_TRANSIT', label: '3. In Transit (108)', icon: 'ambulance', badge: 'Transit', badgeColor: 'bg-amber-100 text-amber-800' },
+    { value: 'CONSULTED', label: '4. Consulted', icon: 'medical_services', badge: 'In Clinic', badgeColor: 'bg-teal-100 text-teal-700' },
+    { value: 'COMPLETED', label: '5. History & Completed', icon: 'history', badge: 'History', badgeColor: 'bg-emerald-100 text-emerald-700' },
+];
+
+const URGENCY_OPTIONS: SelectOption[] = [
+    { value: 'ALL', label: 'All Urgency Levels', icon: 'tune' },
+    { value: 'EMERGENCY', label: 'Emergency (Immediate)', icon: 'emergency', badge: 'Critical', badgeColor: 'bg-red-100 text-red-700' },
+    { value: 'URGENT', label: 'Urgent (< 24 hrs)', icon: 'warning', badge: 'Urgent', badgeColor: 'bg-amber-100 text-amber-800' },
+    { value: 'ROUTINE', label: 'Routine Elective', icon: 'check_circle', badge: 'Routine', badgeColor: 'bg-emerald-100 text-emerald-800' },
+];
 
 export default function ReferralPipelinePage() {
     const [referrals, setReferrals] = useState<any[]>([]);
@@ -190,42 +207,22 @@ export default function ReferralPipelinePage() {
                     </div>
 
                     {/* Status Dropdown */}
-                    <div className="relative min-w-[190px]">
-                        <select
-                            id="referral-status-filter"
-                            value={filterStatus}
-                            onChange={(e) => setFilterStatus(e.target.value)}
-                            className="w-full appearance-none bg-surface-container-low border border-surface-container-high text-on-surface text-xs font-bold rounded-xl px-3.5 py-2.5 pr-8 outline-none focus:border-primary focus:ring-1 focus:ring-primary transition-all cursor-pointer"
-                        >
-                            <option value="ALL">All Statuses</option>
-                            <option value="CREATED">Created</option>
-                            <option value="ACCEPTED">Accepted</option>
-                            <option value="IN_TRANSIT">In Transit</option>
-                            <option value="CONSULTED">Consulted</option>
-                            <option value="COMPLETED">Completed</option>
-                        </select>
-                        <span className="material-symbols-outlined absolute right-2.5 top-1/2 -translate-y-1/2 text-tertiary pointer-events-none text-base">
-                            expand_more
-                        </span>
-                    </div>
+                    <AnimatedSelect
+                        id="referral-status-filter"
+                        value={filterStatus}
+                        onChange={(val) => setFilterStatus(val)}
+                        options={STATUS_OPTIONS}
+                        minWidth="min-w-[210px]"
+                    />
 
                     {/* Urgency Dropdown */}
-                    <div className="relative min-w-[170px]">
-                        <select
-                            id="referral-urgency-filter"
-                            value={filterUrgency}
-                            onChange={(e) => setFilterUrgency(e.target.value)}
-                            className="w-full appearance-none bg-surface-container-low border border-surface-container-high text-on-surface text-xs font-bold rounded-xl px-3.5 py-2.5 pr-8 outline-none focus:border-primary focus:ring-1 focus:ring-primary transition-all cursor-pointer"
-                        >
-                            <option value="ALL">All Urgency Levels</option>
-                            <option value="EMERGENCY">Emergency</option>
-                            <option value="URGENT">Urgent</option>
-                            <option value="ROUTINE">Routine</option>
-                        </select>
-                        <span className="material-symbols-outlined absolute right-2.5 top-1/2 -translate-y-1/2 text-tertiary pointer-events-none text-base">
-                            expand_more
-                        </span>
-                    </div>
+                    <AnimatedSelect
+                        id="referral-urgency-filter"
+                        value={filterUrgency}
+                        onChange={(val) => setFilterUrgency(val)}
+                        options={URGENCY_OPTIONS}
+                        minWidth="min-w-[190px]"
+                    />
                 </div>
 
                 {(filterStatus !== 'ALL' || filterUrgency !== 'ALL') && (
@@ -234,7 +231,7 @@ export default function ReferralPipelinePage() {
                             setFilterStatus('ALL');
                             setFilterUrgency('ALL');
                         }}
-                        className="text-xs font-bold text-primary hover:text-primary/70 flex items-center gap-1 self-start sm:self-auto transition-colors"
+                        className="text-xs font-bold text-primary hover:text-primary/70 flex items-center gap-1 self-start sm:self-auto transition-colors cursor-pointer"
                     >
                         <span className="material-symbols-outlined text-sm">restart_alt</span>
                         <span>Reset Filters</span>
@@ -285,46 +282,45 @@ export default function ReferralPipelinePage() {
                                     </p>
                                 </div>
 
-                                {/* Facility Transition Path */}
-                                <div className="p-3 bg-surface-container-low rounded-2xl flex flex-col sm:flex-row sm:items-center gap-3 text-xs">
-                                    <div className="flex items-center gap-2">
-                                        <span className="material-symbols-outlined text-primary text-base">domain</span>
-                                        <div>
-                                            <span className="text-[10px] text-tertiary block">From Facility</span>
-                                            <span className="font-bold text-on-surface">{ref.referring_facility_name}</span>
+                                {/* Facility Transition Path & Embedded Audit Timeline */}
+                                <div className="p-3.5 bg-surface-container-low rounded-2xl flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs border border-surface-container/60">
+                                    <div className="flex flex-wrap items-center gap-3">
+                                        <div className="flex items-center gap-2">
+                                            <span className="material-symbols-outlined text-primary text-base">domain</span>
+                                            <div>
+                                                <span className="text-[10px] text-tertiary block font-medium">From Facility</span>
+                                                <span className="font-bold text-on-surface">{ref.referring_facility_name}</span>
+                                            </div>
+                                        </div>
+                                        <span className="material-symbols-outlined text-tertiary hidden sm:inline">arrow_forward</span>
+                                        <div className="flex items-center gap-2">
+                                            <span className="material-symbols-outlined text-teal-600 text-base">local_hospital</span>
+                                            <div>
+                                                <span className="text-[10px] text-tertiary block font-medium">Destination</span>
+                                                <span className="font-bold text-teal-800">{ref.destination_facility_name}</span>
+                                            </div>
                                         </div>
                                     </div>
-                                    <span className="material-symbols-outlined text-tertiary hidden sm:inline">arrow_forward</span>
-                                    <div className="flex items-center gap-2">
-                                        <span className="material-symbols-outlined text-teal-600 text-base">local_hospital</span>
-                                        <div>
-                                            <span className="text-[10px] text-tertiary block">Destination</span>
-                                            <span className="font-bold text-teal-800">{ref.destination_facility_name}</span>
-                                        </div>
-                                    </div>
-                                </div>
 
-                                <p className="text-xs text-tertiary line-clamp-1 italic">
-                                    &ldquo;{ref.clinical_reason}&rdquo;
-                                </p>
+                                    <button
+                                        onClick={() => setSelectedReferral(ref)}
+                                        className="flex items-center gap-1.5 px-3 py-1.5 bg-white hover:bg-surface-container text-primary font-bold text-xs rounded-xl shadow-xs border border-surface-container transition-all self-start sm:self-auto group cursor-pointer"
+                                        title="View Referral Audit Timeline"
+                                    >
+                                        <span className="material-symbols-outlined text-sm text-primary group-hover:scale-110 transition-transform">timeline</span>
+                                        <span>Audit Timeline ({ref.timeline?.length || 1})</span>
+                                    </button>
+                                </div>
                             </div>
 
                             {/* Right: Actions & Status Advancement */}
                             <div className="flex flex-col sm:flex-row lg:flex-col items-end gap-2 shrink-0 border-t lg:border-t-0 lg:border-l border-surface-container-high pt-4 lg:pt-0 lg:pl-6">
-                                <button
-                                    onClick={() => setSelectedReferral(ref)}
-                                    className="w-full sm:w-auto lg:w-full px-4 py-2.5 bg-surface-container hover:bg-surface-container-high text-on-surface font-bold text-xs rounded-xl flex items-center justify-center gap-1.5 transition-colors"
-                                >
-                                    <span className="material-symbols-outlined text-base">visibility</span>
-                                    <span>View Audit Timeline</span>
-                                </button>
-
                                 {/* Advance Status Actions */}
                                 {ref.status === 'CREATED' && (
                                     <button
                                         onClick={() => handleUpdateStatus(ref.id, 'ACCEPTED')}
                                         disabled={statusUpdating === ref.id}
-                                        className="w-full sm:w-auto lg:w-full px-4 py-2.5 bg-purple-600 hover:bg-purple-700 text-white font-bold text-xs rounded-xl flex items-center justify-center gap-1.5 transition-all shadow-sm"
+                                        className="w-full sm:w-auto lg:w-full px-4 py-2.5 bg-purple-600 hover:bg-purple-700 text-white font-bold text-xs rounded-xl flex items-center justify-center gap-1.5 transition-all shadow-sm cursor-pointer"
                                     >
                                         <span className="material-symbols-outlined text-base">check_circle</span>
                                         <span>Accept Referral</span>
@@ -335,7 +331,7 @@ export default function ReferralPipelinePage() {
                                     <button
                                         onClick={() => handleUpdateStatus(ref.id, 'IN_TRANSIT')}
                                         disabled={statusUpdating === ref.id}
-                                        className="w-full sm:w-auto lg:w-full px-4 py-2.5 bg-amber-600 hover:bg-amber-700 text-white font-bold text-xs rounded-xl flex items-center justify-center gap-1.5 transition-all shadow-sm"
+                                        className="w-full sm:w-auto lg:w-full px-4 py-2.5 bg-amber-600 hover:bg-amber-700 text-white font-bold text-xs rounded-xl flex items-center justify-center gap-1.5 transition-all shadow-sm cursor-pointer"
                                     >
                                         <span className="material-symbols-outlined text-base">ambulance</span>
                                         <span>Mark In-Transit (108)</span>
@@ -346,7 +342,7 @@ export default function ReferralPipelinePage() {
                                     <button
                                         onClick={() => handleUpdateStatus(ref.id, 'CONSULTED')}
                                         disabled={statusUpdating === ref.id}
-                                        className="w-full sm:w-auto lg:w-full px-4 py-2.5 bg-teal-600 hover:bg-teal-700 text-white font-bold text-xs rounded-xl flex items-center justify-center gap-1.5 transition-all shadow-sm"
+                                        className="w-full sm:w-auto lg:w-full px-4 py-2.5 bg-teal-600 hover:bg-teal-700 text-white font-bold text-xs rounded-xl flex items-center justify-center gap-1.5 transition-all shadow-sm cursor-pointer"
                                     >
                                         <span className="material-symbols-outlined text-base">medical_services</span>
                                         <span>Record Consultation</span>
@@ -357,11 +353,18 @@ export default function ReferralPipelinePage() {
                                     <button
                                         onClick={() => handleUpdateStatus(ref.id, 'COMPLETED')}
                                         disabled={statusUpdating === ref.id}
-                                        className="w-full sm:w-auto lg:w-full px-4 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs rounded-xl flex items-center justify-center gap-1.5 transition-all shadow-sm"
+                                        className="w-full sm:w-auto lg:w-full px-4 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs rounded-xl flex items-center justify-center gap-1.5 transition-all shadow-sm cursor-pointer"
                                     >
                                         <span className="material-symbols-outlined text-base">verified</span>
                                         <span>Complete & Close Case</span>
                                     </button>
+                                )}
+
+                                {ref.status === 'COMPLETED' && (
+                                    <div className="px-4 py-2 bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs font-bold rounded-xl flex items-center gap-1.5">
+                                        <span className="material-symbols-outlined text-sm">verified</span>
+                                        <span>Case Closed</span>
+                                    </div>
                                 )}
                             </div>
                         </div>

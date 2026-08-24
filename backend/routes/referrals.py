@@ -118,8 +118,14 @@ def list_referrals(
 ):
     """List all active or past referrals across the healthcare hierarchy."""
     results = _referrals_db
-    if status and status != "ALL":
+    if status and status.upper() in ["COMPLETED", "HISTORY"]:
+        results = [r for r in results if r["status"].upper() == "COMPLETED"]
+    elif status and status.upper() not in ["ALL", "ACTIVE"]:
         results = [r for r in results if r["status"].upper() == status.upper()]
+    else:
+        # For ALL or ACTIVE or default: show active pipeline and exclude completed history
+        results = [r for r in results if r["status"].upper() != "COMPLETED"]
+
     if patient_id:
         results = [r for r in results if r["patient_id"] == patient_id]
     if urgency and urgency != "ALL":
