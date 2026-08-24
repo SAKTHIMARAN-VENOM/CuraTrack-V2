@@ -38,7 +38,6 @@ function DigitalTriageContent() {
   const initialPatientId = searchParams.get('patientId') || '';
   const initialApptId = searchParams.get('apptId') || '';
 
-  const [categories, setCategories] = useState<Record<string, string[]>>({});
   const [redFlagList, setRedFlagList] = useState<string[]>([]);
   const [loadingTaxonomy, setLoadingTaxonomy] = useState(true);
 
@@ -52,7 +51,7 @@ function DigitalTriageContent() {
   const [triageHistory, setTriageHistory] = useState<TriageHistoryItem[]>([]);
 
   // Form inputs
-  const [selectedSymptoms, setSelectedSymptoms] = useState<string[]>([]);
+  const [symptomDescription, setSymptomDescription] = useState<string>('');
   const [selectedRedFlags, setSelectedRedFlags] = useState<string[]>([]);
   const [severity, setSeverity] = useState<number>(4);
   const [durationDays, setDurationDays] = useState<number>(1);
@@ -67,26 +66,31 @@ function DigitalTriageContent() {
   // Assessment result
   const [evaluating, setEvaluating] = useState<boolean>(false);
   const [triageResult, setTriageResult] = useState<any>(null);
-  const [activeTab, setActiveTab] = useState<string>('Respiratory');
   const [saveSuccessMessage, setSaveSuccessMessage] = useState<string>('');
+
+  const commonSymptomChips = [
+    "Persistent Cough (> 2 weeks)",
+    "Shortness of breath on exertion",
+    "High fever with chills",
+    "Chest tightness / heaviness",
+    "Acute Diarrhea / Vomiting",
+    "Severe abdominal pain",
+    "Sudden onset headache",
+    "Dizziness / Vertigo",
+    "Decreased fetal movements",
+    "Extreme fatigue / body aches",
+    "Wheezing / Stridor",
+    "Pediatric dehydration"
+  ];
 
   // 1. Fetch symptom taxonomy from backend
   useEffect(() => {
     const fetchTaxonomy = async () => {
       try {
         const data = await apiFetch('/api/triage/symptoms');
-        if (data.categories) setCategories(data.categories);
         if (data.red_flags) setRedFlagList(data.red_flags);
       } catch (err) {
         console.warn('Failed to load symptom taxonomy from backend, using fallback:', err);
-        setCategories({
-          "Respiratory": ["Persistent Cough (> 2 weeks)", "Shortness of breath on exertion", "Sore throat & difficulty swallowing", "Wheezing / Stridor", "Chest tightness"],
-          "Cardiovascular": ["Chest pain / Heavy pressure", "Palpitations / Rapid heartbeat", "Swelling in feet / ankles (Edema)", "Dizziness when standing"],
-          "Gastrointestinal": ["Acute Diarrhea (> 3 episodes/day)", "Severe abdominal pain / cramping", "Persistent nausea / vomiting", "Loss of appetite"],
-          "Neurological": ["Severe sudden onset headache", "Dizziness / Vertigo", "Numbness or weakness in limbs", "Confusion / Altered sensorium"],
-          "Maternal & Reproductive": ["Decreased fetal movements", "Severe lower abdominal pain during pregnancy", "Vaginal bleeding / discharge"],
-          "Pediatric & General": ["High fever (> 102°F)", "Fever with chills (Suspected Malaria/Dengue)", "Persistent body aches / Fatigue", "Severe dehydration"]
-        });
         setRedFlagList([
           "Severe central chest pain radiating to left arm or jaw",
           "Extreme breathlessness at rest (Cannot speak full sentences)",
@@ -101,6 +105,14 @@ function DigitalTriageContent() {
     };
     fetchTaxonomy();
   }, []);
+
+  const appendSymptomTag = (tag: string) => {
+    setSymptomDescription(prev => {
+      if (!prev.trim()) return tag;
+      if (prev.toLowerCase().includes(tag.toLowerCase())) return prev;
+      return `${prev.trim()}, ${tag}`;
+    });
+  };
 
   // 2. Fetch authenticated doctor info and patient list
   useEffect(() => {
@@ -184,7 +196,7 @@ function DigitalTriageContent() {
     setTriageResult(null);
 
     // Reset fields cleanly
-    setSelectedSymptoms([]);
+    setSymptomDescription(patient.complaint || '');
     setSelectedRedFlags([]);
     setPatientAge(patient.age || '');
     setIsPregnant(patient.gender?.toLowerCase() === 'female');
@@ -205,7 +217,10 @@ function DigitalTriageContent() {
 
       if (apptData && apptData.length > 0) {
         const appt = apptData[0];
-        if (appt.notes && !patient.complaint) setClinicalNotes(appt.notes);
+        if (appt.notes && !patient.complaint) {
+          setClinicalNotes(appt.notes);
+          if (!patient.complaint) setSymptomDescription(appt.notes);
+        }
         if (appt.vitals_spo2) setSpo2(String(appt.vitals_spo2).replace('%', ''));
         if (appt.vitals_hr) setHeartRate(String(appt.vitals_hr));
         if (appt.vitals_bp) {
@@ -255,14 +270,6 @@ function DigitalTriageContent() {
     loadPatientData(patient);
   };
 
-  const toggleSymptom = (symptom: string) => {
-    if (selectedSymptoms.includes(symptom)) {
-      setSelectedSymptoms(selectedSymptoms.filter(s => s !== symptom));
-    } else {
-      setSelectedSymptoms([...selectedSymptoms, symptom]);
-    }
-  };
-
   const toggleRedFlag = (flag: string) => {
     if (selectedRedFlags.includes(flag)) {
       setSelectedRedFlags(selectedRedFlags.filter(f => f !== flag));
@@ -283,13 +290,18 @@ function DigitalTriageContent() {
     setSaveSuccessMessage('');
 
     try {
+      const parsedSymptoms = symptomDescription
+        .split(/[\n,;]+/)
+        .map(s => s.trim())
+        .filter(s => s.length > 0);
+
       const payload = {
         patient_id: selectedPatient.id,
         patient_name: selectedPatient.name,
         age: patientAge ? Number(patientAge) : 32,
         gender: selectedPatient.gender || 'Other',
         pregnant: isPregnant,
-        symptoms: selectedSymptoms,
+        symptoms: parsedSymptoms.length > 0 ? parsedSymptoms : (symptomDescription ? [symptomDescription] : []),
         severity: Number(severity),
         duration_days: Number(durationDays),
         red_flags: selectedRedFlags,
@@ -297,7 +309,7 @@ function DigitalTriageContent() {
         heart_rate: heartRate ? parseFloat(heartRate) : undefined,
         systolic_bp: systolicBp ? parseFloat(systolicBp) : undefined,
         temperature: temperature ? parseFloat(temperature) : undefined,
-        notes: clinicalNotes || undefined
+        notes: clinicalNotes || symptomDescription || undefined
       };
 
       // 1. Calculate clinical triage assessment from engine
@@ -320,7 +332,7 @@ function DigitalTriageContent() {
         specialty: 'Clinical Triage & Emergency Medicine',
         date: todayStr,
         visit_type: 'Triage Assessment',
-        complaint: selectedSymptoms.join(', ') || 'Triage evaluation',
+        complaint: symptomDescription || 'Triage evaluation',
         observations: `[Urgency: ${result.urgency_label || urgencyTier}] Actions: ${(result.immediate_actions || []).join('; ') || 'Standard observation'}`,
         summary: `Triage ${urgencyTier}: ${result.recommended_facility || 'General Facility'}`,
         plan: `Differential: ${(result.potential_conditions || []).join(', ') || 'Under evaluation'}`,
@@ -559,61 +571,64 @@ function DigitalTriageContent() {
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
         {/* Form Input Column (7 cols) */}
         <form onSubmit={handleRunTriage} className="lg:col-span-7 space-y-6">
-          {/* Symptoms Selection by Category */}
-          <div className="bg-white rounded-3xl p-6 border border-surface-container-high shadow-card space-y-5">
+          {/* Symptoms Description Compartment */}
+          <div className="bg-white rounded-3xl p-6 border border-surface-container-high shadow-card space-y-4">
             <div className="flex items-center justify-between border-b border-surface-container-high pb-4">
               <div>
                 <h2 className="font-bold text-base text-on-surface flex items-center gap-2">
-                  <span className="material-symbols-outlined text-primary">symptoms</span>
-                  <span>Primary Symptoms Present</span>
+                  <span className="material-symbols-outlined text-primary">description</span>
+                  <span>Primary Symptoms & Chief Complaints</span>
                 </h2>
-                <p className="text-xs text-tertiary mt-0.5">Select all chief complaints reported by patient / ASHA worker</p>
+                <p className="text-xs text-tertiary mt-0.5">
+                  Enter detailed patient-reported symptoms, onset description, and clinical complaints
+                </p>
               </div>
-              <span className="text-xs font-bold px-2.5 py-1 bg-primary/10 text-primary rounded-full">
-                {selectedSymptoms.length} selected
-              </span>
-            </div>
-
-            {/* Category Filter Tabs */}
-            <div className="flex flex-wrap gap-1.5 pb-2">
-              {Object.keys(categories).map((cat) => (
+              {symptomDescription.trim() && (
                 <button
-                  key={cat}
                   type="button"
-                  onClick={() => setActiveTab(cat)}
-                  className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all ${
-                    activeTab === cat
-                      ? 'bg-primary text-white shadow-sm'
-                      : 'bg-surface-container-low text-tertiary hover:bg-surface-container'
-                  }`}
+                  onClick={() => setSymptomDescription('')}
+                  className="text-xs font-semibold text-rose-600 hover:text-rose-700 flex items-center gap-1 transition-colors"
                 >
-                  {cat}
+                  <span className="material-symbols-outlined text-sm">close</span>
+                  <span>Clear text</span>
                 </button>
-              ))}
+              )}
             </div>
 
-            {/* Symptoms in active category */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-              {(categories[activeTab] || []).map((symptom) => {
-                const selected = selectedSymptoms.includes(symptom);
-                return (
+            {/* Free-text Description Input */}
+            <div className="relative">
+              <textarea
+                value={symptomDescription}
+                onChange={(e) => setSymptomDescription(e.target.value)}
+                placeholder="Type the patient's symptoms here in detail...&#10;&#10;Examples:&#10;• Severe continuous dry cough for 3 weeks, chest pain while breathing, fever with chills&#10;• Acute watery diarrhea 5 times since morning, vomiting, severe abdominal cramping&#10;• Shortness of breath on mild walking, dizziness, ankle swelling"
+                rows={6}
+                className="w-full p-4 bg-surface-container-low rounded-2xl text-xs font-medium text-on-surface border border-surface-container-high outline-none focus:border-primary focus:ring-2 focus:ring-primary/20 transition-all resize-y leading-relaxed"
+              />
+              <div className="flex justify-between items-center text-[11px] text-tertiary mt-1 px-1">
+                <span>Clinical Observation Narrative</span>
+                <span>{symptomDescription.length} characters • {symptomDescription.trim() ? symptomDescription.trim().split(/\s+/).length : 0} words</span>
+              </div>
+            </div>
+
+            {/* Quick Suggestion Chips */}
+            <div className="pt-2 border-t border-surface-container-high/60">
+              <div className="flex items-center gap-1.5 text-xs font-semibold text-tertiary mb-2.5">
+                <span className="material-symbols-outlined text-sm text-primary">touch_app</span>
+                <span>Quick Add Common Clinical Keywords:</span>
+              </div>
+              <div className="flex flex-wrap gap-1.5">
+                {commonSymptomChips.map((chip, idx) => (
                   <button
-                    key={symptom}
+                    key={idx}
                     type="button"
-                    onClick={() => toggleSymptom(symptom)}
-                    className={`p-3 rounded-2xl text-left text-xs font-medium border flex items-center justify-between transition-all ${
-                      selected
-                        ? 'bg-primary/10 border-primary text-primary font-bold shadow-sm'
-                        : 'bg-surface-container-low border-transparent text-on-surface hover:bg-surface-container'
-                    }`}
+                    onClick={() => appendSymptomTag(chip)}
+                    className="text-[11px] font-semibold px-2.5 py-1 rounded-lg bg-surface-container-low hover:bg-primary/10 hover:text-primary hover:border-primary border border-surface-container-high/80 text-on-surface transition-all flex items-center gap-1"
                   >
-                    <span>{symptom}</span>
-                    <span className="material-symbols-outlined text-base">
-                      {selected ? 'check_circle' : 'add_circle'}
-                    </span>
+                    <span className="material-symbols-outlined text-[13px] opacity-70">add</span>
+                    <span>{chip}</span>
                   </button>
-                );
-              })}
+                ))}
+              </div>
             </div>
           </div>
 

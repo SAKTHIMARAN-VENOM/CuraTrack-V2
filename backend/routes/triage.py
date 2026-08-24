@@ -1,3 +1,4 @@
+# pyrefly: ignore [missing-import]
 from fastapi import APIRouter
 from pydantic import BaseModel, Field
 from typing import List, Optional
@@ -131,7 +132,7 @@ def assess_triage(req: TriageAssessmentRequest):
         reasons.append(f"Hyperpyrexia ({req.temperature}°C)")
 
     # 3. Evaluate Symptom Patterns
-    symptom_str = " ".join(req.symptoms).lower()
+    symptom_str = (" ".join(req.symptoms) + " " + (req.notes or "")).lower()
 
     if any(k in symptom_str for k in ["chest pain", "pressure", "cyanosis"]):
         if req.severity >= 7:
