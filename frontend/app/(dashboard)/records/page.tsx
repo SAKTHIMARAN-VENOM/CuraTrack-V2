@@ -7,12 +7,18 @@ import ReviewMedicationModal from '@/components/ReviewMedicationModal';
 import { offlineStorage } from '@/lib/offline-storage';
 import { createClient } from '@/lib/supabase/client';
 
-const DEFAULT_MEDICATIONS = [
-  { name: 'Lisinopril', dosage: '10mg', frequency: 'Once daily', time: '8:00 AM (Morning)', status: 'TAKEN', color: '#d4f0fa', icon: 'pill', isError: false },
-  { name: 'Metformin', dosage: '500mg', frequency: 'Twice daily', time: '1:00 PM (Afternoon)', status: 'UPCOMING', color: '#d4f0fa', icon: 'pill', isError: false },
-  { name: 'Atorvastatin', dosage: '20mg', frequency: 'Once daily at bedtime', time: '9:00 PM (Night)', status: 'UPCOMING', color: '#e8def8', icon: 'medication', isError: false },
-  { name: 'Vitamin D3', dosage: '2000 IU', frequency: 'Once daily', time: '8:00 AM (Morning)', status: 'MISSED', color: '#ffe082', icon: 'pill', isError: true },
-];
+interface RealPatientInfo {
+  id: string;
+  name: string;
+  email?: string;
+  age?: number | string;
+  gender?: string;
+  abhaId?: string;
+  bloodGroup?: string;
+  allergies?: string;
+  latestStatus?: string;
+  lastVisit?: string;
+}
 
 const DEFAULT_LAB_DISCLAIMER = 'This is an AI explanation of the uploaded scan and is not a diagnosis. Confirm these results with a qualified clinician.';
 
@@ -108,160 +114,184 @@ export default function HealthRecordsPage() {
   const [userNotes, setUserNotes] = useState<any[]>([]);
   const [userLabReports, setUserLabReports] = useState<any[]>([]);
   const [refillStatus, setRefillStatus] = useState<string | null>(null);
-  const [userId, setUserId] = useState<string>('demo-patient-001');
+  const [userId, setUserId] = useState<string>('');
   const [isOffline, setIsOffline] = useState<boolean>(false);
-  const [currentRole, setCurrentRole] = useState<string>('patient');
+  const [currentRole, setCurrentRole] = useState<string>('doctor');
   const [facilityArchiveTab, setFacilityArchiveTab] = useState<'dispenses' | 'edl_receipts' | 'labs' | 'waste_logs'>('dispenses');
   const [facilitySearchQuery, setFacilitySearchQuery] = useState<string>('');
 
-  useEffect(() => {
-    // 1. Check logged-in user and fetch user-scoped data from Supabase
-    const loadSupabaseData = async () => {
-      try {
-        let savedAuthUser: any = null;
-        try {
-          const raw = localStorage.getItem('curatrack_auth_user');
-          if (raw) savedAuthUser = JSON.parse(raw);
-        } catch {}
+  // Doctor Patient Selection States
+  const [patients, setPatients] = useState<RealPatientInfo[]>([]);
+  const [loadingPatients, setLoadingPatients] = useState<boolean>(false);
+  const [selectedPatient, setSelectedPatient] = useState<RealPatientInfo | null>(null);
+  const [patientSearch, setPatientSearch] = useState<string>('');
+  const [loadingPatientData, setLoadingPatientData] = useState<boolean>(false);
 
-        const activeRole = localStorage.getItem('curatrack_active_role') || savedAuthUser?.role || 'patient';
-        setCurrentRole(activeRole);
+  // Fetch real patients list from Supabase
+  const fetchRealPatients = async () => {
+    setLoadingPatients(true);
+    try {
+      const supabase = createClient();
+      const { data: profs } = await supabase
+        .from('profiles')
+        .select('*')
+        .neq('role', 'doctor')
+        .neq('role', 'facility_manager');
 
-        const supabase = createClient();
-        const { data: { user } } = await supabase.auth.getUser();
-        if (user) {
-          setUserId(user.id);
+      const { data: appts } = await supabase
+        .from('appointments')
+        .select('*')
+        .order('created_at', { ascending: false });
 
-          // Fetch user-scoped medications
-          const { data: dbMeds } = await supabase.from('medications').select('*').eq('patient_id', user.id);
-          if (dbMeds && dbMeds.length > 0) {
-            const todayStr = new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
-            const mapped = dbMeds.map((m: any) => {
-              const actionDate = m.date_action || (m.created_at ? new Date(m.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : todayStr);
-              const isNewDay = actionDate !== todayStr;
-              // Reset status to UPCOMING on a new calendar day while preserving historical status
-              const activeStatus = isNewDay ? 'UPCOMING' : (m.status || 'UPCOMING');
-              return {
-                id: m.id,
-                name: m.name,
-                dosage: m.dosage,
-                frequency: m.frequency || 'Once daily',
-                time: m.time || 'Morning',
-                status: activeStatus,
-                date_action: actionDate,
-                historical_status: m.status || 'UPCOMING',
-                color: '#d4f0fa',
-                icon: 'pill',
-                isError: activeStatus === 'MISSED',
-              };
-            });
-            setActiveMedications(mapped);
-            offlineStorage.saveMedications(mapped, user.id);
-          } else {
-            const cachedMeds = offlineStorage.getMedications(user.id);
-            setActiveMedications(cachedMeds || []);
+      const apptMap: Record<string, any> = {};
+      if (appts) {
+        for (const a of appts) {
+          if (a.client_id && !apptMap[a.client_id]) {
+            apptMap[a.client_id] = a;
           }
-
-          // Fetch user-scoped prescriptions from Supabase & localStorage fallback
-          const { data: dbRx } = await supabase.from('prescriptions').select('*').eq('patient_id', user.id);
-          let localRx: any[] = [];
-          try {
-            const scopedSavedRx = localStorage.getItem(`curatrack_prescriptions_${user.id}`);
-            const savedRx = scopedSavedRx || localStorage.getItem('curatrack_prescriptions');
-            if (savedRx) {
-              const parsedRx = JSON.parse(savedRx);
-              localRx = scopedSavedRx
-                ? parsedRx
-                : parsedRx.filter((rx: any) => rx.patientId === user.id || rx.patient_id === user.id);
-            }
-          } catch (err) {
-            console.warn('Could not read local e-prescriptions:', err);
-          }
-
-          const combinedRx = [
-            ...(localRx || []),
-            ...(dbRx || [])
-          ];
-          const uniqueRx = Array.from(new Map(combinedRx.map(item => [item.medication || item.name, item])).values());
-          setUserPrescriptions(uniqueRx);
-
-          // Automatically sync new e-prescriptions into active medications schedule
-          if (uniqueRx.length > 0) {
-            const newMedsFromRx = uniqueRx.map((rx: any) => ({
-              id: rx.id || `rx-${Date.now()}`,
-              name: rx.name || rx.medication,
-              dosage: rx.dosage || '500mg',
-              frequency: rx.frequency || 'Once daily',
-              time: 'Morning',
-              status: 'UPCOMING',
-              color: '#d4f0fa',
-              icon: 'pill',
-              isError: false,
-            }));
-            setActiveMedications(prev => {
-              const combined = [...newMedsFromRx, ...prev];
-              return Array.from(new Map(combined.map(m => [m.name, m])).values());
-            });
-          }
-
-          // Fetch user-scoped doctor notes
-          const { data: dbNotes } = await supabase.from('doctor_notes').select('*').eq('patient_id', user.id);
-          setUserNotes(dbNotes || []);
-
-          // Fetch user-scoped lab reports
-          const { data: dbLabs } = await supabase.from('lab_results').select('*').eq('patient_id', user.id);
-          const mappedDbLabs = (dbLabs || []).map((lab: any) => ({
-            ...lab,
-            testName: lab.testName || lab.test_name || 'Laboratory Investigation Report',
-            labName: lab.labName || lab.lab_name || '',
-            clinicalInsights: lab.clinicalInsights || null,
-            rawText: lab.rawText || '',
-            results: Array.isArray(lab.results) ? lab.results : [],
-          }));
-          const cachedLabReports = offlineStorage.getLabReports();
-          setUserLabReports([
-            ...cachedLabReports,
-            ...mappedDbLabs.filter((dbLab: any) => !cachedLabReports.some((cached: any) =>
-              cached.testName === dbLab.testName && cached.date === dbLab.date
-            )),
-          ]);
-        } else {
-          // Unauthenticated / demo fallback
-          let localRx: any[] = [];
-          try {
-            const savedRx = localStorage.getItem('curatrack_prescriptions');
-            if (savedRx) {
-              localRx = JSON.parse(savedRx);
-              setUserPrescriptions(localRx);
-
-              const newMedsFromRx = localRx.map((rx: any) => ({
-                id: rx.id || `rx-${Date.now()}`,
-                name: rx.name || rx.medication,
-                dosage: rx.dosage || '500mg',
-                frequency: rx.frequency || 'Once daily',
-                time: 'Morning',
-                status: 'UPCOMING',
-                color: '#d4f0fa',
-                icon: 'pill',
-                isError: false,
-              }));
-              setActiveMedications(prev => {
-                const combined = [...newMedsFromRx, ...prev];
-                return Array.from(new Map(combined.map(m => [m.name, m])).values());
-              });
-            }
-          } catch (e) {}
-
-          const cachedMeds = offlineStorage.getMedications();
-          if (cachedMeds.length > 0 && localRx.length === 0) setActiveMedications(cachedMeds);
-          const cachedLabReports = offlineStorage.getLabReports();
-          if (cachedLabReports.length > 0) setUserLabReports(cachedLabReports);
         }
-      } catch (e) {
-        console.warn('Could not load records from Supabase:', e);
+      }
+
+      if (profs && profs.length > 0) {
+        const mappedPatients: RealPatientInfo[] = profs.map(p => {
+          const appt = apptMap[p.id];
+          return {
+            id: p.id,
+            name: p.name && p.name.trim().length > 0 ? p.name.trim() : (p.email ? p.email.split('@')[0] : 'Patient'),
+            email: p.email,
+            age: p.age || 32,
+            gender: p.gender || 'Unspecified',
+            bloodGroup: p.blood_group || 'O+',
+            abhaId: p.abha_id || `91-4502-8819-${p.id.slice(0, 4)}`,
+            allergies: p.allergies || 'No Known Drug Allergies (NKDA)',
+            latestStatus: appt?.status === 'in-consult' ? 'In Consultation' : appt?.status === 'completed' ? 'Completed' : 'Registered Patient',
+            lastVisit: appt?.date || (appt?.created_at ? new Date(appt.created_at).toLocaleDateString() : 'Recent'),
+          };
+        });
+        setPatients(mappedPatients);
+      }
+    } catch (err) {
+      console.warn('Error fetching real patient list:', err);
+    } finally {
+      setLoadingPatients(false);
+    }
+  };
+
+  // Scoped Data Fetcher: Loads real records for a target patient
+  const loadPatientData = async (targetId: string) => {
+    if (!targetId) return;
+    setLoadingPatientData(true);
+    const supabase = createClient();
+
+    try {
+      // 1. Fetch medications
+      const { data: dbMeds } = await supabase
+        .from('medications')
+        .select('*')
+        .eq('patient_id', targetId);
+
+      if (dbMeds && dbMeds.length > 0) {
+        const todayStr = new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+        const mapped = dbMeds.map((m: any) => {
+          const actionDate = m.date_action || (m.created_at ? new Date(m.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : todayStr);
+          const isNewDay = actionDate !== todayStr;
+          const activeStatus = isNewDay ? 'UPCOMING' : (m.status || 'UPCOMING');
+          return {
+            id: m.id,
+            name: m.name,
+            dosage: m.dosage,
+            frequency: m.frequency || 'Once daily',
+            time: m.time || 'Morning',
+            status: activeStatus,
+            date_action: actionDate,
+            historical_status: m.status || 'UPCOMING',
+            color: '#d4f0fa',
+            icon: 'pill',
+            isError: activeStatus === 'MISSED',
+          };
+        });
+        setActiveMedications(mapped);
+      } else {
+        setActiveMedications([]);
+      }
+
+      // 2. Fetch prescriptions
+      const { data: dbRx } = await supabase
+        .from('prescriptions')
+        .select('*')
+        .eq('patient_id', targetId)
+        .order('created_at', { ascending: false });
+
+      setUserPrescriptions(dbRx || []);
+
+      // 3. Fetch doctor notes
+      const { data: dbNotes } = await supabase
+        .from('doctor_notes')
+        .select('*')
+        .eq('patient_id', targetId)
+        .order('created_at', { ascending: false });
+
+      setUserNotes(dbNotes || []);
+
+      // 4. Fetch lab reports
+      const { data: dbLabs } = await supabase
+        .from('lab_results')
+        .select('*')
+        .eq('patient_id', targetId)
+        .order('created_at', { ascending: false });
+
+      const mappedLabs = (dbLabs || []).map((lab: any) => ({
+        ...lab,
+        testName: lab.testName || lab.test_name || 'Laboratory Investigation Report',
+        labName: lab.labName || lab.lab_name || '',
+        clinicalInsights: lab.clinicalInsights || null,
+        rawText: lab.rawText || '',
+        results: Array.isArray(lab.results) ? lab.results : [],
+      }));
+      setUserLabReports(mappedLabs);
+    } catch (err) {
+      console.warn('Error loading patient records for target:', targetId, err);
+    } finally {
+      setLoadingPatientData(false);
+    }
+  };
+
+  const handleSelectPatient = (patient: RealPatientInfo) => {
+    setSelectedPatient(patient);
+    setUserId(patient.id);
+    // Clear previous records immediately for complete data isolation
+    setActiveMedications([]);
+    setUserPrescriptions([]);
+    setUserNotes([]);
+    setUserLabReports([]);
+    loadPatientData(patient.id);
+  };
+
+  useEffect(() => {
+    const initPage = async () => {
+      let savedAuthUser: any = null;
+      try {
+        const raw = localStorage.getItem('curatrack_auth_user');
+        if (raw) savedAuthUser = JSON.parse(raw);
+      } catch {}
+
+      const activeRole = localStorage.getItem('curatrack_active_role') || savedAuthUser?.role || 'doctor';
+      setCurrentRole(activeRole);
+
+      const supabase = createClient();
+      const { data: { user } } = await supabase.auth.getUser();
+
+      if (activeRole === 'doctor' || activeRole === 'facility_manager' || activeRole === 'fhw') {
+        // Clinician / Staff mode: fetch real patient directory for selection
+        await fetchRealPatients();
+      } else if (user) {
+        // Patient self-service mode
+        setUserId(user.id);
+        await loadPatientData(user.id);
       }
     };
-    loadSupabaseData();
+
+    initPage();
 
     if (!offlineStorage.isOnline()) {
       setIsOffline(true);
@@ -1141,8 +1171,12 @@ export default function HealthRecordsPage() {
       {/* Page Header */}
       <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4">
         <div>
-          <span className="inline-block px-3 py-1 bg-secondary-container text-on-secondary-container text-[11px] font-bold rounded-full uppercase tracking-widest mb-3">Medical History</span>
-          <h2 className="font-headline text-4xl lg:text-5xl font-extrabold tracking-tight text-on-surface leading-none">Health Records</h2>
+          <span className="inline-block px-3 py-1 bg-secondary-container text-on-secondary-container text-[11px] font-bold rounded-full uppercase tracking-widest mb-3">
+            {currentRole === 'doctor' ? 'Clinical Directory & EHR' : 'Medical History'}
+          </span>
+          <h2 className="font-headline text-4xl lg:text-5xl font-extrabold tracking-tight text-on-surface leading-none">
+            {currentRole === 'doctor' ? 'Patient Health Records' : 'Health Records'}
+          </h2>
         </div>
         <div className="flex items-center gap-3 shrink-0">
           <button onClick={handleExportPDF} className="flex items-center gap-2 px-4 py-2.5 bg-surface-container rounded-xl text-sm font-bold text-on-surface-variant hover:bg-surface-container-high transition-colors">
@@ -1154,29 +1188,163 @@ export default function HealthRecordsPage() {
         </div>
       </div>
 
-      {/* Section Tabs */}
-      <div className="flex flex-wrap gap-2 bg-surface-container-low p-1.5 rounded-2xl w-fit">
-        <button onClick={() => setActiveTab('medications')} className={`${activeTab === 'medications' ? 'tab-active' : 'tab-inactive'} px-5 py-2.5 rounded-xl text-sm font-bold font-headline transition-all flex items-center gap-2`}>
-          <span className="material-symbols-outlined text-base">medication</span>Medications
-        </button>
-        <button onClick={() => setActiveTab('lab')} className={`${activeTab === 'lab' ? 'tab-active' : 'tab-inactive'} px-5 py-2.5 rounded-xl text-sm font-bold font-headline transition-all flex items-center gap-2`}>
-          <span className="material-symbols-outlined text-base">biotech</span>Lab Results
-        </button>
-        <button onClick={() => setActiveTab('notes')} className={`${activeTab === 'notes' ? 'tab-active' : 'tab-inactive'} px-5 py-2.5 rounded-xl text-sm font-bold font-headline transition-all flex items-center gap-2`}>
-          <span className="material-symbols-outlined text-base">description</span>Doctor's Notes
-        </button>
-        <button onClick={() => setActiveTab('prescriptions')} className={`${activeTab === 'prescriptions' ? 'tab-active' : 'tab-inactive'} px-5 py-2.5 rounded-xl text-sm font-bold font-headline transition-all flex items-center gap-2`}>
-          <span className="material-symbols-outlined text-base">receipt_long</span>Prescriptions
-        </button>
-        <button onClick={() => setActiveTab('missed')} className={`${activeTab === 'missed' ? 'tab-active' : 'tab-inactive'} px-5 py-2.5 rounded-xl text-sm font-bold font-headline transition-all flex items-center gap-2`}>
-          <span className="material-symbols-outlined text-base">event_busy</span>Missed Medications
-          {activeMedications.filter(m => m.status === 'MISSED').length > 0 && (
-            <span className="ml-1 px-2 py-0.5 rounded-full bg-error-container text-on-error-container text-[10px] font-black">
-              {activeMedications.filter(m => m.status === 'MISSED').length}
-            </span>
+      {/* Doctor Mode: Real Patient Selection & Search */}
+      {currentRole === 'doctor' && (
+        <div className="space-y-4">
+          <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 bg-white p-4 rounded-3xl border border-surface-container-high shadow-card">
+            <div className="flex items-center gap-3 flex-1">
+              <span className="material-symbols-outlined text-tertiary">search</span>
+              <input
+                type="text"
+                placeholder="Search real patients by Name, ABHA ID, or UUID..."
+                value={patientSearch}
+                onChange={e => setPatientSearch(e.target.value)}
+                className="w-full text-xs font-semibold bg-transparent outline-none text-on-surface"
+              />
+            </div>
+            {selectedPatient && (
+              <button
+                onClick={() => setSelectedPatient(null)}
+                className="px-3.5 py-1.5 bg-surface-container hover:bg-surface-container-high text-slate-700 text-xs font-bold rounded-xl transition-all flex items-center gap-1 shrink-0"
+              >
+                <span className="material-symbols-outlined text-sm">swap_horiz</span>
+                <span>Change Patient</span>
+              </button>
+            )}
+          </div>
+
+          {/* If No Patient Selected: Display Searchable Real Patient List */}
+          {!selectedPatient ? (
+            <div className="bg-white border border-surface-container-high p-8 rounded-3xl shadow-card space-y-6">
+              <div className="text-center max-w-md mx-auto space-y-2">
+                <div className="w-14 h-14 bg-primary/10 rounded-2xl flex items-center justify-center mx-auto text-primary">
+                  <span className="material-symbols-outlined text-3xl">person_search</span>
+                </div>
+                <h3 className="text-lg font-extrabold text-on-surface">Select a Patient to View Health Records</h3>
+                <p className="text-xs text-tertiary">
+                  Choose a verified patient from the registered directory below to inspect active medications, diagnostic labs, doctor notes, and e-prescriptions.
+                </p>
+              </div>
+
+              {loadingPatients ? (
+                <div className="py-12 text-center text-xs font-bold text-teal-600 flex items-center justify-center gap-2">
+                  <span className="material-symbols-outlined animate-spin">sync</span>
+                  <span>Loading real patient records from Supabase...</span>
+                </div>
+              ) : (
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                  {patients
+                    .filter(p => 
+                      !patientSearch ||
+                      p.name.toLowerCase().includes(patientSearch.toLowerCase()) ||
+                      p.id.toLowerCase().includes(patientSearch.toLowerCase()) ||
+                      (p.abhaId && p.abhaId.toLowerCase().includes(patientSearch.toLowerCase()))
+                    )
+                    .map(patient => (
+                      <div
+                        key={patient.id}
+                        onClick={() => handleSelectPatient(patient)}
+                        className="p-5 rounded-2xl border border-surface-container-high hover:border-primary bg-surface-container-low/40 hover:bg-surface-container-low cursor-pointer transition-all space-y-3 group shadow-sm hover:shadow-md"
+                      >
+                        <div className="flex items-start justify-between gap-3">
+                          <div className="flex items-center gap-3">
+                            <div className="w-11 h-11 rounded-xl bg-primary text-white flex items-center justify-center font-bold text-sm">
+                              {patient.name.charAt(0)}
+                            </div>
+                            <div>
+                              <h4 className="font-extrabold text-sm text-on-surface group-hover:text-primary transition-colors">
+                                {patient.name}
+                              </h4>
+                              <p className="text-[11px] font-mono text-tertiary">ABHA: {patient.abhaId}</p>
+                            </div>
+                          </div>
+                          <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-teal-50 text-teal-800 border border-teal-200">
+                            {patient.latestStatus}
+                          </span>
+                        </div>
+
+                        <div className="grid grid-cols-3 gap-2 pt-2 border-t border-surface-container-high text-[11px] text-tertiary">
+                          <div>
+                            <span className="block text-[9px] uppercase font-bold">Age/Sex</span>
+                            <span className="font-bold text-slate-800">{patient.age}y, {patient.gender}</span>
+                          </div>
+                          <div>
+                            <span className="block text-[9px] uppercase font-bold">Blood</span>
+                            <span className="font-bold text-red-700">{patient.bloodGroup}</span>
+                          </div>
+                          <div>
+                            <span className="block text-[9px] uppercase font-bold">Last Visit</span>
+                            <span className="font-bold text-slate-800">{patient.lastVisit}</span>
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                </div>
+              )}
+            </div>
+          ) : (
+            /* Selected Patient Header Banner */
+            <div className="bg-gradient-to-r from-teal-900 via-slate-900 to-blue-950 p-6 rounded-3xl text-white shadow-xl flex flex-col md:flex-row md:items-center justify-between gap-6">
+              <div className="space-y-1">
+                <div className="flex items-center gap-2">
+                  <span className="px-2.5 py-0.5 rounded-full bg-teal-400/20 text-teal-300 font-mono text-[10px] font-bold border border-teal-400/30">
+                    Active Patient Record
+                  </span>
+                  <span className="text-xs text-slate-400">•</span>
+                  <span className="text-xs font-mono text-slate-300">ID: {selectedPatient.id}</span>
+                </div>
+                <h3 className="text-2xl font-black text-white">{selectedPatient.name}</h3>
+                <div className="flex flex-wrap items-center gap-3 text-xs text-slate-300">
+                  <span>ABHA: <strong className="font-mono text-teal-200">{selectedPatient.abhaId}</strong></span>
+                  <span>•</span>
+                  <span>{selectedPatient.age} Years, {selectedPatient.gender}</span>
+                  <span>•</span>
+                  <span>Blood Group: <strong className="text-red-400">{selectedPatient.bloodGroup}</strong></span>
+                  <span>•</span>
+                  <span>Allergies: <strong className="text-amber-300">{selectedPatient.allergies}</strong></span>
+                </div>
+              </div>
+
+              <div className="flex items-center gap-3 shrink-0">
+                <button
+                  onClick={() => setSelectedPatient(null)}
+                  className="px-4 py-2 bg-white/10 hover:bg-white/20 text-white font-bold text-xs rounded-xl border border-white/20 transition-all flex items-center gap-1.5"
+                >
+                  <span className="material-symbols-outlined text-base">folder_shared</span>
+                  <span>Switch Patient</span>
+                </button>
+              </div>
+            </div>
           )}
-        </button>
-      </div>
+        </div>
+      )}
+
+      {/* Render Patient Medical Tabs only when a patient is selected (or in patient self-service mode) */}
+      {(selectedPatient || currentRole === 'patient') && (
+        <>
+          {/* Section Tabs */}
+          <div className="flex flex-wrap gap-2 bg-surface-container-low p-1.5 rounded-2xl w-fit">
+            <button onClick={() => setActiveTab('medications')} className={`${activeTab === 'medications' ? 'tab-active' : 'tab-inactive'} px-5 py-2.5 rounded-xl text-sm font-bold font-headline transition-all flex items-center gap-2`}>
+              <span className="material-symbols-outlined text-base">medication</span>Medications
+            </button>
+            <button onClick={() => setActiveTab('lab')} className={`${activeTab === 'lab' ? 'tab-active' : 'tab-inactive'} px-5 py-2.5 rounded-xl text-sm font-bold font-headline transition-all flex items-center gap-2`}>
+              <span className="material-symbols-outlined text-base">biotech</span>Lab Results
+            </button>
+            <button onClick={() => setActiveTab('notes')} className={`${activeTab === 'notes' ? 'tab-active' : 'tab-inactive'} px-5 py-2.5 rounded-xl text-sm font-bold font-headline transition-all flex items-center gap-2`}>
+              <span className="material-symbols-outlined text-base">description</span>Doctor's Notes
+            </button>
+            <button onClick={() => setActiveTab('prescriptions')} className={`${activeTab === 'prescriptions' ? 'tab-active' : 'tab-inactive'} px-5 py-2.5 rounded-xl text-sm font-bold font-headline transition-all flex items-center gap-2`}>
+              <span className="material-symbols-outlined text-base">receipt_long</span>Prescriptions
+            </button>
+            <button onClick={() => setActiveTab('missed')} className={`${activeTab === 'missed' ? 'tab-active' : 'tab-inactive'} px-5 py-2.5 rounded-xl text-sm font-bold font-headline transition-all flex items-center gap-2`}>
+              <span className="material-symbols-outlined text-base">event_busy</span>Missed Medications
+              {activeMedications.filter(m => m.status === 'MISSED').length > 0 && (
+                <span className="ml-1 px-2 py-0.5 rounded-full bg-error-container text-on-error-container text-[10px] font-black">
+                  {activeMedications.filter(m => m.status === 'MISSED').length}
+                </span>
+              )}
+            </button>
+          </div>
 
       {/* ===== MEDICATIONS SECTION ===== */}
       {activeTab === 'medications' && (
@@ -1708,6 +1876,8 @@ export default function HealthRecordsPage() {
             </div>
           </div>
         </div>
+      )}
+      </>
       )}
       <AddRecordModal 
         isOpen={isAddRecordModalOpen} 
