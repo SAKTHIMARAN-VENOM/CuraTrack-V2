@@ -362,8 +362,108 @@ export default function DoctorClinicalDashboardPage() {
   const selectedPatient = queue.find(p => p.id === selectedPatientId) || queue[0];
 
   // Dynamic Clinical Records Loader: Loads real records when selected patient changes
+  const loadPatientClinicalRecords = useCallback(async (patientClientId: string) => {
+    if (!patientClientId) {
+      setSoapDiagnosis('');
+      setSoapNotes('');
+      setPrescriptions([]);
+      setSelectedLabs([]);
+      return;
+    }
+
+    setLoadingClinicalRecords(true);
+
+    try {
+      // 1. Fetch latest Doctor Notes / Encounter for this patient
+      const { data: notesData } = await supabase
+        .from('doctor_notes')
+        .select('*')
+        .eq('patient_id', patientClientId)
+        .order('created_at', { ascending: false })
+        .limit(1);
+
+      // 2. Fetch active Diagnoses for this patient
+      const { data: diagData } = await supabase
+        .from('diagnoses')
+        .select('*')
+        .eq('patient_id', patientClientId)
+        .order('created_at', { ascending: false })
+        .limit(1);
+
+      // 3. Fetch active Prescriptions for this patient
+      const { data: rxData } = await supabase
+        .from('prescriptions')
+        .select('*')
+        .eq('patient_id', patientClientId)
+        .order('created_at', { ascending: false });
+
+      // 4. Fetch latest Lab Results/Orders for this patient
+      const { data: labData } = await supabase
+        .from('lab_results')
+        .select('*')
+        .eq('patient_id', patientClientId)
+        .order('created_at', { ascending: false });
+
+      // Set Diagnosis
+      if (diagData && diagData.length > 0 && diagData[0].name) {
+        setSoapDiagnosis(diagData[0].name);
+      } else if (notesData && notesData.length > 0 && notesData[0].summary) {
+        setSoapDiagnosis(notesData[0].summary);
+      } else {
+        setSoapDiagnosis('');
+      }
+
+      // Set Clinical Findings / SOAP Notes
+      if (notesData && notesData.length > 0 && (notesData[0].observations || notesData[0].plan || notesData[0].complaint)) {
+        const obs = [
+          notesData[0].complaint ? `Complaint: ${notesData[0].complaint}` : '',
+          notesData[0].observations ? `Observations: ${notesData[0].observations}` : '',
+          notesData[0].plan ? `Plan: ${notesData[0].plan}` : '',
+        ].filter(Boolean).join('\n');
+        setSoapNotes(obs);
+      } else {
+        const currentPat = queue.find(p => (p.clientId || p.id) === patientClientId);
+        setSoapNotes(currentPat?.complaint && currentPat.complaint !== 'General clinical consultation' ? `Chief Complaint: ${currentPat.complaint}` : '');
+      }
+
+      // Set Prescriptions (avoid duplicates by medication name)
+      if (rxData && rxData.length > 0) {
+        const seenDrugs = new Set<string>();
+        const uniqueRxList: typeof prescriptions = [];
+        for (const r of rxData) {
+          const drugName = (r.medication || '').trim();
+          if (drugName && !seenDrugs.has(drugName.toLowerCase())) {
+            seenDrugs.add(drugName.toLowerCase());
+            uniqueRxList.push({
+              id: r.id,
+              drug: drugName,
+              dosage: r.dosage || 'Standard',
+              frequency: r.frequency || 'OD',
+              duration: r.date || '5 Days',
+              instructions: r.instructions || 'Take as directed',
+            });
+          }
+        }
+        setPrescriptions(uniqueRxList);
+      } else {
+        setPrescriptions([]);
+      }
+
+      // Set Lab Orders
+      if (labData && labData.length > 0) {
+        setSelectedLabs(Array.from(new Set(labData.map((l: any) => l.test_name).filter(Boolean))));
+      } else {
+        setSelectedLabs([]);
+      }
+    } catch (err) {
+      console.warn('Error loading patient clinical records:', err);
+    } finally {
+      setLoadingClinicalRecords(false);
+    }
+  }, [supabase, queue]);
+
+  // Load patient clinical records on selected patient change
   useEffect(() => {
-    let isMounted = true;
     if (!selectedPatient) {
       setSoapDiagnosis('');
       setSoapNotes('');
@@ -373,100 +473,10 @@ export default function DoctorClinicalDashboardPage() {
     }
 
     const patientClientId = selectedPatient.clientId || selectedPatient.id;
-    setLoadingClinicalRecords(true);
     setSubmitSuccessMessage('');
     setSubmitErrorMessage('');
-
-    async function loadPatientClinicalRecords() {
-      try {
-        // 1. Fetch latest Doctor Notes / Encounter for this patient
-        const { data: notesData } = await supabase
-          .from('doctor_notes')
-          .select('*')
-          .eq('patient_id', patientClientId)
-          .order('created_at', { ascending: false })
-          .limit(1);
-
-        // 2. Fetch active Diagnoses for this patient
-        const { data: diagData } = await supabase
-          .from('diagnoses')
-          .select('*')
-          .eq('patient_id', patientClientId)
-          .order('created_at', { ascending: false })
-          .limit(1);
-
-        // 3. Fetch active Prescriptions for this patient
-        const { data: rxData } = await supabase
-          .from('prescriptions')
-          .select('*')
-          .eq('patient_id', patientClientId)
-          .order('created_at', { ascending: false });
-
-        // 4. Fetch latest Lab Results/Orders for this patient
-        const { data: labData } = await supabase
-          .from('lab_results')
-          .select('*')
-          .eq('patient_id', patientClientId)
-          .order('created_at', { ascending: false });
-
-        if (!isMounted) return;
-
-        // Set Diagnosis
-        if (diagData && diagData.length > 0 && diagData[0].name) {
-          setSoapDiagnosis(diagData[0].name);
-        } else if (notesData && notesData.length > 0 && notesData[0].summary) {
-          setSoapDiagnosis(notesData[0].summary);
-        } else {
-          setSoapDiagnosis('');
-        }
-
-        // Set Clinical Findings / SOAP Notes
-        if (notesData && notesData.length > 0 && (notesData[0].observations || notesData[0].plan || notesData[0].complaint)) {
-          const obs = [
-            notesData[0].complaint ? `Complaint: ${notesData[0].complaint}` : '',
-            notesData[0].observations ? `Observations: ${notesData[0].observations}` : '',
-            notesData[0].plan ? `Plan: ${notesData[0].plan}` : '',
-          ].filter(Boolean).join('\n');
-          setSoapNotes(obs);
-        } else {
-          setSoapNotes(selectedPatient.complaint && selectedPatient.complaint !== 'General clinical consultation' ? `Chief Complaint: ${selectedPatient.complaint}` : '');
-        }
-
-        // Set Prescriptions
-        if (rxData && rxData.length > 0) {
-          setPrescriptions(
-            rxData.map((r: any) => ({
-              id: r.id,
-              drug: r.medication,
-              dosage: r.dosage || 'Standard',
-              frequency: r.frequency || 'OD',
-              duration: r.date || '5 Days',
-              instructions: r.instructions || 'Take as directed',
-            }))
-          );
-        } else {
-          setPrescriptions([]);
-        }
-
-        // Set Lab Orders
-        if (labData && labData.length > 0) {
-          setSelectedLabs(labData.map((l: any) => l.test_name).filter(Boolean));
-        } else {
-          setSelectedLabs([]);
-        }
-      } catch (err) {
-        console.warn('Error loading patient clinical records:', err);
-      } finally {
-        if (isMounted) setLoadingClinicalRecords(false);
-      }
-    }
-
-    loadPatientClinicalRecords();
-
-    return () => {
-      isMounted = false;
-    };
-  }, [selectedPatient?.clientId, selectedPatient?.id, supabase]);
+    loadPatientClinicalRecords(patientClientId);
+  }, [selectedPatient?.clientId, selectedPatient?.id, loadPatientClinicalRecords]);
 
   // Fetch facility bed availability & medicine stock alerts
   useEffect(() => {
@@ -595,6 +605,7 @@ export default function DoctorClinicalDashboardPage() {
     try {
       // 1. Save Diagnosis if present
       if (soapDiagnosis.trim()) {
+        await supabase.from('diagnoses').delete().eq('patient_id', patientClientId);
         await supabase.from('diagnoses').insert({
           patient_id: patientClientId,
           name: soapDiagnosis.trim(),
@@ -604,6 +615,7 @@ export default function DoctorClinicalDashboardPage() {
       }
 
       // 2. Save Doctor Notes / SOAP Encounter
+      await supabase.from('doctor_notes').delete().eq('patient_id', patientClientId);
       await supabase.from('doctor_notes').insert({
         patient_id: patientClientId,
         doctor: docName,
@@ -616,7 +628,10 @@ export default function DoctorClinicalDashboardPage() {
         plan: `EDL Medications: ${prescriptions.map(p => p.drug).join(', ') || 'None'}; Labs: ${selectedLabs.join(', ') || 'None'}`,
       });
 
-      // 3. Persist Prescriptions to prescriptions & medications tables
+      // 3. Persist Prescriptions to prescriptions & medications tables (clean sync)
+      await supabase.from('prescriptions').delete().eq('patient_id', patientClientId);
+      await supabase.from('medications').delete().eq('patient_id', patientClientId);
+
       if (prescriptions.length > 0) {
         const rxInserts = prescriptions.map(p => ({
           patient_id: patientClientId,
@@ -642,7 +657,8 @@ export default function DoctorClinicalDashboardPage() {
         await supabase.from('medications').insert(medInserts);
       }
 
-      // 4. Persist Diagnostic Lab Orders
+      // 4. Persist Diagnostic Lab Orders (clean sync)
+      await supabase.from('lab_results').delete().eq('patient_id', patientClientId).eq('status', 'Pending');
       if (selectedLabs.length > 0) {
         const labInserts = selectedLabs.map(lab => ({
           patient_id: patientClientId,
@@ -668,11 +684,25 @@ export default function DoctorClinicalDashboardPage() {
 
       handleStatusChange(selectedPatient.id, 'COMPLETED');
       setSubmitSuccessMessage(`Encounter and ${prescriptions.length} EDL medication order(s) successfully saved to database for ${selectedPatient.name}.`);
+
+      // 6. Refetch directly from database to confirm persisted state
+      await loadPatientClinicalRecords(patientClientId);
     } catch (err: any) {
       console.error('Error persisting encounter:', err);
       setSubmitErrorMessage(`Unable to persist encounter: ${err?.message || 'Database error'}. Please retry.`);
     } finally {
       setSubmittingEncounter(false);
+    }
+  };
+
+  const handleDeletePrescription = async (prescriptionId: string) => {
+    setPrescriptions(prev => prev.filter(item => item.id !== prescriptionId));
+    if (!selectedPatient) return;
+    try {
+      await supabase.from('prescriptions').delete().eq('id', prescriptionId);
+      await supabase.from('medications').delete().eq('id', prescriptionId);
+    } catch (err) {
+      console.warn('Error deleting prescription from database:', err);
     }
   };
 
@@ -687,7 +717,7 @@ export default function DoctorClinicalDashboardPage() {
 
     if (drug) {
       setPrescriptions(prev => [...prev, {
-        id: Date.now().toString(),
+        id: crypto.randomUUID(),
         drug,
         dosage: dosage || 'Standard',
         frequency: frequency || 'BD (Twice daily)',
@@ -1284,8 +1314,9 @@ export default function DoctorClinicalDashboardPage() {
                           <td className="p-2.5 text-tertiary text-[11px]">{p.instructions}</td>
                           <td className="p-2.5 text-right">
                             <button
-                              onClick={() => setPrescriptions(prev => prev.filter(item => item.id !== p.id))}
+                              onClick={() => handleDeletePrescription(p.id)}
                               className="p-1 text-red-600 hover:bg-red-50 rounded-lg"
+                              title="Remove medication"
                             >
                               <span className="material-symbols-outlined text-sm">delete</span>
                             </button>
