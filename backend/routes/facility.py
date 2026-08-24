@@ -4,6 +4,8 @@ Powers Facility Manager, Pharmacist, and Doctor dashboards for:
 - Essential Drug List (EDL) inventory & stockout early warning
 - Diagnostic laboratory test ordering & result coordination
 - OPD patient queue load & inpatient bed occupancy metrics
+- Facility doctor roster & ward-level bed breakdown
+- Medicine availability alert notifications for doctors & ASHA workers
 """
 import logging
 from datetime import datetime
@@ -37,6 +39,128 @@ _facility_stats = {
     "active_inbound_referrals": 8,
     "active_outbound_referrals": 3
 }
+
+# ─── Facility Doctor Roster ────────────────────────────────────────────────
+_facility_doctors_db = [
+    {
+        "id": "DOC-001",
+        "name": "Dr. David Ross",
+        "specialty": "General Medicine & Internal Medicine",
+        "qualification": "MBBS, MD (General Medicine)",
+        "status": "ON_DUTY",
+        "shift": "Morning (08:00 AM - 02:00 PM)",
+        "current_opd_token": "TKN-098",
+        "patients_seen_today": 24,
+        "phone": "+91 98230 55441",
+        "room": "OPD Room 2"
+    },
+    {
+        "id": "DOC-002",
+        "name": "Dr. Sarah Jenkins",
+        "specialty": "Obstetrics & Gynecology",
+        "qualification": "MBBS, MS (OB-GYN)",
+        "status": "ON_DUTY",
+        "shift": "Morning (08:00 AM - 02:00 PM)",
+        "current_opd_token": "TKN-045",
+        "patients_seen_today": 18,
+        "phone": "+91 98230 66772",
+        "room": "ANC / Maternity Ward"
+    },
+    {
+        "id": "DOC-003",
+        "name": "Dr. Michael Chang",
+        "specialty": "Pediatrics & Neonatology",
+        "qualification": "MBBS, DCH",
+        "status": "ON_DUTY",
+        "shift": "Afternoon (02:00 PM - 08:00 PM)",
+        "current_opd_token": None,
+        "patients_seen_today": 0,
+        "phone": "+91 98230 77883",
+        "room": "Pediatric OPD"
+    },
+    {
+        "id": "DOC-004",
+        "name": "Dr. Elena Rostova",
+        "specialty": "Community & Preventive Medicine",
+        "qualification": "MBBS, MD (PSM)",
+        "status": "ON_DUTY",
+        "shift": "Morning (08:00 AM - 02:00 PM)",
+        "current_opd_token": "TKN-072",
+        "patients_seen_today": 15,
+        "phone": "+91 98230 88994",
+        "room": "NCD / Screening Room"
+    },
+    {
+        "id": "DOC-005",
+        "name": "Dr. Arun Patil",
+        "specialty": "Emergency & Trauma",
+        "qualification": "MBBS, DEMS",
+        "status": "OFF_DUTY",
+        "shift": "Night (08:00 PM - 08:00 AM)",
+        "current_opd_token": None,
+        "patients_seen_today": 0,
+        "phone": "+91 98230 99105",
+        "room": "Emergency / Trauma Bay"
+    },
+    {
+        "id": "DOC-006",
+        "name": "Dr. Meena Bhonsle",
+        "specialty": "Dental & Oral Surgery",
+        "qualification": "BDS",
+        "status": "ON_DUTY",
+        "shift": "Morning (08:00 AM - 02:00 PM)",
+        "current_opd_token": "TKN-012",
+        "patients_seen_today": 9,
+        "phone": "+91 98230 10216",
+        "room": "Dental OPD"
+    }
+]
+
+# ─── Ward-Level Bed Breakdown ──────────────────────────────────────────────
+_facility_beds_db = [
+    {
+        "ward": "General Male Ward",
+        "total": 14,
+        "occupied": 10,
+        "available": 4,
+        "description": "Adult male inpatient recovery & observation"
+    },
+    {
+        "ward": "General Female Ward",
+        "total": 12,
+        "occupied": 10,
+        "available": 2,
+        "description": "Adult female inpatient recovery & observation"
+    },
+    {
+        "ward": "Maternal ANC / Postpartum Ward",
+        "total": 8,
+        "occupied": 4,
+        "available": 4,
+        "description": "High-risk pregnancy, labour, postnatal care"
+    },
+    {
+        "ward": "Pediatric Ward",
+        "total": 6,
+        "occupied": 5,
+        "available": 1,
+        "description": "Neonatal observation & childhood illness"
+    },
+    {
+        "ward": "Emergency / Trauma ICU",
+        "total": 4,
+        "occupied": 2,
+        "available": 2,
+        "description": "Ventilator, oxygen support, hemodynamic monitoring"
+    },
+    {
+        "ward": "Isolation Ward",
+        "total": 6,
+        "occupied": 7,
+        "available": -1,
+        "description": "TB, vector-borne, respiratory infection isolation"
+    }
+]
 
 _essential_medicines_db = [
     {
@@ -259,3 +383,53 @@ def update_medicine_stock(update: StockUpdateRequest):
         med["status"] = "CRITICAL_STOCKOUT_RISK"
 
     return {"success": True, "updated_medicine": med}
+
+
+# ─── NEW: Facility Doctor Roster ───────────────────────────────────────────
+
+@router.get("/facility/doctors")
+def get_facility_doctors(
+    status: Optional[str] = Query(None, description="Filter by ON_DUTY / OFF_DUTY")
+):
+    """Returns the roster of doctors assigned to this facility."""
+    results = _facility_doctors_db
+    if status and status != "ALL":
+        results = [d for d in results if d["status"].upper() == status.upper()]
+    return {
+        "count": len(results),
+        "on_duty": len([d for d in _facility_doctors_db if d["status"] == "ON_DUTY"]),
+        "off_duty": len([d for d in _facility_doctors_db if d["status"] == "OFF_DUTY"]),
+        "doctors": results
+    }
+
+
+# ─── NEW: Ward-Level Bed Breakdown ─────────────────────────────────────────
+
+@router.get("/facility/beds")
+def get_facility_beds():
+    """Returns detailed ward-level bed occupancy and availability."""
+    total_beds = sum(w["total"] for w in _facility_beds_db)
+    total_occupied = sum(w["occupied"] for w in _facility_beds_db)
+    total_available = sum(max(0, w["available"]) for w in _facility_beds_db)
+    return {
+        "total_beds": total_beds,
+        "total_occupied": total_occupied,
+        "total_available": total_available,
+        "occupancy_rate": round((total_occupied / total_beds) * 100, 1) if total_beds > 0 else 0,
+        "wards": _facility_beds_db
+    }
+
+
+# ─── NEW: Medicine Availability Alert Notifications ────────────────────────
+
+@router.get("/facility/medicine-alerts")
+def get_medicine_alerts():
+    """Returns medicines that are LOW_STOCK or CRITICAL — used by Doctor & ASHA pages."""
+    alerts = [
+        m for m in _essential_medicines_db
+        if m["status"] in ("LOW_STOCK", "CRITICAL_STOCKOUT_RISK")
+    ]
+    return {
+        "alert_count": len(alerts),
+        "medicines": alerts
+    }

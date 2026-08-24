@@ -4,6 +4,7 @@ import { useState, useEffect, useMemo, useCallback } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { createClient } from '@/lib/supabase/client';
+import { apiFetch } from '@/lib/api';
 
 interface OPDQueuePatient {
   id: string;
@@ -67,6 +68,12 @@ export default function DoctorClinicalDashboardPage() {
   const [queue, setQueue] = useState<OPDQueuePatient[]>([]);
   const [loadingQueue, setLoadingQueue] = useState<boolean>(true);
   const [selectedPatientId, setSelectedPatientId] = useState<string>('');
+
+  // Facility awareness: beds & medicine alerts
+  const [bedsData, setBedsData] = useState<any>(null);
+  const [medAlerts, setMedAlerts] = useState<any[]>([]);
+  const [showBedPanel, setShowBedPanel] = useState<boolean>(false);
+
   const [filterType, setFilterType] = useState<'ALL' | 'WAITING' | 'EMERGENCY' | 'TELECONSULT' | 'COMPLETED'>('ALL');
   const [searchQuery, setSearchQuery] = useState<string>('');
 
@@ -291,6 +298,23 @@ export default function DoctorClinicalDashboardPage() {
   }, [supabase, fetchLiveQueue, activeDoctorId]);
 
   const selectedPatient = queue.find(p => p.id === selectedPatientId) || queue[0];
+
+  // Fetch facility bed availability & medicine stock alerts
+  useEffect(() => {
+    async function fetchFacilityData() {
+      try {
+        const [beds, alerts] = await Promise.all([
+          apiFetch('/api/facility/beds'),
+          apiFetch('/api/facility/medicine-alerts')
+        ]);
+        setBedsData(beds);
+        if (alerts.medicines) setMedAlerts(alerts.medicines);
+      } catch (e) {
+        console.warn('Error loading facility data for doctor:', e);
+      }
+    }
+    fetchFacilityData();
+  }, []);
 
   const filteredQueue = queue.filter(item => {
     const matchesSearch = !searchQuery || 
@@ -524,6 +548,100 @@ export default function DoctorClinicalDashboardPage() {
           <span className="text-[11px] font-bold uppercase tracking-wider text-tertiary block">Lab Orders Pending</span>
           <span className="text-3xl font-black text-on-surface mt-1 block">{selectedLabs.length}</span>
           <span className="text-[10px] text-purple-600 font-semibold">Diagnostic Pipeline Active</span>
+        </div>
+      </div>
+
+      {/* Bed Availability & Medicine Alerts */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+        {/* Bed Availability Widget */}
+        <div className="bg-white border border-surface-container-high rounded-3xl shadow-card overflow-hidden">
+          <button
+            onClick={() => setShowBedPanel(!showBedPanel)}
+            className="w-full p-5 flex items-center justify-between hover:bg-surface-container-low transition-all"
+          >
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-2xl bg-teal-50 text-teal-700 flex items-center justify-center">
+                <span className="material-symbols-outlined">bed</span>
+              </div>
+              <div className="text-left">
+                <span className="text-xs font-bold text-on-surface block">Inpatient Bed Availability</span>
+                <span className="text-[10px] text-tertiary">
+                  {bedsData?.total_available ?? 13} beds available • {bedsData?.occupancy_rate ?? 76}% occupancy
+                </span>
+              </div>
+            </div>
+            <div className="flex items-center gap-2">
+              <span className="text-2xl font-black text-teal-700">{bedsData?.total_available ?? 13}</span>
+              <span className={`material-symbols-outlined text-tertiary transition-transform ${showBedPanel ? 'rotate-180' : ''}`}>expand_more</span>
+            </div>
+          </button>
+
+          {showBedPanel && bedsData?.wards && (
+            <div className="px-5 pb-5 space-y-2 border-t border-surface-container">
+              {bedsData.wards.map((ward: any, i: number) => {
+                const pct = ward.total > 0 ? Math.round((ward.occupied / ward.total) * 100) : 0;
+                const isOverflow = ward.available < 0;
+                const isCritical = ward.available <= 1 && !isOverflow;
+                return (
+                  <div key={i} className="flex items-center justify-between py-2 text-xs">
+                    <div className="flex-1">
+                      <span className="font-bold text-on-surface block">{ward.ward}</span>
+                      <div className="w-full h-1.5 bg-surface-container rounded-full mt-1 overflow-hidden">
+                        <div
+                          className={`h-full rounded-full ${isOverflow ? 'bg-red-500' : isCritical ? 'bg-amber-500' : 'bg-teal-600'}`}
+                          style={{ width: `${Math.min(100, pct)}%` }}
+                        />
+                      </div>
+                    </div>
+                    <span className={`ml-3 font-black whitespace-nowrap ${
+                      isOverflow ? 'text-red-600' : isCritical ? 'text-amber-700' : 'text-teal-700'
+                    }`}>
+                      {Math.max(0, ward.available)} / {ward.total}
+                    </span>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
+
+        {/* Medicine Stock Alerts */}
+        <div className={`border rounded-3xl shadow-card p-5 space-y-3 ${
+          medAlerts.length > 0 ? 'bg-amber-50 border-amber-200' : 'bg-white border-surface-container-high'
+        }`}>
+          <div className="flex items-center gap-3">
+            <div className={`w-10 h-10 rounded-2xl flex items-center justify-center ${
+              medAlerts.length > 0 ? 'bg-amber-200/80 text-amber-700' : 'bg-teal-50 text-teal-700'
+            }`}>
+              <span className="material-symbols-outlined">{medAlerts.length > 0 ? 'warning' : 'pill'}</span>
+            </div>
+            <div>
+              <span className="text-xs font-bold text-on-surface block">EDL Medicine Stock Alerts</span>
+              <span className="text-[10px] text-tertiary">
+                {medAlerts.length > 0
+                  ? `${medAlerts.length} medicine(s) at low or critical stock level`
+                  : 'All essential medicines adequately stocked'}
+              </span>
+            </div>
+          </div>
+
+          {medAlerts.length > 0 && (
+            <div className="space-y-2">
+              {medAlerts.map((med: any) => (
+                <div key={med.id} className="flex items-center justify-between p-3 bg-white rounded-2xl border border-amber-200 text-xs">
+                  <div>
+                    <span className="font-bold text-on-surface block">{med.name}</span>
+                    <span className="text-tertiary">{med.category} • {med.stock_units.toLocaleString()} {med.unit} remaining</span>
+                  </div>
+                  <span className={`text-[10px] font-extrabold uppercase px-2 py-0.5 rounded-full ${
+                    med.status === 'CRITICAL_STOCKOUT_RISK' ? 'bg-red-100 text-red-800 animate-pulse' : 'bg-amber-100 text-amber-800'
+                  }`}>
+                    {med.days_of_supply}d supply
+                  </span>
+                </div>
+              ))}
+            </div>
+          )}
         </div>
       </div>
 

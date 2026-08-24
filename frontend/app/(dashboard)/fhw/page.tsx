@@ -54,6 +54,7 @@ export default function FrontlineHealthWorkerPage() {
     const [isOnline, setIsOnline] = useState<boolean>(true);
     const [offlineSyncPending, setOfflineSyncPending] = useState<number>(0);
     const [syncSuccessMsg, setSyncSuccessMsg] = useState<string | null>(null);
+    const [medAlerts, setMedAlerts] = useState<any[]>([]);
 
     // Check online status and local queue
     useEffect(() => {
@@ -80,9 +81,10 @@ export default function FrontlineHealthWorkerPage() {
     const fetchData = async () => {
         setLoading(true);
         try {
-            const [benData, followData] = await Promise.all([
+            const [benData, followData, alertData] = await Promise.all([
                 apiFetch(`/api/fhw/beneficiaries?category=${filterCategory}&risk_level=${filterRisk}`).catch(() => ({ beneficiaries: null })),
-                apiFetch('/api/fhw/followups').catch(() => ({ summary: null }))
+                apiFetch('/api/fhw/followups').catch(() => ({ summary: null })),
+                apiFetch('/api/facility/medicine-alerts').catch(() => ({ medicines: [] }))
             ]);
             if (benData?.beneficiaries) {
                 setBeneficiaries(benData.beneficiaries);
@@ -94,6 +96,7 @@ export default function FrontlineHealthWorkerPage() {
                 if (cached) setBeneficiaries(JSON.parse(cached));
             }
             if (followData?.summary) setFollowupSummary(followData.summary);
+            if (alertData?.medicines) setMedAlerts(alertData.medicines);
         } catch (err) {
             console.error('Failed to load FHW data:', err);
             const cached = localStorage.getItem('curatrack_fhw_cached_beneficiaries');
@@ -351,6 +354,58 @@ export default function FrontlineHealthWorkerPage() {
                     </div>
                 </div>
             </div>
+
+            {/* Medicine Availability Alerts for ASHA */}
+            {medAlerts.length > 0 && (
+                <div className="bg-gradient-to-br from-red-50 via-amber-50 to-orange-50 border border-amber-300 rounded-3xl p-6 shadow-sm space-y-4">
+                    <div className="flex items-center gap-3">
+                        <div className="w-10 h-10 rounded-2xl bg-amber-500 text-white flex items-center justify-center shadow-sm">
+                            <span className="material-symbols-outlined text-xl">pill_off</span>
+                        </div>
+                        <div>
+                            <h2 className="text-base font-extrabold text-amber-950">Facility Medicine Stock Alert</h2>
+                            <p className="text-xs text-amber-800 mt-0.5">
+                                {medAlerts.length} medicine(s) at the Nandurbar CHC are running low or critically out of stock.
+                                Avoid distributing these until restocked.
+                            </p>
+                        </div>
+                    </div>
+
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                        {medAlerts.map((med: any) => (
+                            <div
+                                key={med.id}
+                                className={`p-4 rounded-2xl border shadow-xs space-y-1.5 ${
+                                    med.status === 'CRITICAL_STOCKOUT_RISK'
+                                        ? 'bg-red-50 border-red-200'
+                                        : 'bg-white border-amber-200'
+                                }`}
+                            >
+                                <div className="flex items-center justify-between">
+                                    <span className="text-xs font-bold text-on-surface flex items-center gap-1.5">
+                                        <span className={`material-symbols-outlined text-base ${
+                                            med.status === 'CRITICAL_STOCKOUT_RISK' ? 'text-red-600' : 'text-amber-600'
+                                        }`}>
+                                            {med.status === 'CRITICAL_STOCKOUT_RISK' ? 'dangerous' : 'warning'}
+                                        </span>
+                                        {med.name}
+                                    </span>
+                                    <span className={`text-[10px] font-extrabold uppercase px-2 py-0.5 rounded-full ${
+                                        med.status === 'CRITICAL_STOCKOUT_RISK'
+                                            ? 'bg-red-100 text-red-800 animate-pulse'
+                                            : 'bg-amber-100 text-amber-800'
+                                    }`}>
+                                        {med.status === 'CRITICAL_STOCKOUT_RISK' ? 'CRITICAL' : 'LOW STOCK'}
+                                    </span>
+                                </div>
+                                <p className="text-[11px] text-slate-600">
+                                    {med.stock_units.toLocaleString()} {med.unit} left • {med.days_of_supply} days supply • {med.category}
+                                </p>
+                            </div>
+                        ))}
+                    </div>
+                </div>
+            )}
 
             {/* Filter Tabs */}
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-surface-container-high pb-4">
