@@ -8,6 +8,7 @@ import { apiFetch } from '@/lib/api';
 
 interface OPDQueuePatient {
   id: string;
+  clientId: string;
   token: string;
   name: string;
   age: number;
@@ -90,18 +91,15 @@ export default function DoctorClinicalDashboardPage() {
   const [activeDoctorId, setActiveDoctorId] = useState<string | null>(null);
   const [realtimeConnected, setRealtimeConnected] = useState<boolean>(false);
 
-  // Clinical Encounter State
-  const [soapDiagnosis, setSoapDiagnosis] = useState<string>('Acute febrile illness; likely vector-borne viral infection (Malarial / Dengue antigen screen pending)');
-  const [soapNotes, setSoapNotes] = useState<string>('Patient reports 3 days of high-grade intermittent fever with rigors. Associated with generalized myalgia and frontal headache. Advised hydration, paracetamol, and urgent diagnostic panel.');
-  
-  // Prescriptions List
-  const [prescriptions, setPrescriptions] = useState<Array<{ id: string; drug: string; dosage: string; frequency: string; duration: string; instructions: string }>>([
-    { id: '1', drug: 'Paracetamol 500mg IP (EDL Item)', dosage: '500mg', frequency: 'TDS (3 times daily)', duration: '5 Days', instructions: 'Take after meals with plenty of water' },
-    { id: '2', drug: 'Amoxicillin 500mg Capsules', dosage: '500mg', frequency: 'BD (Twice daily)', duration: '5 Days', instructions: 'Complete full antibacterial course' },
-  ]);
-
-  // Lab Tests State
-  const [selectedLabs, setSelectedLabs] = useState<string[]>(['Complete Blood Count (CBC)', 'Rapid Malarial Antigen (Pf/Pv)']);
+  // Clinical Encounter State - dynamically loaded per selected patient
+  const [soapDiagnosis, setSoapDiagnosis] = useState<string>('');
+  const [soapNotes, setSoapNotes] = useState<string>('');
+  const [prescriptions, setPrescriptions] = useState<Array<{ id: string; drug: string; dosage: string; frequency: string; duration: string; instructions: string }>>([]);
+  const [selectedLabs, setSelectedLabs] = useState<string[]>([]);
+  const [loadingClinicalRecords, setLoadingClinicalRecords] = useState<boolean>(false);
+  const [submittingEncounter, setSubmittingEncounter] = useState<boolean>(false);
+  const [submitSuccessMessage, setSubmitSuccessMessage] = useState<string>('');
+  const [submitErrorMessage, setSubmitErrorMessage] = useState<string>('');
 
   // Fetch Live Queue from Supabase Database
   const fetchLiveQueue = useCallback(async (docId: string) => {
@@ -187,6 +185,7 @@ export default function DoctorClinicalDashboardPage() {
 
         return {
           id: a.id,
+          clientId: a.client_id || a.id,
           token: a.token || `TKN-${String(idx + 1).padStart(3, '0')}`,
           name: pName,
           age: clientProf?.age || (a.age ? Number(a.age) : 32),
@@ -362,6 +361,113 @@ export default function DoctorClinicalDashboardPage() {
 
   const selectedPatient = queue.find(p => p.id === selectedPatientId) || queue[0];
 
+  // Dynamic Clinical Records Loader: Loads real records when selected patient changes
+  useEffect(() => {
+    let isMounted = true;
+    if (!selectedPatient) {
+      setSoapDiagnosis('');
+      setSoapNotes('');
+      setPrescriptions([]);
+      setSelectedLabs([]);
+      return;
+    }
+
+    const patientClientId = selectedPatient.clientId || selectedPatient.id;
+    setLoadingClinicalRecords(true);
+    setSubmitSuccessMessage('');
+    setSubmitErrorMessage('');
+
+    async function loadPatientClinicalRecords() {
+      try {
+        // 1. Fetch latest Doctor Notes / Encounter for this patient
+        const { data: notesData } = await supabase
+          .from('doctor_notes')
+          .select('*')
+          .eq('patient_id', patientClientId)
+          .order('created_at', { ascending: false })
+          .limit(1);
+
+        // 2. Fetch active Diagnoses for this patient
+        const { data: diagData } = await supabase
+          .from('diagnoses')
+          .select('*')
+          .eq('patient_id', patientClientId)
+          .order('created_at', { ascending: false })
+          .limit(1);
+
+        // 3. Fetch active Prescriptions for this patient
+        const { data: rxData } = await supabase
+          .from('prescriptions')
+          .select('*')
+          .eq('patient_id', patientClientId)
+          .order('created_at', { ascending: false });
+
+        // 4. Fetch latest Lab Results/Orders for this patient
+        const { data: labData } = await supabase
+          .from('lab_results')
+          .select('*')
+          .eq('patient_id', patientClientId)
+          .order('created_at', { ascending: false });
+
+        if (!isMounted) return;
+
+        // Set Diagnosis
+        if (diagData && diagData.length > 0 && diagData[0].name) {
+          setSoapDiagnosis(diagData[0].name);
+        } else if (notesData && notesData.length > 0 && notesData[0].summary) {
+          setSoapDiagnosis(notesData[0].summary);
+        } else {
+          setSoapDiagnosis('');
+        }
+
+        // Set Clinical Findings / SOAP Notes
+        if (notesData && notesData.length > 0 && (notesData[0].observations || notesData[0].plan || notesData[0].complaint)) {
+          const obs = [
+            notesData[0].complaint ? `Complaint: ${notesData[0].complaint}` : '',
+            notesData[0].observations ? `Observations: ${notesData[0].observations}` : '',
+            notesData[0].plan ? `Plan: ${notesData[0].plan}` : '',
+          ].filter(Boolean).join('\n');
+          setSoapNotes(obs);
+        } else {
+          setSoapNotes(selectedPatient.complaint && selectedPatient.complaint !== 'General clinical consultation' ? `Chief Complaint: ${selectedPatient.complaint}` : '');
+        }
+
+        // Set Prescriptions
+        if (rxData && rxData.length > 0) {
+          setPrescriptions(
+            rxData.map((r: any) => ({
+              id: r.id,
+              drug: r.medication,
+              dosage: r.dosage || 'Standard',
+              frequency: r.frequency || 'OD',
+              duration: r.date || '5 Days',
+              instructions: r.instructions || 'Take as directed',
+            }))
+          );
+        } else {
+          setPrescriptions([]);
+        }
+
+        // Set Lab Orders
+        if (labData && labData.length > 0) {
+          setSelectedLabs(labData.map((l: any) => l.test_name).filter(Boolean));
+        } else {
+          setSelectedLabs([]);
+        }
+      } catch (err) {
+        console.warn('Error loading patient clinical records:', err);
+      } finally {
+        if (isMounted) setLoadingClinicalRecords(false);
+      }
+    }
+
+    loadPatientClinicalRecords();
+
+    return () => {
+      isMounted = false;
+    };
+  }, [selectedPatient?.clientId, selectedPatient?.id, supabase]);
+
   // Fetch facility bed availability & medicine stock alerts
   useEffect(() => {
     async function fetchFacilityData() {
@@ -456,7 +562,7 @@ export default function DoctorClinicalDashboardPage() {
     // 4. Fallback: Generate room_id AND register in Supabase so patient and doctor share the SAME room!
     const newRoomId = crypto.randomUUID();
     const docId = activeDoctorId || 'doc-david-ross';
-    const patId = selectedPatient?.id;
+    const patId = selectedPatient?.clientId || selectedPatient?.id;
 
     if (patId) {
       try {
@@ -473,6 +579,101 @@ export default function DoctorClinicalDashboardPage() {
     }
 
     router.push(`/call/${newRoomId}?role=doctor`);
+  };
+
+  // Submit Clinical Encounter & EDL Drug Orders to Supabase Database
+  const handleSubmitEncounter = async () => {
+    if (!selectedPatient) return;
+    setSubmittingEncounter(true);
+    setSubmitSuccessMessage('');
+    setSubmitErrorMessage('');
+
+    const patientClientId = selectedPatient.clientId || selectedPatient.id;
+    const docName = doctorInfo.name;
+    const todayStr = new Date().toISOString().split('T')[0];
+
+    try {
+      // 1. Save Diagnosis if present
+      if (soapDiagnosis.trim()) {
+        await supabase.from('diagnoses').insert({
+          patient_id: patientClientId,
+          name: soapDiagnosis.trim(),
+          date: todayStr,
+          status: 'Active',
+        });
+      }
+
+      // 2. Save Doctor Notes / SOAP Encounter
+      await supabase.from('doctor_notes').insert({
+        patient_id: patientClientId,
+        doctor: docName,
+        specialty: doctorInfo.department,
+        date: todayStr,
+        visit_type: selectedPatient.type,
+        complaint: selectedPatient.complaint,
+        observations: soapNotes.trim() || 'Clinical review completed.',
+        summary: soapDiagnosis.trim() || 'Encounter evaluated',
+        plan: `EDL Medications: ${prescriptions.map(p => p.drug).join(', ') || 'None'}; Labs: ${selectedLabs.join(', ') || 'None'}`,
+      });
+
+      // 3. Persist Prescriptions to prescriptions & medications tables
+      if (prescriptions.length > 0) {
+        const rxInserts = prescriptions.map(p => ({
+          patient_id: patientClientId,
+          medication: p.drug,
+          dosage: p.dosage,
+          frequency: p.frequency,
+          doctor_name: docName,
+          date: p.duration || todayStr,
+          instructions: p.instructions,
+        }));
+        await supabase.from('prescriptions').insert(rxInserts);
+
+        const medInserts = prescriptions.map(p => ({
+          patient_id: patientClientId,
+          name: p.drug,
+          dosage: p.dosage,
+          frequency: p.frequency,
+          instructions: p.instructions,
+          doctor: docName,
+          status: 'UPCOMING',
+          active: true,
+        }));
+        await supabase.from('medications').insert(medInserts);
+      }
+
+      // 4. Persist Diagnostic Lab Orders
+      if (selectedLabs.length > 0) {
+        const labInserts = selectedLabs.map(lab => ({
+          patient_id: patientClientId,
+          test_name: lab,
+          doctor: docName,
+          date: todayStr,
+          status: 'Pending',
+          results: [],
+        }));
+        await supabase.from('lab_results').insert(labInserts);
+      }
+
+      // 5. Update Appointment status to completed in database
+      if (selectedPatient.id) {
+        await supabase
+          .from('appointments')
+          .update({
+            status: 'completed',
+            notes: `Encounter completed. Dx: ${soapDiagnosis.trim() || 'Reviewed'}`,
+          })
+          .eq('id', selectedPatient.id);
+      }
+
+      handleStatusChange(selectedPatient.id, 'COMPLETED');
+      setSubmitSuccessMessage(`Encounter and ${prescriptions.length} EDL medication order(s) successfully saved to database for ${selectedPatient.name}.`);
+    } catch (err: any) {
+      console.error('Error persisting encounter:', err);
+      setSubmitErrorMessage(`Unable to persist encounter: ${err?.message || 'Database error'}. Please retry.`);
+    } finally {
+      setSubmittingEncounter(false);
+    }
   };
 
   const handleAddDrug = (e: React.FormEvent<HTMLFormElement>) => {
@@ -936,10 +1137,33 @@ export default function DoctorClinicalDashboardPage() {
               </div>
             </div>
 
+            {/* Success & Error Banners */}
+            {submitSuccessMessage && (
+              <div className="p-3.5 bg-emerald-50 border border-emerald-300 rounded-2xl flex items-center gap-3 text-xs text-emerald-900 animate-fadeIn">
+                <span className="material-symbols-outlined text-emerald-600 text-lg">check_circle</span>
+                <span className="font-bold">{submitSuccessMessage}</span>
+              </div>
+            )}
+
+            {submitErrorMessage && (
+              <div className="p-3.5 bg-red-50 border border-red-300 rounded-2xl flex items-center gap-3 text-xs text-red-900 animate-fadeIn">
+                <span className="material-symbols-outlined text-red-600 text-lg">error</span>
+                <span className="font-bold">{submitErrorMessage}</span>
+              </div>
+            )}
+
             {/* SOAP Clinical Encounter Notes */}
             <div className="space-y-3 pt-2">
               <div className="flex items-center justify-between">
-                <span className="text-xs font-bold text-slate-800 uppercase tracking-wider">Clinical SOAP Notes & Assessment</span>
+                <div className="flex items-center gap-2">
+                  <span className="text-xs font-bold text-slate-800 uppercase tracking-wider">Clinical SOAP Notes & Assessment</span>
+                  {loadingClinicalRecords && (
+                    <span className="text-[10px] text-teal-600 font-semibold flex items-center gap-1">
+                      <span className="material-symbols-outlined text-xs animate-spin">sync</span>
+                      Syncing...
+                    </span>
+                  )}
+                </div>
                 <span className="text-[10px] text-tertiary font-semibold">ICD-10 Categorized</span>
               </div>
 
@@ -947,6 +1171,7 @@ export default function DoctorClinicalDashboardPage() {
                 <label className="text-[11px] font-bold text-tertiary block mb-1">Provisional Diagnosis</label>
                 <input
                   type="text"
+                  placeholder="Enter provisional diagnosis or clinical impression..."
                   value={soapDiagnosis}
                   onChange={e => setSoapDiagnosis(e.target.value)}
                   className="w-full px-3.5 py-2 bg-surface-container-low rounded-xl text-xs font-semibold border border-surface-container-high outline-none focus:border-primary"
@@ -957,6 +1182,7 @@ export default function DoctorClinicalDashboardPage() {
                 <label className="text-[11px] font-bold text-tertiary block mb-1">Subjective & Objective Clinical Findings</label>
                 <textarea
                   rows={3}
+                  placeholder="Record subjective complaints, objective vitals assessment, and clinical review..."
                   value={soapNotes}
                   onChange={e => setSoapNotes(e.target.value)}
                   className="w-full px-3.5 py-2 bg-surface-container-low rounded-xl text-xs font-semibold border border-surface-container-high outline-none focus:border-primary"
@@ -1031,37 +1257,44 @@ export default function DoctorClinicalDashboardPage() {
 
               {/* Active Prescriptions Table */}
               <div className="overflow-x-auto rounded-2xl border border-surface-container-high">
-                <table className="w-full text-left text-xs">
-                  <thead className="bg-surface-container-low text-tertiary uppercase font-black text-[9px] tracking-wider border-b border-surface-container-high">
-                    <tr>
-                      <th className="p-2.5">Medicine</th>
-                      <th className="p-2.5">Dosage</th>
-                      <th className="p-2.5">Frequency</th>
-                      <th className="p-2.5">Duration</th>
-                      <th className="p-2.5">Instructions</th>
-                      <th className="p-2.5 text-right">Action</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-surface-container-high">
-                    {prescriptions.map(p => (
-                      <tr key={p.id} className="hover:bg-surface-container-low/50">
-                        <td className="p-2.5 font-bold text-on-surface">{p.drug}</td>
-                        <td className="p-2.5 text-slate-700">{p.dosage}</td>
-                        <td className="p-2.5 text-slate-700">{p.frequency}</td>
-                        <td className="p-2.5 text-slate-700">{p.duration}</td>
-                        <td className="p-2.5 text-tertiary text-[11px]">{p.instructions}</td>
-                        <td className="p-2.5 text-right">
-                          <button
-                            onClick={() => setPrescriptions(prev => prev.filter(item => item.id !== p.id))}
-                            className="p-1 text-red-600 hover:bg-red-50 rounded-lg"
-                          >
-                            <span className="material-symbols-outlined text-sm">delete</span>
-                          </button>
-                        </td>
+                {prescriptions.length === 0 ? (
+                  <div className="p-5 text-center bg-surface-container-low/50 text-tertiary text-xs space-y-1">
+                    <span className="material-symbols-outlined text-xl text-slate-400 block">medication</span>
+                    <span>No medications ordered for this encounter. Add EDL items above.</span>
+                  </div>
+                ) : (
+                  <table className="w-full text-left text-xs">
+                    <thead className="bg-surface-container-low text-tertiary uppercase font-black text-[9px] tracking-wider border-b border-surface-container-high">
+                      <tr>
+                        <th className="p-2.5">Medicine</th>
+                        <th className="p-2.5">Dosage</th>
+                        <th className="p-2.5">Frequency</th>
+                        <th className="p-2.5">Duration</th>
+                        <th className="p-2.5">Instructions</th>
+                        <th className="p-2.5 text-right">Action</th>
                       </tr>
-                    ))}
-                  </tbody>
-                </table>
+                    </thead>
+                    <tbody className="divide-y divide-surface-container-high">
+                      {prescriptions.map(p => (
+                        <tr key={p.id} className="hover:bg-surface-container-low/50">
+                          <td className="p-2.5 font-bold text-on-surface">{p.drug}</td>
+                          <td className="p-2.5 text-slate-700">{p.dosage}</td>
+                          <td className="p-2.5 text-slate-700">{p.frequency}</td>
+                          <td className="p-2.5 text-slate-700">{p.duration}</td>
+                          <td className="p-2.5 text-tertiary text-[11px]">{p.instructions}</td>
+                          <td className="p-2.5 text-right">
+                            <button
+                              onClick={() => setPrescriptions(prev => prev.filter(item => item.id !== p.id))}
+                              className="p-1 text-red-600 hover:bg-red-50 rounded-lg"
+                            >
+                              <span className="material-symbols-outlined text-sm">delete</span>
+                            </button>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                )}
               </div>
             </div>
 
@@ -1102,13 +1335,16 @@ export default function DoctorClinicalDashboardPage() {
             <div className="flex flex-wrap items-center justify-between gap-3 pt-4 border-t border-surface-container-high">
               <div className="flex items-center gap-2">
                 <button
-                  onClick={() => {
-                    alert(`Prescription and Lab Order for ${selectedPatient.name} dispatched to Pharmacy & Lab.`);
-                  }}
-                  className="px-5 py-2.5 bg-primary hover:bg-primary/90 text-white font-bold text-xs rounded-xl shadow-md transition-all flex items-center gap-2"
+                  disabled={submittingEncounter}
+                  onClick={handleSubmitEncounter}
+                  className={`px-5 py-2.5 bg-primary hover:bg-primary/90 text-white font-bold text-xs rounded-xl shadow-md transition-all flex items-center gap-2 ${
+                    submittingEncounter ? 'opacity-70 cursor-not-allowed' : 'active:scale-95'
+                  }`}
                 >
-                  <span className="material-symbols-outlined text-base">send</span>
-                  <span>Submit Encounter & Order EDL Drugs</span>
+                  <span className={`material-symbols-outlined text-base ${submittingEncounter ? 'animate-spin' : ''}`}>
+                    {submittingEncounter ? 'sync' : 'send'}
+                  </span>
+                  <span>{submittingEncounter ? 'Persisting to Database...' : 'Submit Encounter & Order EDL Drugs'}</span>
                 </button>
                 <Link
                   href="/referrals"
