@@ -553,23 +553,22 @@ function DigitalTriageContent() {
 
   return (
     <div className="space-y-8 max-w-7xl mx-auto pb-16">
-      {/* Header banner */}
-      <div className="bg-gradient-to-r from-[#006666] via-[#007575] to-[#008080] rounded-3xl p-8 text-white shadow-xl relative overflow-hidden">
-        <div className="absolute right-0 top-0 w-96 h-96 bg-[#E6F2F2]/10 rounded-full blur-3xl pointer-events-none"></div>
-        <div className="relative z-10 space-y-2">
-          <div className="inline-flex items-center gap-2 px-3 py-1 bg-[#E6F2F2]/15 backdrop-blur rounded-full text-xs font-semibold tracking-wide text-[#E6F2F2] border border-[#E6F2F2]/20">
-            <span className="material-symbols-outlined text-sm">clinical_notes</span>
-            <span>Clinical Protocol • Primary Healthcare Hierarchy</span>
-          </div>
-          <h1 className="text-3xl font-extrabold tracking-tight text-white">Smart Clinical Triage &amp; Facility Routing</h1>
-        </div>
-      </div>
-
       {/* ========================================================================= */}
       {/* WORKFLOW VIEW 1: PATIENT SELECTION LIST (When no patient is selected)    */}
       {/* ========================================================================= */}
       {!selectedPatient ? (
         <div className="space-y-6 animate-in fade-in duration-300">
+          {/* Header banner */}
+          <div className="bg-gradient-to-r from-[#006666] via-[#007575] to-[#008080] rounded-3xl p-8 text-white shadow-xl relative overflow-hidden">
+            <div className="absolute right-0 top-0 w-96 h-96 bg-[#E6F2F2]/10 rounded-full blur-3xl pointer-events-none"></div>
+            <div className="relative z-10 space-y-2">
+              <div className="inline-flex items-center gap-2 px-3 py-1 bg-[#E6F2F2]/15 backdrop-blur rounded-full text-xs font-semibold tracking-wide text-[#E6F2F2] border border-[#E6F2F2]/20">
+                <span className="material-symbols-outlined text-sm">clinical_notes</span>
+                <span>Clinical Protocol • Primary Healthcare Hierarchy</span>
+              </div>
+              <h1 className="text-3xl font-extrabold tracking-tight text-white">Smart Clinical Triage &amp; Facility Routing</h1>
+            </div>
+          </div>
           {/* Search bar - Centered & Shortened */}
           <div className="flex justify-center w-full">
             <div className="w-full max-w-xl flex items-center justify-between gap-3 bg-white px-5 py-3 rounded-full border border-surface-container-high shadow-sm hover:shadow-md focus-within:ring-2 focus-within:ring-primary/20 focus-within:border-primary transition-all">
