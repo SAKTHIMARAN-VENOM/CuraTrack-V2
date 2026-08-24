@@ -29,6 +29,10 @@ interface OPDQueuePatient {
   status: 'WAITING' | 'IN-CONSULT' | 'COMPLETED';
   waitTime: string;
   roomId?: string;
+  ashaName?: string;
+  villageName?: string;
+  beneficiaryId?: string;
+  consultType?: string;
 }
 
 interface Appointment {
@@ -49,6 +53,11 @@ interface Appointment {
   vitals_temp?: string;
   vitals_bmi?: string;
   token?: string;
+  asha_name?: string;
+  village_name?: string;
+  beneficiary_id?: string;
+  consult_type?: string;
+  complaint?: string;
 }
 
 interface DoctorProfileInfo {
@@ -168,6 +177,7 @@ export default function DoctorClinicalDashboardPage() {
         }
 
         const isTele = Boolean(a.room_id || a.status === 'ringing' || a.type === 'video');
+        const isAssisted = a.consult_type === 'assisted_teleconsult' || Boolean(a.asha_name || a.beneficiary_id);
         const isEmergency = a.priority === 'EMERGENCY' || a.status === 'ringing';
         
         let uiStatus: 'WAITING' | 'IN-CONSULT' | 'COMPLETED' = 'WAITING';
@@ -194,7 +204,7 @@ export default function DoctorClinicalDashboardPage() {
           bloodGroup: clientProf?.blood_group || a.blood_group || 'O+',
           allergies: clientProf?.allergies || a.allergies || 'No Known Drug Allergies (NKDA)',
           priority: isEmergency ? 'EMERGENCY' : a.priority === 'PRIORITY' ? 'PRIORITY' : 'ROUTINE',
-          complaint: a.notes || a.complaint || (isTele ? 'Teleconsultation consultation request' : 'General clinical consultation'),
+          complaint: a.complaint || a.notes || (isAssisted ? 'ASHA-assisted teleconsultation request' : isTele ? 'Teleconsultation consultation request' : 'General clinical consultation'),
           vitals: {
             bp: a.vitals_bp || 'N/A',
             hr: a.vitals_hr || 'N/A',
@@ -206,6 +216,10 @@ export default function DoctorClinicalDashboardPage() {
           status: uiStatus,
           waitTime: formattedTime,
           roomId: a.room_id || undefined,
+          ashaName: a.asha_name || undefined,
+          villageName: a.village_name || undefined,
+          beneficiaryId: a.beneficiary_id || undefined,
+          consultType: a.consult_type || undefined,
         };
       });
 
@@ -271,13 +285,18 @@ export default function DoctorClinicalDashboardPage() {
         await fetchLiveQueue(finalDocId);
 
         // Fetch active incoming telemedicine calls
-        const { data: activeAppts } = await supabase
+        let activeQuery = supabase
           .from('appointments')
           .select('*')
           .not('room_id', 'is', null)
           .in('status', ['active', 'ringing'])
-          .order('created_at', { ascending: false })
-          .limit(1);
+          .order('created_at', { ascending: false });
+
+        if (finalDocId) {
+          activeQuery = activeQuery.or(`doctor_id.eq.${finalDocId},doctor_id.eq.doc-david-ross,doctor_id.ilike.%doc-%`);
+        }
+
+        const { data: activeAppts } = await activeQuery.limit(1);
 
         if (isMounted && activeAppts && activeAppts.length > 0) {
           const appt = activeAppts[0];
@@ -319,6 +338,12 @@ export default function DoctorClinicalDashboardPage() {
 
           const incoming = payload.new as Appointment;
           if (!incoming || !incoming.room_id) return;
+          const isForThisDoctor =
+            !activeDoctorId ||
+            incoming.doctor_id === activeDoctorId ||
+            incoming.doctor_id === 'doc-david-ross' ||
+            incoming.doctor_id?.startsWith('doc-');
+          if (!isForThisDoctor) return;
 
           if (incoming.status === 'active' || incoming.status === 'ringing') {
             let patientName = incoming.patient_name || 'Patient';
@@ -743,7 +768,9 @@ export default function DoctorClinicalDashboardPage() {
                 <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
                 <span className="relative inline-flex rounded-full h-3 w-3 bg-emerald-500"></span>
               </span>
-              <span className="text-xs font-black uppercase tracking-wider text-emerald-400">Incoming Teleconsultation</span>
+              <span className="text-xs font-black uppercase tracking-wider text-emerald-400">
+                {incomingCall.consult_type === 'assisted_teleconsult' ? 'Incoming ASHA-Assisted Teleconsultation' : 'Incoming Teleconsultation'}
+              </span>
             </div>
             <span className="px-2.5 py-0.5 rounded-full bg-teal-500/20 text-teal-300 text-[10px] font-mono border border-teal-500/30">
               Live Ringing
@@ -753,8 +780,15 @@ export default function DoctorClinicalDashboardPage() {
           <div className="space-y-1 mb-4">
             <h4 className="text-xl font-black text-white">{incomingCall.patient_name || 'Kavita Bai'}</h4>
             <p className="text-xs text-slate-300">
-              Patient is waiting in virtual consultation room
+              {incomingCall.asha_name
+                ? `${incomingCall.asha_name} is connecting this patient from ${incomingCall.village_name || 'the field'}`
+                : 'Patient is waiting in virtual consultation room'}
             </p>
+            {incomingCall.complaint && (
+              <p className="text-xs text-slate-200 bg-white/10 rounded-2xl p-3 mt-2 line-clamp-3">
+                {incomingCall.complaint}
+              </p>
+            )}
             <p className="text-[11px] font-mono text-teal-300/80 truncate">
               Room ID: {incomingCall.room_id}
             </p>
@@ -1024,12 +1058,17 @@ export default function DoctorClinicalDashboardPage() {
                       }`}
                     >
                       <div className="flex items-center justify-between gap-2 mb-1.5">
-                        <div className="flex items-center gap-2">
-                          <span className="px-2 py-0.5 rounded-lg bg-surface-container text-slate-800 font-mono font-black text-[10px]">
-                            {patient.token}
-                          </span>
-                          <h3 className="font-bold text-sm text-on-surface">{patient.name}</h3>
-                        </div>
+	                      <div className="flex items-center gap-2">
+	                          <span className="px-2 py-0.5 rounded-lg bg-surface-container text-slate-800 font-mono font-black text-[10px]">
+	                            {patient.token}
+	                          </span>
+	                          <h3 className="font-bold text-sm text-on-surface">{patient.name}</h3>
+                            {patient.consultType === 'assisted_teleconsult' && (
+                              <span className="px-2 py-0.5 rounded-lg bg-teal-100 text-teal-800 font-black text-[9px] uppercase">
+                                ASHA
+                              </span>
+                            )}
+	                        </div>
                         <span
                           className={`px-2 py-0.5 rounded-full text-[9px] font-black uppercase tracking-wider ${
                             patient.priority === 'EMERGENCY'
@@ -1043,17 +1082,29 @@ export default function DoctorClinicalDashboardPage() {
                         </span>
                       </div>
 
-                      <div className="flex items-center gap-2 text-tertiary text-[11px] mb-2">
-                        <span>{patient.age}y / {patient.gender}</span>
-                        <span>•</span>
-                        <span className="font-mono">{patient.type}</span>
-                        <span>•</span>
-                        <span>{patient.waitTime}</span>
-                      </div>
+	                      <div className="flex items-center gap-2 text-tertiary text-[11px] mb-2">
+	                        <span>{patient.age}y / {patient.gender}</span>
+	                        <span>•</span>
+	                        <span className="font-mono">{patient.type}</span>
+                          {patient.ashaName && (
+                            <>
+                              <span>•</span>
+                              <span>{patient.ashaName}</span>
+                            </>
+                          )}
+	                        <span>•</span>
+	                        <span>{patient.waitTime}</span>
+	                      </div>
 
-                      <p className="text-slate-700 text-xs line-clamp-2 bg-surface-container-low/60 p-2 rounded-xl border border-surface-container">
-                        {patient.complaint}
-                      </p>
+	                      <p className="text-slate-700 text-xs line-clamp-2 bg-surface-container-low/60 p-2 rounded-xl border border-surface-container">
+	                        {patient.complaint}
+	                      </p>
+                        {patient.villageName && (
+                          <p className="text-[11px] text-teal-800 font-bold mt-2 flex items-center gap-1">
+                            <span className="material-symbols-outlined text-sm">home_health</span>
+                            <span>{patient.villageName}{patient.beneficiaryId ? ` • ${patient.beneficiaryId}` : ''}</span>
+                          </p>
+                        )}
 
                       <div className="flex items-center justify-between mt-3 pt-2 border-t border-surface-container-high text-[11px]">
                         <div className="flex items-center gap-3 font-semibold text-slate-600">
@@ -1102,9 +1153,15 @@ export default function DoctorClinicalDashboardPage() {
                   <span>•</span>
                   <span>{selectedPatient.age} Years, {selectedPatient.gender}</span>
                   <span>•</span>
-                  <span>Blood: <strong className="text-red-700 font-bold">{selectedPatient.bloodGroup}</strong></span>
-                </div>
-              </div>
+	                  <span>Blood: <strong className="text-red-700 font-bold">{selectedPatient.bloodGroup}</strong></span>
+                    {selectedPatient.ashaName && (
+                      <>
+                        <span>•</span>
+                        <span>Assisted by: <strong className="text-teal-700 font-bold">{selectedPatient.ashaName}</strong></span>
+                      </>
+                    )}
+	                </div>
+	              </div>
 
               <div className="flex items-center gap-2">
                 <Link
@@ -1131,9 +1188,22 @@ export default function DoctorClinicalDashboardPage() {
                   </button>
                 )}
               </div>
-            </div>
+	            </div>
 
-            {/* Allergy Warning Banner */}
+              {selectedPatient.consultType === 'assisted_teleconsult' && (
+                <div className="bg-teal-50 border border-teal-200 p-3.5 rounded-2xl flex items-start gap-3 text-xs text-teal-950">
+                  <span className="material-symbols-outlined text-teal-700 text-lg">support_agent</span>
+                  <div>
+                    <span className="font-extrabold uppercase tracking-wide block">ASHA-Assisted Handoff</span>
+                    <span className="font-semibold">
+                      {selectedPatient.ashaName || 'ASHA worker'} is helping this patient join from {selectedPatient.villageName || 'the field'}.
+                      Use the room link for video, then record the plan here so the ASHA can follow up.
+                    </span>
+                  </div>
+                </div>
+              )}
+
+	            {/* Allergy Warning Banner */}
             <div className="bg-red-50 border border-red-200 p-3.5 rounded-2xl flex items-center gap-3 text-xs text-red-900">
               <span className="material-symbols-outlined text-red-600 text-lg">warning</span>
               <div>

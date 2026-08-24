@@ -97,8 +97,9 @@ def test_fhw_page_dropdown_filters_and_clean_heading():
     assert "id=\"fhw-risk-filter\"" in content
     assert "<select" in content
 
-    # Assisted teleconsultation button must be removed from catchment page
-    assert "Assisted Teleconsultation" not in content
+    # ASHA catchment page must expose the assisted handoff action for selected beneficiaries
+    assert "Connect Patient" in content
+    assert "Connect Patient to Doctor" in content
 
 
 def test_clean_headings_without_descriptive_definitions():
@@ -121,4 +122,3 @@ def test_clean_headings_without_descriptive_definitions():
         assert "Real-time polypharmacy interaction screening" not in content
         assert "Structured continuity of care linking Ayushman" not in content
         assert "Rule-based urgency classification connecting rural" not in content
-

@@ -10,7 +10,7 @@ DELETE FROM public.appointments;
 DROP POLICY IF EXISTS "Users can delete their own appointments" ON public.appointments;
 CREATE POLICY "Users can delete their own appointments"
 ON public.appointments FOR DELETE
-USING (auth.uid() = client_id OR auth.uid() = doctor_id);
+USING (auth.uid()::text = client_id OR auth.uid()::text = doctor_id OR auth.uid()::text = asha_id);
 
 -- 3. Ensure full permissions are granted
 GRANT ALL ON public.appointments TO authenticated;

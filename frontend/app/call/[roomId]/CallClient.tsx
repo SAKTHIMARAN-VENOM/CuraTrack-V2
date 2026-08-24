@@ -104,11 +104,16 @@ export default function CallPage() {
 
         const { data: appt } = await supabase
           .from('appointments')
-          .select('client_id, doctor_id')
+          .select('client_id, doctor_id, patient_name, asha_name, consult_type')
           .eq('room_id', roomId)
           .maybeSingle();
 
         if (appt) {
+          if (isDoctorRole && appt.consult_type === 'assisted_teleconsult' && appt.patient_name) {
+            setRemoteUserName(`${appt.patient_name}${appt.asha_name ? ` with ${appt.asha_name}` : ''}`);
+            return;
+          }
+
           let targetId = isDoctorRole ? appt.client_id : appt.doctor_id;
           if (targetId === currentUserId) {
             targetId = isDoctorRole ? appt.doctor_id : appt.client_id;

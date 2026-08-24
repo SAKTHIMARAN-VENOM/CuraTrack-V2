@@ -1,17 +1,39 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { apiFetch } from '@/lib/api';
+import { createClient } from '@/lib/supabase/client';
+
+type DoctorOption = {
+    id: string;
+    name: string;
+    specialty?: string;
+};
+
+const DEFAULT_DOCTORS: DoctorOption[] = [
+    {
+        id: '00000000-0000-4000-a000-000000000003',
+        name: 'Dr. David Ross',
+        specialty: 'General Medicine & OPD Room 101',
+    },
+    {
+        id: 'doc-david-ross',
+        name: 'Dr. David Ross (Demo Room)',
+        specialty: 'Fallback demo doctor',
+    },
+];
 
 export default function FrontlineHealthWorkerPage() {
     const router = useRouter();
+    const supabase = useMemo(() => createClient(), []);
     const [beneficiaries, setBeneficiaries] = useState<any[]>([]);
     const [loading, setLoading] = useState<boolean>(true);
     const [filterCategory, setFilterCategory] = useState<string>('ALL');
     const [filterRisk, setFilterRisk] = useState<string>('ALL');
     const [followupSummary, setFollowupSummary] = useState<any>(null);
+    const [doctors, setDoctors] = useState<DoctorOption[]>(DEFAULT_DOCTORS);
 
     // Registration Modal
     const [isRegisterOpen, setIsRegisterOpen] = useState<boolean>(false);
@@ -35,7 +57,22 @@ export default function FrontlineHealthWorkerPage() {
     const [isOnline, setIsOnline] = useState<boolean>(true);
     const [offlineSyncPending, setOfflineSyncPending] = useState<number>(0);
     const [syncSuccessMsg, setSyncSuccessMsg] = useState<string | null>(null);
+    const [consultMsg, setConsultMsg] = useState<string | null>(null);
+    const [consultError, setConsultError] = useState<string | null>(null);
     const [medAlerts, setMedAlerts] = useState<any[]>([]);
+    const [selectedConsultBen, setSelectedConsultBen] = useState<any | null>(null);
+    const [consultForm, setConsultForm] = useState({
+        doctorId: DEFAULT_DOCTORS[0].id,
+        chiefComplaint: '',
+        systolicBp: '130',
+        diastolicBp: '84',
+        spo2: '98',
+        heartRate: '76',
+        temperature: '98.6',
+        randomGlucose: '142',
+        priority: 'PRIORITY',
+    });
+    const [startingConsult, setStartingConsult] = useState<boolean>(false);
 
     // Check online status and local queue
     useEffect(() => {
@@ -90,6 +127,25 @@ export default function FrontlineHealthWorkerPage() {
     useEffect(() => {
         fetchData();
     }, [filterCategory, filterRisk]);
+
+    useEffect(() => {
+        async function fetchDoctors() {
+            try {
+                const { data } = await supabase.from('doctors').select('*');
+                if (data && data.length > 0) {
+                    setDoctors(data.map((doc: any) => ({
+                        id: doc.id,
+                        name: doc.name || doc.email || 'Doctor',
+                        specialty: doc.specialty || doc.specialization || doc.department || 'Medical Officer',
+                    })));
+                    setConsultForm(prev => ({ ...prev, doctorId: data[0].id || prev.doctorId }));
+                }
+            } catch (err) {
+                console.warn('Unable to load doctors for ASHA consult flow:', err);
+            }
+        }
+        fetchDoctors();
+    }, [supabase]);
 
     const handleSyncOfflineData = async () => {
         try {
@@ -151,6 +207,131 @@ export default function FrontlineHealthWorkerPage() {
         }
     };
 
+    const openAssistedConsult = (ben: any) => {
+        const riskDefault = ben.risk_level === 'HIGH' ? 'PRIORITY' : 'ROUTINE';
+        setSelectedConsultBen(ben);
+        setConsultMsg(null);
+        setConsultError(null);
+        setConsultForm(prev => ({
+            ...prev,
+            priority: riskDefault,
+            chiefComplaint: ben.next_due_service || ben.risk_factors?.[0] || '',
+        }));
+    };
+
+    const insertAppointmentWithFallback = async (payload: any) => {
+        let { error } = await supabase.from('appointments').insert(payload);
+        if (!error) return null;
+
+        const optionalColumns = [
+            'patient_name',
+            'beneficiary_id',
+            'asha_id',
+            'asha_name',
+            'village_name',
+            'priority',
+            'complaint',
+            'vitals_bp',
+            'vitals_hr',
+            'vitals_spo2',
+            'vitals_temp',
+            'vitals_bmi',
+            'consult_type',
+            'token',
+        ];
+
+        if (optionalColumns.some(column => error?.message?.includes(column))) {
+            const minimalPayload = { ...payload };
+            optionalColumns.forEach(column => delete minimalPayload[column]);
+            minimalPayload.notes = payload.notes;
+            const retry = await supabase.from('appointments').insert(minimalPayload);
+            error = retry.error;
+        }
+
+        return error;
+    };
+
+    const getCurrentAshaId = async () => {
+        try {
+            const { data } = await supabase.auth.getUser();
+            if (data?.user?.id) return data.user.id;
+        } catch {}
+
+        try {
+            const raw = localStorage.getItem('curatrack_auth_user');
+            if (raw) {
+                const savedUser = JSON.parse(raw);
+                if (savedUser?.id) return savedUser.id;
+            }
+        } catch {}
+
+        return '00000000-0000-4000-a000-000000000006';
+    };
+
+    const handleStartAssistedConsult = async (e: React.FormEvent) => {
+        e.preventDefault();
+        if (!selectedConsultBen || !consultForm.doctorId || !consultForm.chiefComplaint.trim()) return;
+
+        setStartingConsult(true);
+        setConsultError(null);
+        setConsultMsg(null);
+
+        const selectedDoctor = doctors.find(doc => doc.id === consultForm.doctorId) || DEFAULT_DOCTORS[0];
+        const roomId = `asha-${selectedConsultBen.id}-${crypto.randomUUID()}`;
+        const now = new Date();
+        const bp = `${Number(consultForm.systolicBp) || 0}/${Number(consultForm.diastolicBp) || 0}`;
+        const ashaUserId = await getCurrentAshaId();
+        const notes = [
+            `Assisted teleconsult initiated by Sunita Tai (ASHA) for ${selectedConsultBen.name}.`,
+            `Village: ${selectedConsultBen.village_name}.`,
+            `Chief complaint: ${consultForm.chiefComplaint.trim()}.`,
+            `Vitals: BP ${bp} mmHg, HR ${consultForm.heartRate || 'N/A'} bpm, SpO2 ${consultForm.spo2 || 'N/A'}%, Temp ${consultForm.temperature || 'N/A'} F, RBS ${consultForm.randomGlucose || 'N/A'} mg/dL.`,
+            `Patient category: ${selectedConsultBen.category}; ASHA risk: ${selectedConsultBen.risk_level}.`,
+        ].join('\n');
+
+        const payload = {
+            client_id: ashaUserId,
+            doctor_id: selectedDoctor.id,
+            doctor_name: selectedDoctor.name,
+            room_id: roomId,
+            scheduled_time: now.toISOString(),
+            date: now.toISOString().split('T')[0],
+            time: now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+            status: 'ringing',
+            type: 'video',
+            consult_type: 'assisted_teleconsult',
+            patient_name: selectedConsultBen.name,
+            beneficiary_id: selectedConsultBen.id,
+            asha_id: ashaUserId,
+            asha_name: 'Sunita Tai (ASHA)',
+            village_name: selectedConsultBen.village_name,
+            priority: consultForm.priority,
+            complaint: consultForm.chiefComplaint.trim(),
+            vitals_bp: bp,
+            vitals_hr: Number(consultForm.heartRate) || null,
+            vitals_spo2: Number(consultForm.spo2) || null,
+            vitals_temp: consultForm.temperature,
+            vitals_bmi: 'N/A',
+            token: `ASHA-${String(Date.now()).slice(-5)}`,
+            notes,
+        };
+
+        try {
+            const error = await insertAppointmentWithFallback(payload);
+            if (error) {
+                throw error;
+            }
+
+            setConsultMsg(`${selectedConsultBen.name} is now visible in ${selectedDoctor.name}'s teleconsult queue.`);
+            setSelectedConsultBen(null);
+            router.push(`/call/${roomId}`);
+        } catch (err: any) {
+            setConsultError(err?.message || 'Unable to send assisted consult request to doctor.');
+        } finally {
+            setStartingConsult(false);
+        }
+    };
+
 
 
     return (
@@ -199,6 +380,20 @@ export default function FrontlineHealthWorkerPage() {
                 <div className="p-4 bg-teal-50 border border-teal-200 rounded-2xl text-teal-900 text-xs font-bold flex items-center gap-2 animate-in fade-in">
                     <span className="material-symbols-outlined text-teal-600">check_circle</span>
                     <span>{syncSuccessMsg}</span>
+                </div>
+            )}
+
+            {consultMsg && (
+                <div className="p-4 bg-emerald-50 border border-emerald-200 rounded-2xl text-emerald-900 text-xs font-bold flex items-center gap-2 animate-in fade-in">
+                    <span className="material-symbols-outlined text-emerald-600">video_call</span>
+                    <span>{consultMsg}</span>
+                </div>
+            )}
+
+            {consultError && (
+                <div className="p-4 bg-red-50 border border-red-200 rounded-2xl text-red-900 text-xs font-bold flex items-center gap-2 animate-in fade-in">
+                    <span className="material-symbols-outlined text-red-600">error</span>
+                    <span>{consultError}</span>
                 </div>
             )}
 
@@ -429,11 +624,24 @@ export default function FrontlineHealthWorkerPage() {
                             </div>
 
                             {/* Beneficiary Action */}
-                            {ben.contact_phone && (
-                                <div className="pt-3 border-t border-surface-container-high flex items-center justify-between">
+                            <div className="pt-3 border-t border-surface-container-high flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                                {ben.contact_phone ? (
                                     <span className="text-xs text-tertiary">
                                         Phone: <strong className="text-on-surface font-mono">{ben.contact_phone}</strong>
                                     </span>
+                                ) : (
+                                    <span className="text-xs text-tertiary">No phone number recorded</span>
+                                )}
+                                <div className="flex items-center gap-2">
+                                    <button
+                                        onClick={() => openAssistedConsult(ben)}
+                                        className="px-3.5 py-2 bg-primary hover:bg-primary/90 text-white font-bold text-xs rounded-xl flex items-center gap-1.5 transition-colors shadow-sm"
+                                        title="Connect this beneficiary to a doctor"
+                                    >
+                                        <span className="material-symbols-outlined text-base">video_call</span>
+                                        <span>Connect Patient</span>
+                                    </button>
+                                    {ben.contact_phone && (
                                     <a
                                         href={`tel:${ben.contact_phone}`}
                                         className="px-3.5 py-2 bg-surface-container-low hover:bg-surface-container text-primary font-bold text-xs rounded-xl flex items-center gap-1.5 transition-colors border border-surface-container"
@@ -442,8 +650,9 @@ export default function FrontlineHealthWorkerPage() {
                                         <span className="material-symbols-outlined text-base">call</span>
                                         <span>Call</span>
                                     </a>
+                                    )}
                                 </div>
-                            )}
+                            </div>
                         </div>
                     ))}
                 </div>
@@ -548,6 +757,109 @@ export default function FrontlineHealthWorkerPage() {
                                     className="px-5 py-2.5 bg-primary text-white font-bold text-xs rounded-xl shadow-md disabled:opacity-50"
                                 >
                                     {registering ? 'Saving...' : 'Register Beneficiary'}
+                                </button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            )}
+
+            {selectedConsultBen && (
+                <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
+                    <div className="bg-white max-w-2xl w-full rounded-3xl p-6 sm:p-8 shadow-2xl border border-surface-container-high animate-in fade-in zoom-in duration-200 max-h-[90vh] overflow-y-auto">
+                        <div className="flex items-center justify-between border-b border-surface-container-high pb-4 mb-5">
+                            <div>
+                                <h3 className="text-lg font-bold text-on-surface flex items-center gap-2">
+                                    <span className="material-symbols-outlined text-primary">video_call</span>
+                                    <span>Connect Patient to Doctor</span>
+                                </h3>
+                                <p className="text-xs text-tertiary mt-1">
+                                    {selectedConsultBen.name} • {selectedConsultBen.village_name} • {selectedConsultBen.risk_level} risk
+                                </p>
+                            </div>
+                            <button onClick={() => setSelectedConsultBen(null)} className="p-2 rounded-full text-tertiary hover:bg-surface-container">
+                                <span className="material-symbols-outlined">close</span>
+                            </button>
+                        </div>
+
+                        <form onSubmit={handleStartAssistedConsult} className="space-y-4">
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                                <div>
+                                    <label className="block text-xs font-semibold text-tertiary mb-1">Doctor</label>
+                                    <select
+                                        value={consultForm.doctorId}
+                                        onChange={(e) => setConsultForm({ ...consultForm, doctorId: e.target.value })}
+                                        className="w-full p-2.5 bg-surface-container-low rounded-xl text-xs font-bold text-on-surface border border-surface-container-high outline-none focus:border-primary"
+                                    >
+                                        {doctors.map(doc => (
+                                            <option key={doc.id} value={doc.id}>
+                                                {doc.name}{doc.specialty ? ` - ${doc.specialty}` : ''}
+                                            </option>
+                                        ))}
+                                    </select>
+                                </div>
+                                <div>
+                                    <label className="block text-xs font-semibold text-tertiary mb-1">Urgency</label>
+                                    <select
+                                        value={consultForm.priority}
+                                        onChange={(e) => setConsultForm({ ...consultForm, priority: e.target.value })}
+                                        className="w-full p-2.5 bg-surface-container-low rounded-xl text-xs font-bold text-on-surface border border-surface-container-high outline-none focus:border-primary"
+                                    >
+                                        <option value="PRIORITY">Priority</option>
+                                        <option value="ROUTINE">Routine</option>
+                                        <option value="EMERGENCY">Emergency</option>
+                                    </select>
+                                </div>
+                            </div>
+
+                            <div>
+                                <label className="block text-xs font-semibold text-tertiary mb-1">Patient Complaint / ASHA Context</label>
+                                <textarea
+                                    required
+                                    rows={3}
+                                    value={consultForm.chiefComplaint}
+                                    onChange={(e) => setConsultForm({ ...consultForm, chiefComplaint: e.target.value })}
+                                    placeholder="Explain what the patient is feeling and why ASHA is requesting doctor support."
+                                    className="w-full p-2.5 bg-surface-container-low rounded-xl text-xs font-bold text-on-surface border border-surface-container-high outline-none focus:border-primary"
+                                />
+                            </div>
+
+                            <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
+                                <div>
+                                    <label className="block text-xs font-semibold text-tertiary mb-1">Sys BP</label>
+                                    <input type="number" value={consultForm.systolicBp} onChange={(e) => setConsultForm({ ...consultForm, systolicBp: e.target.value })} className="w-full p-2.5 bg-surface-container-low rounded-xl text-xs font-bold border border-surface-container-high outline-none focus:border-primary" />
+                                </div>
+                                <div>
+                                    <label className="block text-xs font-semibold text-tertiary mb-1">Dia BP</label>
+                                    <input type="number" value={consultForm.diastolicBp} onChange={(e) => setConsultForm({ ...consultForm, diastolicBp: e.target.value })} className="w-full p-2.5 bg-surface-container-low rounded-xl text-xs font-bold border border-surface-container-high outline-none focus:border-primary" />
+                                </div>
+                                <div>
+                                    <label className="block text-xs font-semibold text-tertiary mb-1">SpO2</label>
+                                    <input type="number" value={consultForm.spo2} onChange={(e) => setConsultForm({ ...consultForm, spo2: e.target.value })} className="w-full p-2.5 bg-surface-container-low rounded-xl text-xs font-bold border border-surface-container-high outline-none focus:border-primary" />
+                                </div>
+                                <div>
+                                    <label className="block text-xs font-semibold text-tertiary mb-1">Pulse</label>
+                                    <input type="number" value={consultForm.heartRate} onChange={(e) => setConsultForm({ ...consultForm, heartRate: e.target.value })} className="w-full p-2.5 bg-surface-container-low rounded-xl text-xs font-bold border border-surface-container-high outline-none focus:border-primary" />
+                                </div>
+                                <div>
+                                    <label className="block text-xs font-semibold text-tertiary mb-1">Temp F</label>
+                                    <input type="text" value={consultForm.temperature} onChange={(e) => setConsultForm({ ...consultForm, temperature: e.target.value })} className="w-full p-2.5 bg-surface-container-low rounded-xl text-xs font-bold border border-surface-container-high outline-none focus:border-primary" />
+                                </div>
+                            </div>
+
+                            <div className="pt-3 flex justify-end gap-2">
+                                <button type="button" onClick={() => setSelectedConsultBen(null)} className="px-4 py-2 rounded-xl text-xs font-bold text-tertiary">
+                                    Cancel
+                                </button>
+                                <button
+                                    type="submit"
+                                    disabled={startingConsult}
+                                    className="px-5 py-2.5 bg-primary text-white font-bold text-xs rounded-xl shadow-md disabled:opacity-50 flex items-center gap-2"
+                                >
+                                    <span className={`material-symbols-outlined text-base ${startingConsult ? 'animate-spin' : ''}`}>
+                                        {startingConsult ? 'sync' : 'send'}
+                                    </span>
+                                    <span>{startingConsult ? 'Sending...' : 'Send to Doctor & Join'}</span>
                                 </button>
                             </div>
                         </form>

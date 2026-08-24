@@ -168,11 +168,50 @@ create table if not exists public.appointments (
   id uuid default gen_random_uuid() primary key,
   client_id text not null,
   doctor_id text not null,
+  doctor_name text,
   scheduled_time timestamp with time zone not null,
   room_id text not null,
+  date text,
+  time text,
+  notes text,
+  type text default 'video',
+  patient_name text,
+  beneficiary_id text,
+  asha_id text,
+  asha_name text,
+  village_name text,
+  priority text default 'ROUTINE',
+  complaint text,
+  vitals_bp text,
+  vitals_hr text,
+  vitals_spo2 text,
+  vitals_temp text,
+  vitals_bmi text,
+  consult_type text default 'standard_teleconsult',
+  token text,
   status text default 'active',
   created_at timestamp with time zone default now()
 );
+
+alter table public.appointments add column if not exists doctor_name text;
+alter table public.appointments add column if not exists date text;
+alter table public.appointments add column if not exists time text;
+alter table public.appointments add column if not exists notes text;
+alter table public.appointments add column if not exists type text default 'video';
+alter table public.appointments add column if not exists patient_name text;
+alter table public.appointments add column if not exists beneficiary_id text;
+alter table public.appointments add column if not exists asha_id text;
+alter table public.appointments add column if not exists asha_name text;
+alter table public.appointments add column if not exists village_name text;
+alter table public.appointments add column if not exists priority text default 'ROUTINE';
+alter table public.appointments add column if not exists complaint text;
+alter table public.appointments add column if not exists vitals_bp text;
+alter table public.appointments add column if not exists vitals_hr text;
+alter table public.appointments add column if not exists vitals_spo2 text;
+alter table public.appointments add column if not exists vitals_temp text;
+alter table public.appointments add column if not exists vitals_bmi text;
+alter table public.appointments add column if not exists consult_type text default 'standard_teleconsult';
+alter table public.appointments add column if not exists token text;
 
 -- ====================================================================
 -- ROW LEVEL SECURITY (RLS) POLICIES & PERMISSIONS
