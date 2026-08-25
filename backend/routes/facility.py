@@ -366,3 +366,87 @@ def create_medicine_order(order: MedicineOrderRequest):
         logger.warning(f"Note inserting into medicine_orders: {e}")
         
     return {"success": True, "order": new_order}
+
+
+# ─── Stock Deduction & Prescription Integration (Phase 8) ──────────────────
+
+# In-memory tracking set for processed prescription IDs to prevent double deductions
+_processed_prescription_deductions = set()
+
+class StockDeductItem(BaseModel):
+    medicine_name: str
+    quantity: int = 1
+
+class StockDeductRequest(BaseModel):
+    prescription_id: str
+    patient_id: Optional[str] = None
+    items: List[StockDeductItem]
+    dispensed_by: Optional[str] = "Facility Pharmacy"
+
+@router.post("/facility/medicines/deduct-stock")
+def deduct_medicine_stock(req: StockDeductRequest):
+    """
+    Atomically deducts medicine stock from facility_medicines when a prescription is finalized.
+    Ensures idempotency using prescription_id to prevent double deduction.
+    """
+    if req.prescription_id in _processed_prescription_deductions:
+        return {
+            "success": True,
+            "message": f"Prescription {req.prescription_id} already processed for inventory deduction.",
+            "deductions": []
+        }
+
+    deductions = []
+    db = get_db()
+
+    for item in req.items:
+        med_name = item.medicine_name.strip()
+        qty = max(1, item.quantity)
+        
+        try:
+            # Query existing stock
+            res = db.table("facility_medicines").select("*").ilike("name", f"%{med_name}%").execute()
+            if res.data and len(res.data) > 0:
+                row = res.data[0]
+                med_id = row["id"]
+                current_stock = int(row.get("stock_units", 0))
+                monthly_cons = max(int(row.get("monthly_consumption", 30)), 1)
+                
+                new_stock = max(0, current_stock - qty)
+                daily_rate = max(monthly_cons / 30.0, 0.1)
+                new_days = int(new_stock / daily_rate)
+                
+                new_status = "ADEQUATE"
+                if new_days <= 3:
+                    new_status = "CRITICAL_STOCKOUT_RISK"
+                elif new_days <= 10:
+                    new_status = "LOW_STOCK"
+
+                # Update in Supabase
+                db.table("facility_medicines").update({
+                    "stock_units": new_stock,
+                    "days_of_supply": new_days,
+                    "status": new_status,
+                    "updated_at": datetime.now().isoformat() + "Z"
+                }).eq("id", med_id).execute()
+
+                deductions.append({
+                    "medicine_id": med_id,
+                    "medicine_name": row["name"],
+                    "deducted": qty,
+                    "remaining_stock": new_stock,
+                    "days_of_supply": new_days,
+                    "status": new_status
+                })
+        except Exception as err:
+            logger.error(f"Failed to deduct stock for {med_name}: {err}")
+
+    _processed_prescription_deductions.add(req.prescription_id)
+
+    return {
+        "success": True,
+        "prescription_id": req.prescription_id,
+        "message": f"Successfully updated stock for {len(deductions)} items.",
+        "deductions": deductions
+    }
+

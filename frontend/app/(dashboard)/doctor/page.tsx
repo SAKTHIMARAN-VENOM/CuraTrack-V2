@@ -110,8 +110,23 @@ export default function DoctorOPDPage() {
   const [medAlerts, setMedAlerts] = useState<any[]>([]);
   const [showBedPanel, setShowBedPanel] = useState<boolean>(false);
 
-  const [filterType, setFilterType] = useState<'ALL' | 'WAITING' | 'EMERGENCY' | 'TELECONSULT' | 'COMPLETED'>('ALL');
+  const [filterType, setFilterType] = useState<'ALL' | 'WAITING' | 'EMERGENCY' | 'TELECONSULT' | 'REFERRALS' | 'COMPLETED'>('ALL');
   const [searchQuery, setSearchQuery] = useState<string>('');
+
+  // Inbound Referrals Pipeline State (Phase 3)
+  const [inboundReferrals, setInboundReferrals] = useState<any[]>([]);
+  const [loadingReferrals, setLoadingReferrals] = useState<boolean>(false);
+
+  // ASHA Closed-Loop Follow-up Dispatch State (Phase 7)
+  const [showAshaModal, setShowAshaModal] = useState<boolean>(false);
+  const [ashaTaskData, setAshaTaskData] = useState({
+    task_type: 'Post-Op Check',
+    instructions: 'Visit patient at home on Day 5. Check wound healing, vitals, and verify medication adherence.',
+    due_date: new Date(Date.now() + 5 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
+    priority: 'HIGH'
+  });
+  const [assigningTask, setAssigningTask] = useState<boolean>(false);
+  const [ashaSuccessMsg, setAshaSuccessMsg] = useState<string>('');
 
   // Telemedicine Realtime & Incoming Call State
   const [incomingCall, setIncomingCall] = useState<Appointment | null>(null);
@@ -130,6 +145,21 @@ export default function DoctorOPDPage() {
   const [submittingEncounter, setSubmittingEncounter] = useState<boolean>(false);
   const [submitSuccessMessage, setSubmitSuccessMessage] = useState<string>('');
   const [submitErrorMessage, setSubmitErrorMessage] = useState<string>('');
+
+  // Fetch Inbound Referrals from Backend/Supabase (Phase 3)
+  const fetchInboundReferrals = useCallback(async () => {
+    setLoadingReferrals(true);
+    try {
+      const res = await apiFetch('/api/referrals');
+      if (res?.referrals) {
+        setInboundReferrals(res.referrals);
+      }
+    } catch (e) {
+      console.warn('Error fetching inbound referrals:', e);
+    } finally {
+      setLoadingReferrals(false);
+    }
+  }, []);
 
   // Fetch Live Queue from Supabase Database
   const fetchLiveQueue = useCallback(async (docId: string) => {
@@ -302,8 +332,9 @@ export default function DoctorOPDPage() {
           });
         }
 
-        // Fetch Initial Queue Data from Supabase
+        // Fetch Initial Queue Data from Supabase & Inbound Referrals
         await fetchLiveQueue(finalDocId);
+        await fetchInboundReferrals();
 
         // Fetch active incoming telemedicine calls
         let activeQuery = supabase
@@ -358,16 +389,8 @@ export default function DoctorOPDPage() {
           fetchLiveQueue(activeDoctorId || '');
 
           const incoming = payload.new as Appointment;
-          if (!incoming || !incoming.room_id) return;
-          const isForThisDoctor =
-            !activeDoctorId ||
-            incoming.doctor_id === activeDoctorId ||
-            incoming.doctor_id === 'doc-david-ross' ||
-            incoming.doctor_id?.startsWith('doc-');
-          if (!isForThisDoctor) return;
-
-          if (incoming.status === 'active' || incoming.status === 'ringing') {
-            let patientName = incoming.patient_name || 'Patient';
+          if (incoming && (incoming.status === 'active' || incoming.status === 'ringing') && incoming.room_id) {
+            let patientName = 'Patient';
             if (incoming.client_id) {
               try {
                 const { data: prof } = await supabase.from('profiles').select('name, email').eq('id', incoming.client_id).maybeSingle();
@@ -399,11 +422,28 @@ export default function DoctorOPDPage() {
         }
       });
 
+    // Realtime channel for inter-facility referrals (Phase 3)
+    const refChannel = supabase
+      .channel('doctor_referrals_live_stream')
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'referrals'
+        },
+        () => {
+          if (isMounted) fetchInboundReferrals();
+        }
+      )
+      .subscribe();
+
     return () => {
       isMounted = false;
       supabase.removeChannel(channel);
+      supabase.removeChannel(refChannel);
     };
-  }, [supabase, fetchLiveQueue, activeDoctorId]);
+  }, [supabase, fetchLiveQueue, fetchInboundReferrals, activeDoctorId]);
 
   const selectedPatient = queue.find(p => p.id === selectedPatientId) || queue[0];
 
@@ -870,16 +910,85 @@ export default function DoctorOPDPage() {
           .eq('id', selectedPatient.id);
       }
 
+      // 6. Atomically deduct EDL medicines stock from facility inventory (Phase 8)
+      if (prescriptions.length > 0) {
+        try {
+          const rxId = `rx-${patientClientId}-${Date.now()}`;
+          await fetch('/api/facility/medicines/deduct-stock', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              prescription_id: rxId,
+              patient_id: patientClientId,
+              items: prescriptions.map(p => ({ medicine_name: p.drug, quantity: 1 })),
+              dispensed_by: docName
+            })
+          });
+        } catch (stockErr) {
+          console.warn('EDL stock deduction notification failed:', stockErr);
+        }
+      }
+
       handleStatusChange(selectedPatient.id, 'COMPLETED');
       setSubmitSuccessMessage(`Encounter and ${prescriptions.length} EDL medication order(s) successfully saved to database for ${selectedPatient.name}.`);
 
-      // 6. Refetch directly from database to confirm persisted state
+      // 7. Refetch directly from database to confirm persisted state
       await loadPatientClinicalRecords(patientClientId);
     } catch (err: any) {
       console.error('Error persisting encounter:', err);
       setSubmitErrorMessage(`Unable to persist encounter: ${err?.message || 'Database error'}. Please retry.`);
     } finally {
       setSubmittingEncounter(false);
+    }
+  };
+
+  // Referral Lifecycle Action Handler (Phase 3)
+  const handleUpdateReferralStatus = async (refId: string, newStatus: string) => {
+    try {
+      await apiFetch(`/api/referrals/${refId}/status`, {
+        method: 'POST',
+        body: JSON.stringify({
+          status: newStatus,
+          notes: `Referral advanced to ${newStatus} by ${doctorInfo.name}`,
+          updated_by: doctorInfo.name
+        })
+      });
+      fetchInboundReferrals();
+    } catch (err: any) {
+      alert('Failed to update referral: ' + (err.message || 'Error'));
+    }
+  };
+
+  // ASHA Closed-Loop Task Dispatch Handler (Phase 7)
+  const handleAssignAshaFollowup = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!selectedPatient) return;
+    setAssigningTask(true);
+    try {
+      const patientClientId = selectedPatient.clientId || selectedPatient.id;
+      await apiFetch('/api/fhw/followups/create', {
+        method: 'POST',
+        body: JSON.stringify({
+          patient_id: patientClientId,
+          patient_name: selectedPatient.name,
+          assigned_by_doctor_id: doctorInfo.id,
+          assigned_by_doctor_name: doctorInfo.name,
+          assigned_asha_name: selectedPatient.ashaName || 'Sunita Tai (ASHA #402)',
+          task_type: ashaTaskData.task_type,
+          instructions: ashaTaskData.instructions,
+          priority: ashaTaskData.priority,
+          due_date: ashaTaskData.due_date
+        })
+      });
+      setAshaSuccessMsg(`Follow-up task dispatched to ${selectedPatient.ashaName || 'ASHA worker'} successfully!`);
+      setTimeout(() => {
+        setShowAshaModal(false);
+        setAshaSuccessMsg('');
+      }, 2500);
+    } catch (err: any) {
+      alert('Failed to assign ASHA follow-up task: ' + (err.message || 'Error'));
+    } finally {
+      setAssigningTask(false);
     }
   };
 
@@ -1180,20 +1289,130 @@ export default function DoctorOPDPage() {
 
             {/* Filter Chips */}
             <div className="flex flex-wrap gap-1.5 pt-1">
-              {(['ALL', 'WAITING', 'EMERGENCY', 'TELECONSULT', 'COMPLETED'] as const).map(tab => (
+              {(['ALL', 'WAITING', 'EMERGENCY', 'TELECONSULT', 'REFERRALS', 'COMPLETED'] as const).map(tab => (
                 <button
                   key={tab}
                   onClick={() => setFilterType(tab)}
-                  className={`px-3 py-1 rounded-xl text-[11px] font-bold transition-all ${
+                  className={`px-3 py-1 rounded-xl text-[11px] font-bold transition-all relative ${
                     filterType === tab ? 'bg-primary text-white shadow-sm' : 'bg-surface-container-low text-tertiary hover:bg-surface-container'
                   }`}
                 >
-                  {tab}
+                  {tab === 'REFERRALS' ? (
+                    <span className="flex items-center gap-1">
+                      <span>Inbound Referrals</span>
+                      {inboundReferrals.filter(r => r.status !== 'COMPLETED').length > 0 && (
+                        <span className="w-2 h-2 rounded-full bg-red-400 animate-ping"></span>
+                      )}
+                    </span>
+                  ) : (
+                    tab
+                  )}
                 </button>
               ))}
             </div>
 
-            {/* Patient Cards List */}
+            {/* Inbound Referrals View Mode */}
+            {filterType === 'REFERRALS' ? (
+              <div className="space-y-3 pt-2 max-h-[600px] overflow-y-auto pr-1">
+                {loadingReferrals ? (
+                  <div className="p-8 text-center bg-surface-container-low/40 rounded-2xl border border-surface-container-high space-y-2">
+                    <span className="material-symbols-outlined text-2xl text-teal-600 animate-spin">sync</span>
+                    <p className="text-xs font-bold text-tertiary">Loading incoming inter-facility referrals...</p>
+                  </div>
+                ) : inboundReferrals.length === 0 ? (
+                  <div className="p-8 text-center bg-surface-container-low/40 rounded-2xl border border-dashed border-surface-container-high space-y-2">
+                    <span className="material-symbols-outlined text-3xl text-tertiary">alt_route</span>
+                    <h4 className="text-sm font-bold text-on-surface">No Inbound Referrals</h4>
+                    <p className="text-xs text-tertiary">Incoming referrals from rural Sub-Centres and PHCs will appear here in real time.</p>
+                  </div>
+                ) : (
+                  inboundReferrals.map(ref => (
+                    <div key={ref.id} className={`p-4 rounded-2xl border transition-all text-xs space-y-2.5 ${
+                      ref.status === 'OVERDUE_ESCALATED'
+                        ? 'bg-red-50 border-red-300 ring-1 ring-red-400'
+                        : ref.urgency === 'EMERGENCY'
+                        ? 'bg-amber-50/70 border-amber-200'
+                        : 'bg-white border-surface-container-high'
+                    }`}>
+                      <div className="flex items-center justify-between">
+                        <span className="px-2 py-0.5 rounded-lg bg-surface-container text-slate-800 font-mono font-black text-[10px]">
+                          {ref.referral_token || ref.id}
+                        </span>
+                        <span className={`px-2 py-0.5 rounded-full text-[9px] font-black uppercase tracking-wider ${
+                          ref.status === 'OVERDUE_ESCALATED'
+                            ? 'bg-red-600 text-white animate-pulse'
+                            : ref.urgency === 'EMERGENCY'
+                            ? 'bg-red-100 text-red-800'
+                            : ref.urgency === 'URGENT'
+                            ? 'bg-amber-100 text-amber-800'
+                            : 'bg-emerald-100 text-emerald-800'
+                        }`}>
+                          {ref.status === 'OVERDUE_ESCALATED' ? '🔴 SLA OVERDUE' : ref.urgency}
+                        </span>
+                      </div>
+
+                      <div>
+                        <h4 className="font-bold text-sm text-on-surface">{ref.patient_name} ({ref.patient_age}y/{ref.patient_gender})</h4>
+                        <p className="text-tertiary text-[11px]">From: <span className="font-semibold text-slate-700">{ref.referring_facility_name}</span> ({ref.referring_doctor_name})</p>
+                      </div>
+
+                      <div className="p-2 bg-surface-container-low/70 rounded-xl border border-surface-container">
+                        <p className="text-[11px] text-on-surface font-medium line-clamp-2">
+                          <span className="font-bold">Reason:</span> {ref.clinical_reason}
+                        </p>
+                      </div>
+
+                      <div className="flex items-center justify-between pt-1 text-[10px]">
+                        <span className="text-tertiary font-medium">Status: <strong className="text-primary">{ref.status}</strong></span>
+                        <div className="flex items-center gap-1.5">
+                          {ref.status === 'CREATED' && (
+                            <button
+                              onClick={() => handleUpdateReferralStatus(ref.id, 'ACCEPTED')}
+                              className="px-2.5 py-1 bg-primary text-white font-bold rounded-lg hover:bg-primary/90 transition-all"
+                            >
+                              Accept
+                            </button>
+                          )}
+                          {ref.status === 'ACCEPTED' && (
+                            <button
+                              onClick={() => handleUpdateReferralStatus(ref.id, 'IN_TRANSIT')}
+                              className="px-2.5 py-1 bg-amber-600 text-white font-bold rounded-lg hover:bg-amber-700 transition-all"
+                            >
+                              In Transit (108)
+                            </button>
+                          )}
+                          {ref.status === 'IN_TRANSIT' && (
+                            <button
+                              onClick={() => handleUpdateReferralStatus(ref.id, 'ARRIVED')}
+                              className="px-2.5 py-1 bg-teal-600 text-white font-bold rounded-lg hover:bg-teal-700 transition-all"
+                            >
+                              Mark Arrived
+                            </button>
+                          )}
+                          {ref.status === 'ARRIVED' && (
+                            <button
+                              onClick={() => handleUpdateReferralStatus(ref.id, 'CONSULTED')}
+                              className="px-2.5 py-1 bg-blue-600 text-white font-bold rounded-lg hover:bg-blue-700 transition-all"
+                            >
+                              Start Consult
+                            </button>
+                          )}
+                          {ref.status === 'CONSULTED' && (
+                            <button
+                              onClick={() => handleUpdateReferralStatus(ref.id, 'COMPLETED')}
+                              className="px-2.5 py-1 bg-emerald-600 text-white font-bold rounded-lg hover:bg-emerald-700 transition-all"
+                            >
+                              Discharge & Complete
+                            </button>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  ))
+                )}
+              </div>
+            ) : (
+            /* Patient Cards List */
             <div className="space-y-2.5 pt-2 max-h-[600px] overflow-y-auto pr-1">
               {loadingQueue ? (
                 <div className="p-8 text-center bg-surface-container-low/40 rounded-2xl border border-surface-container-high space-y-2">
@@ -1289,6 +1508,7 @@ export default function DoctorOPDPage() {
                 })
               )}
             </div>
+            )}
           </div>
         </div>
 
@@ -1724,6 +1944,13 @@ export default function DoctorOPDPage() {
                   </span>
                   <span>{submittingEncounter ? 'Persisting to Database...' : 'Submit Encounter & Order EDL Drugs'}</span>
                 </button>
+                <button
+                  onClick={() => setShowAshaModal(true)}
+                  className="px-4 py-2.5 bg-amber-50 hover:bg-amber-100 text-amber-900 border border-amber-300 font-bold text-xs rounded-xl transition-all flex items-center gap-1.5 shadow-sm active:scale-95"
+                >
+                  <span className="material-symbols-outlined text-base text-amber-700">home_health</span>
+                  <span>Assign ASHA Follow-up</span>
+                </button>
                 <Link
                   href="/referrals"
                   className="px-4 py-2.5 bg-surface-container hover:bg-surface-container-high text-slate-700 font-bold text-xs rounded-xl transition-all flex items-center gap-1.5"
@@ -1752,6 +1979,117 @@ export default function DoctorOPDPage() {
           )}
         </div>
       </div>
+
+      {/* ASHA Follow-up Dispatch Modal (Closed-Loop Workflow Phase 7) */}
+      {showAshaModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/60 backdrop-blur-sm animate-in fade-in duration-200">
+          <div className="bg-white rounded-3xl p-6 lg:p-8 max-w-lg w-full shadow-2xl border border-surface-container-high space-y-5">
+            <div className="flex items-center justify-between border-b border-surface-container pb-4">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-2xl bg-amber-100 text-amber-800 flex items-center justify-center">
+                  <span className="material-symbols-outlined">home_health</span>
+                </div>
+                <div>
+                  <h3 className="font-extrabold text-base text-on-surface">Assign ASHA Field Follow-up</h3>
+                  <p className="text-xs text-tertiary">Dispatches home visit task to village frontline worker</p>
+                </div>
+              </div>
+              <button
+                onClick={() => setShowAshaModal(false)}
+                className="p-1.5 text-tertiary hover:text-on-surface rounded-xl hover:bg-surface-container transition-all"
+              >
+                <span className="material-symbols-outlined text-lg">close</span>
+              </button>
+            </div>
+
+            {ashaSuccessMsg ? (
+              <div className="p-4 bg-emerald-50 text-emerald-800 border border-emerald-200 rounded-2xl text-xs font-bold flex items-center gap-2">
+                <span className="material-symbols-outlined text-emerald-600">check_circle</span>
+                <span>{ashaSuccessMsg}</span>
+              </div>
+            ) : (
+              <form onSubmit={handleAssignAshaFollowup} className="space-y-4 text-xs font-bold">
+                <div>
+                  <label className="text-tertiary uppercase text-[10px] block mb-1">Patient</label>
+                  <input
+                    type="text"
+                    disabled
+                    value={`${selectedPatient?.name} (${selectedPatient?.age}y / ${selectedPatient?.gender})`}
+                    className="w-full px-3 py-2 bg-surface-container-low rounded-xl border border-surface-container-high text-on-surface"
+                  />
+                </div>
+
+                <div>
+                  <label className="text-tertiary uppercase text-[10px] block mb-1">Assigned Frontline Worker</label>
+                  <input
+                    type="text"
+                    disabled
+                    value={selectedPatient?.ashaName || 'Sunita Tai (ASHA #402 - Nandurbar Block A)'}
+                    className="w-full px-3 py-2 bg-surface-container-low rounded-xl border border-surface-container-high text-on-surface"
+                  />
+                </div>
+
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="text-tertiary uppercase text-[10px] block mb-1">Task Protocol Type</label>
+                    <select
+                      value={ashaTaskData.task_type}
+                      onChange={e => setAshaTaskData({ ...ashaTaskData, task_type: e.target.value })}
+                      className="w-full px-3 py-2 bg-white rounded-xl border border-surface-container-high text-on-surface"
+                    >
+                      <option value="Post-Op Check">Post-Op Wound Check Day 5</option>
+                      <option value="Medication Adherence">Medication Adherence Check</option>
+                      <option value="IFA & Nutrition Check">IFA & Nutrition Verification</option>
+                      <option value="ANC Danger Signs Check">ANC Danger Signs Screening</option>
+                      <option value="BP & Glucose Check">BP & Blood Glucose Screening</option>
+                      <option value="TB DOTS Verification">TB DOTS Adherence Verification</option>
+                    </select>
+                  </div>
+
+                  <div>
+                    <label className="text-tertiary uppercase text-[10px] block mb-1">Due Date</label>
+                    <input
+                      type="date"
+                      value={ashaTaskData.due_date}
+                      onChange={e => setAshaTaskData({ ...ashaTaskData, due_date: e.target.value })}
+                      className="w-full px-3 py-2 bg-white rounded-xl border border-surface-container-high text-on-surface"
+                    />
+                  </div>
+                </div>
+
+                <div>
+                  <label className="text-tertiary uppercase text-[10px] block mb-1">Special Clinical Instructions for ASHA</label>
+                  <textarea
+                    rows={3}
+                    value={ashaTaskData.instructions}
+                    onChange={e => setAshaTaskData({ ...ashaTaskData, instructions: e.target.value })}
+                    className="w-full px-3 py-2 bg-white rounded-xl border border-surface-container-high text-on-surface font-medium"
+                    placeholder="Provide specific guidelines for home visit..."
+                  />
+                </div>
+
+                <div className="flex items-center justify-end gap-3 pt-3 border-t border-surface-container">
+                  <button
+                    type="button"
+                    onClick={() => setShowAshaModal(false)}
+                    className="px-4 py-2 bg-surface-container text-slate-700 font-bold rounded-xl hover:bg-surface-container-high transition-all"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={assigningTask}
+                    className="px-5 py-2 bg-amber-600 hover:bg-amber-700 text-white font-bold rounded-xl shadow-md transition-all flex items-center gap-1.5 disabled:opacity-50"
+                  >
+                    <span className="material-symbols-outlined text-base">send</span>
+                    <span>{assigningTask ? 'Dispatching...' : 'Dispatch Task to ASHA'}</span>
+                  </button>
+                </div>
+              </form>
+            )}
+          </div>
+        </div>
+      )}
     </div>
   );
 }

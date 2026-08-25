@@ -22,10 +22,22 @@ const RISK_OPTIONS: SelectOption[] = [
 
 export default function FrontlineHealthWorkerPage() {
     const [beneficiaries, setBeneficiaries] = useState<any[]>([]);
+    const [followupTasks, setFollowupTasks] = useState<any[]>([]);
     const [loading, setLoading] = useState<boolean>(true);
     const [filterCategory, setFilterCategory] = useState<string>('ALL');
     const [filterRisk, setFilterRisk] = useState<string>('ALL');
     const [followupSummary, setFollowupSummary] = useState<any>(null);
+
+    // Follow-up Completion Modal State (Phase 5)
+    const [selectedTask, setSelectedTask] = useState<any>(null);
+    const [completionNotes, setCompletionNotes] = useState<string>('');
+    const [completionOutcome, setCompletionOutcome] = useState<string>('STABLE');
+    const [completingTask, setCompletingTask] = useState<boolean>(false);
+
+    // ASHA Danger-Sign Screening Modal (Phase 8)
+    const [dangerModalBen, setDangerModalBen] = useState<any>(null);
+    const [dangerChecklist, setDangerChecklist] = useState<Record<string, boolean>>({});
+    const [vitalsInput, setVitalsInput] = useState({ bp: '120/80', spo2: '98', hr: '76', temp: '37.0' });
 
     // Registration Modal
     const [isRegisterOpen, setIsRegisterOpen] = useState<boolean>(false);
@@ -76,7 +88,7 @@ export default function FrontlineHealthWorkerPage() {
         try {
             const [benData, followData, alertData] = await Promise.all([
                 apiFetch(`/api/fhw/beneficiaries?category=${filterCategory}&risk_level=${filterRisk}`).catch(() => ({ beneficiaries: null })),
-                apiFetch('/api/fhw/followups').catch(() => ({ summary: null })),
+                apiFetch('/api/fhw/followups').catch(() => ({ tasks: [] })),
                 apiFetch('/api/facility/medicine-alerts').catch(() => ({ medicines: [] }))
             ]);
             if (benData?.beneficiaries) {
@@ -88,7 +100,7 @@ export default function FrontlineHealthWorkerPage() {
                 const cached = localStorage.getItem('curatrack_fhw_cached_beneficiaries');
                 if (cached) setBeneficiaries(JSON.parse(cached));
             }
-            if (followData?.summary) setFollowupSummary(followData.summary);
+            if (followData?.tasks) setFollowupTasks(followData.tasks);
             if (alertData?.medicines) setMedAlerts(alertData.medicines);
         } catch (err) {
             console.error('Failed to load FHW data:', err);
@@ -159,6 +171,53 @@ export default function FrontlineHealthWorkerPage() {
             }
         } finally {
             setRegistering(false);
+        }
+    };
+
+    const handleCompleteTask = async (e: React.FormEvent) => {
+        e.preventDefault();
+        if (!selectedTask) return;
+        setCompletingTask(true);
+        try {
+            await apiFetch(`/api/fhw/followups/${selectedTask.id}/complete`, {
+                method: 'POST',
+                body: JSON.stringify({
+                    completed_by: 'Sunita Tai (ASHA #402)',
+                    visit_notes: completionNotes || 'Home visit conducted. Patient vitals evaluated and medication adherence verified.',
+                    outcome: completionOutcome,
+                    vitals: vitalsInput
+                })
+            });
+            setSelectedTask(null);
+            setCompletionNotes('');
+            setSyncSuccessMsg('Home visit recorded and follow-up closed in public health registry.');
+            setTimeout(() => setSyncSuccessMsg(null), 3000);
+            fetchData();
+        } catch (err: any) {
+            alert('Failed to complete task: ' + (err.message || 'Error'));
+        } finally {
+            setCompletingTask(false);
+        }
+    };
+
+    const handleInitiateAssistedTeleconsult = async (ben: any) => {
+        try {
+            const res = await apiFetch('/api/fhw/teleconsult/assisted-request', {
+                method: 'POST',
+                body: JSON.stringify({
+                    beneficiary_id: ben.id,
+                    asha_name: 'Sunita Tai (ASHA #402)',
+                    village_name: ben.village_name || 'Borvihir Pada',
+                    chief_complaint: ben.notes || 'Routine follow-up teleconsultation',
+                    urgency: ben.risk_level === 'HIGH' ? 'EMERGENCY' : 'PRIORITY',
+                    vitals: vitalsInput
+                })
+            });
+            if (res?.room_id) {
+                window.location.href = `/call/${res.room_id}?role=patient&benId=${ben.id}`;
+            }
+        } catch (err: any) {
+            alert('Failed to launch assisted teleconsult: ' + (err.message || 'Error'));
         }
     };
 
@@ -298,6 +357,75 @@ export default function FrontlineHealthWorkerPage() {
                 </div>
             )}
 
+            {/* Doctor-Assigned Field Follow-Up Tasks (Closed-Loop Workflow Phase 5 & 7) */}
+            <div className="bg-white rounded-3xl p-6 border border-surface-container-high shadow-card space-y-4">
+                <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-3">
+                        <div className="w-10 h-10 rounded-2xl bg-amber-100 text-amber-800 flex items-center justify-center">
+                            <span className="material-symbols-outlined">assignment_turned_in</span>
+                        </div>
+                        <div>
+                            <h3 className="font-extrabold text-base text-on-surface">Doctor-Assigned Field Follow-ups</h3>
+                            <p className="text-xs text-tertiary">Closed-loop home visits requested by hospital medical officers</p>
+                        </div>
+                    </div>
+                    <span className="px-3 py-1 bg-amber-50 text-amber-900 border border-amber-200 text-xs font-bold rounded-full">
+                        {followupTasks.filter(t => t.status === 'PENDING').length} Active Tasks
+                    </span>
+                </div>
+
+                {followupTasks.length === 0 ? (
+                    <div className="p-6 text-center bg-surface-container-low/40 rounded-2xl border border-dashed border-surface-container-high">
+                        <p className="text-xs text-tertiary font-bold">No pending doctor follow-up tasks for your assigned village pada.</p>
+                    </div>
+                ) : (
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 pt-1">
+                        {followupTasks.map(task => (
+                            <div key={task.id} className={`p-4 rounded-2xl border transition-all text-xs space-y-2.5 ${
+                                task.status === 'COMPLETED'
+                                    ? 'bg-emerald-50/50 border-emerald-200 opacity-80'
+                                    : 'bg-white border-surface-container-high hover:border-amber-400 shadow-sm'
+                            }`}>
+                                <div className="flex items-center justify-between">
+                                    <span className="font-bold text-amber-800 bg-amber-50 px-2 py-0.5 rounded-md text-[10px]">
+                                        {task.task_type}
+                                    </span>
+                                    <span className={`text-[10px] font-black uppercase px-2 py-0.5 rounded-full ${
+                                        task.status === 'COMPLETED' ? 'bg-emerald-100 text-emerald-800' : 'bg-amber-100 text-amber-800'
+                                    }`}>
+                                        {task.status}
+                                    </span>
+                                </div>
+
+                                <div>
+                                    <h4 className="font-bold text-sm text-on-surface">{task.patient_name}</h4>
+                                    <p className="text-tertiary text-[11px]">Assigned by: <strong>{task.assigned_by_doctor_name || 'Dr. Medical Officer'}</strong></p>
+                                </div>
+
+                                <p className="p-2 bg-surface-container-low rounded-xl text-slate-700 font-medium">
+                                    {task.instructions}
+                                </p>
+
+                                <div className="flex items-center justify-between pt-1 text-[11px]">
+                                    <span className="text-tertiary">Due: <strong>{task.due_date}</strong></span>
+                                    {task.status !== 'COMPLETED' && (
+                                        <button
+                                            onClick={() => {
+                                                setSelectedTask(task);
+                                                setCompletionNotes('');
+                                            }}
+                                            className="px-3 py-1 bg-primary hover:bg-primary/90 text-white font-bold rounded-lg transition-all shadow-xs"
+                                        >
+                                            Record Home Visit
+                                        </button>
+                                    )}
+                                </div>
+                            </div>
+                        ))}
+                    </div>
+                )}
+            </div>
+
             {/* Filter Dropdowns */}
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-surface-container-high pb-4 bg-white p-4 rounded-2xl shadow-xs">
                 <div className="flex flex-col sm:flex-row sm:items-center gap-3 w-full sm:w-auto">
@@ -404,6 +532,27 @@ export default function FrontlineHealthWorkerPage() {
                                         ))}
                                     </div>
                                 )}
+                            </div>
+
+                            {/* Frontline Actions Footer */}
+                            <div className="flex items-center justify-between gap-2 pt-3 border-t border-surface-container">
+                                <button
+                                    onClick={() => {
+                                        setDangerModalBen(ben);
+                                        setDangerChecklist({});
+                                    }}
+                                    className="flex-1 py-2 px-3 bg-red-50 hover:bg-red-100 text-red-800 border border-red-200 rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 transition-all"
+                                >
+                                    <span className="material-symbols-outlined text-base text-red-600">warning</span>
+                                    <span>Danger Signs</span>
+                                </button>
+                                <button
+                                    onClick={() => handleInitiateAssistedTeleconsult(ben)}
+                                    className="flex-1 py-2 px-3 bg-teal-50 hover:bg-teal-100 text-teal-800 border border-teal-200 rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 transition-all"
+                                >
+                                    <span className="material-symbols-outlined text-base text-teal-600">video_call</span>
+                                    <span>Teleconsult MO</span>
+                                </button>
                             </div>
                         </div>
                     ))}
@@ -549,6 +698,169 @@ export default function FrontlineHealthWorkerPage() {
                                 </button>
                             </div>
                         </form>
+                    </div>
+                </div>
+            )}
+
+            {/* Record Home Visit & Task Completion Modal (Phase 5) */}
+            {selectedTask && (
+                <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
+                    <div className="bg-white max-w-lg w-full rounded-3xl p-6 sm:p-8 shadow-2xl border border-surface-container-high animate-in fade-in zoom-in duration-200 space-y-4">
+                        <div className="flex items-center justify-between border-b border-surface-container pb-3">
+                            <div className="flex items-center gap-2.5">
+                                <span className="material-symbols-outlined text-amber-600 text-2xl">home_health</span>
+                                <div>
+                                    <h3 className="text-base font-extrabold text-on-surface">Record Home Visit Outcome</h3>
+                                    <p className="text-xs text-tertiary">{selectedTask.task_type} • {selectedTask.patient_name}</p>
+                                </div>
+                            </div>
+                            <button onClick={() => setSelectedTask(null)} className="p-1.5 rounded-xl hover:bg-surface-container text-tertiary">
+                                <span className="material-symbols-outlined">close</span>
+                            </button>
+                        </div>
+
+                        <form onSubmit={handleCompleteTask} className="space-y-4 text-xs font-bold">
+                            <div>
+                                <label className="block text-tertiary uppercase text-[10px] mb-1">Doctor's Original Instructions</label>
+                                <p className="p-2.5 bg-surface-container-low rounded-xl text-slate-700 font-medium border border-surface-container">
+                                    {selectedTask.instructions}
+                                </p>
+                            </div>
+
+                            <div className="grid grid-cols-2 gap-3">
+                                <div>
+                                    <label className="block text-tertiary uppercase text-[10px] mb-1">Clinical Outcome</label>
+                                    <select
+                                        value={completionOutcome}
+                                        onChange={e => setCompletionOutcome(e.target.value)}
+                                        className="w-full p-2.5 bg-surface-container-low rounded-xl border border-surface-container-high text-on-surface"
+                                    >
+                                        <option value="STABLE">Stable / Improved</option>
+                                        <option value="MEDICINES_DELIVERED">Medicines Delivered & Adherent</option>
+                                        <option value="NEEDS_DOCTOR_REVIEW">Needs Doctor Teleconsult Review</option>
+                                        <option value="DANGER_SIGNS_DETECTED">Danger Signs Detected (Urgent)</option>
+                                    </select>
+                                </div>
+                                <div>
+                                    <label className="block text-tertiary uppercase text-[10px] mb-1">Field Blood Pressure</label>
+                                    <input
+                                        type="text"
+                                        value={vitalsInput.bp}
+                                        onChange={e => setVitalsInput({ ...vitalsInput, bp: e.target.value })}
+                                        placeholder="e.g. 120/80"
+                                        className="w-full p-2.5 bg-surface-container-low rounded-xl border border-surface-container-high text-on-surface"
+                                    />
+                                </div>
+                            </div>
+
+                            <div>
+                                <label className="block text-tertiary uppercase text-[10px] mb-1">ASHA Field Observations & Visit Notes</label>
+                                <textarea
+                                    rows={3}
+                                    required
+                                    value={completionNotes}
+                                    onChange={e => setCompletionNotes(e.target.value)}
+                                    placeholder="Enter details of patient condition, compliance with prescribed medicines, wound healing..."
+                                    className="w-full p-2.5 bg-surface-container-low rounded-xl border border-surface-container-high text-on-surface font-medium"
+                                />
+                            </div>
+
+                            <div className="flex items-center justify-end gap-2 pt-2">
+                                <button type="button" onClick={() => setSelectedTask(null)} className="px-4 py-2 rounded-xl text-tertiary">
+                                    Cancel
+                                </button>
+                                <button
+                                    type="submit"
+                                    disabled={completingTask}
+                                    className="px-5 py-2.5 bg-primary text-white font-bold rounded-xl shadow-md disabled:opacity-50 flex items-center gap-1.5"
+                                >
+                                    <span className="material-symbols-outlined text-base">check_circle</span>
+                                    <span>{completingTask ? 'Saving...' : 'Submit & Close Task'}</span>
+                                </button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            )}
+
+            {/* ASHA Danger Signs Screening Modal (Phase 8) */}
+            {dangerModalBen && (
+                <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
+                    <div className="bg-white max-w-lg w-full rounded-3xl p-6 sm:p-8 shadow-2xl border border-red-200 animate-in fade-in zoom-in duration-200 space-y-4">
+                        <div className="flex items-center justify-between border-b border-surface-container pb-3">
+                            <div className="flex items-center gap-2.5">
+                                <div className="w-10 h-10 rounded-2xl bg-red-100 text-red-700 flex items-center justify-center">
+                                    <span className="material-symbols-outlined text-2xl">emergency</span>
+                                </div>
+                                <div>
+                                    <h3 className="text-base font-extrabold text-on-surface">Community Danger Signs Screening</h3>
+                                    <p className="text-xs text-tertiary">{dangerModalBen.name} • {dangerModalBen.category}</p>
+                                </div>
+                            </div>
+                            <button onClick={() => setDangerModalBen(null)} className="p-1.5 rounded-xl hover:bg-surface-container text-tertiary">
+                                <span className="material-symbols-outlined">close</span>
+                            </button>
+                        </div>
+
+                        <p className="text-xs text-slate-600">
+                            Check all observable red-flag symptoms. If <strong>any</strong> danger sign is present, immediately initiate emergency evacuation or connect teleconsultation.
+                        </p>
+
+                        <div className="space-y-2 text-xs">
+                            {[
+                                { key: 'severe_breathlessness', label: 'Severe Breathlessness / Inability to speak in full sentences' },
+                                { key: 'chest_pain', label: 'Crushing Retrosternal Chest Pain radiating to left arm' },
+                                { key: 'altered_consciousness', label: 'Altered Mental Status, Unconsciousness, or Seizures' },
+                                { key: 'severe_bleeding', label: 'Severe Active Bleeding / Postpartum Hemorrhage' },
+                                { key: 'high_fever_stiff_neck', label: 'High Fever (>39.5°C) with Stiff Neck or Purple Rash' },
+                                { key: 'preeclampsia_bp', label: 'High BP (>160/100 mmHg), Severe Headache or Blurry Vision' }
+                            ].map(item => {
+                                const isChecked = !!dangerChecklist[item.key];
+                                return (
+                                    <button
+                                        key={item.key}
+                                        type="button"
+                                        onClick={() => setDangerChecklist({ ...dangerChecklist, [item.key]: !isChecked })}
+                                        className={`w-full p-3 rounded-xl border text-left font-bold transition-all flex items-center gap-2.5 ${
+                                            isChecked
+                                                ? 'bg-red-50 border-red-400 text-red-900 shadow-xs'
+                                                : 'bg-surface-container-low/60 border-surface-container text-on-surface hover:bg-surface-container-low'
+                                        }`}
+                                    >
+                                        <span className={`material-symbols-outlined text-lg ${isChecked ? 'text-red-600' : 'text-tertiary'}`}>
+                                            {isChecked ? 'check_box' : 'check_box_outline_blank'}
+                                        </span>
+                                        <span className="flex-1">{item.label}</span>
+                                    </button>
+                                );
+                            })}
+                        </div>
+
+                        <div className="flex flex-col gap-2 pt-3 border-t border-surface-container">
+                            {Object.values(dangerChecklist).some(Boolean) ? (
+                                <a
+                                    href="tel:108"
+                                    className="w-full py-3 bg-red-600 hover:bg-red-700 text-white font-extrabold text-xs rounded-xl shadow-lg flex items-center justify-center gap-2 animate-bounce-short"
+                                >
+                                    <span className="material-symbols-outlined">call</span>
+                                    <span>🚨 Initiate 108 Emergency Evacuation</span>
+                                </a>
+                            ) : (
+                                <button
+                                    onClick={() => handleInitiateAssistedTeleconsult(dangerModalBen)}
+                                    className="w-full py-3 bg-teal-700 hover:bg-teal-800 text-white font-bold text-xs rounded-xl shadow-md flex items-center justify-center gap-2"
+                                >
+                                    <span className="material-symbols-outlined">video_call</span>
+                                    <span>Connect Assisted Teleconsultation with MO</span>
+                                </button>
+                            )}
+                            <button
+                                onClick={() => setDangerModalBen(null)}
+                                className="w-full py-2 bg-surface-container text-slate-700 font-bold text-xs rounded-xl hover:bg-surface-container-high"
+                            >
+                                Close Screening
+                            </button>
+                        </div>
                     </div>
                 </div>
             )}
