@@ -1,11 +1,13 @@
 {
-  "name": "curatrack-v2",
+  "name": "curatrack-v2-monorepo",
   "version": "1.0.0",
   "private": true,
+  "workspaces": [
+    "frontend"
+  ],
   "scripts": {
     "dev": "npm --prefix frontend run dev",
-    "build": "npm --prefix frontend run build",
-    "start": "npm --prefix frontend run start",
-    "install:frontend": "npm --prefix frontend install"
+    "build": "npm --prefix frontend install && npm --prefix frontend run build",
+    "start": "npm --prefix frontend run start"
   }
 }
