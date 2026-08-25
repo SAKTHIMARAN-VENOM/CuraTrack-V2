@@ -6,6 +6,7 @@ import AddRecordModal from '@/components/AddRecordModal';
 import ReviewMedicationModal from '@/components/ReviewMedicationModal';
 import { offlineStorage } from '@/lib/offline-storage';
 import { createClient } from '@/lib/supabase/client';
+import { useI18n } from '@/lib/i18n';
 
 interface RealPatientInfo {
   id: string;
@@ -50,29 +51,22 @@ const wrapPdfLine = (value: string, limit = 92) => {
   return lines.length > 0 ? lines : [''];
 };
 
-const createPdfBlob = (title: string, lines: string[]) => {
-  const pageLines = lines.flatMap((line) => wrapPdfLine(line));
-  const pages: string[][] = [];
-  for (let i = 0; i < pageLines.length; i += 46) {
-    pages.push(pageLines.slice(i, i + 46));
-  }
-  if (pages.length === 0) pages.push([title]);
-
+const buildPdfBlob = (pages: string[][]) => {
   const objects: string[] = [];
   const addObject = (body: string) => {
     objects.push(body);
     return objects.length;
   };
 
-  const pageObjectRefs: number[] = [];
-  const contentObjectRefs: number[] = [];
-
-  const catalogRef = addObject(''); // filled after pages object exists
-  const pagesRef = addObject(''); // filled after page refs exist
+  const catalogRef = addObject('');
+  const pagesRef = addObject('');
   const fontRef = addObject('<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>');
 
+  const contentObjectRefs: number[] = [];
+  const pageObjectRefs: number[] = [];
+
   pages.forEach((page) => {
-    const streamLines = page.map((line) => `(${escapePdfText(line)}) Tj T*`).join('\n');
+    const streamLines = page.flatMap((line) => wrapPdfLine(line)).map((line) => `(${escapePdfText(line)}) Tj T*`).join('\n');
     const stream = `BT /F1 10 Tf 50 790 Td 14 TL\n${streamLines}\nET`;
     const contentRef = addObject(`<< /Length ${stream.length} >>\nstream\n${stream}\nendstream`);
     const pageRef = addObject(`<< /Type /Page /Parent ${pagesRef} 0 R /MediaBox [0 0 612 842] /Resources << /Font << /F1 ${fontRef} 0 R >> >> /Contents ${contentRef} 0 R >>`);
@@ -93,7 +87,7 @@ const createPdfBlob = (title: string, lines: string[]) => {
   const xrefOffset = pdf.length;
   pdf += `xref\n0 ${objects.length + 1}\n0000000000 65535 f \n`;
   offsets.slice(1).forEach((offset) => {
-    pdf += `${offset.toString().padStart(10, '0')} 00000 n \n`;
+    pdf += `${offset.toString().padStart(10, '0')} 0000 n \n`;
   });
   pdf += `trailer\n<< /Size ${objects.length + 1} /Root ${catalogRef} 0 R >>\nstartxref\n${xrefOffset}\n%%EOF`;
 
@@ -102,6 +96,7 @@ const createPdfBlob = (title: string, lines: string[]) => {
 
 export default function HealthRecordsPage() {
   const router = useRouter();
+  const { t } = useI18n();
   const [activeTab, setActiveTab] = useState('medications');
   const [openSections, setOpenSections] = useState<Record<string, boolean>>({});
   const [isAddRecordModalOpen, setIsAddRecordModalOpen] = useState(false);
@@ -1275,18 +1270,18 @@ export default function HealthRecordsPage() {
       <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4">
         <div>
           <span className="inline-block px-3 py-1 bg-secondary-container text-on-secondary-container text-[11px] font-bold rounded-full uppercase tracking-widest mb-3">
-            {currentRole === 'doctor' ? 'Clinical Directory & EHR' : 'Medical History'}
+            {currentRole === 'doctor' ? t('roles.doctor', 'Clinical Directory & EHR') : t('records.title', 'Medical History')}
           </span>
           <h2 className="font-headline text-4xl lg:text-5xl font-extrabold tracking-tight text-on-surface leading-none">
-            {currentRole === 'doctor' ? 'Patient Health Records' : 'Health Records'}
+            {currentRole === 'doctor' ? t('navigation.patientRecords', 'Patient Health Records') : t('records.title', 'Health Records')}
           </h2>
         </div>
         <div className="flex items-center gap-3 shrink-0">
           <button onClick={handleExportPDF} className="flex items-center gap-2 px-4 py-2.5 bg-surface-container rounded-xl text-sm font-bold text-on-surface-variant hover:bg-surface-container-high transition-colors">
-            <span className="material-symbols-outlined text-xl">download</span> Export PDF
+            <span className="material-symbols-outlined text-xl">download</span> {t('records.downloadPdf', 'Export PDF')}
           </button>
           <button onClick={() => setIsAddRecordModalOpen(true)} className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-bold text-white transition-all" style={{ background: 'linear-gradient(135deg, #00647e, #2c7d99)' }}>
-            <span className="material-symbols-outlined text-xl fill-icon">add_circle</span> Add Record
+            <span className="material-symbols-outlined text-xl fill-icon">add_circle</span> {t('common.add', 'Add Record')}
           </button>
         </div>
       </div>

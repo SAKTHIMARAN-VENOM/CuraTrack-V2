@@ -140,15 +140,15 @@ export function SideNavBar() {
     const getRoleDetails = () => {
         switch (currentRole) {
             case 'doctor':
-                return { title: 'Clinical Portal', badge: 'Medical Officer', color: 'bg-teal-50 text-teal-800 border-teal-200', icon: 'stethoscope' };
+                return { title: t('roles.doctor', 'Clinical Portal'), badge: t('roles.doctorBadge', 'Medical Officer'), color: 'bg-teal-50 text-teal-800 border-teal-200', icon: 'stethoscope' };
             case 'fhw':
-                return { title: 'ASHA Field Portal', badge: 'Frontline Worker', color: 'bg-purple-50 text-purple-800 border-purple-200', icon: 'volunteer_activism' };
+                return { title: t('roles.fhw', 'ASHA Field Portal'), badge: t('roles.fhwBadge', 'Frontline Worker'), color: 'bg-purple-50 text-purple-800 border-purple-200', icon: 'volunteer_activism' };
             case 'facility_manager':
-                return { title: 'Facility Operations', badge: 'Hospital In-Charge', color: 'bg-blue-50 text-blue-800 border-blue-200', icon: 'local_hospital' };
+                return { title: t('roles.facility_manager', 'Facility Operations'), badge: t('roles.facilityBadge', 'Hospital In-Charge'), color: 'bg-blue-50 text-blue-800 border-blue-200', icon: 'local_hospital' };
             case 'admin':
-                return { title: 'District Health Admin', badge: 'System Administrator', color: 'bg-amber-50 text-amber-800 border-amber-200', icon: 'admin_panel_settings' };
+                return { title: t('roles.admin', 'District Health Admin'), badge: t('roles.adminBadge', 'System Administrator'), color: 'bg-amber-50 text-amber-800 border-amber-200', icon: 'admin_panel_settings' };
             default:
-                return { title: 'Citizen Health Care', badge: 'Patient Account', color: 'bg-emerald-50 text-emerald-800 border-emerald-200', icon: 'person' };
+                return { title: t('roles.patient', 'Citizen Health Care'), badge: t('roles.patientBadge', 'Patient Account'), color: 'bg-emerald-50 text-emerald-800 border-emerald-200', icon: 'person' };
         }
     };
 
