@@ -15,7 +15,7 @@ try:
         get_sarvam_api_key,
     )
 except ImportError:
-    from services.sarvam_translation import (
+    from services.sarvam_translation import (  # type: ignore
         translate_batch,
         SUPPORTED_LANGUAGES,
         get_cache_size,

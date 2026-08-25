@@ -15,7 +15,7 @@ try:
         _TRANSLATION_CACHE,
     )
 except ImportError:
-    from services.sarvam_translation import (
+    from services.sarvam_translation import (  # type: ignore
         translate_batch,
         translate_single_sarvam,
         clear_translation_cache,
