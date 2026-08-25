@@ -183,15 +183,11 @@ export default function BenefitsPage() {
     };
 
     const handleCheckEligibility = async () => {
-<<<<<<< HEAD
         if (!insuranceId.trim()) {
             setEligibilityResult({ error: 'Please enter an Insurance ID.' });
             return;
         }
 
-=======
-        if (!insuranceId) return;
->>>>>>> 7546c2b (feat(i18n): implement 4-language global localization (EN, HI, MR, TA))
         setCheckingEligibility(true);
         setEligibilityResult(null);
         try {
@@ -199,12 +195,11 @@ export default function BenefitsPage() {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
-                    insurance_id: insuranceId,
+                    insurance_id: insuranceId.trim(),
                     service_type: selectedService
                 })
             });
             const data = await res.json();
-<<<<<<< HEAD
 
             if (!res.ok || data.status === 'error') {
                 setEligibilityResult({ error: data.detail || data.message || 'Invalid Insurance ID.' });
@@ -216,12 +211,6 @@ export default function BenefitsPage() {
             }
         } catch (err) {
             setEligibilityResult({ error: 'Network error occurred connecting to backend.' });
-=======
-            setEligibilityResult(data);
-        } catch (err) {
-            console.error("Eligibility check error", err);
-            setEligibilityResult({ error: "Failed to check eligibility. Please try again." });
->>>>>>> 7546c2b (feat(i18n): implement 4-language global localization (EN, HI, MR, TA))
         } finally {
             setCheckingEligibility(false);
         }
@@ -294,7 +283,6 @@ export default function BenefitsPage() {
         <div className="p-4 md:p-8 max-w-7xl mx-auto w-full font-sans antialiased text-on-surface">
             {/* Header with National Scheme Branding */}
             <section className="mb-8">
-<<<<<<< HEAD
                 <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
                     <div>
                         <div className="flex items-center gap-2 mb-2">
@@ -307,10 +295,10 @@ export default function BenefitsPage() {
                             </span>
                         </div>
                         <h1 className="text-3xl md:text-4xl font-extrabold tracking-tight text-on-surface">
-                            Government Schemes &amp; Empanelled Hospitals
+                            {t('benefits.title', 'Government Schemes & Empanelled Hospitals')}
                         </h1>
                         <p className="text-on-surface-variant text-sm md:text-base mt-1.5 max-w-3xl">
-                            Check whether your hospital or diagnostic centre is empanelled under Government Healthcare Schemes for 100% cashless treatment, surgeries, and free laboratory tests.
+                            {t('benefits.subtitle', 'Check whether your hospital or diagnostic centre is empanelled under Government Healthcare Schemes for 100% cashless treatment, surgeries, and free laboratory tests.')}
                         </p>
                     </div>
                 </div>
@@ -369,10 +357,6 @@ export default function BenefitsPage() {
                         )}
                     </button>
                 </div>
-=======
-                <h1 className="text-4xl font-extrabold tracking-tight text-on-surface">{t('benefits.title', 'Government Health Schemes & PMJAY Benefits')}</h1>
-                <p className="text-tertiary text-sm mt-1">{t('benefits.subtitle', 'Universal healthcare coverage, Mahatma Jyotirao Phule Jan Arogya Yojana & ABHA benefits')}</p>
->>>>>>> 7546c2b (feat(i18n): implement 4-language global localization (EN, HI, MR, TA))
             </section>
 
             {/* ========================================================================= */}
