@@ -35,6 +35,15 @@ _DEFAULT_FACILITY_MEDICINES = [
     {"id": "MED-108", "name": "Tetanus Toxoid Vaccine", "category": "Immunization", "stock_units": 80, "monthly_consumption": 200, "days_of_supply": 12, "status": "LOW_STOCK", "unit": "doses", "storage_location": "Cold Chain Refrigerator 1", "last_restocked": "2026-07-02"},
 ]
 
+_DEFAULT_FACILITY_BEDS = [
+    {"id": "bed-ward-1", "ward": "General Male Ward", "total": 14, "occupied": 10, "available": 4, "description": "Adult male inpatient recovery & observation"},
+    {"id": "bed-ward-2", "ward": "General Female Ward", "total": 12, "occupied": 10, "available": 2, "description": "Adult female inpatient recovery & observation"},
+    {"id": "bed-ward-3", "ward": "Maternal ANC / Postpartum Ward", "total": 8, "occupied": 4, "available": 4, "description": "High-risk pregnancy, labour, postnatal care"},
+    {"id": "bed-ward-4", "ward": "Pediatric Ward", "total": 6, "occupied": 5, "available": 1, "description": "Neonatal observation & childhood illness"},
+    {"id": "bed-ward-5", "ward": "Emergency / Trauma ICU", "total": 4, "occupied": 2, "available": 2, "description": "Ventilator, oxygen support, hemodynamic monitoring"},
+    {"id": "bed-ward-6", "ward": "Isolation Ward", "total": 6, "occupied": 4, "available": 2, "description": "TB, vector-borne, respiratory infection isolation"}
+]
+
 def get_db():
     global _supabase
     if _supabase is not None:
@@ -73,6 +82,16 @@ class StockUpdateRequest(BaseModel):
     batch_number: Optional[str] = None
     supplier_name: Optional[str] = "District Medical Store Depot (DMSD)"
     reason: Optional[str] = None
+
+class BedUpdateRequest(BaseModel):
+    ward_id: Optional[str] = None
+    ward: Optional[str] = None
+    action: Optional[str] = "SET"  # "SET", "ADMIT", "DISCHARGE", "UPDATE_CAPACITY"
+    total: Optional[int] = None
+    occupied: Optional[int] = None
+    available: Optional[int] = None
+    delta: Optional[int] = 1
+    description: Optional[str] = None
 
 class MedicineOrderRequest(BaseModel):
     patient_id: str
@@ -420,8 +439,13 @@ def get_facility_beds():
     try:
         db = get_db()
         res = db.table("facility_beds").select("*").execute()
-        beds = res.data or []
+        beds = res.data if (res and res.data) else [dict(w) for w in _DEFAULT_FACILITY_BEDS]
         
+        for w in beds:
+            total = int(w.get("total", 0))
+            occupied = int(w.get("occupied", 0))
+            w["available"] = total - occupied
+
         total_beds = sum(w.get("total", 0) for w in beds)
         total_occupied = sum(w.get("occupied", 0) for w in beds)
         total_available = sum(max(0, w.get("available", 0)) for w in beds)
@@ -435,13 +459,102 @@ def get_facility_beds():
         }
     except Exception as e:
         logger.error(f"Error fetching beds from Supabase: {e}")
+        beds = [dict(w) for w in _DEFAULT_FACILITY_BEDS]
+        for w in beds:
+            total = int(w.get("total", 0))
+            occupied = int(w.get("occupied", 0))
+            w["available"] = total - occupied
+
+        total_beds = sum(w.get("total", 0) for w in beds)
+        total_occupied = sum(w.get("occupied", 0) for w in beds)
+        total_available = sum(max(0, w.get("available", 0)) for w in beds)
         return {
-            "total_beds": 0,
-            "total_occupied": 0,
-            "total_available": 0,
-            "occupancy_rate": 0,
-            "wards": []
+            "total_beds": total_beds,
+            "total_occupied": total_occupied,
+            "total_available": total_available,
+            "occupancy_rate": round((total_occupied / total_beds) * 100, 1) if total_beds > 0 else 0,
+            "wards": beds
         }
+
+@router.post("/facility/beds/update")
+@router.post("/facility/beds/{ward_id}/update")
+def update_facility_beds(request: BedUpdateRequest, ward_id: Optional[str] = None):
+    """Updates ward total capacity, occupied beds, or available beds (Admit/Discharge/Set)."""
+    target_id = ward_id or request.ward_id
+    target_ward_name = request.ward
+    
+    ward_record = None
+    try:
+        db = get_db()
+        if target_id:
+            res = db.table("facility_beds").select("*").eq("id", target_id).execute()
+            if res.data:
+                ward_record = res.data[0]
+        if not ward_record and target_ward_name:
+            res = db.table("facility_beds").select("*").ilike("ward", target_ward_name).execute()
+            if res.data:
+                ward_record = res.data[0]
+    except Exception as e:
+        logger.warning(f"Could not connect to Supabase for update_facility_beds: {e}")
+
+    # Fallback to in-memory list
+    if not ward_record:
+        for w in _DEFAULT_FACILITY_BEDS:
+            if (target_id and (w.get("id") == target_id or str(w.get("id")) == str(target_id))) or \
+               (target_ward_name and w.get("ward", "").lower() == target_ward_name.lower()):
+                ward_record = w
+                break
+
+    if not ward_record:
+        ward_record = _DEFAULT_FACILITY_BEDS[0]
+
+    current_total = int(ward_record.get("total", 10))
+    current_occupied = int(ward_record.get("occupied", 0))
+    action = (request.action or "SET").upper()
+    delta = request.delta if request.delta is not None else 1
+
+    if action == "ADMIT":
+        new_total = request.total if request.total is not None else current_total
+        new_occupied = current_occupied + delta
+        new_available = new_total - new_occupied
+    elif action == "DISCHARGE":
+        new_total = request.total if request.total is not None else current_total
+        new_occupied = max(0, current_occupied - delta)
+        new_available = new_total - new_occupied
+    elif action == "UPDATE_CAPACITY":
+        new_total = max(1, request.total if request.total is not None else current_total)
+        new_occupied = current_occupied
+        new_available = new_total - new_occupied
+    else:  # "SET"
+        new_total = request.total if request.total is not None else current_total
+        if request.available is not None and request.occupied is None:
+            new_available = int(request.available)
+            new_occupied = max(0, new_total - new_available)
+        elif request.occupied is not None:
+            new_occupied = max(0, int(request.occupied))
+            new_available = new_total - new_occupied
+        else:
+            new_occupied = current_occupied
+            new_available = new_total - new_occupied
+
+    ward_record["total"] = new_total
+    ward_record["occupied"] = new_occupied
+    ward_record["available"] = new_available
+    if request.description:
+        ward_record["description"] = request.description
+    ward_record["updated_at"] = datetime.utcnow().isoformat() + "Z"
+
+    try:
+        db = get_db()
+        db.table("facility_beds").update(ward_record).eq("id", ward_record["id"]).execute()
+    except Exception as e:
+        logger.warning(f"Could not persist bed update to Supabase: {e}")
+
+    return {
+        "success": True,
+        "updated_ward": ward_record,
+        "message": f"Successfully updated {ward_record.get('ward')}: {new_available} available beds of {new_total} total ({new_occupied} occupied)."
+    }
 
 @router.get("/facility/medicine-alerts")
 def get_medicine_alerts():

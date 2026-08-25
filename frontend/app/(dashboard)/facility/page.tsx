@@ -26,6 +26,17 @@ export default function FacilityOperationsPage() {
     const [batchNumber, setBatchNumber] = useState<string>('');
     const [updatingStock, setUpdatingStock] = useState<boolean>(false);
 
+    // Bed Update / Adjustment Modal State
+    const [isBedModalOpen, setIsBedModalOpen] = useState<boolean>(false);
+    const [selectedWard, setSelectedWard] = useState<any>(null);
+    const [bedAction, setBedAction] = useState<'SET_AVAILABLE' | 'ADMIT' | 'DISCHARGE' | 'SET_CAPACITY'>('SET_AVAILABLE');
+    const [modalTotalBeds, setModalTotalBeds] = useState<number>(14);
+    const [modalAvailableBeds, setModalAvailableBeds] = useState<number>(4);
+    const [modalOccupiedBeds, setModalOccupiedBeds] = useState<number>(10);
+    const [bedDelta, setBedDelta] = useState<number>(1);
+    const [bedReason, setBedReason] = useState<string>('Routine Ward Bed Availability Audit');
+    const [updatingBeds, setUpdatingBeds] = useState<boolean>(false);
+
     const fetchData = async () => {
         setLoading(true);
         try {
@@ -117,6 +128,92 @@ export default function FacilityOperationsPage() {
         }
     };
 
+    // Open Bed Availability / Capacity Management Modal
+    const openBedModal = (ward: any, mode: 'SET_AVAILABLE' | 'ADMIT' | 'DISCHARGE' | 'SET_CAPACITY' = 'SET_AVAILABLE') => {
+        setSelectedWard(ward);
+        const total = ward.total ?? 10;
+        const occupied = ward.occupied ?? 0;
+        const avail = Math.max(0, total - occupied);
+        setModalTotalBeds(total);
+        setModalOccupiedBeds(occupied);
+        setModalAvailableBeds(avail);
+        setBedDelta(1);
+        setBedAction(mode);
+        setBedReason(
+            mode === 'ADMIT'
+                ? 'Inpatient Admission from Emergency / OPD'
+                : mode === 'DISCHARGE'
+                ? 'Patient Discharged / Bed Sanitized & Ready'
+                : mode === 'SET_CAPACITY'
+                ? 'Ward Bed Capacity Revision / Extension'
+                : 'Routine Ward Bed Availability Audit'
+        );
+        setIsBedModalOpen(true);
+    };
+
+    // Handle Quick Inline Bed Adjustments (Admit / Discharge)
+    const handleQuickBedChange = async (ward: any, delta: number) => {
+        const action = delta > 0 ? 'DISCHARGE' : 'ADMIT';
+        try {
+            await apiFetch('/api/facility/beds/update', {
+                method: 'POST',
+                body: JSON.stringify({
+                    ward_id: ward.id,
+                    ward: ward.ward,
+                    action: action,
+                    delta: Math.abs(delta)
+                })
+            });
+            await fetchData();
+        } catch (err: any) {
+            alert('Failed to update bed status: ' + (err.message || 'Error communicating with backend'));
+        }
+    };
+
+    // Handle Detailed Bed Modal Submit
+    const handleUpdateBeds = async (e: React.FormEvent) => {
+        e.preventDefault();
+        if (!selectedWard) return;
+
+        setUpdatingBeds(true);
+        try {
+            let payload: any = {
+                ward_id: selectedWard.id,
+                ward: selectedWard.ward,
+                description: selectedWard.description
+            };
+
+            if (bedAction === 'ADMIT') {
+                payload.action = 'ADMIT';
+                payload.delta = bedDelta;
+            } else if (bedAction === 'DISCHARGE') {
+                payload.action = 'DISCHARGE';
+                payload.delta = bedDelta;
+            } else if (bedAction === 'SET_CAPACITY') {
+                payload.action = 'UPDATE_CAPACITY';
+                payload.total = modalTotalBeds;
+            } else {
+                // 'SET_AVAILABLE'
+                payload.action = 'SET';
+                payload.total = modalTotalBeds;
+                payload.available = modalAvailableBeds;
+                payload.occupied = Math.max(0, modalTotalBeds - modalAvailableBeds);
+            }
+
+            await apiFetch('/api/facility/beds/update', {
+                method: 'POST',
+                body: JSON.stringify(payload)
+            });
+
+            setIsBedModalOpen(false);
+            await fetchData();
+        } catch (err: any) {
+            alert('Failed to update beds: ' + (err.message || 'Error communicating with backend'));
+        } finally {
+            setUpdatingBeds(false);
+        }
+    };
+
     // Live calculation for modal preview
     const curStock = selectedMed?.stock_units ?? 0;
     const projectedStock = stockAction === 'ADD'
@@ -134,6 +231,35 @@ export default function FacilityOperationsPage() {
         : projectedDaysOfSupply > 7
         ? 'LOW_STOCK'
         : 'CRITICAL_STOCKOUT_RISK';
+
+    // Live calculation for bed modal preview
+    const wardCurTotal = selectedWard?.total ?? 10;
+    const wardCurOccupied = selectedWard?.occupied ?? 0;
+    const wardCurAvail = selectedWard ? wardCurTotal - wardCurOccupied : 0;
+
+    let previewTotal = modalTotalBeds;
+    let previewOccupied = modalOccupiedBeds;
+    let previewAvailable = modalAvailableBeds;
+
+    if (bedAction === 'ADMIT') {
+        previewTotal = wardCurTotal;
+        previewOccupied = wardCurOccupied + bedDelta;
+        previewAvailable = previewTotal - previewOccupied;
+    } else if (bedAction === 'DISCHARGE') {
+        previewTotal = wardCurTotal;
+        previewOccupied = Math.max(0, wardCurOccupied - bedDelta);
+        previewAvailable = previewTotal - previewOccupied;
+    } else if (bedAction === 'SET_CAPACITY') {
+        previewTotal = Math.max(1, modalTotalBeds);
+        previewOccupied = wardCurOccupied;
+        previewAvailable = previewTotal - previewOccupied;
+    } else {
+        previewTotal = modalTotalBeds;
+        previewAvailable = modalAvailableBeds;
+        previewOccupied = Math.max(0, previewTotal - previewAvailable);
+    }
+
+    const previewOccupancyPct = previewTotal > 0 ? Math.round((previewOccupied / previewTotal) * 100) : 0;
 
     const onDutyCount = doctors.filter(d => d.status === 'ON_DUTY').length;
     const totalAvailBeds = beds?.total_available ?? 13;
@@ -526,7 +652,7 @@ export default function FacilityOperationsPage() {
                 <div className="space-y-6">
                     {/* Bed Summary Banner */}
                     <div className="bg-gradient-to-br from-teal-50 to-emerald-50 p-6 rounded-3xl border border-teal-200 shadow-sm">
-                        <div className="flex items-center justify-between mb-4">
+                        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-4">
                             <div>
                                 <h3 className="text-lg font-extrabold text-teal-900">{t('facility.wardLevelBedOccupancy', 'Ward-Level Bed Occupancy')}</h3>
                                 <p className="text-xs text-teal-700">
@@ -534,8 +660,12 @@ export default function FacilityOperationsPage() {
                                     • {beds?.occupancy_rate ?? 76}% {t('facility.overallOccupancy', 'overall occupancy')}
                                 </p>
                             </div>
-                            <div className="w-16 h-16 rounded-2xl bg-teal-600 text-white flex items-center justify-center text-2xl font-black">
-                                {beds?.total_available ?? 13}
+                            <div className="flex items-center gap-3">
+                                <div className="px-4 py-2 bg-teal-600 text-white rounded-2xl flex items-center gap-2 shadow-sm">
+                                    <span className="material-symbols-outlined text-xl">bed</span>
+                                    <span className="text-xl font-black">{beds?.total_available ?? 13}</span>
+                                    <span className="text-xs text-teal-100 font-bold">Free Beds</span>
+                                </div>
                             </div>
                         </div>
 
@@ -558,8 +688,8 @@ export default function FacilityOperationsPage() {
                             const isCritical = ward.available <= 1 && !isOverflow;
                             return (
                                 <div
-                                    key={idx}
-                                    className={`rounded-3xl p-6 border shadow-card space-y-4 ${
+                                    key={ward.id || idx}
+                                    className={`rounded-3xl p-6 border shadow-card flex flex-col justify-between space-y-4 hover:shadow-lg transition-all ${
                                         isOverflow
                                             ? 'bg-red-50 border-red-200'
                                             : isCritical
@@ -567,53 +697,87 @@ export default function FacilityOperationsPage() {
                                             : 'bg-white border-surface-container-high'
                                     }`}
                                 >
-                                    <div className="flex items-start justify-between">
-                                        <div>
-                                            <h3 className="text-base font-bold text-on-surface">{ward.ward}</h3>
-                                            <p className="text-xs text-tertiary mt-0.5">{ward.description}</p>
-                                        </div>
-                                        <span className={`text-[10px] font-extrabold uppercase px-2.5 py-0.5 rounded-full whitespace-nowrap ${
-                                            isOverflow
-                                                ? 'bg-red-100 text-red-800 animate-pulse'
-                                                : isCritical
-                                                ? 'bg-amber-100 text-amber-800'
-                                                : 'bg-teal-100 text-teal-800'
-                                        }`}>
-                                            {isOverflow ? 'OVERFLOW' : isCritical ? 'NEAR FULL' : `${ward.available} FREE`}
-                                        </span>
-                                    </div>
-
-                                    <div className="grid grid-cols-3 gap-2 text-center bg-surface-container-low p-3 rounded-2xl">
-                                        <div>
-                                            <span className="text-[10px] uppercase font-bold text-tertiary block">{t('facility.total', 'Total')}</span>
-                                            <span className="text-lg font-black text-on-surface">{ward.total}</span>
-                                        </div>
-                                        <div>
-                                            <span className="text-[10px] uppercase font-bold text-tertiary block">{t('facility.occupied', 'Occupied')}</span>
-                                            <span className={`text-lg font-black ${isOverflow ? 'text-red-600' : 'text-on-surface'}`}>{ward.occupied}</span>
-                                        </div>
-                                        <div>
-                                            <span className="text-[10px] uppercase font-bold text-tertiary block">{t('facility.available', 'Available')}</span>
-                                            <span className={`text-lg font-black ${isOverflow ? 'text-red-600' : isCritical ? 'text-amber-700' : 'text-teal-700'}`}>
-                                                {Math.max(0, ward.available)}
+                                    <div>
+                                        <div className="flex items-start justify-between">
+                                            <div>
+                                                <h3 className="text-base font-bold text-on-surface">{ward.ward}</h3>
+                                                <p className="text-xs text-tertiary mt-0.5">{ward.description}</p>
+                                            </div>
+                                            <span className={`text-[10px] font-extrabold uppercase px-2.5 py-0.5 rounded-full whitespace-nowrap ${
+                                                isOverflow
+                                                    ? 'bg-red-100 text-red-800 animate-pulse'
+                                                    : isCritical
+                                                    ? 'bg-amber-100 text-amber-800'
+                                                    : 'bg-teal-100 text-teal-800'
+                                            }`}>
+                                                {isOverflow ? 'OVERFLOW' : isCritical ? 'NEAR FULL' : `${ward.available} FREE`}
                                             </span>
                                         </div>
+
+                                        <div className="grid grid-cols-3 gap-2 text-center bg-surface-container-low p-3 rounded-2xl mt-4">
+                                            <div>
+                                                <span className="text-[10px] uppercase font-bold text-tertiary block">{t('facility.total', 'Total')}</span>
+                                                <span className="text-lg font-black text-on-surface">{ward.total}</span>
+                                            </div>
+                                            <div>
+                                                <span className="text-[10px] uppercase font-bold text-tertiary block">{t('facility.occupied', 'Occupied')}</span>
+                                                <span className={`text-lg font-black ${isOverflow ? 'text-red-600' : 'text-on-surface'}`}>{ward.occupied}</span>
+                                            </div>
+                                            <div>
+                                                <span className="text-[10px] uppercase font-bold text-tertiary block">{t('facility.available', 'Available')}</span>
+                                                <span className={`text-lg font-black ${isOverflow ? 'text-red-600' : isCritical ? 'text-amber-700' : 'text-teal-700'}`}>
+                                                    {Math.max(0, ward.available)}
+                                                </span>
+                                            </div>
+                                        </div>
+
+                                        {/* Progress Bar */}
+                                        <div className="space-y-1 mt-3">
+                                            <div className="flex justify-between text-[10px] font-bold text-tertiary">
+                                                <span>{t('facility.occupancy', 'Occupancy')}</span>
+                                                <span>{Math.min(100, occupancyPct)}%</span>
+                                            </div>
+                                            <div className="w-full h-2.5 bg-surface-container rounded-full overflow-hidden">
+                                                <div
+                                                    className={`h-full rounded-full transition-all ${
+                                                        isOverflow ? 'bg-red-500' : isCritical ? 'bg-amber-500' : 'bg-teal-600'
+                                                    }`}
+                                                    style={{ width: `${Math.min(100, occupancyPct)}%` }}
+                                                />
+                                            </div>
+                                        </div>
                                     </div>
 
-                                    {/* Progress Bar */}
-                                    <div className="space-y-1">
-                                        <div className="flex justify-between text-[10px] font-bold text-tertiary">
-                                            <span>{t('facility.occupancy', 'Occupancy')}</span>
-                                            <span>{Math.min(100, occupancyPct)}%</span>
+                                    {/* Action Buttons for Bed Availability Management */}
+                                    <div className="space-y-2 pt-2 border-t border-surface-container-high">
+                                        <div className="grid grid-cols-2 gap-2">
+                                            <button
+                                                onClick={() => handleQuickBedChange(ward, 1)}
+                                                title="Patient discharged: frees up 1 bed in this ward"
+                                                className="py-2.5 px-3 bg-teal-50 hover:bg-teal-100 text-teal-800 font-bold text-xs rounded-xl flex items-center justify-center gap-1.5 transition-all cursor-pointer active:scale-95"
+                                            >
+                                                <span className="material-symbols-outlined text-base text-teal-700">meeting_room</span>
+                                                <span>+ Free Bed</span>
+                                            </button>
+
+                                            <button
+                                                onClick={() => handleQuickBedChange(ward, -1)}
+                                                disabled={ward.available <= 0}
+                                                title="Admit patient: occupies 1 bed in this ward"
+                                                className="py-2.5 px-3 bg-red-50 hover:bg-red-100 text-red-800 font-bold text-xs rounded-xl flex items-center justify-center gap-1.5 transition-all cursor-pointer active:scale-95 disabled:opacity-40"
+                                            >
+                                                <span className="material-symbols-outlined text-base text-red-700">person_add</span>
+                                                <span>- Admit</span>
+                                            </button>
                                         </div>
-                                        <div className="w-full h-2.5 bg-surface-container rounded-full overflow-hidden">
-                                            <div
-                                                className={`h-full rounded-full transition-all ${
-                                                    isOverflow ? 'bg-red-500' : isCritical ? 'bg-amber-500' : 'bg-teal-600'
-                                                }`}
-                                                style={{ width: `${Math.min(100, occupancyPct)}%` }}
-                                            />
-                                        </div>
+
+                                        <button
+                                            onClick={() => openBedModal(ward, 'SET_AVAILABLE')}
+                                            className="w-full py-2 bg-surface-container hover:bg-surface-container-high text-on-surface font-bold text-xs rounded-xl flex items-center justify-center gap-1.5 transition-all cursor-pointer"
+                                        >
+                                            <span className="material-symbols-outlined text-sm">edit_calendar</span>
+                                            <span>Update & Edit Ward Beds</span>
+                                        </button>
                                     </div>
                                 </div>
                             );
@@ -865,6 +1029,277 @@ export default function FacilityOperationsPage() {
                                             : stockAction === 'SET'
                                             ? `${t('actions.setStockTo', 'Set Stock to')} ${unitsValue} ${selectedMed.unit}`
                                             : `${t('actions.confirmAdd', 'Confirm Add')} (+${unitsValue} ${selectedMed.unit})`}
+                                    </span>
+                                </button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            )}
+
+            {/* Comprehensive Ward Bed Availability & Capacity Modal */}
+            {isBedModalOpen && selectedWard && (
+                <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
+                    <div className="bg-white max-w-lg w-full rounded-3xl p-6 sm:p-7 shadow-2xl border border-surface-container-high animate-in fade-in zoom-in duration-200 space-y-5 max-h-[90vh] overflow-y-auto">
+                        <div className="flex items-start justify-between gap-3">
+                            <div>
+                                <span className="text-[10px] font-mono font-bold text-teal-700 tracking-wider uppercase">WARD BED MANAGEMENT</span>
+                                <h3 className="text-lg font-black text-on-surface">{selectedWard.ward}</h3>
+                                <p className="text-xs text-tertiary mt-0.5">{selectedWard.description}</p>
+                            </div>
+                            <button
+                                onClick={() => setIsBedModalOpen(false)}
+                                className="w-8 h-8 rounded-full bg-surface-container flex items-center justify-center text-tertiary hover:text-on-surface transition-colors cursor-pointer"
+                            >
+                                <span className="material-symbols-outlined text-base">close</span>
+                            </button>
+                        </div>
+
+                        {/* Bed Action Mode Switcher */}
+                        <div className="grid grid-cols-2 sm:grid-cols-4 gap-1 bg-surface-container-low p-1.5 rounded-2xl text-[11px] font-bold">
+                            <button
+                                type="button"
+                                onClick={() => setBedAction('SET_AVAILABLE')}
+                                className={`py-2 px-1 rounded-xl flex flex-col items-center justify-center gap-1 transition-all cursor-pointer ${
+                                    bedAction === 'SET_AVAILABLE'
+                                        ? 'bg-teal-700 text-white shadow-sm'
+                                        : 'text-tertiary hover:text-on-surface'
+                                }`}
+                            >
+                                <span className="material-symbols-outlined text-base">tune</span>
+                                <span>Set Available</span>
+                            </button>
+
+                            <button
+                                type="button"
+                                onClick={() => setBedAction('DISCHARGE')}
+                                className={`py-2 px-1 rounded-xl flex flex-col items-center justify-center gap-1 transition-all cursor-pointer ${
+                                    bedAction === 'DISCHARGE'
+                                        ? 'bg-emerald-600 text-white shadow-sm'
+                                        : 'text-tertiary hover:text-on-surface'
+                                }`}
+                            >
+                                <span className="material-symbols-outlined text-base">meeting_room</span>
+                                <span>+ Free Bed</span>
+                            </button>
+
+                            <button
+                                type="button"
+                                onClick={() => setBedAction('ADMIT')}
+                                className={`py-2 px-1 rounded-xl flex flex-col items-center justify-center gap-1 transition-all cursor-pointer ${
+                                    bedAction === 'ADMIT'
+                                        ? 'bg-red-600 text-white shadow-sm'
+                                        : 'text-tertiary hover:text-on-surface'
+                                }`}
+                            >
+                                <span className="material-symbols-outlined text-base">person_add</span>
+                                <span>- Admit</span>
+                            </button>
+
+                            <button
+                                type="button"
+                                onClick={() => setBedAction('SET_CAPACITY')}
+                                className={`py-2 px-1 rounded-xl flex flex-col items-center justify-center gap-1 transition-all cursor-pointer ${
+                                    bedAction === 'SET_CAPACITY'
+                                        ? 'bg-slate-900 text-white shadow-sm'
+                                        : 'text-tertiary hover:text-on-surface'
+                                }`}
+                            >
+                                <span className="material-symbols-outlined text-base">domain_add</span>
+                                <span>Edit Total</span>
+                            </button>
+                        </div>
+
+                        {/* Live Impact Preview Card */}
+                        <div className="bg-slate-50 border border-slate-200 p-4 rounded-2xl text-xs space-y-2.5">
+                            <div className="flex items-center justify-between font-bold">
+                                <span className="text-slate-800">Resulting Ward Status:</span>
+                                <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-extrabold uppercase ${
+                                    previewAvailable < 0
+                                        ? 'bg-red-100 text-red-800 animate-pulse'
+                                        : previewAvailable <= 1
+                                        ? 'bg-amber-100 text-amber-800'
+                                        : 'bg-teal-100 text-teal-800'
+                                }`}>
+                                    {previewAvailable < 0 ? 'OVERFLOW' : previewAvailable <= 1 ? 'NEAR FULL' : `${previewAvailable} FREE BEDS`}
+                                </span>
+                            </div>
+
+                            <div className="grid grid-cols-3 gap-2 bg-white p-2.5 rounded-xl border border-black/5 text-center">
+                                <div>
+                                    <span className="text-[10px] text-tertiary font-bold uppercase block">Total Beds</span>
+                                    <span className="text-base font-black text-on-surface">{previewTotal}</span>
+                                </div>
+                                <div>
+                                    <span className="text-[10px] text-tertiary font-bold uppercase block">Occupied</span>
+                                    <span className="text-base font-black text-slate-700">{previewOccupied}</span>
+                                </div>
+                                <div>
+                                    <span className="text-[10px] text-tertiary font-bold uppercase block">Available Free</span>
+                                    <span className={`text-base font-black ${previewAvailable <= 1 ? 'text-amber-700' : 'text-teal-700'}`}>
+                                        {Math.max(0, previewAvailable)}
+                                    </span>
+                                </div>
+                            </div>
+
+                            {/* Live Visual Occupancy Bar */}
+                            <div className="space-y-1 pt-1">
+                                <div className="flex justify-between text-[10px] font-bold text-tertiary">
+                                    <span>Occupancy Rate</span>
+                                    <span>{Math.min(100, previewOccupancyPct)}%</span>
+                                </div>
+                                <div className="w-full h-2.5 bg-slate-200 rounded-full overflow-hidden">
+                                    <div
+                                        className={`h-full rounded-full transition-all ${
+                                            previewOccupancyPct > 90 ? 'bg-red-500' : previewOccupancyPct > 75 ? 'bg-amber-500' : 'bg-teal-600'
+                                        }`}
+                                        style={{ width: `${Math.min(100, previewOccupancyPct)}%` }}
+                                    />
+                                </div>
+                            </div>
+                        </div>
+
+                        <form onSubmit={handleUpdateBeds} className="space-y-4">
+                            {/* Input fields based on selected mode */}
+                            {bedAction === 'SET_AVAILABLE' && (
+                                <div className="space-y-3">
+                                    <div>
+                                        <label className="block text-xs font-bold text-on-surface mb-1">
+                                            Number of Available (Free) Beds
+                                        </label>
+                                        <input
+                                            type="number"
+                                            required
+                                            min={0}
+                                            max={modalTotalBeds}
+                                            value={modalAvailableBeds}
+                                            onChange={(e) => {
+                                                const val = Math.max(0, Math.min(modalTotalBeds, parseInt(e.target.value) || 0));
+                                                setModalAvailableBeds(val);
+                                            }}
+                                            className="w-full p-3 bg-surface-container-low rounded-2xl text-lg font-black text-on-surface border border-surface-container-high outline-none focus:border-primary"
+                                        />
+                                    </div>
+
+                                    {/* Quick Increment / Step buttons */}
+                                    <div className="flex flex-wrap gap-1.5">
+                                        {[0, 1, 2, 4, 6, 8, modalTotalBeds].filter(n => n <= modalTotalBeds).map((count) => (
+                                            <button
+                                                key={count}
+                                                type="button"
+                                                onClick={() => setModalAvailableBeds(count)}
+                                                className={`px-3 py-1 text-xs font-bold rounded-xl transition-all cursor-pointer ${
+                                                    modalAvailableBeds === count
+                                                        ? 'bg-teal-700 text-white'
+                                                        : 'bg-surface-container hover:bg-surface-container-high text-on-surface'
+                                                }`}
+                                            >
+                                                {count === 0 ? '0 (Full)' : count === modalTotalBeds ? `${count} (All Free)` : `${count} Free`}
+                                            </button>
+                                        ))}
+                                    </div>
+                                </div>
+                            )}
+
+                            {(bedAction === 'ADMIT' || bedAction === 'DISCHARGE') && (
+                                <div>
+                                    <label className="block text-xs font-bold text-on-surface mb-1">
+                                        {bedAction === 'ADMIT' ? 'Number of Patients to Admit' : 'Number of Patients to Discharge'}
+                                    </label>
+                                    <input
+                                        type="number"
+                                        required
+                                        min={1}
+                                        max={bedAction === 'ADMIT' ? Math.max(1, wardCurAvail) : Math.max(1, wardCurOccupied)}
+                                        value={bedDelta}
+                                        onChange={(e) => setBedDelta(Math.max(1, parseInt(e.target.value) || 1))}
+                                        className="w-full p-3 bg-surface-container-low rounded-2xl text-lg font-black text-on-surface border border-surface-container-high outline-none focus:border-primary"
+                                    />
+                                    <div className="flex gap-1.5 mt-2">
+                                        {[1, 2, 3, 5].map((step) => (
+                                            <button
+                                                key={step}
+                                                type="button"
+                                                onClick={() => setBedDelta(step)}
+                                                className="px-3 py-1 bg-surface-container hover:bg-surface-container-high text-xs font-bold rounded-xl text-on-surface transition-all cursor-pointer"
+                                            >
+                                                {step} Patient{step > 1 ? 's' : ''}
+                                            </button>
+                                        ))}
+                                    </div>
+                                </div>
+                            )}
+
+                            {bedAction === 'SET_CAPACITY' && (
+                                <div className="space-y-3">
+                                    <div>
+                                        <label className="block text-xs font-bold text-on-surface mb-1">
+                                            Total Physical Bed Capacity for this Ward
+                                        </label>
+                                        <input
+                                            type="number"
+                                            required
+                                            min={1}
+                                            max={100}
+                                            value={modalTotalBeds}
+                                            onChange={(e) => setModalTotalBeds(Math.max(1, parseInt(e.target.value) || 1))}
+                                            className="w-full p-3 bg-surface-container-low rounded-2xl text-lg font-black text-on-surface border border-surface-container-high outline-none focus:border-primary"
+                                        />
+                                    </div>
+                                </div>
+                            )}
+
+                            {/* Reason / Notes */}
+                            <div>
+                                <label className="block text-xs font-bold text-on-surface mb-1">Reason / Update Reference</label>
+                                <select
+                                    value={bedReason}
+                                    onChange={(e) => setBedReason(e.target.value)}
+                                    className="w-full p-2.5 bg-surface-container-low rounded-xl text-xs font-semibold text-on-surface border border-surface-container-high outline-none focus:border-primary"
+                                >
+                                    <option value="Routine Ward Bed Availability Audit">Routine Ward Bed Availability Audit</option>
+                                    <option value="Inpatient Admission from Emergency / OPD">Inpatient Admission from Emergency / OPD</option>
+                                    <option value="Patient Discharged / Bed Sanitized & Ready">Patient Discharged / Bed Sanitized & Ready</option>
+                                    <option value="Post-Surgical Inpatient Recovery Transfer">Post-Surgical Inpatient Recovery Transfer</option>
+                                    <option value="Ward Deep Clean / Maintenance Quarantine">Ward Deep Clean / Maintenance Quarantine</option>
+                                    <option value="Ward Bed Capacity Revision / Extension">Ward Bed Capacity Revision / Extension</option>
+                                </select>
+                            </div>
+
+                            {/* Modal Action Footer */}
+                            <div className="pt-3 flex items-center justify-end gap-2 border-t border-surface-container-high">
+                                <button
+                                    type="button"
+                                    onClick={() => setIsBedModalOpen(false)}
+                                    className="px-4 py-2.5 rounded-xl text-xs font-bold text-tertiary hover:bg-surface-container transition-all cursor-pointer"
+                                >
+                                    {t('actions.cancel', 'Cancel')}
+                                </button>
+
+                                <button
+                                    type="submit"
+                                    disabled={updatingBeds}
+                                    className={`px-5 py-2.5 font-bold text-xs rounded-xl shadow-md flex items-center gap-1.5 transition-all cursor-pointer disabled:opacity-50 ${
+                                        bedAction === 'ADMIT'
+                                            ? 'bg-red-600 hover:bg-red-700 text-white'
+                                            : bedAction === 'DISCHARGE'
+                                            ? 'bg-emerald-700 hover:bg-emerald-800 text-white'
+                                            : 'bg-teal-700 hover:bg-teal-800 text-white'
+                                    }`}
+                                >
+                                    <span className="material-symbols-outlined text-base">
+                                        {updatingBeds ? 'progress_activity' : 'check'}
+                                    </span>
+                                    <span>
+                                        {updatingBeds
+                                            ? 'Updating Ward Beds...'
+                                            : bedAction === 'ADMIT'
+                                            ? `Confirm Admission (${bedDelta} Bed${bedDelta > 1 ? 's' : ''})`
+                                            : bedAction === 'DISCHARGE'
+                                            ? `Confirm Discharge (+${bedDelta} Free Bed${bedDelta > 1 ? 's' : ''})`
+                                            : bedAction === 'SET_CAPACITY'
+                                            ? `Save Capacity (${modalTotalBeds} Beds)`
+                                            : `Set Available Beds to ${modalAvailableBeds}`}
                                     </span>
                                 </button>
                             </div>
