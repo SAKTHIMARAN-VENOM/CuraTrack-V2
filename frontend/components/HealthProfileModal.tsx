@@ -73,19 +73,24 @@ export function HealthProfileModal() {
       if (existingAge) setAge(existingAge);
       if (existingPhone) setPhone(existingPhone);
 
-      // Check if user is missing essential clinical demographics
-      const isMissingHealthInfo = !existingBlood || !existingGender;
-      const dismissedThisSession = sessionStorage.getItem('curatrack_health_modal_dismissed') === 'true';
+      const userRole = profile?.role || savedUser?.role || localStorage.getItem('curatrack_active_role') || 'patient';
 
-      if (isMissingHealthInfo) {
-        setIsBannerVisible(true);
-        if (!dismissedThisSession) {
-          setIsNewUserSetup(true);
-          setIsOpen(true);
-        }
+      // Auto-popup ONLY for new patient signups (triggered once, then cleared immediately)
+      const isNewPatientSignup = userRole === 'patient' && (
+        sessionStorage.getItem('curatrack_new_patient_signup') === 'true' ||
+        localStorage.getItem('curatrack_new_patient_signup') === 'true'
+      );
+
+      if (isNewPatientSignup) {
+        // Clear flag immediately so refreshing the page NEVER pops up the modal again
+        sessionStorage.removeItem('curatrack_new_patient_signup');
+        localStorage.removeItem('curatrack_new_patient_signup');
+        setIsNewUserSetup(true);
+        setIsOpen(true);
       } else {
-        setIsBannerVisible(false);
+        setIsOpen(false);
       }
+      setIsBannerVisible(false);
     } catch (err) {
       console.warn('Error checking health profile completeness:', err);
     } finally {

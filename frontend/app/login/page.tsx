@@ -135,6 +135,13 @@ export default function LoginPage() {
             localStorage.setItem('curatrack_active_role', verifiedRole);
             localStorage.setItem('curatrack_auth_user', JSON.stringify(authPayload));
             document.cookie = `curatrack_auth=${encodeURIComponent(JSON.stringify(authPayload))}; path=/; max-age=604800; SameSite=Lax`;
+
+            if (mode === 'signup' && verifiedRole === 'patient') {
+                sessionStorage.setItem('curatrack_new_patient_signup', 'true');
+            } else {
+                sessionStorage.removeItem('curatrack_new_patient_signup');
+            }
+
             routeByRole(verifiedRole);
         } catch (err) {
             setError('Network error. Please try again.');
