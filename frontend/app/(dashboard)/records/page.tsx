@@ -461,8 +461,10 @@ export default function HealthRecordsPage() {
     const a = document.createElement('a');
     a.href = url;
     a.download = `CuraTrack_Medical_Report_${Date.now()}.pdf`;
+    document.body.appendChild(a);
     a.click();
-    URL.revokeObjectURL(url);
+    document.body.removeChild(a);
+    setTimeout(() => URL.revokeObjectURL(url), 1500);
   };
 
   const handleRequestRefill = (medName?: string) => {
@@ -591,9 +593,11 @@ export default function HealthRecordsPage() {
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = `${reportTitle.replace(/\s+/g, '_')}_Analysis.pdf`;
+    a.download = `${reportTitle.replace(/[^a-zA-Z0-9_-]/g, '_')}_Analysis.pdf`;
+    document.body.appendChild(a);
     a.click();
-    URL.revokeObjectURL(url);
+    document.body.removeChild(a);
+    setTimeout(() => URL.revokeObjectURL(url), 1500);
   };
 
   const handleMessageDoctor = (doctorName: string) => {
