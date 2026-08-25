@@ -1,0 +1,20 @@
+# ==============================================================================
+# CuraTrack Code Owners & Automated Push Protection Safeguards
+# Protects critical test runners, GitHub Actions workflows, and pre-push hooks.
+# ==============================================================================
+
+# Default fallback
+* @SAKTHIMARAN-VENOM
+
+# CI Workflows and Push Protection
+/.github/ @SAKTHIMARAN-VENOM
+/.github/workflows/ @SAKTHIMARAN-VENOM
+/.githooks/ @SAKTHIMARAN-VENOM
+/tests/ @SAKTHIMARAN-VENOM
+/scripts/ @SAKTHIMARAN-VENOM
+
+# Core Test Configurations
+pytest.ini @SAKTHIMARAN-VENOM
+package.json @SAKTHIMARAN-VENOM
+frontend/vitest.config.mts @SAKTHIMARAN-VENOM
+mobile/vitest.config.mjs @SAKTHIMARAN-VENOM

@@ -115,6 +115,31 @@ _FALLBACK_REFERRALS = [
         "timeline": [
             {"status": "CREATED", "timestamp": "2026-08-24T14:10:00Z", "actor": "Dr. Pradeep Roy (CHC Shahada)", "notes": "Referred for CBNAAT GeneXpert and Pulmonology review."}
         ]
+    },
+    {
+        "id": "REF-4001",
+        "referral_token": "REF-4001",
+        "patient_id": "p-101",
+        "patient_name": "Ramesh Chandra",
+        "patient_age": 45,
+        "patient_gender": "Male",
+        "abha_id": "91-3321-7788-9900",
+        "referring_doctor_name": "Dr. Ananya Sharma (MO)",
+        "referring_facility_type": "Primary Health Centre (PHC)",
+        "referring_facility_name": "PHC Nandurbar Rural",
+        "destination_facility_type": "District Hospital",
+        "destination_facility_name": "Nandurbar District Civil Hospital",
+        "specialty": "General Medicine",
+        "urgency": "ROUTINE",
+        "clinical_reason": "Post-discharge evaluation and hypertension checkup completed.",
+        "provisional_diagnosis": "Controlled Hypertension",
+        "vitals_summary": "BP: 120/80 mmHg, HR: 72 bpm, SpO2: 99%",
+        "status": "COMPLETED",
+        "created_at": "2026-08-15T10:00:00Z",
+        "timeline": [
+            {"status": "CREATED", "timestamp": "2026-08-15T10:00:00Z", "actor": "Dr. Ananya Sharma", "notes": "Referral created."},
+            {"status": "COMPLETED", "timestamp": "2026-08-18T14:00:00Z", "actor": "Dr. V. K. Deshmukh", "notes": "Consultation and lab tests completed."}
+        ]
     }
 ]
 
@@ -213,6 +238,12 @@ def get_referrals(
     # Run automated SLA check on active emergency referrals
     referrals_data = _auto_check_and_escalate_overdue(referrals_data)
 
+    if status and status != "ALL":
+        referrals_data = [r for r in referrals_data if r.get("status") == status]
+    elif not status:
+        # Default active pipeline excludes COMPLETED records
+        referrals_data = [r for r in referrals_data if r.get("status") != "COMPLETED"]
+
     if facility_name:
         term = facility_name.lower()
         referrals_data = [
@@ -229,6 +260,7 @@ def get_referrals(
     completed = sum(1 for r in referrals_data if r.get("status") == "COMPLETED")
 
     return {
+        "count": total,
         "referrals": referrals_data,
         "metrics": {
             "total_referrals": total,
@@ -322,6 +354,7 @@ def create_referral(req: ReferralCreateRequest):
 
     return {
         "status": "success",
+        "success": True,
         "message": f"Referral {referral_id} created successfully and queued for destination facility.",
         "referral": new_record
     }

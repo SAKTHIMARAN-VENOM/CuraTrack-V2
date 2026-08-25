@@ -268,33 +268,109 @@ npm run dev
 
 ---
 
-## 🛡️ Master Automated Test Suite
+## 🛡️ Complete Automated Testing & Push Protection Architecture
 
-To guarantee that database contracts, triage logic, referral lifecycles, and security tokens remain 100% stable:
+CuraTrack V2 enforces a **three-tier automated testing and push protection system** covering the Python Backend, Next.js Website, and Mobile Application.
+
+```text
+                        ┌─────────────────────────────────────┐
+                        │      Contributor Initiates Push     │
+                        │           (git push origin)         │
+                        └──────────────────┬──────────────────┘
+                                           │
+                                           ▼
+                        ┌─────────────────────────────────────┐
+                        │   LOCAL PRE-PUSH HOOK ENFORCEMENT   │
+                        │      (.githooks/pre-push)           │
+                        └──────────────────┬──────────────────┘
+                                           │
+                   ┌───────────────────────┼───────────────────────┐
+                   ▼                       ▼                       ▼
+          ┌─────────────────┐    ┌─────────────────┐    ┌─────────────────┐
+          │  Python Backend │    │ Website Portal  │    │ Mobile Web App  │
+          │  Pytest (60/60) │    │ Vitest + JSDOM  │    │ Vitest + JSDOM  │
+          │  + Coverage     │    │ Component Tests │    │ Screen Tests    │
+          └────────┬────────┘    └────────┬────────┘    └────────┬────────┘
+                   │                       │                       │
+                   └───────────────────────┼───────────────────────┘
+                                           │
+                                           ▼
+                              ┌─────────────────────────┐
+                              │ All Local Tests Passed? │
+                              └────────────┬────────────┘
+                                     /           \
+                                  YES             NO
+                                   │               │
+                                   ▼               ▼
+                        ┌──────────────────┐  ┌──────────────────┐
+                        │  Push Transmitted│  │  Push REJECTED   │
+                        │   Over the Wire  │  │  Locally Before  │
+                        └────────┬─────────┘  │   Transmission   │
+                                 │            └──────────────────┘
+                                 ▼
+                        ┌─────────────────────────────────────┐
+                        │     GITHUB ACTIONS CI VERIFICATION   │
+                        │   Authoritative Post-Push Quality   │
+                        │        (.github/workflows/ci.yml)   │
+                        └─────────────────────────────────────┘
+```
+
+### 1. Unified Test Commands
+
+Run tests across all workspaces from the project root:
 
 ```bash
-# Run all 40 automated test cases
+# 1. Run all test suites across Backend, Website, and Mobile
 python tests/run_all_tests.py
+# Or via npm:
+npm test
+
+# 2. Run with production build verification (Next.js compilation check)
+python tests/run_all_tests.py --with-build
+# Or via npm:
+npm run test:all
+
+# 3. Target individual subsystems
+npm run test:backend   # 60+ Pytest cases + coverage
+npm run test:frontend  # Website Vitest suite
+npm run test:mobile    # Mobile Vitest suite
 ```
 
-### Test Suite Execution Output:
-```text
-======================================================================
-  [CURATRACK PRE-PUSH VERIFICATION SUITE]
-======================================================================
-tests/test_backend_core.py ...........                                  [ 17%]
-tests/test_drug_and_vitals.py .....                                     [ 30%]
-tests/test_facility_and_rbac.py .....                                   [ 42%]
-tests/test_fhw.py ....                                                  [ 52%]
-tests/test_frontend_mobile_build.py ...                                 [ 60%]
-tests/test_mobile_backend_contract.py ......                            [ 72%]
+### 2. Installing Push Protection (Git Pre-Push Hook)
 
-tests/test_passport_security.py ...                                     [ 85%]
-tests/test_triage_and_referrals.py ......                               [100%]
+To activate automatic test enforcement on `git push`:
 
-====================== 40 passed, 14 warnings in 12.50s =======================
-SUCCESS: ALL TESTS PASSED! Your changes are safe to push to production.
+```bash
+# Run one-time installer:
+python scripts/install_hooks.py
+
+# Or via npm:
+npm run prepare
 ```
+
+Once installed, Git will automatically execute the full test suite before any push. If any test fails, Git immediately aborts the push, preventing broken code from reaching the remote repository.
+
+### 3. Client vs Server Enforcement & Bypass Mechanics
+
+* **Client-Side Pre-Push Hook (`.githooks/pre-push`)**: Blocks standard `git push` commands on the contributor's machine before code is transmitted.
+* **Bypass Note**: Any Git user can technically bypass client-side hooks locally using `git push --no-verify`.
+* **Authoritative Server Verification (`.github/workflows/ci.yml`)**: GitHub Actions runs the full matrix suite on every push to verify build integrity and branch health.
+* **Protecting Configuration**: `.github/CODEOWNERS` designates `@SAKTHIMARAN-VENOM` as the owner of `.github/`, `.githooks/`, `tests/`, and CI configs to prevent unauthorized modification.
+
+### 4. Setting Up GitHub Branch Rulesets (No PR Requirement)
+
+To protect the `master` / `main` branch on GitHub without forcing a Pull Request / Review workflow for contributors:
+
+1. Navigate to **GitHub Repository ➔ Settings ➔ Rules ➔ Rulesets**.
+2. Click **New branch ruleset** and name it `Automated Test Protection`.
+3. Set **Enforcement status** to `Active`.
+4. Under **Target branches**, select `Include default branch` (e.g. `master`).
+5. Under **Rules**, check:
+   * ✅ **Require status checks to pass**: Add `Master CI Quality Gate`, `backend-test`, `frontend-website-test`, and `mobile-app-test`.
+   * ✅ **Block force pushes**: Disables destructive history rewrites.
+   * ✅ **Restrict deletions**: Prevents accidental deletion of primary branches.
+   * ❌ *Leave "Require a pull request before merging" unchecked* to allow direct pushes as long as automated tests pass.
+6. Click **Save changes**.
 
 ---
 

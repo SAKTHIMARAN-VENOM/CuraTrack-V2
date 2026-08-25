@@ -205,9 +205,12 @@ def get_beneficiaries(
         except Exception as e:
             logger.error(f"Failed to query beneficiaries from Supabase: {e}")
             data = _FALLBACK_BENEFICIARIES
-    else:
-        data = _FALLBACK_BENEFICIARIES
-
+    if category:
+        data = [b for b in data if b.get("category") == category]
+    if risk_level:
+        data = [b for b in data if b.get("risk_level") == risk_level]
+    if status:
+        data = [b for b in data if b.get("status") == status]
     if village_name:
         data = [b for b in data if village_name.lower() in b.get("village_name", "").lower()]
 
@@ -217,6 +220,9 @@ def get_beneficiaries(
     due_soon_count = sum(1 for b in data if b.get("status") == "DUE_SOON")
 
     return {
+        "count": total,
+        "high_risk_count": high_risk_count,
+        "overdue_count": overdue_count,
         "beneficiaries": data,
         "metrics": {
             "total_catchment": total,
@@ -274,6 +280,7 @@ def register_beneficiary(req: BeneficiaryRegisterRequest):
 
     return {
         "status": "success",
+        "success": True,
         "message": f"Beneficiary {req.name} ({ben_id}) successfully enrolled in ASHA Catchment Registry.",
         "beneficiary": new_beneficiary
     }
@@ -311,10 +318,21 @@ def get_followups(
     else:
         data = _FALLBACK_FOLLOWUPS
 
+    overdue_tasks = [t for t in data if t.get("priority") == "HIGH" or t.get("status") == "OVERDUE"]
+    upcoming_tasks = [t for t in data if t.get("status") == "PENDING"]
+    
     return {
         "tasks": data,
+        "overdue_tasks": overdue_tasks,
+        "upcoming_tasks": upcoming_tasks,
         "pending_count": sum(1 for t in data if t.get("status") == "PENDING"),
-        "completed_count": sum(1 for t in data if t.get("status") == "COMPLETED")
+        "completed_count": sum(1 for t in data if t.get("status") == "COMPLETED"),
+        "summary": {
+            "total_assigned": len(data),
+            "urgent_home_visits_needed": len(overdue_tasks),
+            "pending_count": sum(1 for t in data if t.get("status") == "PENDING"),
+            "completed_count": sum(1 for t in data if t.get("status") == "COMPLETED")
+        }
     }
 
 
@@ -359,6 +377,7 @@ def create_followup_task(req: FollowupTaskCreateRequest):
 
     return {
         "status": "success",
+        "success": True,
         "message": f"Follow-up task {task_id} assigned to {req.assigned_asha_name}.",
         "task": new_task
     }
@@ -387,6 +406,7 @@ def complete_followup_task(task_id: str, req: FollowupTaskCompleteRequest):
             if res.data:
                 return {
                     "status": "success",
+                    "success": True,
                     "message": f"Follow-up task {task_id} successfully marked as completed.",
                     "task": res.data[0]
                 }
@@ -398,6 +418,7 @@ def complete_followup_task(task_id: str, req: FollowupTaskCompleteRequest):
             t.update(update_payload)
             return {
                 "status": "success",
+                "success": True,
                 "message": f"Follow-up task {task_id} completed.",
                 "task": t
             }
@@ -413,8 +434,11 @@ def initiate_assisted_consult(req: AssistedConsultRequest):
     Creates an assisted teleconsultation session room linked to patient & doctor queue.
     """
     room_token = random.randint(1000, 9999)
-    room_id = f"tele-assisted-{room_token}"
+    room_id = f"fhw-teleconsult-{room_token}"
     now_iso = datetime.now(timezone.utc).isoformat()
+
+    bp_str = f"{int(req.systolic_bp or 120)}/{int(req.diastolic_bp or 80)} mmHg"
+    spo2_str = f"{int(req.spo2 or 98)}%"
 
     consult_record = {
         "room_id": room_id,
@@ -425,12 +449,12 @@ def initiate_assisted_consult(req: AssistedConsultRequest):
         "village_name": req.village_name,
         "chief_complaint": req.chief_complaint,
         "vitals": {
-            "bp": f"{int(req.systolic_bp or 120)}/{int(req.diastolic_bp or 80)}",
-            "spo2": req.spo2,
+            "bp": bp_str,
+            "spo2": spo2_str,
             "hr": req.heart_rate,
             "glucose": req.random_glucose
         },
-        "status": "ringing",
+        "status": "CONNECTING",
         "scheduled_time": now_iso,
         "created_at": now_iso
     }
@@ -452,8 +476,15 @@ def initiate_assisted_consult(req: AssistedConsultRequest):
             logger.warning(f"Could not insert appointment into Supabase: {e}")
 
     return {
-        "status": "initiated",
+        "status": "CONNECTING",
+        "success": True,
         "room_id": room_id,
         "call_url": f"/call/{room_id}",
+        "vitals_snapshot": {
+            "bp": bp_str,
+            "spo2": spo2_str,
+            "hr": req.heart_rate,
+            "glucose": req.random_glucose
+        },
         "message": f"Assisted teleconsultation created with {req.specialist_type}. Ringing available Medical Officer."
     }

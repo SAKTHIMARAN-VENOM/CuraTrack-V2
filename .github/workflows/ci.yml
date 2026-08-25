@@ -1,0 +1,120 @@
+name: CuraTrack Automated Test Suite & CI Enforcer
+
+on:
+  push:
+    branches:
+      - '**'
+  pull_request:
+    branches:
+      - '**'
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  # ============================================================================
+  # 1. Backend Python Automated Test Suite & Coverage Verification
+  # ============================================================================
+  backend-test:
+    name: Backend Pytest (Python ${{ matrix.python-version }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ['3.11', '3.12']
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python ${{ matrix.python-version }}
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+          cache: 'pip'
+
+      - name: Install Python Backend Dependencies
+        run: |
+          python -m pip install --upgrade pip
+          if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
+          pip install pytest pytest-cov httpx
+
+      - name: Run Backend Pytest Suite with Coverage Enforcement
+        run: |
+          pytest tests/ -v --cov=backend --cov-report=term-missing
+
+  # ============================================================================
+  # 2. Website Frontend Automated Test Suite & Production Build
+  # ============================================================================
+  frontend-website-test:
+    name: Website Frontend (Vitest & Next.js Build)
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js 20.x
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: 'npm'
+          cache-dependency-path: 'frontend/package.json'
+
+      - name: Install Frontend Dependencies
+        working-directory: frontend
+        run: npm install
+
+      - name: Run Frontend Vitest Component & Unit Tests
+        working-directory: frontend
+        run: npm test
+
+      - name: Validate Next.js Production Build
+        working-directory: frontend
+        run: npm run build
+
+  # ============================================================================
+  # 3. Mobile Web App Automated Test Suite & Production Build
+  # ============================================================================
+  mobile-app-test:
+    name: Mobile Web App (Vitest & Next.js Build)
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js 20.x
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: 'npm'
+          cache-dependency-path: 'mobile/package.json'
+
+      - name: Install Mobile App Dependencies
+        working-directory: mobile
+        run: npm install
+
+      - name: Run Mobile Vitest Component & UI Tests
+        working-directory: mobile
+        run: npm test
+
+      - name: Validate Mobile Next.js Production Build
+        working-directory: mobile
+        run: npm run build
+
+  # ============================================================================
+  # 4. Master CI Verification Gate
+  # ============================================================================
+  ci-verification-gate:
+    name: Master CI Quality Gate
+    needs: [backend-test, frontend-website-test, mobile-app-test]
+    runs-on: ubuntu-latest
+    steps:
+      - name: All Automated Tests Passed
+        run: |
+          echo "================================================================="
+          echo "  ALL REQUIRED AUTOMATED TESTS PASSED SUCCESSFULLY!"
+          echo "  Backend (Pytest), Website (Vitest), and Mobile (Vitest) Verified."
+          echo "================================================================="

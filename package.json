@@ -9,6 +9,16 @@
   "scripts": {
     "dev": "npm --prefix frontend run dev",
     "build": "npm --prefix frontend install && npm --prefix frontend run build",
-    "start": "npm --prefix frontend run start"
+    "start": "npm --prefix frontend run start",
+    "test": "python tests/run_all_tests.py",
+    "test:backend": "pytest tests/",
+    "test:frontend": "npm --prefix frontend test",
+    "test:mobile": "npm --prefix mobile test",
+    "test:all": "python tests/run_all_tests.py --with-build",
+    "prepare": "python scripts/install_hooks.py"
+  },
+  "devDependencies": {
+    "react": "^19.2.8",
+    "react-dom": "^19.2.8"
   }
 }

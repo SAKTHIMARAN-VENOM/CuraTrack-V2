@@ -1,0 +1,45 @@
+#!/bin/sh
+# ==============================================================================
+# CuraTrack Local Pre-Push Enforcer
+# Runs full automated test suite (Backend, Website, Mobile) before git push.
+# If any test fails, Git immediately rejects and aborts the push before transmission.
+# ==============================================================================
+
+echo ""
+echo "==========================================================================="
+echo "  [CURATRACK LOCAL PRE-PUSH HOOK]: Executing Full Automated Test Suite"
+echo "==========================================================================="
+echo ""
+
+# Execute the Master Python test runner
+if command -v python3 >/dev/null 2>&1; then
+    PYTHON_CMD="python3"
+elif command -v python >/dev/null 2>&1; then
+    PYTHON_CMD="python"
+elif command -v py >/dev/null 2>&1; then
+    PYTHON_CMD="py"
+else
+    echo "ERROR: Python is required to run pre-push automated tests."
+    exit 1
+fi
+
+$PYTHON_CMD tests/run_all_tests.py
+TEST_EXIT_CODE=$?
+
+if [ $TEST_EXIT_CODE -ne 0 ]; then
+    echo ""
+    echo "==========================================================================="
+    echo "  [PUSH REJECTED]: Automated test verification failed!"
+    echo "  Your push was aborted locally BEFORE transmission to GitHub."
+    echo "  Please fix the failing tests reported above and try pushing again."
+    echo "==========================================================================="
+    echo ""
+    exit 1
+fi
+
+echo ""
+echo "==========================================================================="
+echo "  [PUSH APPROVED]: All automated test suites passed. Transmitting push."
+echo "==========================================================================="
+echo ""
+exit 0

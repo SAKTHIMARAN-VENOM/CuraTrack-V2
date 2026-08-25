@@ -52,6 +52,7 @@ backend/__pycache__/
 .pytest_cache/
 .mypy_cache/
 .coverage
+coverage.xml
 htmlcov/
 .nox/
 .tox/
