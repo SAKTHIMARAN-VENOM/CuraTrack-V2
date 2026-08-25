@@ -3,8 +3,10 @@
 import { useState, useEffect, useCallback } from 'react';
 import { createClient } from '@/lib/supabase/client';
 import { API_BASE } from '@/lib/api';
+import { useI18n } from '@/lib/i18n';
 
 export default function ProfilePage() {
+    const { t } = useI18n();
     const [currentRole, setCurrentRole] = useState<string>('patient');
     const [qrImage, setQrImage] = useState<string | null>(null);
     const [qrLoading, setQrLoading] = useState(false);
@@ -62,12 +64,18 @@ export default function ProfilePage() {
                 } catch {}
             }
 
-            const initialName = profileData?.name || 
-                                authUser?.user_metadata?.name || 
-                                authUser?.user_metadata?.full_name || 
-                                savedAuthUser?.name || 
-                                (activeRole === 'facility_manager' ? 'Anil Deshmukh (Hospital Ops)' : activeRole === 'doctor' ? 'Dr. David Ross' : activeRole === 'fhw' ? 'Sunita Tai (ASHA #402)' : 'Kavita Bai');
-            setUserName(initialName);
+            if (profileData) {
+                setUserName(profileData.name || '');
+                if (profileData.phone) setUserPhone(profileData.phone);
+                if (profileData.age) setUserAge(String(profileData.age));
+                if (profileData.gender) setUserGender(profileData.gender);
+                if (profileData.blood_group) setUserBlood(profileData.blood_group);
+            } else if (savedAuthUser?.name) {
+                setUserName(savedAuthUser.name);
+            } else if (email) {
+                const namePart = email.split('@')[0].replace(/[._-]/g, ' ');
+                setUserName(namePart.charAt(0).toUpperCase() + namePart.slice(1));
+            }
 
             // Load persisted manager settings if any
             try {
@@ -88,26 +96,28 @@ export default function ProfilePage() {
         fetchUser();
     }, []);
 
-    // Countdown timer for Patient QR
+    // Countdown timer for QR expiration
     useEffect(() => {
         if (!expiresAt) return;
 
-        const interval = setInterval(() => {
+        const updateTimer = () => {
             const now = Date.now();
-            const remaining = expiresAt - now;
+            const diff = expiresAt - now;
 
-            if (remaining <= 0) {
-                setCountdown('00:00');
+            if (diff <= 0) {
+                setCountdown('0:00');
                 setIsExpired(true);
-                clearInterval(interval);
                 return;
             }
 
-            const minutes = Math.floor(remaining / 60000);
-            const seconds = Math.floor((remaining % 60000) / 1000);
-            setCountdown(`${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`);
-        }, 1000);
+            const minutes = Math.floor(diff / 60000);
+            const seconds = Math.floor((diff % 60000) / 1000);
+            setCountdown(`${minutes}:${seconds.toString().padStart(2, '0')}`);
+            setIsExpired(false);
+        };
 
+        updateTimer();
+        const interval = setInterval(updateTimer, 1000);
         return () => clearInterval(interval);
     }, [expiresAt]);
 
@@ -115,24 +125,7 @@ export default function ProfilePage() {
         e.preventDefault();
         setIsSaving(true);
         setSaveSuccess(null);
-
         try {
-            const mgrData = {
-                userName,
-                userEmail,
-                userPhone,
-                facilityName,
-                facilityType,
-                district,
-                facilityCode,
-                emergencyContact,
-                operatingHours,
-                edlScope,
-                updatedAt: new Date().toISOString()
-            };
-
-            localStorage.setItem('curatrack_manager_profile', JSON.stringify(mgrData));
-
             const supabase = createClient();
             const { data: { user } } = await supabase.auth.getUser();
             if (user?.id) {
@@ -140,53 +133,38 @@ export default function ProfilePage() {
                     id: user.id,
                     name: userName,
                     email: userEmail,
-                    role: 'facility_manager',
-                    profile_completed: true,
-                    updated_at: new Date().toISOString()
+                    phone: userPhone,
+                    facility_name: facilityName,
+                    role: 'facility_manager'
                 });
             }
-
-            setSaveSuccess('Manager Profile & Facility Configuration updated successfully!');
-            setTimeout(() => setSaveSuccess(null), 4000);
+            setSaveSuccess('Facility operations profile successfully saved.');
         } catch (err: any) {
-            setSaveSuccess('Profile saved locally.');
-            setTimeout(() => setSaveSuccess(null), 3000);
+            console.error('Error saving profile:', err);
         } finally {
             setIsSaving(false);
         }
     };
 
-    const generateQR = useCallback(async () => {
+    const fetchQR = useCallback(async () => {
         setQrLoading(true);
         setQrError(null);
-        setIsExpired(false);
-        setQrImage(null);
-
         try {
-            const supabase = createClient();
-            const { data: { user } } = await supabase.auth.getUser();
-            const uId = user?.id || 'demo-patient-001';
-
-            const res = await fetch(`${API_BASE}/api/qr/generate`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ userId: uId, userName: userName || 'Citizen Patient' }),
-            });
-
-            if (!res.ok) {
-                const errData = await res.json().catch(() => ({}));
-                throw new Error(errData.detail || 'Failed to generate QR code');
-            }
-
+            const res = await fetch(`${API_BASE}/api/patient/demo/emergency-qr`);
+            if (!res.ok) throw new Error('Failed to generate emergency QR');
             const data = await res.json();
-            setQrImage(data.qrImage);
-            setExpiresAt(Date.now() + (data.expiresInSeconds || 300) * 1000);
+            setQrImage(data.qr_image || data.qrImage);
+            setExpiresAt(Date.now() + 300000); // 5 mins
         } catch (err: any) {
-            setQrError(err.message || 'Failed to generate QR code. Ensure backend is running.');
+            console.warn('QR fetch error:', err);
         } finally {
             setQrLoading(false);
         }
-    }, [userName]);
+    }, []);
+
+    useEffect(() => {
+        fetchQR();
+    }, [fetchQR]);
 
     // FACILITY MANAGER PROFILE VIEW
     if (currentRole === 'facility_manager') {
@@ -197,9 +175,9 @@ export default function ProfilePage() {
                     <div>
                         <div className="inline-flex items-center gap-2 px-3 py-1 bg-white/10 backdrop-blur rounded-full text-xs font-semibold tracking-wide text-blue-200 mb-2">
                             <span className="material-symbols-outlined text-sm">local_hospital</span>
-                            <span>Hospital Administration & Operational Authority</span>
+                            <span>{t('facility.subtitle', 'Hospital Administration & Operational Authority')}</span>
                         </div>
-                        <h1 className="text-3xl font-extrabold tracking-tight">Facility Manager Profile</h1>
+                        <h1 className="text-3xl font-extrabold tracking-tight">{t('navigation.managerProfile', 'Facility Manager Profile')}</h1>
                     </div>
 
                     <div className="p-4 bg-white/10 backdrop-blur rounded-2xl border border-white/20 text-center shrink-0">
@@ -391,7 +369,7 @@ export default function ProfilePage() {
 
                     {/* Generate QR Button */}
                     <button
-                        onClick={generateQR}
+                        onClick={fetchQR}
                         disabled={qrLoading}
                         className="w-full px-8 py-4 bg-gradient-to-br from-primary to-primary-container text-white font-bold rounded-2xl shadow-lg shadow-primary/20 hover:scale-[1.02] active:scale-95 transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-3"
                     >

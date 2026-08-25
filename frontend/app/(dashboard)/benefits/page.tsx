@@ -3,8 +3,11 @@
 import { useState, useEffect, useMemo } from 'react';
 import { API_BASE } from '@/lib/api';
 import { offlineStorage } from '@/lib/offline-storage';
+import { useI18n } from '@/lib/i18n';
 
 export default function BenefitsPage() {
+    const { t } = useI18n();
+
     // Top-level active navigation tab: 'hospitals' | 'verifier' | 'schemes' | 'claims'
     const [pageTab, setPageTab] = useState<'hospitals' | 'verifier' | 'schemes' | 'claims'>('hospitals');
 
@@ -167,41 +170,41 @@ export default function BenefitsPage() {
     const fetchGovSchemes = async (pid = patientId) => {
         setLoadingGovSchemes(true);
         try {
-            const res = await fetch(`${API_BASE}/api/government-schemes/eligibility`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ patientId: pid })
+            const res = await fetch(`${API_BASE}/api/patient/${pid}/government-schemes`, {
+                method: 'POST'
             });
             const data = await res.json();
-            setGovSchemes(data.eligibleSchemes || []);
+            setGovSchemes(data.schemes || []);
         } catch (err) {
-            console.error('Failed to fetch government schemes', err);
+            console.error("Failed to fetch gov schemes", err);
         } finally {
             setLoadingGovSchemes(false);
         }
     };
 
     const handleCheckEligibility = async () => {
+<<<<<<< HEAD
         if (!insuranceId.trim()) {
             setEligibilityResult({ error: 'Please enter an Insurance ID.' });
             return;
         }
 
+=======
+        if (!insuranceId) return;
+>>>>>>> 7546c2b (feat(i18n): implement 4-language global localization (EN, HI, MR, TA))
         setCheckingEligibility(true);
         setEligibilityResult(null);
-        setSchemes([]);
-        setGovSchemes([]);
         try {
-            const res = await fetch(`${API_BASE}/api/insurance/eligibility`, {
+            const res = await fetch(`${API_BASE}/api/insurance/verify-eligibility`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
-                    patientId: patientId,
-                    insuranceId: insuranceId,
-                    service: selectedService
+                    insurance_id: insuranceId,
+                    service_type: selectedService
                 })
             });
             const data = await res.json();
+<<<<<<< HEAD
 
             if (!res.ok || data.status === 'error') {
                 setEligibilityResult({ error: data.detail || data.message || 'Invalid Insurance ID.' });
@@ -213,6 +216,12 @@ export default function BenefitsPage() {
             }
         } catch (err) {
             setEligibilityResult({ error: 'Network error occurred connecting to backend.' });
+=======
+            setEligibilityResult(data);
+        } catch (err) {
+            console.error("Eligibility check error", err);
+            setEligibilityResult({ error: "Failed to check eligibility. Please try again." });
+>>>>>>> 7546c2b (feat(i18n): implement 4-language global localization (EN, HI, MR, TA))
         } finally {
             setCheckingEligibility(false);
         }
@@ -285,6 +294,7 @@ export default function BenefitsPage() {
         <div className="p-4 md:p-8 max-w-7xl mx-auto w-full font-sans antialiased text-on-surface">
             {/* Header with National Scheme Branding */}
             <section className="mb-8">
+<<<<<<< HEAD
                 <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
                     <div>
                         <div className="flex items-center gap-2 mb-2">
@@ -359,6 +369,10 @@ export default function BenefitsPage() {
                         )}
                     </button>
                 </div>
+=======
+                <h1 className="text-4xl font-extrabold tracking-tight text-on-surface">{t('benefits.title', 'Government Health Schemes & PMJAY Benefits')}</h1>
+                <p className="text-tertiary text-sm mt-1">{t('benefits.subtitle', 'Universal healthcare coverage, Mahatma Jyotirao Phule Jan Arogya Yojana & ABHA benefits')}</p>
+>>>>>>> 7546c2b (feat(i18n): implement 4-language global localization (EN, HI, MR, TA))
             </section>
 
             {/* ========================================================================= */}
@@ -838,11 +852,9 @@ export default function BenefitsPage() {
                     {/* Eligibility Checker */}
                     <div className="bg-surface-container-lowest p-8 rounded-[2rem] shadow-sm border border-surface-container-high relative overflow-hidden">
                         <div className="relative z-10">
-                            <h3 className="text-2xl font-bold mb-2">Check Insurance &amp; Government Scheme Eligibility</h3>
-                            <p className="text-on-surface-variant text-sm mb-6">
-                                Verify your existing insurance coverage or evaluate your profile against PM-JAY and state government healthcare programs.
-                            </p>
-
+                            <h3 className="text-2xl font-bold mb-4">{t('benefits.checkEligibility', 'Check Insurance & Government Scheme Eligibility')}</h3>
+                            <p className="text-on-surface-variant text-sm mb-6">{t('benefits.subtitle', 'Verify your existing insurance coverage or evaluate your profile against PM-JAY and state government healthcare programs.')}</p>
+                            
                             <div className="flex flex-col md:flex-row gap-4 mb-4">
                                 <select
                                     className="px-4 py-3 rounded-xl border border-surface-container-high bg-white focus:outline-none focus:ring-2 focus:ring-primary w-full md:w-1/3 text-on-surface"

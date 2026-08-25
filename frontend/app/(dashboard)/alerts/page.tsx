@@ -3,6 +3,7 @@ import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { apiFetch } from '@/lib/api';
 import { offlineStorage } from '@/lib/offline-storage';
+import { useI18n } from '@/lib/i18n';
 
 const MONTH_NAMES = [
   "January", "February", "March", "April", "May", "June",
@@ -11,6 +12,7 @@ const MONTH_NAMES = [
 
 export default function AlertsPage() {
     const router = useRouter();
+    const { t } = useI18n();
     const [healthNews, setHealthNews] = useState<any[]>([]);
     const [loadingNews, setLoadingNews] = useState(true);
     const [isOffline, setIsOffline] = useState(false);
