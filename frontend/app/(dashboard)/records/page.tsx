@@ -7,6 +7,7 @@ import ReviewMedicationModal from '@/components/ReviewMedicationModal';
 import { offlineStorage } from '@/lib/offline-storage';
 import { createClient } from '@/lib/supabase/client';
 import { useI18n } from '@/lib/i18n';
+import { API_BASE } from '@/lib/api';
 
 interface RealPatientInfo {
   id: string;
@@ -29,11 +30,24 @@ const normalizeLabStatus = (status?: string) => {
   return 'unknown';
 };
 
-const escapePdfText = (value: string) =>
-  value.replace(/\\/g, '\\\\').replace(/\(/g, '\\(').replace(/\)/g, '\\)').replace(/\r?\n/g, ' ');
+const sanitizeTextForPdf = (value: string) => {
+  if (!value) return '';
+  return String(value)
+    .replace(/[\u2022\u2023\u25E6\u2043\u2219]/g, '-')
+    .replace(/[\u2013\u2014]/g, '-')
+    .replace(/[\u2018\u2019]/g, "'")
+    .replace(/[\u201C\u201D]/g, '"')
+    .replace(/₹/g, 'INR ')
+    .replace(/[^\x20-\x7E]/g, ' ');
+};
 
-const wrapPdfLine = (value: string, limit = 92) => {
-  const words = value.split(/\s+/).filter(Boolean);
+const escapePdfText = (value: string) =>
+  value.replace(/\\/g, '\\\\').replace(/\(/g, '\\(').replace(/\)/g, '\\)');
+
+const wrapPdfLine = (value: string, limit = 85) => {
+  const clean = sanitizeTextForPdf(value).trim();
+  if (!clean) return [''];
+  const words = clean.split(/\s+/).filter(Boolean);
   const lines: string[] = [];
   let current = '';
 
@@ -66,8 +80,11 @@ const buildPdfBlob = (pages: string[][]) => {
   const pageObjectRefs: number[] = [];
 
   pages.forEach((page) => {
-    const streamLines = page.flatMap((line) => wrapPdfLine(line)).map((line) => `(${escapePdfText(line)}) Tj T*`).join('\n');
-    const stream = `BT /F1 10 Tf 50 790 Td 14 TL\n${streamLines}\nET`;
+    const streamLines = page
+      .flatMap((line) => wrapPdfLine(line, 85))
+      .map((line) => `(${escapePdfText(line)}) Tj T*`)
+      .join('\n');
+    const stream = `BT\n/F1 10 Tf\n50 790 Td\n14 TL\n${streamLines}\nET`;
     const contentRef = addObject(`<< /Length ${stream.length} >>\nstream\n${stream}\nendstream`);
     const pageRef = addObject(`<< /Type /Page /Parent ${pagesRef} 0 R /MediaBox [0 0 612 842] /Resources << /Font << /F1 ${fontRef} 0 R >> >> /Contents ${contentRef} 0 R >>`);
     contentObjectRefs.push(contentRef);
@@ -78,20 +95,51 @@ const buildPdfBlob = (pages: string[][]) => {
   objects[pagesRef - 1] = `<< /Type /Pages /Kids [${pageObjectRefs.map((ref) => `${ref} 0 R`).join(' ')}] /Count ${pageObjectRefs.length} >>`;
 
   let pdf = '%PDF-1.4\n';
-  const offsets = [0];
-  objects.forEach((body, index) => {
+  const offsets: number[] = [];
+  objects.forEach((body) => {
     offsets.push(pdf.length);
-    pdf += `${index + 1} 0 obj\n${body}\nendobj\n`;
+    pdf += `${offsets.length} 0 obj\n${body}\nendobj\n`;
   });
 
   const xrefOffset = pdf.length;
-  pdf += `xref\n0 ${objects.length + 1}\n0000000000 65535 f \n`;
-  offsets.slice(1).forEach((offset) => {
-    pdf += `${offset.toString().padStart(10, '0')} 0000 n \n`;
+  pdf += `xref\n0 ${objects.length + 1}\n0000000000 65535 f \r\n`;
+  offsets.forEach((offset) => {
+    pdf += `${offset.toString().padStart(10, '0')} 00000 n \r\n`;
   });
   pdf += `trailer\n<< /Size ${objects.length + 1} /Root ${catalogRef} 0 R >>\nstartxref\n${xrefOffset}\n%%EOF`;
 
   return new Blob([pdf], { type: 'application/pdf' });
+};
+
+const createPdfBlob = (title: string, rawLines: string[]) => {
+  const wrappedLines: string[] = [];
+
+  if (title) {
+    wrappedLines.push('================================================================================');
+    wrappedLines.push(sanitizeTextForPdf(title).toUpperCase());
+    wrappedLines.push('================================================================================');
+    wrappedLines.push('');
+  }
+
+  rawLines.forEach((line) => {
+    if (!line || line.trim() === '') {
+      wrappedLines.push('');
+    } else {
+      wrappedLines.push(...wrapPdfLine(line, 85));
+    }
+  });
+
+  const LINES_PER_PAGE = 48;
+  const pages: string[][] = [];
+  for (let i = 0; i < wrappedLines.length; i += LINES_PER_PAGE) {
+    pages.push(wrappedLines.slice(i, i + LINES_PER_PAGE));
+  }
+
+  if (pages.length === 0) {
+    pages.push(['CuraTrack Health Record', 'No data available.']);
+  }
+
+  return buildPdfBlob(pages);
 };
 
 export default function HealthRecordsPage() {
@@ -335,7 +383,10 @@ export default function HealthRecordsPage() {
     };
     const handleOffline = () => setIsOffline(true);
     const handleStorageChange = () => {
-      loadSupabaseData();
+      const supabase = createClient();
+      supabase.auth.getUser().then(({ data: { user } }) => {
+        if (user) loadPatientData(user.id);
+      });
     };
 
     window.addEventListener('online', handleOnline);
@@ -733,8 +784,8 @@ export default function HealthRecordsPage() {
       // 3. Update local state map
       setPlacedOrdersMap(prev => ({
         ...prev,
-        ...(rxId ? { [rxId]: { status: 'ORDERED', ...payload } } : {}),
-        [medName.toLowerCase().trim()]: { status: 'ORDERED', ...payload }
+        ...(rxId ? { [rxId]: payload } : {}),
+        [medName.toLowerCase().trim()]: payload
       }));
 
       setOrderSuccessMsg(`Medicine order for "${medName}" placed successfully. Dispensing request sent to Nandurbar SDH Hospital Pharmacy.`);
