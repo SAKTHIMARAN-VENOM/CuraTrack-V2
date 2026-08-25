@@ -4,23 +4,10 @@ import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { apiFetch } from '@/lib/api';
 import AnimatedSelect, { SelectOption } from '@/components/ui/AnimatedSelect';
-
-const CATEGORY_OPTIONS: SelectOption[] = [
-    { value: 'ALL', label: 'All Categories', icon: 'category' },
-    { value: 'Maternal ANC', label: 'Maternal ANC', icon: 'pregnant_woman', badge: 'Maternal', badgeColor: 'bg-rose-100 text-rose-800' },
-    { value: 'Child Immunization', label: 'Child Immunization', icon: 'child_care', badge: 'Child', badgeColor: 'bg-blue-100 text-blue-800' },
-    { value: 'NCD Chronic', label: 'NCD Chronic', icon: 'monitor_heart', badge: 'NCD', badgeColor: 'bg-amber-100 text-amber-800' },
-    { value: 'TB / Communicable', label: 'TB / Communicable', icon: 'lungs', badge: 'Infectious', badgeColor: 'bg-purple-100 text-purple-800' },
-];
-
-const RISK_OPTIONS: SelectOption[] = [
-    { value: 'ALL', label: 'All Risk Levels', icon: 'tune' },
-    { value: 'HIGH', label: 'High Risk (Urgent Action)', icon: 'warning', badge: 'High', badgeColor: 'bg-red-100 text-red-700' },
-    { value: 'MODERATE', label: 'Moderate Risk', icon: 'info', badge: 'Moderate', badgeColor: 'bg-amber-100 text-amber-800' },
-    { value: 'LOW', label: 'Low Risk', icon: 'check_circle', badge: 'Low', badgeColor: 'bg-emerald-100 text-emerald-800' },
-];
+import { useI18n } from '@/lib/i18n';
 
 export default function FrontlineHealthWorkerPage() {
+    const { t } = useI18n();
     const [beneficiaries, setBeneficiaries] = useState<any[]>([]);
     const [followupTasks, setFollowupTasks] = useState<any[]>([]);
     const [loading, setLoading] = useState<boolean>(true);
@@ -221,6 +208,21 @@ export default function FrontlineHealthWorkerPage() {
         }
     };
 
+    const categoryOptions: SelectOption[] = [
+        { value: 'ALL', label: t('fhw.allCategories', 'All Categories'), icon: 'category' },
+        { value: 'Maternal ANC', label: t('fhw.maternalANC', 'Maternal ANC'), icon: 'pregnant_woman', badge: 'Maternal', badgeColor: 'bg-rose-100 text-rose-800' },
+        { value: 'Child Immunization', label: t('fhw.childImmunization', 'Child Immunization'), icon: 'child_care', badge: 'Child', badgeColor: 'bg-blue-100 text-blue-800' },
+        { value: 'NCD Chronic', label: t('fhw.ncdChronic', 'NCD Chronic'), icon: 'monitor_heart', badge: 'NCD', badgeColor: 'bg-amber-100 text-amber-800' },
+        { value: 'TB / Communicable', label: t('fhw.tbCommunicable', 'TB / Communicable'), icon: 'lungs', badge: 'Infectious', badgeColor: 'bg-purple-100 text-purple-800' },
+    ];
+
+    const riskOptions: SelectOption[] = [
+        { value: 'ALL', label: t('fhw.allRisks', 'All Risk Levels'), icon: 'tune' },
+        { value: 'HIGH', label: t('fhw.highRisk', 'High Risk (Urgent Action)'), icon: 'warning', badge: 'High', badgeColor: 'bg-red-100 text-red-700' },
+        { value: 'MODERATE', label: t('fhw.moderateRisk', 'Moderate Risk'), icon: 'info', badge: 'Moderate', badgeColor: 'bg-amber-100 text-amber-800' },
+        { value: 'LOW', label: t('fhw.lowRisk', 'Low Risk'), icon: 'check_circle', badge: 'Low', badgeColor: 'bg-emerald-100 text-emerald-800' },
+    ];
+
     return (
         <div className="space-y-8 max-w-7xl mx-auto pb-16">
             {/* Header Banner */}
@@ -229,15 +231,15 @@ export default function FrontlineHealthWorkerPage() {
                     <div>
                         <div className="inline-flex items-center gap-2 px-3 py-1 bg-white/10 backdrop-blur rounded-full text-xs font-semibold tracking-wide text-teal-200 mb-3">
                             <span className="material-symbols-outlined text-sm">volunteer_activism</span>
-                            <span>Frontline Health Worker (ASHA / ANM) Catchment Center</span>
+                            <span>{t('fhw.catchmentTitle', 'Frontline Health Worker (ASHA / ANM) Catchment Center')}</span>
                         </div>
-                        <h1 className="text-3xl font-extrabold tracking-tight">Village Health & High-Risk Tracking</h1>
+                        <h1 className="text-3xl font-extrabold tracking-tight">{t('fhw.catchmentSubtitle', 'Village Health & High-Risk Tracking')}</h1>
                     </div>
 
                     <div className="flex items-center gap-3 flex-wrap">
                         <button
                             onClick={handleSyncOfflineData}
-                            className="px-4 py-3 bg-white/10 hover:bg-white/20 text-white font-bold text-xs rounded-2xl flex items-center gap-2 backdrop-blur transition-all border border-white/20"
+                            className="px-4 py-3 bg-white/10 hover:bg-white/20 text-white font-bold text-xs rounded-2xl flex items-center gap-2 backdrop-blur transition-all border border-white/20 cursor-pointer"
                             title="Synchronize field records"
                         >
                             <span className="material-symbols-outlined text-lg">cloud_sync</span>
@@ -249,7 +251,7 @@ export default function FrontlineHealthWorkerPage() {
                             className="px-5 py-3 bg-white text-primary hover:bg-slate-50 font-black text-xs rounded-2xl shadow-lg flex items-center gap-2 transition-transform active:scale-95 cursor-pointer"
                         >
                             <span className="material-symbols-outlined text-lg">person_add</span>
-                            <span>Enroll Beneficiary</span>
+                            <span>{t('fhw.registerBeneficiary', 'Enroll Beneficiary')}</span>
                         </button>
                     </div>
                 </div>
@@ -365,8 +367,8 @@ export default function FrontlineHealthWorkerPage() {
                             <span className="material-symbols-outlined">assignment_turned_in</span>
                         </div>
                         <div>
-                            <h3 className="font-extrabold text-base text-on-surface">Doctor-Assigned Field Follow-ups</h3>
-                            <p className="text-xs text-tertiary">Closed-loop home visits requested by hospital medical officers</p>
+                            <h3 className="font-extrabold text-base text-on-surface">{t('fhw.followupTasks', 'Doctor-Assigned Field Follow-ups')}</h3>
+                            <p className="text-xs text-tertiary">{t('fhw.followupSubtitle', 'Closed-loop home visits requested by hospital medical officers')}</p>
                         </div>
                     </div>
                     <span className="px-3 py-1 bg-amber-50 text-amber-900 border border-amber-200 text-xs font-bold rounded-full">
@@ -414,9 +416,9 @@ export default function FrontlineHealthWorkerPage() {
                                                 setSelectedTask(task);
                                                 setCompletionNotes('');
                                             }}
-                                            className="px-3 py-1 bg-primary hover:bg-primary/90 text-white font-bold rounded-lg transition-all shadow-xs"
+                                            className="px-3 py-1 bg-primary hover:bg-primary/90 text-white font-bold rounded-lg transition-all shadow-xs cursor-pointer"
                                         >
-                                            Record Home Visit
+                                            {t('fhw.recordVisit', 'Record Home Visit')}
                                         </button>
                                     )}
                                 </div>
@@ -431,7 +433,7 @@ export default function FrontlineHealthWorkerPage() {
                 <div className="flex flex-col sm:flex-row sm:items-center gap-3 w-full sm:w-auto">
                     <div className="flex items-center gap-2 text-tertiary">
                         <span className="material-symbols-outlined text-primary text-lg">filter_alt</span>
-                        <span className="text-xs font-bold text-on-surface">Filters:</span>
+                        <span className="text-xs font-bold text-on-surface">{t('actions.filter', 'Filters')}:</span>
                     </div>
 
                     {/* Category Dropdown */}
@@ -439,7 +441,7 @@ export default function FrontlineHealthWorkerPage() {
                         id="fhw-category-filter"
                         value={filterCategory}
                         onChange={(val) => setFilterCategory(val)}
-                        options={CATEGORY_OPTIONS}
+                        options={categoryOptions}
                         minWidth="min-w-[210px]"
                     />
 
@@ -448,7 +450,7 @@ export default function FrontlineHealthWorkerPage() {
                         id="fhw-risk-filter"
                         value={filterRisk}
                         onChange={(val) => setFilterRisk(val)}
-                        options={RISK_OPTIONS}
+                        options={riskOptions}
                         minWidth="min-w-[190px]"
                     />
                 </div>
@@ -462,7 +464,7 @@ export default function FrontlineHealthWorkerPage() {
                         className="text-xs font-bold text-primary hover:text-primary/70 flex items-center gap-1 self-start sm:self-auto transition-colors cursor-pointer"
                     >
                         <span className="material-symbols-outlined text-sm">restart_alt</span>
-                        <span>Reset Filters</span>
+                        <span>{t('actions.reset', 'Reset Filters')}</span>
                     </button>
                 )}
             </div>

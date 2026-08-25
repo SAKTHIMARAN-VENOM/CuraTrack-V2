@@ -13,3 +13,5 @@ services:
         value: gemini-flash-latest
       - key: ALLOWED_ORIGINS
         value: "*"
+      - key: DATA_GOV_API_KEY
+        sync: false

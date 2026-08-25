@@ -6,9 +6,11 @@ import { useRouter } from 'next/navigation';
 import { PassportQRModal } from '@/components/PassportQRModal';
 import { API_BASE } from '@/lib/api';
 import { offlineStorage } from '@/lib/offline-storage';
+import { useI18n } from '@/lib/i18n';
 
 export default function Dashboard() {
     const router = useRouter();
+    const { t } = useI18n();
     const [loading, setLoading] = useState(true);
     const [data, setData] = useState<any>(null);
     const [user, setUser] = useState<any>(null);
@@ -161,19 +163,21 @@ export default function Dashboard() {
             <div className="flex justify-between items-end">
                 <div className="flex items-center gap-4">
                     <div>
-                        <h2 className="text-3xl font-extrabold tracking-tight text-on-surface">Welcome back, {userName}</h2>
+                        <h2 className="text-3xl font-extrabold tracking-tight text-on-surface">
+                            {t('topNav.hello', 'Welcome back')}, {userName}
+                        </h2>
                         <div className="flex items-center gap-2 mt-1">
-                            <p className="text-tertiary">Your health overview for today</p>
+                            <p className="text-tertiary">{t('dashboard.subtitle', 'Your health overview for today')}</p>
                             <span className="w-1 h-1 bg-tertiary/40 rounded-full"></span>
                             <button 
                                 onClick={fetchFitData}
                                 disabled={refreshing}
-                                className="flex items-center gap-1.5 text-xs font-bold text-primary hover:text-primary/70 transition-colors disabled:opacity-50"
+                                className="flex items-center gap-1.5 text-xs font-bold text-primary hover:text-primary/70 transition-colors disabled:opacity-50 cursor-pointer"
                             >
                                 <span className={`material-symbols-outlined !text-sm ${refreshing ? 'animate-spin' : ''}`}>
                                     {refreshing ? 'refresh' : 'sync'}
                                 </span>
-                                {refreshing ? 'Syncing...' : 'Sync Now'}
+                                {refreshing ? t('actions.loading', 'Syncing...') : t('actions.refresh', 'Sync Now')}
                             </button>
                         </div>
                     </div>
@@ -181,17 +185,17 @@ export default function Dashboard() {
                 <div className="flex flex-wrap gap-3">
                     <button 
                         onClick={() => router.push('/self-triage')}
-                        className="px-6 py-3 bg-gradient-to-r from-red-600 to-rose-600 text-white font-bold rounded-2xl shadow-md hover:opacity-95 hover:shadow-lg transition-all flex items-center gap-2"
+                        className="px-6 py-3 bg-gradient-to-r from-red-600 to-rose-600 text-white font-bold rounded-2xl shadow-md hover:opacity-95 hover:shadow-lg transition-all flex items-center gap-2 cursor-pointer"
                     >
                         <span className="material-symbols-outlined !text-lg animate-pulse">emergency</span>
-                        Self-Triage
+                        {t('dashboard.emergencyTriage', 'Emergency Self-Triage')}
                     </button>
                     <button 
                         onClick={() => setShowPassportModal(true)}
-                        className="px-6 py-3 bg-gradient-to-br from-secondary to-secondary/80 text-white font-bold rounded-2xl shadow-md hover:opacity-90 transition-all flex items-center gap-2"
+                        className="px-6 py-3 bg-gradient-to-br from-secondary to-secondary/80 text-white font-bold rounded-2xl shadow-md hover:opacity-90 transition-all flex items-center gap-2 cursor-pointer"
                     >
                         <span className="material-symbols-outlined !text-lg">qr_code_2</span>
-                        Generate Passport
+                        {t('nav.profile', 'Medical ID & Passport')}
                     </button>
                 </div>
             </div>
@@ -207,7 +211,7 @@ export default function Dashboard() {
                         <span className="text-xs font-bold text-error bg-error/10 px-2 py-1 rounded-lg">Live</span>
                     </div>
                     <div>
-                        <p className="text-tertiary text-sm font-medium">Heart Rate</p>
+                        <p className="text-tertiary text-sm font-medium">{t('dashboard.heartRate', 'Heart Rate')}</p>
                         <div className="flex items-baseline gap-2">
                             <h3 className="text-3xl font-extrabold text-on-surface">{latestBpm}</h3>
                             <span className="text-tertiary text-sm">bpm</span>

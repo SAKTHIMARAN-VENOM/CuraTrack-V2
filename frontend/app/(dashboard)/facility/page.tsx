@@ -2,8 +2,10 @@
 
 import { useState, useEffect } from 'react';
 import { apiFetch } from '@/lib/api';
+import { useI18n } from '@/lib/i18n';
 
 export default function FacilityOperationsPage() {
+    const { t } = useI18n();
     const [stats, setStats] = useState<any>(null);
     const [doctors, setDoctors] = useState<any[]>([]);
     const [medicines, setMedicines] = useState<any[]>([]);
@@ -50,12 +52,9 @@ export default function FacilityOperationsPage() {
         if (!selectedMed || unitsToAdd <= 0) return;
         setUpdatingStock(true);
         try {
-            await apiFetch('/api/facility/medicines/update-stock', {
+            await apiFetch(`/api/facility/medicines/${selectedMed.id}/update-stock`, {
                 method: 'POST',
-                body: JSON.stringify({
-                    medicine_id: selectedMed.id,
-                    units_added: unitsToAdd
-                })
+                body: JSON.stringify({ units_to_add: unitsToAdd })
             });
             setIsStockModalOpen(false);
             fetchData();
@@ -79,18 +78,18 @@ export default function FacilityOperationsPage() {
                     <div>
                         <div className="inline-flex items-center gap-2 px-3 py-1 bg-white/10 backdrop-blur rounded-full text-xs font-semibold tracking-wide text-teal-200 mb-3">
                             <span className="material-symbols-outlined text-sm">local_hospital</span>
-                            <span>Facility Manager Command Centre</span>
+                            <span>{t('facility.subtitle', 'Facility Operations & Bed Matrix')}</span>
                         </div>
-                        <h1 className="text-3xl font-extrabold tracking-tight">Nandurbar Sub-District Hospital & CHC</h1>
+                        <h1 className="text-3xl font-extrabold tracking-tight">{t('facility.title', 'Facility Operations & Bed Matrix')}</h1>
                     </div>
 
                     <div className="flex items-center gap-3">
                         <button
                             onClick={() => fetchData()}
-                            className="bg-teal-400 hover:bg-teal-300 text-teal-950 font-bold text-xs px-5 py-3 rounded-2xl flex items-center gap-2 shadow-md transition-all active:scale-95"
+                            className="bg-teal-400 hover:bg-teal-300 text-teal-950 font-bold text-xs px-5 py-3 rounded-2xl flex items-center gap-2 shadow-md transition-all active:scale-95 cursor-pointer"
                         >
                             <span className="material-symbols-outlined text-lg">refresh</span>
-                            <span>Refresh All Data</span>
+                            <span>{t('actions.refresh', 'Refresh All Data')}</span>
                         </button>
                     </div>
                 </div>
