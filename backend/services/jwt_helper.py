@@ -1,11 +1,11 @@
 """
 JWT helper for Patient Passport tokens.
-Uses python-jose for JWT encoding/decoding with HS256.
+Uses standard PyJWT for JWT encoding/decoding with HS256, compatible with Python 3.11 & 3.12.
 """
 import os
 import uuid
 import time
-from jose import jwt, JWTError, ExpiredSignatureError
+import jwt
 from fastapi import HTTPException
 
 PASSPORT_SECRET = os.getenv("PASSPORT_SECRET_KEY", os.getenv("QR_SECRET_KEY", "curatrack-passport-secret-dev"))
@@ -70,7 +70,7 @@ def decode_passport_token(token: str) -> dict:
 
         return payload
 
-    except ExpiredSignatureError:
+    except jwt.ExpiredSignatureError:
         raise HTTPException(status_code=401, detail="Passport token has expired")
-    except JWTError:
+    except jwt.PyJWTError:
         raise HTTPException(status_code=401, detail="Invalid passport token")
