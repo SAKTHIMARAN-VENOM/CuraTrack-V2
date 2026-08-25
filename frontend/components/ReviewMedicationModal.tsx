@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { API_BASE } from '@/lib/api';
+import { useI18n } from '@/lib/i18n';
 
 interface ReviewMedicationModalProps {
   isOpen: boolean;
@@ -16,6 +17,7 @@ interface ReviewMedicationModalProps {
 }
 
 export default function ReviewMedicationModal({ isOpen, onClose, medication, onConfirm }: ReviewMedicationModalProps) {
+  const { t } = useI18n();
   const [formData, setFormData] = useState({ ...medication });
   const [isSaving, setIsSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -32,7 +34,6 @@ export default function ReviewMedicationModal({ isOpen, onClose, medication, onC
     setIsSaving(true);
     setError(null);
 
-    // Prepare payload for backend confirm-ingestion
     const payload = {
         patient_id: "demo-patient-001",
         medications: [formData],
@@ -48,7 +49,7 @@ export default function ReviewMedicationModal({ isOpen, onClose, medication, onC
       });
 
       if (!response.ok) {
-        throw new Error("Failed to save medication record");
+        throw new Error(t('reviewMed.failedSave', 'Failed to save medication record'));
       }
 
       onConfirm(formData);
@@ -66,13 +67,13 @@ export default function ReviewMedicationModal({ isOpen, onClose, medication, onC
         {/* Header */}
         <div className="p-6 border-b border-outline-variant/10 flex justify-between items-center">
           <div>
-            <h2 className="font-headline text-xl font-bold text-on-surface">Review Medication</h2>
+            <h2 className="font-headline text-xl font-bold text-on-surface">{t('reviewMed.title', 'Review Medication')}</h2>
             <p className="text-xs text-secondary mt-1 flex items-center gap-1">
                 <span className="material-symbols-outlined text-xs">auto_awesome</span>
-                AI Confidence: {Math.round(medication.confidence * 100)}%
+                {t('reviewMed.aiConfidence', 'AI Confidence')}: {Math.round(medication.confidence * 100)}%
             </p>
           </div>
-          <button onClick={onClose} disabled={isSaving} className="w-8 h-8 flex items-center justify-center rounded-full bg-surface-container-low hover:bg-surface-container transition-colors text-on-surface-variant">
+          <button onClick={onClose} disabled={isSaving} className="w-8 h-8 flex items-center justify-center rounded-full bg-surface-container-low hover:bg-surface-container transition-colors text-on-surface-variant cursor-pointer">
             <span className="material-symbols-outlined text-sm">close</span>
           </button>
         </div>
@@ -80,12 +81,12 @@ export default function ReviewMedicationModal({ isOpen, onClose, medication, onC
         {/* Form */}
         <form onSubmit={handleSubmit} className="p-6 md:p-8 space-y-4">
           <div className="space-y-1.5">
-            <label className="text-xs font-bold text-tertiary uppercase tracking-wider ml-1">Medication Name</label>
+            <label className="text-xs font-bold text-tertiary uppercase tracking-wider ml-1">{t('reviewMed.medName', 'Medication Name')}</label>
             <input 
               name="name"
               value={formData.name}
               onChange={handleChange}
-              placeholder="e.g. Lisinopril"
+              placeholder={t('reviewMed.medNamePlaceholder', 'e.g. Lisinopril')}
               className="w-full px-4 py-2.5 bg-surface-container-low border border-outline-variant/20 rounded-xl text-sm focus:outline-none focus:border-primary/50 transition-colors"
               required
             />
@@ -93,47 +94,47 @@ export default function ReviewMedicationModal({ isOpen, onClose, medication, onC
 
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-1.5">
-              <label className="text-xs font-bold text-tertiary uppercase tracking-wider ml-1">Dosage</label>
+              <label className="text-xs font-bold text-tertiary uppercase tracking-wider ml-1">{t('reviewMed.dosage', 'Dosage')}</label>
               <input 
                 name="dosage"
                 value={formData.dosage}
                 onChange={handleChange}
-                placeholder="e.g. 10mg"
+                placeholder={t('reviewMed.dosagePlaceholder', 'e.g. 10mg')}
                 className="w-full px-4 py-2.5 bg-surface-container-low border border-outline-variant/20 rounded-xl text-sm focus:outline-none focus:border-primary/50 transition-colors"
                 required
               />
             </div>
             <div className="space-y-1.5">
-              <label className="text-xs font-bold text-tertiary uppercase tracking-wider ml-1">Frequency</label>
+              <label className="text-xs font-bold text-tertiary uppercase tracking-wider ml-1">{t('reviewMed.frequency', 'Frequency')}</label>
               <input 
                 name="frequency"
                 value={formData.frequency}
                 onChange={handleChange}
-                placeholder="e.g. Once daily"
+                placeholder={t('reviewMed.frequencyPlaceholder', 'e.g. Once daily')}
                 className="w-full px-4 py-2.5 bg-surface-container-low border border-outline-variant/20 rounded-xl text-sm focus:outline-none focus:border-primary/50 transition-colors"
               />
             </div>
           </div>
 
           <div className="space-y-1.5">
-            <label className="text-xs font-bold text-tertiary uppercase tracking-wider ml-1">Time / Specifics</label>
+            <label className="text-xs font-bold text-tertiary uppercase tracking-wider ml-1">{t('reviewMed.time', 'Time / Specifics')}</label>
             <input 
               name="time"
               value={formData.time}
               onChange={handleChange}
-              placeholder="e.g. 08:00 AM with food"
+              placeholder={t('reviewMed.timePlaceholder', 'e.g. 08:00 AM with food')}
               className="w-full px-4 py-2.5 bg-surface-container-low border border-outline-variant/20 rounded-xl text-sm focus:outline-none focus:border-primary/50 transition-colors"
             />
           </div>
 
           <div className="space-y-1.5">
-            <label className="text-xs font-bold text-tertiary uppercase tracking-wider ml-1">Reason (Optional)</label>
+            <label className="text-xs font-bold text-tertiary uppercase tracking-wider ml-1">{t('reviewMed.reason', 'Reason (Optional)')}</label>
             <textarea 
               name="reason"
               value={formData.reason}
               onChange={handleChange}
               rows={2}
-              placeholder="e.g. Hypertension"
+              placeholder={t('reviewMed.reasonPlaceholder', 'e.g. Hypertension')}
               className="w-full px-4 py-2.5 bg-surface-container-low border border-outline-variant/20 rounded-xl text-sm focus:outline-none focus:border-primary/50 transition-colors resize-none"
             />
           </div>
@@ -151,25 +152,25 @@ export default function ReviewMedicationModal({ isOpen, onClose, medication, onC
             type="button" 
             onClick={onClose}
             disabled={isSaving}
-            className="px-5 py-2.5 rounded-xl text-sm font-bold text-on-surface hover:bg-surface-container transition-colors"
+            className="px-5 py-2.5 rounded-xl text-sm font-bold text-on-surface hover:bg-surface-container transition-colors cursor-pointer"
           >
-            Cancel
+            {t('common.cancel', 'Cancel')}
           </button>
           <button 
             onClick={handleSubmit}
             disabled={isSaving}
-            className="flex items-center gap-2 px-6 py-2.5 rounded-xl text-sm font-bold text-white transition-all disabled:opacity-50"
+            className="flex items-center gap-2 px-6 py-2.5 rounded-xl text-sm font-bold text-white transition-all disabled:opacity-50 cursor-pointer"
             style={{ background: 'linear-gradient(135deg, #00647e, #2c7d99)' }}
           >
             {isSaving ? (
                 <>
                     <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
-                    Saving...
+                    {t('reviewMed.saving', 'Saving...')}
                 </>
             ) : (
                 <>
                     <span className="material-symbols-outlined text-sm">check_circle</span>
-                    Confirm & Save
+                    {t('reviewMed.confirmSave', 'Confirm & Save')}
                 </>
             )}
           </button>

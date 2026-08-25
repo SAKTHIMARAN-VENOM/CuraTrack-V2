@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import { API_BASE } from '@/lib/api';
+import { useI18n } from '@/lib/i18n';
 
 const SCOPE_OPTIONS = [
     { value: 'medications', label: 'Active Medications', icon: 'pill', color: 'text-amber-600 bg-amber-50' },
@@ -18,6 +19,7 @@ interface Props {
 }
 
 export function PassportQRModal({ userId, userName, onClose }: Props) {
+    const { t } = useI18n();
     const [selectedScopes, setSelectedScopes] = useState<string[]>(['medications', 'allergies']);
     const [loading, setLoading] = useState(false);
     const [qrData, setQrData] = useState<{ qrImage: string; token: string; passportId?: string; url?: string; expiresInSeconds: number } | null>(null);

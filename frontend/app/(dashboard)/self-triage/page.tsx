@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { apiFetch } from '@/lib/api';
 import { createClient } from '@/lib/supabase/client';
+import { useI18n } from '@/lib/i18n';
 
 interface SelfTriageRecord {
   id: string;
@@ -36,6 +37,7 @@ interface SelfTriageRecord {
 
 export default function PatientSelfTriagePage() {
   const router = useRouter();
+  const { t } = useI18n();
   const [supabase] = useState(() => createClient());
 
   // Patient Profile state (strictly locked to self)

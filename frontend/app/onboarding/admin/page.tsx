@@ -4,8 +4,10 @@ import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { API_BASE } from '@/lib/api';
 import { createClient } from '@/lib/supabase/client';
+import { useI18n } from '@/lib/i18n';
 
 export default function AdminOnboardingPage() {
+    const { t } = useI18n();
     const router = useRouter();
     const [userId, setUserId] = useState<string>('demo-admin-001');
     const [loading, setLoading] = useState(false);

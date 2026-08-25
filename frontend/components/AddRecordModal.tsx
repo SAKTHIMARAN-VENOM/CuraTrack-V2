@@ -1,5 +1,6 @@
 import React, { useState, useRef } from 'react';
 import { API_BASE } from '@/lib/api';
+import { useI18n } from '@/lib/i18n';
 
 type RecordType = 'select' | 'prescription' | 'notes' | 'lab';
 type ModalStep = 'upload' | 'classifying' | 'form';
@@ -11,6 +12,7 @@ interface AddRecordModalProps {
 }
 
 export default function AddRecordModal({ isOpen, onClose, onSuccess }: AddRecordModalProps) {
+  const { t } = useI18n();
   const [step, setStep] = useState<ModalStep>('upload');
   const [recordType, setRecordType] = useState<RecordType>('select');
 
@@ -69,7 +71,7 @@ export default function AddRecordModal({ isOpen, onClose, onSuccess }: AddRecord
 
   // Step 1: Upload & OCR
   const handleUpload = async () => {
-    if (!file) { setError("Please select a file."); return; }
+    if (!file) { setError(t("addRecord.selectFile", "Please select a file.")); return; }
     setIsUploading(true); setError(null);
     const formData = new FormData();
     formData.append("file", file);
@@ -77,7 +79,7 @@ export default function AddRecordModal({ isOpen, onClose, onSuccess }: AddRecord
       const response = await fetch(`${API_BASE}/api/ingest-document`, { method: "POST", body: formData });
       if (!response.ok) {
         const d = await response.json().catch(() => ({}));
-        const msg = d.message ? `${d.message} ${d.solution || ''}` : (d.detail || "Upload failed");
+        const msg = d.message ? `${d.message} ${d.solution || ''}` : (d.detail || t("addRecord.uploadFailed", "Upload failed"));
         throw new Error(msg.trim());
       }
       const result = await response.json();
@@ -92,7 +94,6 @@ export default function AddRecordModal({ isOpen, onClose, onSuccess }: AddRecord
     setRecordType(type);
     setError(null);
 
-    // Regex extractors from rawText
     const docMatch = rawText.match(/(?:Dr\.|Doctor)\s+([A-Za-z\s\.]+)(?:,|\n|$)/i);
     const extractedDoctor = docMatch ? docMatch[0].trim().replace(/,\s*$/, '') : '';
 
@@ -107,7 +108,6 @@ export default function AddRecordModal({ isOpen, onClose, onSuccess }: AddRecord
     if (type === 'prescription') {
       let meds = ocrData?.medications || [];
 
-      // Fallback: Parse raw text lines if ocrData.medications is empty
       if (meds.length === 0 && rawText) {
         const lines = rawText.split('\n');
         for (const line of lines) {
@@ -179,11 +179,10 @@ export default function AddRecordModal({ isOpen, onClose, onSuccess }: AddRecord
     setStep('form');
   };
 
-  // Step 3: Submit
   const submitPrescription = () => {
     const validMeds = rxList.filter(m => m.name.trim());
     if (validMeds.length === 0 && !rxForm.name) {
-      setError('At least one medication name is required.');
+      setError(t('addRecord.medRequired', 'At least one medication name is required.'));
       return;
     }
     const finalData = validMeds.length > 0 ? validMeds : [{ ...rxForm, date: rxForm.date || new Date().toLocaleDateString() }];
@@ -200,13 +199,13 @@ export default function AddRecordModal({ isOpen, onClose, onSuccess }: AddRecord
   };
 
   const submitNote = () => {
-    if (!noteForm.doctor || !noteForm.complaint) { setError('Doctor name and chief complaint are required.'); return; }
+    if (!noteForm.doctor || !noteForm.complaint) { setError(t('addRecord.doctorComplaintRequired', 'Doctor name and chief complaint are required.')); return; }
     onSuccess({ type: 'notes', data: { ...noteForm, date: noteForm.date || new Date().toLocaleDateString() } });
     handleClose();
   };
 
   const submitLab = () => {
-    if (!labForm.testName) { setError('Test name is required.'); return; }
+    if (!labForm.testName) { setError(t('addRecord.testNameRequired', 'Test name is required.')); return; }
     onSuccess({
       type: 'lab',
       data: {
@@ -234,11 +233,11 @@ export default function AddRecordModal({ isOpen, onClose, onSuccess }: AddRecord
   const inputClass = "w-full px-4 py-3 bg-surface-container-low border border-outline-variant/20 rounded-xl text-sm text-on-surface placeholder:text-outline focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary transition-all";
   const labelClass = "block text-xs font-bold text-tertiary uppercase tracking-widest mb-1.5";
 
-  const headerTitle = step === 'upload' ? 'Upload Document'
-    : step === 'classifying' ? 'Select Record Type'
-    : recordType === 'prescription' ? 'Prescription Details'
-    : recordType === 'notes' ? "Doctor's Note Details"
-    : 'Lab Report Details';
+  const headerTitle = step === 'upload' ? t('addRecord.uploadDoc', 'Upload Document')
+    : step === 'classifying' ? t('addRecord.selectType', 'Select Record Type')
+    : recordType === 'prescription' ? t('addRecord.rxDetails', 'Prescription Details')
+    : recordType === 'notes' ? t('addRecord.noteDetails', "Doctor's Note Details")
+    : t('addRecord.labDetails', 'Lab Report Details');
 
   const clinicalInsights = ocrData?.clinical_insights;
   const hasClinicalInsights = Boolean(
@@ -275,7 +274,7 @@ export default function AddRecordModal({ isOpen, onClose, onSuccess }: AddRecord
             <span className="material-symbols-outlined text-xl">stethoscope</span>
           </div>
           <div>
-            <p className="text-xs font-bold text-primary uppercase tracking-widest">Doctor-style explanation</p>
+            <p className="text-xs font-bold text-primary uppercase tracking-widest">{t('addRecord.explanation', 'Doctor-style explanation')}</p>
             {clinicalInsights?.plain_language_summary && (
               <p className="text-sm text-on-surface-variant leading-relaxed mt-1">{clinicalInsights.plain_language_summary}</p>
             )}
@@ -287,7 +286,7 @@ export default function AddRecordModal({ isOpen, onClose, onSuccess }: AddRecord
             {clinicalInsights.key_findings.map((finding: any, idx: number) => (
               <div key={idx} className={`rounded-xl border p-3 ${severityClass(finding.severity)}`}>
                 <div className="flex flex-wrap items-center gap-2 mb-1">
-                  <p className="text-sm font-bold">{finding.title || `Finding ${idx + 1}`}</p>
+                  <p className="text-sm font-bold">{finding.title || `${t('addRecord.finding', 'Finding')} ${idx + 1}`}</p>
                   <span className="px-2 py-0.5 rounded-full bg-white/70 text-[10px] font-black uppercase tracking-wider">
                     {finding.severity || 'unknown'}
                   </span>
@@ -295,7 +294,7 @@ export default function AddRecordModal({ isOpen, onClose, onSuccess }: AddRecord
                 {finding.explanation && <p className="text-xs leading-relaxed opacity-90">{finding.explanation}</p>}
                 {finding.related_tests?.length > 0 && (
                   <p className="text-[10px] font-bold uppercase tracking-widest opacity-70 mt-2">
-                    Related: {finding.related_tests.join(', ')}
+                    {t('addRecord.related', 'Related')}: {finding.related_tests.join(', ')}
                   </p>
                 )}
               </div>
@@ -305,14 +304,14 @@ export default function AddRecordModal({ isOpen, onClose, onSuccess }: AddRecord
 
         {clinicalInsights?.possible_meaning && (
           <div>
-            <p className="text-[10px] font-bold text-tertiary uppercase tracking-widest mb-1">What this may mean</p>
+            <p className="text-[10px] font-bold text-tertiary uppercase tracking-widest mb-1">{t('addRecord.meaning', 'What this may mean')}</p>
             <p className="text-xs text-on-surface-variant leading-relaxed">{clinicalInsights.possible_meaning}</p>
           </div>
         )}
 
         {clinicalInsights?.recommended_next_steps?.length > 0 && (
           <div>
-            <p className="text-[10px] font-bold text-tertiary uppercase tracking-widest mb-2">Suggested next steps</p>
+            <p className="text-[10px] font-bold text-tertiary uppercase tracking-widest mb-2">{t('addRecord.nextSteps', 'Suggested next steps')}</p>
             <ul className="space-y-1.5">
               {clinicalInsights.recommended_next_steps.map((stepText: string, idx: number) => (
                 <li key={idx} className="flex gap-2 text-xs text-on-surface-variant leading-relaxed">
@@ -326,7 +325,7 @@ export default function AddRecordModal({ isOpen, onClose, onSuccess }: AddRecord
 
         {clinicalInsights?.questions_for_doctor?.length > 0 && (
           <div>
-            <p className="text-[10px] font-bold text-tertiary uppercase tracking-widest mb-2">Questions to ask your doctor</p>
+            <p className="text-[10px] font-bold text-tertiary uppercase tracking-widest mb-2">{t('addRecord.askDoctor', 'Questions to ask your doctor')}</p>
             <ul className="space-y-1.5">
               {clinicalInsights.questions_for_doctor.map((question: string, idx: number) => (
                 <li key={idx} className="flex gap-2 text-xs text-on-surface-variant leading-relaxed">
@@ -340,7 +339,7 @@ export default function AddRecordModal({ isOpen, onClose, onSuccess }: AddRecord
 
         {clinicalInsights?.urgent_warning_signs?.length > 0 && (
           <div className="bg-error-container/50 border border-error/20 rounded-xl p-3">
-            <p className="text-[10px] font-bold text-on-error-container uppercase tracking-widest mb-2">Seek urgent care if you notice</p>
+            <p className="text-[10px] font-bold text-on-error-container uppercase tracking-widest mb-2">{t('addRecord.urgentCare', 'Seek urgent care if you notice')}</p>
             <ul className="space-y-1.5">
               {clinicalInsights.urgent_warning_signs.map((warning: string, idx: number) => (
                 <li key={idx} className="flex gap-2 text-xs text-on-error-container leading-relaxed">
@@ -353,7 +352,7 @@ export default function AddRecordModal({ isOpen, onClose, onSuccess }: AddRecord
         )}
 
         <p className="text-[10px] text-tertiary leading-relaxed border-t border-primary/10 pt-3">
-          {clinicalInsights?.disclaimer || 'This is an AI explanation of the uploaded document and is not a diagnosis. Please confirm with a qualified clinician.'}
+          {clinicalInsights?.disclaimer || t('addRecord.disclaimer', 'This is an AI explanation of the uploaded document and is not a diagnosis. Please confirm with a qualified clinician.')}
         </p>
       </div>
     );
@@ -366,27 +365,27 @@ export default function AddRecordModal({ isOpen, onClose, onSuccess }: AddRecord
         <div className="p-6 border-b border-outline-variant/10 flex justify-between items-center shrink-0">
           <div className="flex items-center gap-3">
             {step !== 'upload' && (
-              <button onClick={() => { if (step === 'form') { setStep('classifying'); setRecordType('select'); } else { setStep('upload'); } setError(null); }} className="w-8 h-8 flex items-center justify-center rounded-full bg-surface-container-low hover:bg-surface-container transition-colors text-on-surface-variant">
+              <button onClick={() => { if (step === 'form') { setStep('classifying'); setRecordType('select'); } else { setStep('upload'); } setError(null); }} className="w-8 h-8 flex items-center justify-center rounded-full bg-surface-container-low hover:bg-surface-container transition-colors text-on-surface-variant cursor-pointer">
                 <span className="material-symbols-outlined text-sm">arrow_back</span>
               </button>
             )}
             <h2 className="font-headline text-xl font-bold text-on-surface">{headerTitle}</h2>
           </div>
-          <button onClick={handleClose} className="w-8 h-8 flex items-center justify-center rounded-full bg-surface-container-low hover:bg-surface-container transition-colors text-on-surface-variant">
+          <button onClick={handleClose} className="w-8 h-8 flex items-center justify-center rounded-full bg-surface-container-low hover:bg-surface-container transition-colors text-on-surface-variant cursor-pointer">
             <span className="material-symbols-outlined text-sm">close</span>
           </button>
         </div>
 
         {/* Step indicator */}
         <div className="px-6 pt-4 flex items-center gap-2">
-          {['Upload', 'Classify', 'Review'].map((label, i) => {
+          {[{ key: 'upload', label: t('addRecord.stepUpload', 'Upload') }, { key: 'classify', label: t('addRecord.stepClassify', 'Classify') }, { key: 'review', label: t('addRecord.stepReview', 'Review') }].map((s, i) => {
             const stepIdx = step === 'upload' ? 0 : step === 'classifying' ? 1 : 2;
             const isActive = i <= stepIdx;
             return (
-              <React.Fragment key={label}>
+              <React.Fragment key={s.key}>
                 <div className={`flex items-center gap-1.5 ${isActive ? 'text-primary' : 'text-outline'}`}>
                   <div className={`w-6 h-6 rounded-full flex items-center justify-center text-[10px] font-bold ${isActive ? 'bg-primary text-white' : 'bg-surface-container text-outline'}`}>{i + 1}</div>
-                  <span className="text-xs font-bold">{label}</span>
+                  <span className="text-xs font-bold">{s.label}</span>
                 </div>
                 {i < 2 && <div className={`flex-1 h-0.5 rounded ${i < stepIdx ? 'bg-primary' : 'bg-surface-container'}`} />}
               </React.Fragment>
@@ -407,7 +406,7 @@ export default function AddRecordModal({ isOpen, onClose, onSuccess }: AddRecord
           {step === 'upload' && (
             <div className="space-y-5">
               <div className="text-sm text-tertiary">
-                Upload an image or PDF of your medical record. Our AI will extract the text, identify results, and explain what the scan may mean in plain language.
+                {t('addRecord.uploadHint', 'Upload an image or PDF of your medical record. Our AI will extract the text, identify results, and explain what the scan may mean in plain language.')}
               </div>
               <div
                 className="border-2 border-dashed border-outline-variant/50 rounded-2xl p-8 flex flex-col items-center justify-center cursor-pointer hover:bg-surface-container-low transition-colors group"
@@ -424,15 +423,15 @@ export default function AddRecordModal({ isOpen, onClose, onSuccess }: AddRecord
                   </div>
                 ) : (
                   <div className="text-center">
-                    <span className="font-bold text-on-surface">Click to select a file</span>
-                    <p className="text-xs text-tertiary mt-1">PDF, JPG, PNG up to 10MB</p>
+                    <span className="font-bold text-on-surface">{t('addRecord.clickSelect', 'Click to select a file')}</span>
+                    <p className="text-xs text-tertiary mt-1">{t('addRecord.fileTypes', 'PDF, JPG, PNG up to 10MB')}</p>
                   </div>
                 )}
               </div>
               {isUploading && (
                 <div className="flex flex-col items-center justify-center gap-3 py-4">
                   <div className="w-8 h-8 border-4 border-primary border-t-transparent rounded-full animate-spin"></div>
-                  <span className="text-sm font-bold text-primary animate-pulse">Scanning with AI OCR...</span>
+                  <span className="text-sm font-bold text-primary animate-pulse">{t('addRecord.scanningAi', 'Scanning with AI OCR...')}</span>
                 </div>
               )}
             </div>
@@ -441,26 +440,25 @@ export default function AddRecordModal({ isOpen, onClose, onSuccess }: AddRecord
           {/* ========== STEP 2: CLASSIFY ========== */}
           {step === 'classifying' && (
             <div className="space-y-5">
-              {/* Show extracted text preview */}
               {rawText && (
                 <div className="bg-surface-container-low rounded-2xl p-4 max-h-32 overflow-y-auto border border-outline-variant/10">
-                  <p className="text-[10px] font-bold text-tertiary uppercase tracking-widest mb-2">Extracted Text Preview</p>
+                  <p className="text-[10px] font-bold text-tertiary uppercase tracking-widest mb-2">{t('addRecord.preview', 'Extracted Text Preview')}</p>
                   <p className="text-xs text-on-surface-variant leading-relaxed whitespace-pre-wrap">{rawText.slice(0, 600)}{rawText.length > 600 ? '...' : ''}</p>
                 </div>
               )}
 
-              <p className="text-sm font-bold text-on-surface">What type of record is this?</p>
+              <p className="text-sm font-bold text-on-surface">{t('addRecord.whatType', 'What type of record is this?')}</p>
 
               <div className="grid grid-cols-3 gap-3">
                 {[
-                  { id: 'prescription' as RecordType, icon: 'receipt_long', label: 'Prescription', color: '#006782' },
-                  { id: 'notes' as RecordType, icon: 'description', label: "Doctor's\nNotes", color: '#35B0AB' },
-                  { id: 'lab' as RecordType, icon: 'biotech', label: 'Lab\nReport', color: '#4F6378' },
+                  { id: 'prescription' as RecordType, icon: 'receipt_long', label: t('records.tabs.prescriptions', 'Prescription'), color: '#006782' },
+                  { id: 'notes' as RecordType, icon: 'description', label: t('records.tabs.notes', "Doctor's Notes"), color: '#35B0AB' },
+                  { id: 'lab' as RecordType, icon: 'biotech', label: t('records.tabs.lab', 'Lab Report'), color: '#4F6378' },
                 ].map(rt => (
                   <button
                     key={rt.id}
                     onClick={() => selectType(rt.id)}
-                    className="p-5 bg-surface-container-low border border-outline-variant/20 rounded-2xl text-center hover:bg-surface-container hover:border-primary/30 transition-all group"
+                    className="p-5 bg-surface-container-low border border-outline-variant/20 rounded-2xl text-center hover:bg-surface-container hover:border-primary/30 transition-all group cursor-pointer"
                   >
                     <div className="w-14 h-14 rounded-xl flex items-center justify-center mx-auto mb-3 transition-transform group-hover:scale-110" style={{ background: `${rt.color}15` }}>
                       <span className="material-symbols-outlined fill-icon text-2xl" style={{ color: rt.color }}>{rt.icon}</span>
@@ -475,22 +473,22 @@ export default function AddRecordModal({ isOpen, onClose, onSuccess }: AddRecord
                 <div className="bg-secondary/5 rounded-2xl p-4 border border-secondary/10">
                   <div className="flex items-center gap-2 mb-2">
                     <span className="material-symbols-outlined text-secondary text-lg">auto_awesome</span>
-                    <p className="text-xs font-bold text-secondary">AI detected:</p>
+                    <p className="text-xs font-bold text-secondary">{t('addRecord.aiDetected', 'AI detected:')}</p>
                   </div>
                   <div className="flex flex-wrap gap-2">
                     {(ocrData.medications?.length > 0) && (
                       <span className="px-2.5 py-1 rounded-lg bg-white text-[11px] font-bold text-on-surface">
-                        💊 {ocrData.medications.length} medication{ocrData.medications.length > 1 ? 's' : ''}
+                        💊 {ocrData.medications.length} {t('addRecord.medicationsCount', 'medications')}
                       </span>
                     )}
                     {(ocrData.lab_results?.length > 0) && (
                       <span className="px-2.5 py-1 rounded-lg bg-white text-[11px] font-bold text-on-surface">
-                        🔬 {ocrData.lab_results.length} lab result{ocrData.lab_results.length > 1 ? 's' : ''}
+                        🔬 {ocrData.lab_results.length} {t('addRecord.labsCount', 'lab results')}
                       </span>
                     )}
                     {(ocrData.doctor_notes?.summary) && (
                       <span className="px-2.5 py-1 rounded-lg bg-white text-[11px] font-bold text-on-surface">
-                        📝 Doctor&apos;s notes found
+                        📝 {t('addRecord.notesFound', "Doctor's notes found")}
                       </span>
                     )}
                   </div>
@@ -505,9 +503,9 @@ export default function AddRecordModal({ isOpen, onClose, onSuccess }: AddRecord
           {step === 'form' && recordType === 'prescription' && (
             <div className="space-y-5">
               <div className="flex items-center justify-between">
-                <span className="text-xs font-bold text-tertiary uppercase tracking-widest">Extracted Medications ({rxList.length})</span>
-                <button type="button" onClick={addRxRow} className="text-xs font-bold text-primary flex items-center gap-1 hover:underline">
-                  <span className="material-symbols-outlined text-sm">add</span>Add Medication
+                <span className="text-xs font-bold text-tertiary uppercase tracking-widest">{t('addRecord.extractedMeds', 'Extracted Medications')} ({rxList.length})</span>
+                <button type="button" onClick={addRxRow} className="text-xs font-bold text-primary flex items-center gap-1 hover:underline cursor-pointer">
+                  <span className="material-symbols-outlined text-sm">add</span>{t('addRecord.addMedication', 'Add Medication')}
                 </button>
               </div>
 
@@ -515,37 +513,37 @@ export default function AddRecordModal({ isOpen, onClose, onSuccess }: AddRecord
                 {rxList.map((item, idx) => (
                   <div key={idx} className="p-4 bg-surface-container-low border border-outline-variant/20 rounded-2xl space-y-3">
                     <div className="flex items-center justify-between border-b border-outline-variant/10 pb-2">
-                      <span className="text-xs font-bold text-primary">Medication #{idx + 1}</span>
+                      <span className="text-xs font-bold text-primary">{t('addRecord.medicationHash', 'Medication #')}{idx + 1}</span>
                       {rxList.length > 1 && (
-                        <button type="button" onClick={() => setRxList(prev => prev.filter((_, i) => i !== idx))} className="text-xs text-error font-bold hover:underline">
-                          Remove
+                        <button type="button" onClick={() => setRxList(prev => prev.filter((_, i) => i !== idx))} className="text-xs text-error font-bold hover:underline cursor-pointer">
+                          {t('common.remove', 'Remove')}
                         </button>
                       )}
                     </div>
                     <div className="grid grid-cols-2 gap-3">
                       <div className="col-span-2 sm:col-span-1">
-                        <label className={labelClass}>Medication Name *</label>
-                        <input className={inputClass} placeholder="e.g. Metformin" value={item.name} onChange={e => updateRxRow(idx, 'name', e.target.value)} />
+                        <label className={labelClass}>{t('addRecord.medName', 'Medication Name')} *</label>
+                        <input className={inputClass} placeholder={t('addRecord.medPlaceholder', 'e.g. Metformin')} value={item.name} onChange={e => updateRxRow(idx, 'name', e.target.value)} />
                       </div>
                       <div className="col-span-2 sm:col-span-1">
-                        <label className={labelClass}>Dosage *</label>
-                        <input className={inputClass} placeholder="e.g. 500mg" value={item.dosage} onChange={e => updateRxRow(idx, 'dosage', e.target.value)} />
+                        <label className={labelClass}>{t('addRecord.dosage', 'Dosage')} *</label>
+                        <input className={inputClass} placeholder={t('addRecord.dosagePlaceholder', 'e.g. 500mg')} value={item.dosage} onChange={e => updateRxRow(idx, 'dosage', e.target.value)} />
                       </div>
                       <div>
-                        <label className={labelClass}>Frequency</label>
-                        <input className={inputClass} placeholder="e.g. Twice daily" value={item.frequency} onChange={e => updateRxRow(idx, 'frequency', e.target.value)} />
+                        <label className={labelClass}>{t('addRecord.frequency', 'Frequency')}</label>
+                        <input className={inputClass} placeholder={t('addRecord.freqPlaceholder', 'e.g. Twice daily')} value={item.frequency} onChange={e => updateRxRow(idx, 'frequency', e.target.value)} />
                       </div>
                       <div>
-                        <label className={labelClass}>Time / Directions</label>
-                        <input className={inputClass} placeholder="e.g. Morning & Night" value={item.time} onChange={e => updateRxRow(idx, 'time', e.target.value)} />
+                        <label className={labelClass}>{t('addRecord.timeDirections', 'Time / Directions')}</label>
+                        <input className={inputClass} placeholder={t('addRecord.timePlaceholder', 'e.g. Morning & Night')} value={item.time} onChange={e => updateRxRow(idx, 'time', e.target.value)} />
                       </div>
                       <div>
-                        <label className={labelClass}>Prescribing Doctor</label>
-                        <input className={inputClass} placeholder="e.g. Dr. Arjun Mehta" value={item.doctor} onChange={e => updateRxRow(idx, 'doctor', e.target.value)} />
+                        <label className={labelClass}>{t('addRecord.prescribingDoc', 'Prescribing Doctor')}</label>
+                        <input className={inputClass} placeholder={t('addRecord.docPlaceholder', 'e.g. Dr. Arjun Mehta')} value={item.doctor} onChange={e => updateRxRow(idx, 'doctor', e.target.value)} />
                       </div>
                       <div>
-                        <label className={labelClass}>Instructions / Reason</label>
-                        <input className={inputClass} placeholder="e.g. After food" value={item.instructions} onChange={e => updateRxRow(idx, 'instructions', e.target.value)} />
+                        <label className={labelClass}>{t('addRecord.instructionsReason', 'Instructions / Reason')}</label>
+                        <input className={inputClass} placeholder={t('addRecord.instPlaceholder', 'e.g. After food')} value={item.instructions} onChange={e => updateRxRow(idx, 'instructions', e.target.value)} />
                       </div>
                     </div>
                   </div>
@@ -559,36 +557,36 @@ export default function AddRecordModal({ isOpen, onClose, onSuccess }: AddRecord
             <div className="space-y-4">
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <label className={labelClass}>Doctor Name *</label>
-                  <input className={inputClass} placeholder="e.g. Dr. Sarah Chen" value={noteForm.doctor} onChange={e => setNoteForm(p => ({ ...p, doctor: e.target.value }))} />
+                  <label className={labelClass}>{t('addRecord.docName', 'Doctor Name')} *</label>
+                  <input className={inputClass} placeholder={t('addRecord.docPlaceholder', 'e.g. Dr. Sarah Chen')} value={noteForm.doctor} onChange={e => setNoteForm(p => ({ ...p, doctor: e.target.value }))} />
                 </div>
                 <div>
-                  <label className={labelClass}>Specialty</label>
-                  <input className={inputClass} placeholder="e.g. Cardiology" value={noteForm.specialty} onChange={e => setNoteForm(p => ({ ...p, specialty: e.target.value }))} />
+                  <label className={labelClass}>{t('addRecord.specialty', 'Specialty')}</label>
+                  <input className={inputClass} placeholder={t('addRecord.specialtyPlaceholder', 'e.g. Cardiology')} value={noteForm.specialty} onChange={e => setNoteForm(p => ({ ...p, specialty: e.target.value }))} />
                 </div>
                 <div>
-                  <label className={labelClass}>Date</label>
+                  <label className={labelClass}>{t('common.date', 'Date')}</label>
                   <input type="date" className={inputClass} value={noteForm.date} onChange={e => setNoteForm(p => ({ ...p, date: e.target.value }))} />
                 </div>
                 <div>
-                  <label className={labelClass}>Visit Type</label>
-                  <input className={inputClass} placeholder="e.g. Follow-up" value={noteForm.visitType} onChange={e => setNoteForm(p => ({ ...p, visitType: e.target.value }))} />
+                  <label className={labelClass}>{t('addRecord.visitType', 'Visit Type')}</label>
+                  <input className={inputClass} placeholder={t('addRecord.visitPlaceholder', 'e.g. Follow-up')} value={noteForm.visitType} onChange={e => setNoteForm(p => ({ ...p, visitType: e.target.value }))} />
                 </div>
               </div>
               <div>
-                <label className={labelClass}>Chief Complaint *</label>
-                <textarea className={`${inputClass} min-h-[70px] resize-none`} placeholder="Patient presents for..." value={noteForm.complaint} onChange={e => setNoteForm(p => ({ ...p, complaint: e.target.value }))} />
+                <label className={labelClass}>{t('addRecord.complaint', 'Chief Complaint')} *</label>
+                <textarea className={`${inputClass} min-h-[70px] resize-none`} placeholder={t('addRecord.complaintPlaceholder', 'Patient presents for...')} value={noteForm.complaint} onChange={e => setNoteForm(p => ({ ...p, complaint: e.target.value }))} />
               </div>
               <div>
-                <label className={labelClass}>Clinical Observations</label>
-                <textarea className={`${inputClass} min-h-[70px] resize-none`} placeholder="BP, HR, findings..." value={noteForm.observations} onChange={e => setNoteForm(p => ({ ...p, observations: e.target.value }))} />
+                <label className={labelClass}>{t('addRecord.observations', 'Clinical Observations')}</label>
+                <textarea className={`${inputClass} min-h-[70px] resize-none`} placeholder={t('addRecord.obsPlaceholder', 'BP, HR, findings...')} value={noteForm.observations} onChange={e => setNoteForm(p => ({ ...p, observations: e.target.value }))} />
               </div>
               <div>
-                <label className={labelClass}>Assessment & Plan</label>
-                <textarea className={`${inputClass} min-h-[70px] resize-none`} placeholder="Diagnosis, treatment plan..." value={noteForm.plan} onChange={e => setNoteForm(p => ({ ...p, plan: e.target.value }))} />
+                <label className={labelClass}>{t('addRecord.assessmentPlan', 'Assessment & Plan')}</label>
+                <textarea className={`${inputClass} min-h-[70px] resize-none`} placeholder={t('addRecord.planPlaceholder', 'Diagnosis, treatment plan...')} value={noteForm.plan} onChange={e => setNoteForm(p => ({ ...p, plan: e.target.value }))} />
               </div>
               <div>
-                <label className={labelClass}>Follow-up Date</label>
+                <label className={labelClass}>{t('addRecord.followUpDate', 'Follow-up Date')}</label>
                 <input type="date" className={inputClass} value={noteForm.followUp} onChange={e => setNoteForm(p => ({ ...p, followUp: e.target.value }))} />
               </div>
             </div>
@@ -601,43 +599,43 @@ export default function AddRecordModal({ isOpen, onClose, onSuccess }: AddRecord
 
               <div className="grid grid-cols-2 gap-4">
                 <div className="col-span-2">
-                  <label className={labelClass}>Test Name *</label>
-                  <input className={inputClass} placeholder="e.g. Complete Blood Count" value={labForm.testName} onChange={e => setLabForm(p => ({ ...p, testName: e.target.value }))} />
+                  <label className={labelClass}>{t('addRecord.testName', 'Test Name')} *</label>
+                  <input className={inputClass} placeholder={t('addRecord.testPlaceholder', 'e.g. Complete Blood Count')} value={labForm.testName} onChange={e => setLabForm(p => ({ ...p, testName: e.target.value }))} />
                 </div>
                 <div>
-                  <label className={labelClass}>Lab Name</label>
-                  <input className={inputClass} placeholder="e.g. Metro City Lab" value={labForm.labName} onChange={e => setLabForm(p => ({ ...p, labName: e.target.value }))} />
+                  <label className={labelClass}>{t('addRecord.labName', 'Lab Name')}</label>
+                  <input className={inputClass} placeholder={t('addRecord.labPlaceholder', 'e.g. Metro City Lab')} value={labForm.labName} onChange={e => setLabForm(p => ({ ...p, labName: e.target.value }))} />
                 </div>
                 <div>
-                  <label className={labelClass}>Doctor</label>
-                  <input className={inputClass} placeholder="e.g. Dr. Sarah Chen" value={labForm.doctor} onChange={e => setLabForm(p => ({ ...p, doctor: e.target.value }))} />
+                  <label className={labelClass}>{t('addRecord.docName', 'Doctor')}</label>
+                  <input className={inputClass} placeholder={t('addRecord.docPlaceholder', 'e.g. Dr. Sarah Chen')} value={labForm.doctor} onChange={e => setLabForm(p => ({ ...p, doctor: e.target.value }))} />
                 </div>
                 <div>
-                  <label className={labelClass}>Date</label>
+                  <label className={labelClass}>{t('common.date', 'Date')}</label>
                   <input type="date" className={inputClass} value={labForm.date} onChange={e => setLabForm(p => ({ ...p, date: e.target.value }))} />
                 </div>
                 <div>
-                  <label className={labelClass}>Status</label>
+                  <label className={labelClass}>{t('common.status', 'Status')}</label>
                   <select className={inputClass} value={labForm.status} onChange={e => setLabForm(p => ({ ...p, status: e.target.value as any }))}>
-                    <option value="Normal">Normal</option>
-                    <option value="Flagged">Flagged</option>
-                    <option value="Pending">Pending</option>
+                    <option value="Normal">{t('records.status.normal', 'Normal')}</option>
+                    <option value="Flagged">{t('records.status.flagged', 'Flagged')}</option>
+                    <option value="Pending">{t('records.status.pending', 'Pending')}</option>
                   </select>
                 </div>
               </div>
               <div>
                 <div className="flex items-center justify-between mb-2">
-                  <label className={labelClass}>Test Results</label>
-                  <button onClick={addLabResult} className="text-xs font-bold text-primary flex items-center gap-1 hover:underline">
-                    <span className="material-symbols-outlined text-sm">add</span>Add Row
+                  <label className={labelClass}>{t('addRecord.testResults', 'Test Results')}</label>
+                  <button onClick={addLabResult} className="text-xs font-bold text-primary flex items-center gap-1 hover:underline cursor-pointer">
+                    <span className="material-symbols-outlined text-sm">add</span>{t('addRecord.addRow', 'Add Row')}
                   </button>
                 </div>
                 <div className="space-y-2">
                   {labForm.results.map((r, idx) => (
                     <div key={idx} className="grid grid-cols-[2fr_1fr_1fr] gap-2">
-                      <input className={inputClass} placeholder="Metric" value={r.key} onChange={e => updateLabResult(idx, 'key', e.target.value)} />
-                      <input className={inputClass} placeholder="Value" value={r.value} onChange={e => updateLabResult(idx, 'value', e.target.value)} />
-                      <input className={inputClass} placeholder="Unit" value={r.unit} onChange={e => updateLabResult(idx, 'unit', e.target.value)} />
+                      <input className={inputClass} placeholder={t('addRecord.metric', 'Metric')} value={r.key} onChange={e => updateLabResult(idx, 'key', e.target.value)} />
+                      <input className={inputClass} placeholder={t('addRecord.val', 'Value')} value={r.value} onChange={e => updateLabResult(idx, 'value', e.target.value)} />
+                      <input className={inputClass} placeholder={t('addRecord.unit', 'Unit')} value={r.unit} onChange={e => updateLabResult(idx, 'unit', e.target.value)} />
                     </div>
                   ))}
                 </div>
@@ -648,28 +646,28 @@ export default function AddRecordModal({ isOpen, onClose, onSuccess }: AddRecord
 
         {/* Footer */}
         <div className="p-6 bg-surface-container-low border-t border-outline-variant/10 flex justify-end gap-3 rounded-b-3xl shrink-0">
-          <button type="button" onClick={handleClose} disabled={isUploading} className="px-5 py-2.5 rounded-xl text-sm font-bold text-on-surface hover:bg-surface-container disabled:opacity-50 transition-colors">
-            Cancel
+          <button type="button" onClick={handleClose} disabled={isUploading} className="px-5 py-2.5 rounded-xl text-sm font-bold text-on-surface hover:bg-surface-container disabled:opacity-50 transition-colors cursor-pointer">
+            {t('common.cancel', 'Cancel')}
           </button>
           {step === 'upload' && (
             <button
               type="button" onClick={handleUpload} disabled={!file || isUploading}
-              className="flex items-center gap-2 px-6 py-2.5 rounded-xl text-sm font-bold text-white transition-all disabled:opacity-50 disabled:grayscale"
+              className="flex items-center gap-2 px-6 py-2.5 rounded-xl text-sm font-bold text-white transition-all disabled:opacity-50 disabled:grayscale cursor-pointer"
               style={{ background: 'linear-gradient(135deg, #00647e, #2c7d99)' }}
             >
               <span className="material-symbols-outlined text-base">cloud_upload</span>
-              {isUploading ? 'Scanning...' : 'Upload & Scan'}
+              {isUploading ? t('addRecord.scanning', 'Scanning...') : t('addRecord.uploadAndScan', 'Upload & Scan')}
             </button>
           )}
           {step === 'form' && (
             <button
               type="button"
               onClick={recordType === 'prescription' ? submitPrescription : recordType === 'notes' ? submitNote : submitLab}
-              className="flex items-center gap-2 px-6 py-2.5 rounded-xl text-sm font-bold text-white transition-all"
+              className="flex items-center gap-2 px-6 py-2.5 rounded-xl text-sm font-bold text-white transition-all cursor-pointer"
               style={{ background: 'linear-gradient(135deg, #00647e, #2c7d99)' }}
             >
               <span className="material-symbols-outlined text-base">check_circle</span>
-              Save Record
+              {t('addRecord.saveRecord', 'Save Record')}
             </button>
           )}
         </div>

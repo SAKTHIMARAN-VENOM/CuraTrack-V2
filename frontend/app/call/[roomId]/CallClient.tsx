@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState, useMemo, useCallback } from 'react';
 import { createClient } from '@/lib/supabase/client';
 import { useParams, useRouter } from 'next/navigation';
+import { useI18n } from '@/lib/i18n';
 
 const meteredDomain = process.env.NEXT_PUBLIC_METERED_DOMAIN || 'global.relay.metered.ca';
 const turnUsername = process.env.NEXT_PUBLIC_METERED_USERNAME || '03a1db9bf4ce4bf36b4139e2';
@@ -36,6 +37,7 @@ const ICE_SERVERS: RTCConfiguration = {
 type CallStatus = 'idle' | 'connecting' | 'connected' | 'ended';
 
 export default function CallPage() {
+  const { t } = useI18n();
   const params = useParams();
   const router = useRouter();
   const rawRoomId = (params?.roomId as string) || 'demo';
@@ -691,11 +693,11 @@ export default function CallPage() {
       {/* Header bar */}
       <div className="absolute top-0 left-0 right-0 h-20 flex items-center justify-between px-8 z-20">
         <div className="flex items-center gap-4">
-          <button onClick={leaveRoom} className="p-2 rounded-xl text-white/40 hover:text-primary hover:bg-white/5 transition-all">
+          <button onClick={leaveRoom} className="p-2 rounded-xl text-white/40 hover:text-primary hover:bg-white/5 transition-all cursor-pointer">
             <span className="material-symbols-outlined">arrow_back</span>
           </button>
           <h1 className="text-white font-headline font-bold text-xl tracking-tight">
-            Consult Room · {remoteUserName}
+            {t('call.roomTitle', 'Consult Room')} · {remoteUserName}
           </h1>
         </div>
         <div className="flex items-center gap-3">
@@ -708,7 +710,7 @@ export default function CallPage() {
           {callStatus === 'connecting' && (
             <div className="flex items-center gap-2 px-4 py-2 bg-primary/5 border border-primary/10 rounded-full">
               <div className="w-2 h-2 bg-primary rounded-full animate-pulse" />
-              <span className="text-primary text-sm font-bold">Connecting...</span>
+              <span className="text-primary text-sm font-bold">{t('call.connecting', 'Connecting...')}</span>
             </div>
           )}
         </div>
@@ -723,27 +725,22 @@ export default function CallPage() {
               <span className="material-symbols-outlined text-white text-5xl" style={{ fontVariationSettings: "'FILL' 1" }}>video_camera_front</span>
             </div>
             <div>
-              <h2 className="text-white text-4xl font-headline font-extrabold tracking-tight mb-4">Start Consultation</h2>
-              <p className="text-white/60 max-w-md mx-auto leading-relaxed">Prepare for your secure session. Camera and microphone permissions are required.</p>
+              <h2 className="text-white text-4xl font-headline font-extrabold tracking-tight mb-4">{t('call.startConsult', 'Start Consultation')}</h2>
+              <p className="text-white/60 max-w-md mx-auto leading-relaxed">{t('call.prepareSession', 'Prepare for your secure session. Camera and microphone permissions are required.')}</p>
               <div className="mt-4 inline-flex items-center gap-2 px-4 py-2 bg-white/5 rounded-2xl text-xs font-bold text-white/40">
                 <span className="material-symbols-outlined text-sm">vpn_key</span>
-                Room ID: {roomId.slice(0, 8)}
+                {t('call.roomId', 'Room ID')}: {roomId.slice(0, 8)}
               </div>
             </div>
             {isInsecureContext && (
               <div className="bg-amber-950/40 border border-amber-500/30 p-6 rounded-3xl text-left max-w-md mx-auto mb-6">
                 <div className="flex items-center gap-2 text-amber-200 font-bold mb-2">
                   <span className="material-symbols-outlined">security</span>
-                  <h4>Browser Security Block</h4>
+                  <h4>{t('call.securityBlock', 'Browser Security Block')}</h4>
                 </div>
                 <p className="text-amber-200/70 text-xs leading-relaxed mb-4">
-                  Browsers disable camera/mic access on local IPs (e.g., 10.151.93.61) unless over HTTPS. To test this on your network:
+                  {t('call.securityDesc', 'Browsers disable camera/mic access on local IPs unless over HTTPS.')}
                 </p>
-                <ol className="text-[11px] space-y-2 text-amber-200/80 list-decimal pl-4">
-                  <li>Go to <code className="bg-white/10 px-1 rounded text-amber-100">chrome://flags/#unsafely-treat-insecure-origin-as-secure</code></li>
-                  <li>Enable the flag and add <code className="bg-white/10 px-1 rounded text-amber-100">http://{window.location.host}</code> to the list.</li>
-                  <li>Relaunch Chrome and refresh this page.</li>
-                </ol>
               </div>
             )}
             {error && (
@@ -753,10 +750,10 @@ export default function CallPage() {
             )}
             <button
               onClick={startCall}
-              className="px-12 py-5 primary-gradient text-white text-lg font-bold rounded-3xl shadow-xl shadow-primary/20 hover:scale-[1.02] active:scale-[0.98] transition-all flex items-center gap-4 mx-auto"
+              className="px-12 py-5 primary-gradient text-white text-lg font-bold rounded-3xl shadow-xl shadow-primary/20 hover:scale-[1.02] active:scale-[0.98] transition-all flex items-center gap-4 mx-auto cursor-pointer"
             >
               <span className="material-symbols-outlined text-2xl" style={{ fontVariationSettings: "'FILL' 1" }}>videocam</span>
-              Join Secure Call
+              {t('call.joinCall', 'Join Secure Call')}
             </button>
           </div>
         ) : callStatus === 'ended' ? (
@@ -766,8 +763,8 @@ export default function CallPage() {
               <span className="material-symbols-outlined text-4xl" style={{ fontVariationSettings: "'FILL' 1" }}>task_alt</span>
             </div>
             <div>
-              <h2 className="text-white text-3xl font-headline font-bold mb-3">Call Completed</h2>
-              <p className="text-white/60 leading-relaxed">Your consultation has ended securely. Duration: <span className="text-primary font-bold">{formatTime(elapsedTime)}</span></p>
+              <h2 className="text-white text-3xl font-headline font-bold mb-3">{t('call.completed', 'Call Completed')}</h2>
+              <p className="text-white/60 leading-relaxed">{t('call.endedSecurely', 'Your consultation has ended securely. Duration:')} <span className="text-primary font-bold">{formatTime(elapsedTime)}</span></p>
             </div>
 
             {/* Full Transcript */}
@@ -776,20 +773,20 @@ export default function CallPage() {
                 <div className="flex items-center justify-between mb-4">
                   <div className="flex items-center gap-2">
                     <span className="material-symbols-outlined text-primary text-lg">subtitles</span>
-                    <h3 className="text-sm font-bold text-white">Call Transcript</h3>
+                    <h3 className="text-sm font-bold text-white">{t('call.transcript', 'Call Transcript')}</h3>
                   </div>
                   <div className="flex gap-2">
                     <button
                       onClick={downloadTranscript}
-                      className="p-1.5 hover:bg-white/5 rounded-lg text-primary transition-colors"
-                      title="Download as Text"
+                      className="p-1.5 hover:bg-white/5 rounded-lg text-primary transition-colors cursor-pointer"
+                      title={t('call.downloadTxt', 'Download as Text')}
                     >
                       <span className="material-symbols-outlined text-xl">download</span>
                     </button>
                     <button
                       onClick={() => window.print()}
-                      className="p-1.5 hover:bg-white/5 rounded-lg text-primary transition-colors"
-                      title="Export as PDF"
+                      className="p-1.5 hover:bg-white/5 rounded-lg text-primary transition-colors cursor-pointer"
+                      title={t('call.exportPdf', 'Export as PDF')}
                     >
                       <span className="material-symbols-outlined text-xl">picture_as_pdf</span>
                     </button>
@@ -808,9 +805,9 @@ export default function CallPage() {
 
             <button
               onClick={leaveRoom}
-              className="w-full py-4 bg-white/5 border border-white/10 text-white font-bold rounded-2xl hover:bg-white/10 transition-all shadow-sm"
+              className="w-full py-4 bg-white/5 border border-white/10 text-white font-bold rounded-2xl hover:bg-white/10 transition-all shadow-sm cursor-pointer"
             >
-              {isDoctorRole ? 'Return to Doctor Portal' : 'Return to Telemedicine'}
+              {isDoctorRole ? t('call.returnDoc', 'Return to Doctor Portal') : t('call.returnTele', 'Return to Telemedicine')}
             </button>
           </div>
         ) : (
@@ -830,7 +827,7 @@ export default function CallPage() {
                     <div className="w-16 h-16 rounded-full bg-white/5 flex items-center justify-center mb-4">
                       <div className="w-10 h-10 border-2 border-primary border-t-transparent rounded-full animate-spin" />
                     </div>
-                    <p className="text-white/50 text-sm">Waiting for other participant...</p>
+                    <p className="text-white/50 text-sm">{t('call.waitingParticipant', 'Waiting for other participant...')}</p>
                   </div>
                 )}
                 <div className="absolute bottom-3 left-3 px-3 py-1 bg-black/50 backdrop-blur rounded-lg">
@@ -855,7 +852,7 @@ export default function CallPage() {
                   </div>
                 )}
                 <div className="absolute bottom-3 left-3 px-3 py-1 bg-black/50 backdrop-blur rounded-lg">
-                  <span className="text-white/80 text-xs font-bold">You</span>
+                  <span className="text-white/80 text-xs font-bold">{t('call.you', 'You')}</span>
                 </div>
               </div>
             </div>

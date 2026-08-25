@@ -552,5 +552,47 @@
     "completed": "Completed",
     "rejected": "Rejected",
     "overdueEscalated": "Overdue Escalated"
+  },
+  "gender": {
+    "female": "Female",
+    "male": "Male",
+    "other": "Other / Non-Binary",
+    "preferNot": "Prefer not to say"
+  },
+  "admin": {
+    "portalTitle": "Administrator Control Portal",
+    "refreshApps": "Refresh Applications",
+    "verificationQueue": "Doctor Verification Queue",
+    "verificationSubtitle": "Practitioners awaiting registration approval for full clinical access.",
+    "pendingCountSuffix": "Applications Pending",
+    "noApplications": "No Doctor Applications",
+    "allProcessed": "All doctor credentials have been processed and verified.",
+    "regNo": "Reg No",
+    "qualification": "Qualification",
+    "hospital": "Hospital",
+    "email": "Email",
+    "experience": "Experience",
+    "years": "years",
+    "approvedVerified": "Approved & Verified",
+    "rejected": "Rejected",
+    "approveVerify": "Approve & Verify"
+  },
+  "healthModal": {
+    "actionRequired": "Action Required: Please configure your Blood Group and Gender for accurate emergency medical triage & prescriptions.",
+    "setUpNow": "Set Up Now",
+    "newTitle": "Complete Your Health Profile",
+    "editTitle": "Edit Health & Vitals Identity",
+    "newSubtitle": "Welcome to CuraTrack! Please select your blood group & gender for emergency triage.",
+    "editSubtitle": "Update your clinical demographics and emergency identification data.",
+    "requiredError": "Please select both Blood Group and Gender before continuing.",
+    "saveError": "Unable to save profile. Please try again.",
+    "savedSuccess": "Health profile successfully saved!",
+    "selectBlood": "Select Blood Group",
+    "selectGender": "Select Gender",
+    "ageYears": "Age (Years)",
+    "emergencyPhone": "Emergency Contact Phone",
+    "remindLater": "Remind Me Later",
+    "savingProfile": "Saving Profile...",
+    "saveComplete": "Save & Complete Profile"
   }
 }

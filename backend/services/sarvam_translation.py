@@ -1,13 +1,16 @@
 """
 Sarvam AI Translation Service for CuraTrack-V2.
-Provides real-time, cached, batch translation across English, Hindi, Marathi, and Tamil.
-Respects rate limits, timeouts, and fallback mechanisms.
+Provides real-time, cached, high-throughput concurrent batch translation
+across English, Hindi, Marathi, and Tamil using ThreadPoolExecutor.
+Communicates directly with the Sarvam AI Translation API (https://api.sarvam.ai/translate).
+Never logs or exposes API keys or sensitive health data.
 """
 
 import os
 import time
 import logging
-from typing import List, Dict, Optional
+from concurrent.futures import ThreadPoolExecutor, as_completed
+from typing import List, Dict, Tuple, Optional
 import requests
 
 logger = logging.getLogger("curatrack.sarvam_translation")
@@ -15,6 +18,7 @@ logger = logging.getLogger("curatrack.sarvam_translation")
 SARVAM_API_URL = "https://api.sarvam.ai/translate"
 SUPPORTED_LANGUAGES = {"en", "hi", "mr", "ta"}
 
+# Standard BCP-47 language codes expected by Sarvam AI
 SARVAM_LANG_MAP = {
     "en": "en-IN",
     "hi": "hi-IN",
@@ -22,13 +26,25 @@ SARVAM_LANG_MAP = {
     "ta": "ta-IN",
 }
 
-# In-memory LRU/Dictionary cache: "src:tgt:text" -> "translated_text"
+# In-memory translation cache: "src:tgt:text" -> "translated_text"
 _TRANSLATION_CACHE: Dict[str, str] = {}
 
 
 def get_sarvam_api_key() -> Optional[str]:
     """Retrieve Sarvam API Key from environment."""
-    return os.getenv("SARVAM_API_KEY") or os.getenv("SARVAM_API_SUBSCRIPTION_KEY")
+    key = os.getenv("SARVAM_API_KEY") or os.getenv("SARVAM_API_SUBSCRIPTION_KEY")
+    if key and key.strip():
+        return key.strip()
+    return None
+
+
+def is_pure_numeric_or_symbol(text: str) -> bool:
+    """Check if a string is pure numbers, punctuation, or whitespace that shouldn't be translated."""
+    stripped = text.strip()
+    if not stripped:
+        return True
+    cleaned = stripped.replace(".", "").replace(",", "").replace("%", "").replace(":", "").replace("-", "").replace("/", "").replace("+", "").replace("#", "").replace("•", "").replace("(", "").replace(")", "")
+    return cleaned.isdigit()
 
 
 def translate_single_sarvam(
@@ -36,30 +52,34 @@ def translate_single_sarvam(
     source_lang: str,
     target_lang: str,
     api_key: str,
-    timeout: float = 6.0,
+    timeout: float = 8.0,
     max_retries: int = 2
-) -> str:
+) -> Tuple[str, Optional[str]]:
     """
     Calls Sarvam AI translate endpoint for a single text chunk.
-    Implements retry on rate-limit (HTTP 429) or transient server errors.
+    Returns: (translated_text, error_message)
     """
     src_code = SARVAM_LANG_MAP.get(source_lang, "en-IN")
     tgt_code = SARVAM_LANG_MAP.get(target_lang, "hi-IN")
 
+    cleaned_input = text.strip()
+    if len(cleaned_input) > 1000:
+        cleaned_input = cleaned_input[:1000]
+
     payload = {
-        "input": text,
+        "input": cleaned_input,
         "source_language_code": src_code,
         "target_language_code": tgt_code,
-        "speaker_gender": "Male",
-        "mode": "formal",
         "model": "mayura:v1",
-        "enable_preprocessing": True
+        "mode": "formal"
     }
 
     headers = {
-        "api-subscription-key": api_key.strip(),
+        "api-subscription-key": api_key,
         "Content-Type": "application/json"
     }
+
+    last_error: Optional[str] = None
 
     for attempt in range(max_retries + 1):
         try:
@@ -69,95 +89,164 @@ def translate_single_sarvam(
                 headers=headers,
                 timeout=timeout
             )
+
             if response.status_code == 200:
                 data = response.json()
                 translated = data.get("translated_text")
-                if translated:
-                    return translated.strip()
-            elif response.status_code == 429:
-                # Rate limit encountered - sleep briefly and retry
-                time.sleep(0.5 * (attempt + 1))
-                continue
-            else:
-                logger.warning(
-                    "Sarvam translation API returned status %s: %s",
-                    response.status_code,
-                    response.text[:200]
-                )
-                break
-        except requests.exceptions.RequestException as ex:
-            logger.warning("Sarvam translation network exception: %s", ex)
-            if attempt < max_retries:
-                time.sleep(0.3 * (attempt + 1))
-            else:
-                break
+                if translated and translated.strip():
+                    return translated.strip(), None
+                return text, "Malformed response from Sarvam AI"
 
-    return text
+            elif response.status_code in (401, 403):
+                logger.warning("Sarvam AI authentication failure (HTTP %s)", response.status_code)
+                return text, "Sarvam API authentication failed (invalid or expired subscription key)"
+
+            elif response.status_code == 429:
+                last_error = "Sarvam API rate limit exceeded"
+                logger.warning("Sarvam AI rate limited (HTTP 429), attempt %d of %d", attempt + 1, max_retries + 1)
+                if attempt < max_retries:
+                    time.sleep(0.5 * (attempt + 1))
+                    continue
+                return text, last_error
+
+            elif response.status_code == 400:
+                last_error = "Sarvam API bad request (HTTP 400)"
+                logger.warning("Sarvam AI bad request: %s", response.text[:200])
+                return text, last_error
+
+            else:
+                last_error = f"Sarvam API error (HTTP {response.status_code})"
+                logger.warning("Sarvam AI returned unexpected status %s", response.status_code)
+                if attempt < max_retries:
+                    time.sleep(0.3 * (attempt + 1))
+                    continue
+                return text, last_error
+
+        except requests.exceptions.Timeout:
+            last_error = "Sarvam API request timed out"
+            logger.warning("Sarvam AI request timed out on attempt %d", attempt + 1)
+            if attempt < max_retries:
+                time.sleep(0.4)
+                continue
+            return text, last_error
+
+        except requests.exceptions.RequestException as ex:
+            last_error = f"Sarvam API network error: {type(ex).__name__}"
+            logger.warning("Sarvam AI network exception on attempt %d: %s", attempt + 1, ex)
+            if attempt < max_retries:
+                time.sleep(0.4)
+                continue
+            return text, last_error
+
+    return text, last_error or "Translation failed"
 
 
 def translate_batch(
     texts: List[str],
     source_lang: str = "en",
     target_lang: str = "hi"
-) -> List[str]:
+) -> Tuple[List[str], Dict[str, str], Optional[str]]:
     """
-    Translate a batch of UI texts from source_lang to target_lang.
-    Uses cached translations when available, and queries Sarvam AI for uncached texts.
-    Falls back gracefully to original text if translation fails or key is missing.
+    Translate a batch of UI texts from source_lang to target_lang concurrently.
+    Uses in-memory cache for instant returns, and ThreadPoolExecutor for fast parallel API calls.
+    Returns: (translations_list, translations_map, error_if_any)
     """
     if not texts:
-        return []
+        return [], {}, None
 
     source_lang = source_lang.lower().strip()
     target_lang = target_lang.lower().strip()
 
-    # If same language or unsupported target, return original texts
-    if source_lang == target_lang or target_lang not in SUPPORTED_LANGUAGES:
-        return texts
+    # Same language -> no translation needed
+    if source_lang == target_lang:
+        identity_map = {t: t for t in texts if t}
+        return texts, identity_map, None
+
+    if target_lang not in SUPPORTED_LANGUAGES:
+        return texts, {}, f"Unsupported target language: {target_lang}"
+
+    if source_lang not in SUPPORTED_LANGUAGES:
+        return texts, {}, f"Unsupported source language: {source_lang}"
 
     api_key = get_sarvam_api_key()
+    if not api_key:
+        logger.warning("Sarvam API key missing in environment")
+        return texts, {}, "Sarvam API key is not configured on the backend"
+
     results: List[str] = []
+    translations_map: Dict[str, str] = {}
     uncached_indices: List[int] = []
     uncached_texts: List[str] = []
 
     for idx, raw_text in enumerate(texts):
-        if not raw_text or not raw_text.strip():
+        if raw_text is None:
+            results.append("")
+            continue
+
+        if not raw_text or not raw_text.strip() or is_pure_numeric_or_symbol(raw_text):
             results.append(raw_text)
+            translations_map[raw_text] = raw_text
             continue
 
         stripped = raw_text.strip()
-
-        # Don't translate pure numbers or simple punctuation
-        if stripped.replace(".", "").replace(",", "").replace("%", "").replace(":", "").replace("-", "").isdigit():
-            results.append(raw_text)
-            continue
-
         cache_key = f"{source_lang}:{target_lang}:{stripped}"
+
         if cache_key in _TRANSLATION_CACHE:
-            results.append(_TRANSLATION_CACHE[cache_key])
+            cached_val = _TRANSLATION_CACHE[cache_key]
+            results.append(cached_val)
+            translations_map[raw_text] = cached_val
+            translations_map[stripped] = cached_val
         else:
-            # Placeholder for uncached translation
             results.append(raw_text)
             uncached_indices.append(idx)
             uncached_texts.append(stripped)
 
-    # If all were cached or no API key, return immediately
-    if not uncached_texts or not api_key:
-        return results
+    if not uncached_texts:
+        return results, translations_map, None
 
-    # Process uncached strings with Sarvam AI
-    for u_idx, text_to_translate in zip(uncached_indices, uncached_texts):
-        translated = translate_single_sarvam(
-            text=text_to_translate,
-            source_lang=source_lang,
-            target_lang=target_lang,
-            api_key=api_key
-        )
-        cache_key = f"{source_lang}:{target_lang}:{text_to_translate}"
-        _TRANSLATION_CACHE[cache_key] = translated
-        results[u_idx] = translated
+    # Deduplicate uncached strings to avoid redundant Sarvam API calls
+    unique_uncached_list = list(set(uncached_texts))
+    unique_translations: Dict[str, str] = {}
+    last_error: Optional[str] = None
 
-    return results
+    logger.info("Sarvam AI translating batch: %d unique strings in parallel (%s -> %s)", len(unique_uncached_list), source_lang, target_lang)
+
+    max_workers = min(12, max(1, len(unique_uncached_list)))
+    with ThreadPoolExecutor(max_workers=max_workers) as executor:
+        future_to_text = {
+            executor.submit(
+                translate_single_sarvam,
+                text=text_chunk,
+                source_lang=source_lang,
+                target_lang=target_lang,
+                api_key=api_key
+            ): text_chunk
+            for text_chunk in unique_uncached_list
+        }
+
+        for future in as_completed(future_to_text):
+            text_chunk = future_to_text[future]
+            try:
+                translated_chunk, err = future.result()
+                if err:
+                    last_error = err
+                else:
+                    cache_key = f"{source_lang}:{target_lang}:{text_chunk}"
+                    _TRANSLATION_CACHE[cache_key] = translated_chunk
+
+                unique_translations[text_chunk] = translated_chunk
+            except Exception as e:
+                logger.warning("Translation worker exception for '%s': %s", text_chunk, e)
+                unique_translations[text_chunk] = text_chunk
+
+    # Populate results
+    for u_idx, original_text in zip(uncached_indices, uncached_texts):
+        translated_val = unique_translations.get(original_text, original_text)
+        results[u_idx] = translated_val
+        translations_map[original_text] = translated_val
+        translations_map[texts[u_idx]] = translated_val
+
+    return results, translations_map, last_error
 
 
 def clear_translation_cache():

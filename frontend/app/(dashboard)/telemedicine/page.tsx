@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState, useCallback } from 'react';
 import { createClient } from '@/lib/supabase/client';
 import { useRouter } from 'next/navigation';
 import { apiFetch } from '@/lib/api';
+import { useI18n } from '@/lib/i18n';
 
 interface Doctor {
   id: string;
@@ -59,6 +60,7 @@ function getMaxDateStr(): string {
 }
 
 export default function TelemedicinePage() {
+  const { t } = useI18n();
   const supabase = useMemo(() => createClient(), []);
   const router = useRouter();
 

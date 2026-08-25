@@ -2,8 +2,10 @@
 
 import { useState, useEffect } from 'react';
 import { API_BASE } from '@/lib/api';
+import { useI18n } from '@/lib/i18n';
 
 export default function AdminPortalPage() {
+    const { t } = useI18n();
     const [doctors, setDoctors] = useState<any[]>([]);
     const [loading, setLoading] = useState(true);
     const [actionStatus, setActionStatus] = useState<string | null>(null);
@@ -108,11 +110,11 @@ export default function AdminPortalPage() {
                         <span className="material-symbols-outlined text-2xl">admin_panel_settings</span>
                     </div>
                     <div>
-                        <h1 className="font-headline font-bold text-2xl text-on-surface">Administrator Control Portal</h1>
+                        <h1 className="font-headline font-bold text-2xl text-on-surface">{t('admin.portalTitle', 'Administrator Control Portal')}</h1>
                     </div>
                 </div>
-                <button onClick={fetchPendingDoctors} className="px-4 py-2 bg-surface-container hover:bg-surface-container-high rounded-xl text-xs font-bold text-on-surface">
-                    🔄 Refresh Applications
+                <button onClick={fetchPendingDoctors} className="px-4 py-2 bg-surface-container hover:bg-surface-container-high rounded-xl text-xs font-bold text-on-surface cursor-pointer">
+                    🔄 {t('admin.refreshApps', 'Refresh Applications')}
                 </button>
             </header>
 
@@ -125,23 +127,23 @@ export default function AdminPortalPage() {
             <section className="bg-white rounded-3xl p-6 lg:p-8 shadow-sm border border-surface-container space-y-6">
                 <div className="flex justify-between items-center">
                     <div>
-                        <h2 className="font-headline text-xl font-bold text-on-surface">Doctor Verification Queue</h2>
-                        <p className="text-xs text-tertiary">Practitioners awaiting registration approval for full clinical access.</p>
+                        <h2 className="font-headline text-xl font-bold text-on-surface">{t('admin.verificationQueue', 'Doctor Verification Queue')}</h2>
+                        <p className="text-xs text-tertiary">{t('admin.verificationSubtitle', 'Practitioners awaiting registration approval for full clinical access.')}</p>
                     </div>
                     <span className={`px-3 py-1 rounded-full text-xs font-bold ${
                         pendingCount > 0 ? 'bg-amber-100 text-amber-800' : 'bg-emerald-100 text-emerald-800'
                     }`}>
-                        {pendingCount} Applications Pending
+                        {pendingCount} {t('admin.pendingCountSuffix', 'Applications Pending')}
                     </span>
                 </div>
 
                 {loading ? (
-                    <p className="text-sm text-tertiary text-center py-8">Loading doctor applications...</p>
+                    <p className="text-sm text-tertiary text-center py-8">{t('common.loading', 'Loading doctor applications...')}</p>
                 ) : doctors.length === 0 ? (
                     <div className="text-center py-12 space-y-2 text-tertiary">
                         <span className="material-symbols-outlined text-4xl opacity-40">verified</span>
-                        <p className="font-bold text-sm text-on-surface">No Doctor Applications</p>
-                        <p className="text-xs">All doctor credentials have been processed and verified.</p>
+                        <p className="font-bold text-sm text-on-surface">{t('admin.noApplications', 'No Doctor Applications')}</p>
+                        <p className="text-xs">{t('admin.allProcessed', 'All doctor credentials have been processed and verified.')}</p>
                     </div>
                 ) : (
                     <div className="space-y-4">
@@ -149,7 +151,7 @@ export default function AdminPortalPage() {
                             <div key={idx} className="p-6 bg-surface-container-low rounded-2xl border border-surface-container flex flex-col lg:flex-row lg:items-center justify-between gap-6">
                                 <div className="space-y-2">
                                     <div className="flex items-center gap-3">
-                                        <h3 className="font-headline font-bold text-lg text-on-surface">{doc.personal_details?.name || 'Dr. David Ross'}</h3>
+                                        <h3 className="font-headline font-bold text-lg text-on-surface">{doc.personal_details?.name || 'Dr. Medical Officer'}</h3>
                                         <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-bold ${
                                             doc.verification_status === 'verified' ? 'bg-emerald-100 text-emerald-800' :
                                             doc.verification_status === 'rejected' ? 'bg-red-100 text-red-800' : 'bg-amber-100 text-amber-800'
@@ -158,38 +160,38 @@ export default function AdminPortalPage() {
                                         </span>
                                     </div>
                                     <p className="text-xs text-tertiary">
-                                        <span className="font-bold text-on-surface">Reg No:</span> {doc.professional_details?.reg_number || 'MED-00471-TX'} · 
-                                        <span className="font-bold text-on-surface ml-2">Qualification:</span> {doc.professional_details?.qualification || 'MBBS, MD Cardiology'} · 
-                                        <span className="font-bold text-on-surface ml-2">Hospital:</span> {doc.professional_details?.hospital_name || 'Metropolitan Health System'}
+                                        <span className="font-bold text-on-surface">{t('admin.regNo', 'Reg No')}:</span> {doc.professional_details?.reg_number || 'MED-00471-TX'} · 
+                                        <span className="font-bold text-on-surface ml-2">{t('admin.qualification', 'Qualification')}:</span> {doc.professional_details?.qualification || 'MBBS, MD Cardiology'} · 
+                                        <span className="font-bold text-on-surface ml-2">{t('admin.hospital', 'Hospital')}:</span> {doc.professional_details?.hospital_name || 'Metropolitan Health System'}
                                     </p>
                                     <p className="text-xs text-tertiary">
-                                        <span className="font-bold text-on-surface">Email:</span> {doc.personal_details?.email || 'doctor@hospital.org'} · 
-                                        <span className="font-bold text-on-surface ml-2">Experience:</span> {doc.professional_details?.experience_years || 12} years
+                                        <span className="font-bold text-on-surface">{t('admin.email', 'Email')}:</span> {doc.personal_details?.email || 'doctor@hospital.org'} · 
+                                        <span className="font-bold text-on-surface ml-2">{t('admin.experience', 'Experience')}:</span> {doc.professional_details?.experience_years || 12} {t('admin.years', 'years')}
                                     </p>
                                 </div>
 
                                 <div className="flex items-center gap-3 shrink-0">
                                     {doc.verification_status === 'verified' ? (
                                         <span className="inline-flex items-center gap-1.5 px-4 py-2 bg-emerald-100 text-emerald-800 text-xs font-bold rounded-xl border border-emerald-200">
-                                            ✓ Approved & Verified
+                                            ✓ {t('admin.approvedVerified', 'Approved & Verified')}
                                         </span>
                                     ) : doc.verification_status === 'rejected' ? (
                                         <span className="inline-flex items-center gap-1.5 px-4 py-2 bg-red-100 text-red-800 text-xs font-bold rounded-xl border border-red-200">
-                                            ❌ Rejected
+                                            ❌ {t('admin.rejected', 'Rejected')}
                                         </span>
                                     ) : (
                                         <>
                                             <button
                                                 onClick={() => handleVerifyAction(doc.doctor_id, 'rejected')}
-                                                className="px-4 py-2 bg-red-100 hover:bg-red-200 text-red-800 text-xs font-bold rounded-xl transition-colors"
+                                                className="px-4 py-2 bg-red-100 hover:bg-red-200 text-red-800 text-xs font-bold rounded-xl transition-colors cursor-pointer"
                                             >
-                                                Reject
+                                                {t('common.reject', 'Reject')}
                                             </button>
                                             <button
                                                 onClick={() => handleVerifyAction(doc.doctor_id, 'verified')}
-                                                className="px-5 py-2 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold rounded-xl shadow-md transition-colors"
+                                                className="px-5 py-2 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold rounded-xl shadow-md transition-colors cursor-pointer"
                                             >
-                                                ✓ Approve & Verify
+                                                ✓ {t('admin.approveVerify', 'Approve & Verify')}
                                             </button>
                                         </>
                                     )}

@@ -54,10 +54,12 @@ def test_translate_endpoint_batch_mocked(client):
             res = client.post("/api/translation/translate", json=payload)
             assert res.status_code == 200
             data = res.json()
+            assert data["success"] is True
             assert len(data["translations"]) == 3
             assert data["translations"][0] == "डैशबोर्ड"
             assert data["translations"][1] == "100"  # Numbers preserved
             assert data["translations"][2] == ""  # Empty string preserved
+            assert data["translations_map"]["Dashboard"] == "डैशबोर्ड"
 
 
 def test_translate_endpoint_invalid_language(client):
@@ -83,6 +85,7 @@ def test_translate_same_language(client):
         res = client.post("/api/translation/translate", json=payload)
         assert res.status_code == 200
         data = res.json()
+        assert data["success"] is True
         assert data["translations"] == ["Emergency Department", "Appointments"]
         mock_post.assert_not_called()
 
@@ -98,13 +101,17 @@ def test_translation_caching_behavior():
     with patch("os.getenv", return_value="mock_api_key"):
         with patch("requests.post", return_value=mock_resp) as mock_post:
             # First call -> triggers mocked network call
-            res1 = translate_batch(["Hospital"], source_lang="en", target_lang="mr")
+            res1, map1, err1 = translate_batch(["Hospital"], source_lang="en", target_lang="mr")
             assert res1[0] == "रुग्णालय"
+            assert map1["Hospital"] == "रुग्णालय"
+            assert err1 is None
             assert mock_post.call_count == 1
 
             # Second call for same text -> must use cache, call count remains 1
-            res2 = translate_batch(["Hospital"], source_lang="en", target_lang="mr")
+            res2, map2, err2 = translate_batch(["Hospital"], source_lang="en", target_lang="mr")
             assert res2[0] == "रुग्णालय"
+            assert map2["Hospital"] == "रुग्णालय"
+            assert err2 is None
             assert mock_post.call_count == 1
             assert get_cache_size() >= 1
 
@@ -119,9 +126,10 @@ def test_translation_fallback_on_api_error():
 
     with patch("os.getenv", return_value="mock_api_key"):
         with patch("requests.post", return_value=mock_resp):
-            res = translate_batch(["Clinical Consultation"], source_lang="en", target_lang="ta")
-            # Should safely fallback to original text
+            res, trans_map, err = translate_batch(["Clinical Consultation"], source_lang="en", target_lang="ta")
+            # Should safely fallback to original text with error message
             assert res[0] == "Clinical Consultation"
+            assert err is not None
 
 
 def test_translation_missing_api_key_fallback():
@@ -130,6 +138,7 @@ def test_translation_missing_api_key_fallback():
 
     with patch("os.getenv", return_value=None):
         with patch("requests.post") as mock_post:
-            res = translate_batch(["Active Regimen"], source_lang="en", target_lang="hi")
+            res, trans_map, err = translate_batch(["Active Regimen"], source_lang="en", target_lang="hi")
             assert res[0] == "Active Regimen"
+            assert "not configured" in (err or "")
             mock_post.assert_not_called()

@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { API_BASE } from '@/lib/api';
 import { createClient } from '@/lib/supabase/client';
+import { useI18n } from '@/lib/i18n';
 
 const QUESTIONS = [
   {
@@ -75,6 +76,7 @@ const RISK_CONFIG: Record<string, { color: string; bg: string; border: string; l
 };
 
 export default function SDOHOnboardingPage() {
+  const { t } = useI18n();
   const router = useRouter();
   const [step, setStep] = useState(0);
   const [answers, setAnswers] = useState<Record<string, number>>({});

@@ -207,10 +207,11 @@ export default function LoginPage() {
 
             {/* Right Side: Authentication & Demo Credential Cards */}
             <section className="flex flex-col items-center justify-center p-6 lg:p-12 overflow-y-auto">
-                <div className="w-full max-w-[540px] bg-white rounded-3xl shadow-[0_24px_48px_-12px_rgba(0,0,0,0.06)] border border-surface-container-high overflow-hidden">
+                <div suppressHydrationWarning className="w-full max-w-[540px] bg-white rounded-3xl shadow-[0_24px_48px_-12px_rgba(0,0,0,0.06)] border border-surface-container-high overflow-hidden">
                     {/* Tabs */}
-                    <div className="flex relative border-b border-surface-container-high">
+                    <div suppressHydrationWarning className="flex relative border-b border-surface-container-high">
                         <button
+                            suppressHydrationWarning
                             onClick={() => { setMode('login'); setError(''); }}
                             className={`flex-1 py-5 text-center font-headline font-bold text-sm relative transition-colors ${mode === 'login' ? 'text-primary' : 'text-outline hover:bg-surface-container-low'}`}
                         >
@@ -218,6 +219,7 @@ export default function LoginPage() {
                             {mode === 'login' && <div className="absolute bottom-0 left-0 w-full h-1 bg-primary"></div>}
                         </button>
                         <button
+                            suppressHydrationWarning
                             onClick={() => { setMode('signup'); setError(''); }}
                             className={`flex-1 py-5 text-center font-headline font-bold text-sm relative transition-colors ${mode === 'signup' ? 'text-primary' : 'text-outline hover:bg-surface-container-low'}`}
                         >
@@ -235,12 +237,13 @@ export default function LoginPage() {
                             </div>
                         )}
 
-                        <form className="space-y-4" onSubmit={handleSubmit}>
+                        <form suppressHydrationWarning className="space-y-4" onSubmit={handleSubmit}>
                             {/* Name field (signup only) */}
                             {mode === 'signup' && (
                                 <div className="space-y-1">
                                     <label className="block text-xs font-semibold text-tertiary">Full Name</label>
                                     <input
+                                        suppressHydrationWarning
                                         className="w-full px-4 py-3 bg-surface-container-low rounded-xl text-xs font-bold text-on-surface border border-surface-container-high outline-none focus:border-primary"
                                         placeholder="e.g. Kavita Bai"
                                         type="text"
@@ -256,6 +259,7 @@ export default function LoginPage() {
                                 <div className="space-y-1">
                                     <label className="block text-xs font-semibold text-tertiary">Select Stakeholder Role</label>
                                     <select
+                                        suppressHydrationWarning
                                         className="w-full px-4 py-3 bg-surface-container-low rounded-xl text-xs font-bold text-on-surface border border-surface-container-high outline-none focus:border-primary cursor-pointer"
                                         value={signupRole}
                                         onChange={e => setSignupRole(e.target.value as UserRole)}
@@ -280,6 +284,7 @@ export default function LoginPage() {
                                             <span className="text-[10px] font-bold text-primary bg-primary/10 px-2 py-0.5 rounded-full">REQUIRED</span>
                                         </div>
                                         <input
+                                            suppressHydrationWarning
                                             className="w-full px-4 py-3 bg-surface-container-low rounded-xl text-xs font-bold text-on-surface border border-surface-container-high outline-none focus:border-primary uppercase tracking-wider font-mono"
                                             placeholder={keyInfo.placeholder}
                                             type="text"
@@ -296,6 +301,7 @@ export default function LoginPage() {
                             <div className="space-y-1">
                                 <label className="block text-xs font-semibold text-tertiary">Email Address</label>
                                 <input
+                                    suppressHydrationWarning
                                     className="w-full px-4 py-3 bg-surface-container-low rounded-xl text-xs font-bold text-on-surface border border-surface-container-high outline-none focus:border-primary"
                                     placeholder="name@example.com"
                                     type="email"
@@ -312,6 +318,7 @@ export default function LoginPage() {
                                 </div>
                                 <div className="relative">
                                     <input
+                                        suppressHydrationWarning
                                         className="w-full px-4 py-3 bg-surface-container-low rounded-xl text-xs font-bold text-on-surface border border-surface-container-high outline-none focus:border-primary pr-10"
                                         placeholder="••••••••"
                                         type={showPassword ? 'text' : 'password'}
@@ -320,6 +327,7 @@ export default function LoginPage() {
                                         required
                                     />
                                     <button
+                                        suppressHydrationWarning
                                         type="button"
                                         onClick={() => setShowPassword(!showPassword)}
                                         className="absolute right-3 top-1/2 -translate-y-1/2 text-tertiary hover:text-on-surface"
@@ -333,6 +341,7 @@ export default function LoginPage() {
 
                             {/* Submit Button */}
                             <button
+                                suppressHydrationWarning
                                 type="submit"
                                 disabled={loading}
                                 className="w-full py-3.5 bg-primary hover:bg-primary/95 text-white font-bold text-xs rounded-xl shadow-md shadow-primary/20 transition-all flex items-center justify-center gap-2 disabled:opacity-50"
@@ -350,6 +359,7 @@ export default function LoginPage() {
                             {/* Google Sign In */}
                             <div className="pt-2">
                                 <button
+                                    suppressHydrationWarning
                                     type="button"
                                     onClick={handleGoogleLogin}
                                     disabled={googleLoading}

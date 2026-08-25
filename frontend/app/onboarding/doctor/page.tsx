@@ -4,8 +4,10 @@ import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { API_BASE } from '@/lib/api';
 import { createClient } from '@/lib/supabase/client';
+import { useI18n } from '@/lib/i18n';
 
 export default function DoctorOnboardingPage() {
+    const { t } = useI18n();
     const router = useRouter();
     const [userId, setUserId] = useState<string>('demo-doctor-001');
     const [activeStep, setActiveStep] = useState(1);

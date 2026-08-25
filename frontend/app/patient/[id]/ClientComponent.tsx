@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react';
 import { useParams } from 'next/navigation';
 import { API_BASE } from '@/lib/api';
+import { useI18n } from '@/lib/i18n';
 
 interface PatientDetailsData {
     id: string;
@@ -19,6 +20,7 @@ interface PatientDetailsData {
 }
 
 export default function PatientDetailsPage() {
+    const { t } = useI18n();
     const params = useParams();
     const id = (params?.id as string) || 'demo';
     const [patient, setPatient] = useState<PatientDetailsData | null>(null);
@@ -61,7 +63,7 @@ export default function PatientDetailsPage() {
                         <div className="h-4 bg-surface-container rounded-lg w-1/2 mx-auto animate-pulse"></div>
                         <div className="h-28 bg-surface-container rounded-2xl w-full animate-pulse mt-6"></div>
                     </div>
-                    <p className="text-tertiary font-semibold mt-8">Loading Patient Details...</p>
+                    <p className="text-tertiary font-semibold mt-8">{t('patient.loading', 'Loading Patient Details...')}</p>
                 </div>
             </div>
         );
@@ -74,14 +76,14 @@ export default function PatientDetailsPage() {
                     <div className="w-16 h-16 mx-auto mb-6 bg-error/10 rounded-2xl flex items-center justify-center text-error">
                         <span className="material-symbols-outlined text-3xl">error</span>
                     </div>
-                    <h1 className="text-2xl font-extrabold text-on-surface font-headline mb-2">Patient Not Found</h1>
-                    <p className="text-tertiary mb-6">{error || `No patient record found for ID: ${id}`}</p>
+                    <h1 className="text-2xl font-extrabold text-on-surface font-headline mb-2">{t('patient.notFound', 'Patient Not Found')}</h1>
+                    <p className="text-tertiary mb-6">{error || `${t('patient.noRecordFound', 'No patient record found for ID:')} ${id}`}</p>
                     <a
                         href="/"
-                        className="inline-flex items-center gap-2 px-6 py-3 bg-primary text-white font-bold rounded-xl shadow-md hover:bg-primary/90 transition-all"
+                        className="inline-flex items-center gap-2 px-6 py-3 bg-primary text-white font-bold rounded-xl shadow-md hover:bg-primary/90 transition-all cursor-pointer"
                     >
                         <span className="material-symbols-outlined text-sm">home</span>
-                        Return Home
+                        {t('patient.returnHome', 'Return Home')}
                     </a>
                 </div>
             </div>
@@ -101,13 +103,13 @@ export default function PatientDetailsPage() {
                         </div>
                         <div>
                             <h1 className="text-lg font-bold text-on-surface font-headline tracking-tight">CuraTrack</h1>
-                            <p className="text-[10px] text-tertiary uppercase tracking-widest font-bold">Patient Clinical Profile</p>
+                            <p className="text-[10px] text-tertiary uppercase tracking-widest font-bold">{t('patient.profileTitle', 'Patient Clinical Profile')}</p>
                         </div>
                     </div>
 
                     <div className="flex items-center gap-2 px-3 py-1.5 bg-secondary-container text-on-secondary-container rounded-full text-xs font-bold shadow-sm">
                         <span className="w-2 h-2 rounded-full bg-secondary animate-ping"></span>
-                        Verified Scan
+                        {t('patient.verifiedScan', 'Verified Scan')}
                     </div>
                 </div>
 
@@ -122,7 +124,7 @@ export default function PatientDetailsPage() {
                             </div>
                             <div>
                                 <h2 className="text-3xl font-extrabold text-on-surface font-headline tracking-tight">{patient.name}</h2>
-                                <p className="text-xs text-tertiary font-mono mt-0.5">ID: {patient.id}</p>
+                                <p className="text-xs text-tertiary font-mono mt-0.5">{t('patient.idLabel', 'ID')}: {patient.id}</p>
                             </div>
                         </div>
                     </div>
@@ -130,15 +132,15 @@ export default function PatientDetailsPage() {
                     {/* Vitals Quick Grid */}
                     <div className="grid grid-cols-3 gap-3 pt-4 border-t border-surface-container">
                         <div className="p-4 bg-surface-container-low rounded-2xl text-center">
-                            <p className="text-[10px] text-tertiary font-bold uppercase tracking-wider mb-1">Age</p>
+                            <p className="text-[10px] text-tertiary font-bold uppercase tracking-wider mb-1">{t('patient.age', 'Age')}</p>
                             <p className="text-xl font-headline font-bold text-on-surface">{patient.age || '34'}</p>
                         </div>
                         <div className="p-4 bg-surface-container-low rounded-2xl text-center">
-                            <p className="text-[10px] text-tertiary font-bold uppercase tracking-wider mb-1">Gender</p>
+                            <p className="text-[10px] text-tertiary font-bold uppercase tracking-wider mb-1">{t('patient.gender', 'Gender')}</p>
                             <p className="text-xl font-headline font-bold text-on-surface">{patient.gender || 'Female'}</p>
                         </div>
                         <div className="p-4 bg-surface-container-low rounded-2xl text-center">
-                            <p className="text-[10px] text-tertiary font-bold uppercase tracking-wider mb-1">Blood Group</p>
+                            <p className="text-[10px] text-tertiary font-bold uppercase tracking-wider mb-1">{t('patient.bloodGroup', 'Blood Group')}</p>
                             <p className="text-xl font-headline font-bold text-on-surface">{patient.blood_group || 'O+'}</p>
                         </div>
                     </div>
@@ -154,11 +156,11 @@ export default function PatientDetailsPage() {
                                 <span className={`material-symbols-outlined ${patient.allergies.length > 0 ? 'text-red-600' : 'text-tertiary'}`}>
                                     warning
                                 </span>
-                                <h3 className="text-lg font-bold text-on-surface font-headline">Known Allergies</h3>
+                                <h3 className="text-lg font-bold text-on-surface font-headline">{t('patient.allergies', 'Known Allergies')}</h3>
                             </div>
                             {patient.allergies.length > 0 && (
                                 <span className="px-2.5 py-1 bg-red-100 text-red-700 text-xs font-black uppercase rounded-lg">
-                                    Critical Alert
+                                    {t('patient.criticalAlert', 'Critical Alert')}
                                 </span>
                             )}
                         </div>
@@ -179,7 +181,7 @@ export default function PatientDetailsPage() {
                                 ))}
                             </div>
                         ) : (
-                            <p className="text-sm text-tertiary italic">No documented allergies</p>
+                            <p className="text-sm text-tertiary italic">{t('patient.noAllergies', 'No documented allergies')}</p>
                         )}
                     </div>
                 )}
@@ -189,7 +191,7 @@ export default function PatientDetailsPage() {
                     <div className="bg-white rounded-3xl p-6 shadow-sm border border-surface-container">
                         <div className="flex items-center gap-2 mb-4">
                             <span className="material-symbols-outlined text-amber-600">pill</span>
-                            <h3 className="text-lg font-bold text-on-surface font-headline">Active Medications</h3>
+                            <h3 className="text-lg font-bold text-on-surface font-headline">{t('patient.activeMeds', 'Active Medications')}</h3>
                         </div>
                         {patient.medications.length > 0 ? (
                             <div className="space-y-2">
@@ -200,13 +202,13 @@ export default function PatientDetailsPage() {
                                             <p className="text-xs text-tertiary mt-0.5">{med.dose} • {med.frequency}</p>
                                         </div>
                                         <span className="px-2.5 py-1 bg-secondary/10 text-secondary text-xs font-bold rounded-lg uppercase">
-                                            Active
+                                            {t('patient.active', 'Active')}
                                         </span>
                                     </div>
                                 ))}
                             </div>
                         ) : (
-                            <p className="text-sm text-tertiary italic">No active medications on file</p>
+                            <p className="text-sm text-tertiary italic">{t('patient.noMeds', 'No active medications on file')}</p>
                         )}
                     </div>
                 )}
@@ -216,7 +218,7 @@ export default function PatientDetailsPage() {
                     <div className="bg-white rounded-3xl p-6 shadow-sm border border-surface-container">
                         <div className="flex items-center gap-2 mb-4">
                             <span className="material-symbols-outlined text-blue-600">clinical_notes</span>
-                            <h3 className="text-lg font-bold text-on-surface font-headline">Medical History & Diagnoses</h3>
+                            <h3 className="text-lg font-bold text-on-surface font-headline">{t('patient.medicalHistory', 'Medical History & Diagnoses')}</h3>
                         </div>
                         {patient.diagnoses.length > 0 ? (
                             <div className="space-y-2">
@@ -224,7 +226,7 @@ export default function PatientDetailsPage() {
                                     <div key={i} className="flex items-center justify-between p-4 bg-surface-container-low rounded-2xl">
                                         <div>
                                             <p className="font-bold text-on-surface text-base">{diag.name}</p>
-                                            <p className="text-xs text-tertiary mt-0.5">Diagnosed: {diag.date}</p>
+                                            <p className="text-xs text-tertiary mt-0.5">{t('patient.diagnosed', 'Diagnosed')}: {diag.date}</p>
                                         </div>
                                         <span className={`px-2.5 py-1 text-xs font-bold rounded-lg uppercase ${
                                             diag.status === 'Active' ? 'bg-primary/10 text-primary' : 'bg-surface-container text-tertiary'
@@ -235,7 +237,7 @@ export default function PatientDetailsPage() {
                                 ))}
                             </div>
                         ) : (
-                            <p className="text-sm text-tertiary italic">No diagnoses on file</p>
+                            <p className="text-sm text-tertiary italic">{t('patient.noDiagnoses', 'No diagnoses on file')}</p>
                         )}
                     </div>
                 )}
@@ -245,19 +247,19 @@ export default function PatientDetailsPage() {
                     <div className="bg-white rounded-3xl p-6 shadow-sm border border-surface-container">
                         <div className="flex items-center gap-2 mb-4">
                             <span className="material-symbols-outlined text-pink-600">favorite</span>
-                            <h3 className="text-lg font-bold text-on-surface font-headline">Latest Vital Signs</h3>
+                            <h3 className="text-lg font-bold text-on-surface font-headline">{t('patient.latestVitals', 'Latest Vital Signs')}</h3>
                         </div>
                         <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
                             {patient.vitals.heart_rate && (
                                 <div className="p-4 bg-surface-container-low rounded-2xl text-center">
-                                    <p className="text-[10px] text-tertiary font-bold uppercase tracking-wider">Heart Rate</p>
+                                    <p className="text-[10px] text-tertiary font-bold uppercase tracking-wider">{t('patient.heartRate', 'Heart Rate')}</p>
                                     <p className="text-2xl font-extrabold text-on-surface mt-1">{patient.vitals.heart_rate.value}</p>
                                     <p className="text-xs text-tertiary">{patient.vitals.heart_rate.unit}</p>
                                 </div>
                             )}
                             {patient.vitals.blood_pressure && (
                                 <div className="p-4 bg-surface-container-low rounded-2xl text-center">
-                                    <p className="text-[10px] text-tertiary font-bold uppercase tracking-wider">Blood Pressure</p>
+                                    <p className="text-[10px] text-tertiary font-bold uppercase tracking-wider">{t('patient.bloodPressure', 'Blood Pressure')}</p>
                                     <p className="text-2xl font-extrabold text-on-surface mt-1">
                                         {patient.vitals.blood_pressure.systolic}/{patient.vitals.blood_pressure.diastolic}
                                     </p>
@@ -266,14 +268,14 @@ export default function PatientDetailsPage() {
                             )}
                             {patient.vitals.spo2 && (
                                 <div className="p-4 bg-surface-container-low rounded-2xl text-center">
-                                    <p className="text-[10px] text-tertiary font-bold uppercase tracking-wider">SpO2</p>
+                                    <p className="text-[10px] text-tertiary font-bold uppercase tracking-wider">{t('patient.spo2', 'SpO2')}</p>
                                     <p className="text-2xl font-extrabold text-on-surface mt-1">{patient.vitals.spo2.value}</p>
                                     <p className="text-xs text-tertiary">{patient.vitals.spo2.unit}</p>
                                 </div>
                             )}
                             {patient.vitals.blood_glucose && (
                                 <div className="p-4 bg-surface-container-low rounded-2xl text-center">
-                                    <p className="text-[10px] text-tertiary font-bold uppercase tracking-wider">Blood Glucose</p>
+                                    <p className="text-[10px] text-tertiary font-bold uppercase tracking-wider">{t('patient.bloodGlucose', 'Blood Glucose')}</p>
                                     <p className="text-2xl font-extrabold text-on-surface mt-1">{patient.vitals.blood_glucose.value}</p>
                                     <p className="text-xs text-tertiary">{patient.vitals.blood_glucose.unit}</p>
                                 </div>
@@ -287,23 +289,23 @@ export default function PatientDetailsPage() {
                     <div className="bg-white rounded-3xl p-6 shadow-sm border border-surface-container">
                         <div className="flex items-center gap-2 mb-4">
                             <span className="material-symbols-outlined text-emerald-600">shield</span>
-                            <h3 className="text-lg font-bold text-on-surface font-headline">Insurance Coverage</h3>
+                            <h3 className="text-lg font-bold text-on-surface font-headline">{t('patient.insuranceCoverage', 'Insurance Coverage')}</h3>
                         </div>
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                             <div className="p-4 bg-surface-container-low rounded-2xl flex justify-between items-center">
-                                <span className="text-xs text-tertiary font-bold uppercase">Provider</span>
+                                <span className="text-xs text-tertiary font-bold uppercase">{t('patient.provider', 'Provider')}</span>
                                 <span className="font-bold text-on-surface">{patient.insurance.provider}</span>
                             </div>
                             <div className="p-4 bg-surface-container-low rounded-2xl flex justify-between items-center">
-                                <span className="text-xs text-tertiary font-bold uppercase">Plan</span>
+                                <span className="text-xs text-tertiary font-bold uppercase">{t('patient.plan', 'Plan')}</span>
                                 <span className="font-bold text-on-surface">{patient.insurance.plan}</span>
                             </div>
                             <div className="p-4 bg-surface-container-low rounded-2xl flex justify-between items-center">
-                                <span className="text-xs text-tertiary font-bold uppercase">Member ID</span>
+                                <span className="text-xs text-tertiary font-bold uppercase">{t('patient.memberId', 'Member ID')}</span>
                                 <span className="font-mono font-bold text-on-surface">{patient.insurance.member_id}</span>
                             </div>
                             <div className="p-4 bg-surface-container-low rounded-2xl flex justify-between items-center">
-                                <span className="text-xs text-tertiary font-bold uppercase">Status</span>
+                                <span className="text-xs text-tertiary font-bold uppercase">{t('patient.status', 'Status')}</span>
                                 <span className="px-2.5 py-1 bg-emerald-100 text-emerald-800 text-xs font-bold rounded-lg uppercase">
                                     {patient.insurance.status}
                                 </span>
@@ -316,7 +318,7 @@ export default function PatientDetailsPage() {
                 <div className="text-center py-6 border-t border-surface-container">
                     <p className="text-xs text-tertiary flex items-center justify-center gap-1">
                         <span className="material-symbols-outlined text-sm">lock</span>
-                        Encrypted Medical Data Access • CuraTrack Health Record System
+                        {t('patient.encryptedNotice', 'Encrypted Medical Data Access • CuraTrack Health Record System')}
                     </p>
                 </div>
             </div>

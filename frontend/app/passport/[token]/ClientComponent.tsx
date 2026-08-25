@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react';
 import { useParams, useSearchParams } from 'next/navigation';
 import { API_BASE } from '@/lib/api';
+import { useI18n } from '@/lib/i18n';
 
 interface PassportData {
     passport_id?: string;
@@ -20,6 +21,7 @@ interface PassportData {
 }
 
 export default function PassportPage() {
+    const { t } = useI18n();
     const params = useParams();
     const searchParams = useSearchParams();
     const passportId = (params?.token as string) || 'demo';
@@ -125,7 +127,7 @@ export default function PassportPage() {
                     <div className="w-16 h-16 mx-auto mb-6 bg-error/10 rounded-2xl flex items-center justify-center text-error">
                         <span className="material-symbols-outlined text-3xl">error</span>
                     </div>
-                    <h1 className="text-2xl font-extrabold text-on-surface font-headline mb-2">Access Error</h1>
+                    <h1 className="text-2xl font-extrabold text-on-surface font-headline mb-2">{t('passport.accessError', 'Access Error')}</h1>
                     <p className="text-tertiary">{error}</p>
                 </div>
             </div>
@@ -144,11 +146,11 @@ export default function PassportPage() {
                             <div className="w-20 h-20 mx-auto mb-6 bg-error/10 rounded-full flex items-center justify-center text-error">
                                 <span className="material-symbols-outlined text-4xl">lock_clock</span>
                             </div>
-                            <h2 className="text-2xl font-extrabold text-on-surface font-headline mb-2">Access Expired</h2>
-                            <p className="text-tertiary mb-6">This passport link has expired or has already been used. Please request a new QR code from the patient.</p>
+                            <h2 className="text-2xl font-extrabold text-on-surface font-headline mb-2">{t('passport.expiredTitle', 'Access Expired')}</h2>
+                            <p className="text-tertiary mb-6">{t('passport.expiredDesc', 'This passport link has expired or has already been used. Please request a new QR code from the patient.')}</p>
                             <div className="px-4 py-2 bg-surface-container rounded-full inline-flex items-center gap-2 text-sm font-bold text-tertiary">
                                 <span className="material-symbols-outlined text-sm">security</span>
-                                Protected by CuraTrack
+                                {t('passport.protectedNotice', 'Protected by CuraTrack')}
                             </div>
                         </div>
                     </div>
@@ -162,7 +164,7 @@ export default function PassportPage() {
                         </div>
                         <div>
                             <h1 className="text-lg font-bold text-on-surface font-headline tracking-tight">CuraTrack</h1>
-                            <p className="text-[10px] text-tertiary uppercase tracking-widest font-bold">Patient Passport</p>
+                            <p className="text-[10px] text-tertiary uppercase tracking-widest font-bold">{t('passport.patientPassport', 'Patient Passport')}</p>
                         </div>
                     </div>
 
@@ -182,22 +184,20 @@ export default function PassportPage() {
                 {/* Patient Card */}
                 {data && (
                     <div className={`space-y-4 transition-all duration-500 ${expired ? 'blur-lg pointer-events-none select-none' : ''}`}>
-                        {/* Patient Info Header */}
-                        <div className="bg-white rounded-3xl p-6 shadow-sm border border-surface-container">
-                            <div className="flex items-center gap-4 mb-4">
-                                <div className="w-14 h-14 rounded-2xl bg-primary/10 flex items-center justify-center text-primary">
-                                    <span className="material-symbols-outlined text-3xl" style={{ fontVariationSettings: "'FILL' 1" }}>person</span>
+                        {/* Info Banner */}
+                        <div className="bg-white rounded-3xl p-6 shadow-sm border border-surface-container flex items-center justify-between">
+                            <div className="flex items-center gap-3">
+                                <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center text-primary">
+                                    <span className="material-symbols-outlined">qr_code_2</span>
                                 </div>
                                 <div>
-                                    <h2 className="text-2xl font-extrabold text-on-surface font-headline tracking-tight">{data.patient_name}</h2>
-                                    <p className="text-xs text-tertiary">
-                                        Generated: {new Date(data.generated_at).toLocaleString()} • v{data.version}
-                                    </p>
+                                    <p className="text-xs text-tertiary uppercase font-bold tracking-wider">{t('passport.title', 'Emergency Medical Passport')}</p>
+                                    <p className="text-xs text-tertiary">{t('passport.autoExpires', 'Auto-expires when timer reaches zero')}</p>
                                 </div>
                             </div>
-                            <div className="flex items-center gap-2 px-3 py-1.5 bg-surface-container-low rounded-lg w-fit">
-                                <span className="w-2 h-2 rounded-full bg-secondary"></span>
-                                <span className="text-xs font-bold text-tertiary">Secure One-Time Access</span>
+                            <div className="flex items-center gap-1.5 px-3 py-1.5 bg-surface-container rounded-full">
+                                <span className="material-symbols-outlined text-xs text-tertiary">lock</span>
+                                <span className="text-xs font-bold text-tertiary">{t('passport.secureAccess', 'Secure One-Time Access')}</span>
                             </div>
                         </div>
 
@@ -208,9 +208,9 @@ export default function PassportPage() {
                             }`}>
                                 <div className="flex items-center gap-2 mb-4">
                                     <span className={`material-symbols-outlined ${data.allergies.length > 0 ? 'text-red-600' : 'text-tertiary'}`}>warning</span>
-                                    <h3 className="text-lg font-bold text-on-surface font-headline">Allergies</h3>
+                                    <h3 className="text-lg font-bold text-on-surface font-headline">{t('passport.allergies', 'Allergies')}</h3>
                                     {data.allergies.length > 0 && (
-                                        <span className="px-2 py-0.5 bg-red-100 text-red-700 text-[10px] font-black uppercase rounded-md tracking-tight">Critical</span>
+                                        <span className="px-2 py-0.5 bg-red-100 text-red-700 text-[10px] font-black uppercase rounded-md tracking-tight">{t('passport.critical', 'Critical')}</span>
                                     )}
                                 </div>
                                 {data.allergies.length > 0 ? (
@@ -228,7 +228,7 @@ export default function PassportPage() {
                                         ))}
                                     </div>
                                 ) : (
-                                    <p className="text-sm text-tertiary italic">No known allergies</p>
+                                    <p className="text-sm text-tertiary italic">{t('passport.noAllergies', 'No known allergies')}</p>
                                 )}
                             </div>
                         )}
@@ -238,7 +238,7 @@ export default function PassportPage() {
                             <div className="bg-white rounded-3xl p-6 shadow-sm border border-surface-container">
                                 <div className="flex items-center gap-2 mb-4">
                                     <span className="material-symbols-outlined text-amber-600">pill</span>
-                                    <h3 className="text-lg font-bold text-on-surface font-headline">Active Medications</h3>
+                                    <h3 className="text-lg font-bold text-on-surface font-headline">{t('passport.activeMeds', 'Active Medications')}</h3>
                                 </div>
                                 {data.active_medications.length > 0 ? (
                                     <div className="space-y-2">
@@ -248,12 +248,12 @@ export default function PassportPage() {
                                                     <p className="font-bold text-on-surface">{m.name}</p>
                                                     <p className="text-xs text-tertiary">{m.dose} • {m.frequency}</p>
                                                 </div>
-                                                <span className="px-2 py-1 bg-secondary/10 text-secondary text-[10px] font-black uppercase rounded-lg">Active</span>
+                                                <span className="px-2 py-1 bg-secondary/10 text-secondary text-[10px] font-black uppercase rounded-lg">{t('passport.active', 'Active')}</span>
                                             </div>
                                         ))}
                                     </div>
                                 ) : (
-                                    <p className="text-sm text-tertiary italic">No active medications</p>
+                                    <p className="text-sm text-tertiary italic">{t('passport.noMeds', 'No active medications')}</p>
                                 )}
                             </div>
                         )}
@@ -263,7 +263,7 @@ export default function PassportPage() {
                             <div className="bg-white rounded-3xl p-6 shadow-sm border border-surface-container">
                                 <div className="flex items-center gap-2 mb-4">
                                     <span className="material-symbols-outlined text-blue-600">clinical_notes</span>
-                                    <h3 className="text-lg font-bold text-on-surface font-headline">Recent Diagnoses</h3>
+                                    <h3 className="text-lg font-bold text-on-surface font-headline">{t('passport.recentDiagnoses', 'Recent Diagnoses')}</h3>
                                 </div>
                                 {data.last_3_diagnoses.length > 0 ? (
                                     <div className="space-y-2">
@@ -280,7 +280,7 @@ export default function PassportPage() {
                                         ))}
                                     </div>
                                 ) : (
-                                    <p className="text-sm text-tertiary italic">No diagnoses on record</p>
+                                    <p className="text-sm text-tertiary italic">{t('passport.noDiagnoses', 'No diagnoses on record')}</p>
                                 )}
                             </div>
                         )}
@@ -290,20 +290,20 @@ export default function PassportPage() {
                             <div className="bg-white rounded-3xl p-6 shadow-sm border border-surface-container">
                                 <div className="flex items-center gap-2 mb-4">
                                     <span className="material-symbols-outlined text-pink-600">favorite</span>
-                                    <h3 className="text-lg font-bold text-on-surface font-headline">Latest Vitals</h3>
+                                    <h3 className="text-lg font-bold text-on-surface font-headline">{t('passport.latestVitals', 'Latest Vitals')}</h3>
                                 </div>
                                 {data.last_lab_values ? (
                                     <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
                                         {data.last_lab_values.heart_rate && (
                                             <div className="p-3 bg-surface-container-low rounded-2xl text-center">
-                                                <p className="text-[10px] text-tertiary font-bold uppercase tracking-wider">Heart Rate</p>
+                                                <p className="text-[10px] text-tertiary font-bold uppercase tracking-wider">{t('passport.heartRate', 'Heart Rate')}</p>
                                                 <p className="text-2xl font-extrabold text-on-surface">{data.last_lab_values.heart_rate.value}</p>
                                                 <p className="text-xs text-tertiary">{data.last_lab_values.heart_rate.unit}</p>
                                             </div>
                                         )}
                                         {data.last_lab_values.blood_pressure && (
                                             <div className="p-3 bg-surface-container-low rounded-2xl text-center">
-                                                <p className="text-[10px] text-tertiary font-bold uppercase tracking-wider">Blood Pressure</p>
+                                                <p className="text-[10px] text-tertiary font-bold uppercase tracking-wider">{t('passport.bloodPressure', 'Blood Pressure')}</p>
                                                 <p className="text-2xl font-extrabold text-on-surface">
                                                     {data.last_lab_values.blood_pressure.systolic}/{data.last_lab_values.blood_pressure.diastolic}
                                                 </p>
@@ -312,28 +312,28 @@ export default function PassportPage() {
                                         )}
                                         {data.last_lab_values.spo2 && (
                                             <div className="p-3 bg-surface-container-low rounded-2xl text-center">
-                                                <p className="text-[10px] text-tertiary font-bold uppercase tracking-wider">SpO2</p>
+                                                <p className="text-[10px] text-tertiary font-bold uppercase tracking-wider">{t('passport.spo2', 'SpO2')}</p>
                                                 <p className="text-2xl font-extrabold text-on-surface">{data.last_lab_values.spo2.value}</p>
                                                 <p className="text-xs text-tertiary">{data.last_lab_values.spo2.unit}</p>
                                             </div>
                                         )}
                                         {data.last_lab_values.temperature && (
                                             <div className="p-3 bg-surface-container-low rounded-2xl text-center">
-                                                <p className="text-[10px] text-tertiary font-bold uppercase tracking-wider">Temp</p>
+                                                <p className="text-[10px] text-tertiary font-bold uppercase tracking-wider">{t('passport.temperature', 'Temp')}</p>
                                                 <p className="text-2xl font-extrabold text-on-surface">{data.last_lab_values.temperature.value}</p>
                                                 <p className="text-xs text-tertiary">{data.last_lab_values.temperature.unit}</p>
                                             </div>
                                         )}
                                         {data.last_lab_values.blood_glucose && (
                                             <div className="p-3 bg-surface-container-low rounded-2xl text-center">
-                                                <p className="text-[10px] text-tertiary font-bold uppercase tracking-wider">Glucose</p>
+                                                <p className="text-[10px] text-tertiary font-bold uppercase tracking-wider">{t('passport.glucose', 'Glucose')}</p>
                                                 <p className="text-2xl font-extrabold text-on-surface">{data.last_lab_values.blood_glucose.value}</p>
                                                 <p className="text-xs text-tertiary">{data.last_lab_values.blood_glucose.unit}</p>
                                             </div>
                                         )}
                                     </div>
                                 ) : (
-                                    <p className="text-sm text-tertiary italic">No vitals data available</p>
+                                    <p className="text-sm text-tertiary italic">{t('passport.noVitals', 'No vitals data available')}</p>
                                 )}
                             </div>
                         )}
@@ -343,31 +343,31 @@ export default function PassportPage() {
                             <div className="bg-white rounded-3xl p-6 shadow-sm border border-surface-container">
                                 <div className="flex items-center gap-2 mb-4">
                                     <span className="material-symbols-outlined text-green-600">shield</span>
-                                    <h3 className="text-lg font-bold text-on-surface font-headline">Insurance Status</h3>
+                                    <h3 className="text-lg font-bold text-on-surface font-headline">{t('passport.insuranceStatus', 'Insurance Status')}</h3>
                                 </div>
                                 {data.insurance_status ? (
                                     <div className="space-y-3">
                                         <div className="flex justify-between items-center p-3 bg-surface-container-low rounded-2xl">
-                                            <span className="text-sm text-tertiary">Provider</span>
+                                            <span className="text-sm text-tertiary">{t('passport.provider', 'Provider')}</span>
                                             <span className="font-bold text-on-surface">{data.insurance_status.provider}</span>
                                         </div>
                                         <div className="flex justify-between items-center p-3 bg-surface-container-low rounded-2xl">
-                                            <span className="text-sm text-tertiary">Plan</span>
+                                            <span className="text-sm text-tertiary">{t('passport.plan', 'Plan')}</span>
                                             <span className="font-bold text-on-surface">{data.insurance_status.plan}</span>
                                         </div>
                                         <div className="flex justify-between items-center p-3 bg-surface-container-low rounded-2xl">
-                                            <span className="text-sm text-tertiary">Status</span>
+                                            <span className="text-sm text-tertiary">{t('passport.status', 'Status')}</span>
                                             <span className={`px-2 py-1 text-xs font-black uppercase rounded-lg ${
                                                 data.insurance_status.status === 'Active' ? 'bg-green-100 text-green-700' : 'bg-amber-100 text-amber-700'
                                             }`}>{data.insurance_status.status}</span>
                                         </div>
                                         <div className="flex justify-between items-center p-3 bg-surface-container-low rounded-2xl">
-                                            <span className="text-sm text-tertiary">Member ID</span>
+                                            <span className="text-sm text-tertiary">{t('passport.memberId', 'Member ID')}</span>
                                             <span className="font-mono font-bold text-on-surface text-sm">{data.insurance_status.member_id}</span>
                                         </div>
                                     </div>
                                 ) : (
-                                    <p className="text-sm text-tertiary italic">No insurance data available</p>
+                                    <p className="text-sm text-tertiary italic">{t('passport.noInsurance', 'No insurance data available')}</p>
                                 )}
                             </div>
                         )}
@@ -376,7 +376,7 @@ export default function PassportPage() {
                         <div className="text-center py-6">
                             <div className="flex items-center justify-center gap-2 text-xs text-tertiary">
                                 <span className="material-symbols-outlined text-sm">security</span>
-                                Secured by CuraTrack • HIPAA Compliant • One-time access
+                                {t('passport.securedNotice', 'Secured by CuraTrack • HIPAA Compliant • One-time access')}
                             </div>
                         </div>
                     </div>
