@@ -169,7 +169,7 @@ def _extract_from_image_tesseract(file_path: str) -> str:
 
     # 2. Try RapidOCR engine (pure Python/ONNX — requires no system binary)
     try:
-        from rapidocr_onnxruntime import RapidOCR
+        from rapidocr_onnxruntime import RapidOCR  # type: ignore[import-not-found,import-untyped]
         engine = RapidOCR()
         result, elapse = engine(file_path)
         if result:
@@ -194,7 +194,7 @@ def _extract_from_pdf_tesseract(file_path: str) -> str:
 
     # 1. Try PyMuPDF (fitz)
     try:
-        import fitz  # PyMuPDF
+        import fitz  # type: ignore[import-not-found,import-untyped]  # PyMuPDF
         doc = fitz.open(file_path)
         for page_num in range(len(doc)):
             page = doc[page_num]

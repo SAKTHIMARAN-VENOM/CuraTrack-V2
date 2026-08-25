@@ -79,7 +79,10 @@ def generate_qr(request: QRGenerateRequest, http_request: Request):
 
     # Convert to base64
     buffer = io.BytesIO()
-    img.save(buffer, format="PNG")
+    try:
+        img.save(buffer, format="PNG")  # type: ignore[call-arg]
+    except TypeError:
+        img.save(buffer)
     buffer.seek(0)
     img_base64 = base64.b64encode(buffer.read()).decode("utf-8")
 

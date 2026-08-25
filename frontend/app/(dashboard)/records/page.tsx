@@ -1,7 +1,7 @@
 'use client';
 
-import { useState, useEffect } from 'react';
-import { useRouter } from 'next/navigation';
+import { useState, useEffect, Suspense } from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
 import AddRecordModal from '@/components/AddRecordModal';
 import ReviewMedicationModal from '@/components/ReviewMedicationModal';
 import { offlineStorage } from '@/lib/offline-storage';
@@ -65,49 +65,60 @@ const wrapPdfLine = (value: string, limit = 85) => {
   return lines.length > 0 ? lines : [''];
 };
 
-const buildPdfBlob = (pages: string[][]) => {
+const buildPdfBlob = (pages: string[][]): Blob => {
   const objects: string[] = [];
-  const addObject = (body: string) => {
-    objects.push(body);
-    return objects.length;
-  };
 
-  const catalogRef = addObject('');
-  const pagesRef = addObject('');
-  const fontRef = addObject('<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>');
+  objects.push('<< /Type /Catalog /Pages 2 0 R >>');
 
-  const contentObjectRefs: number[] = [];
-  const pageObjectRefs: number[] = [];
+  const pageObjIds: number[] = [];
+  for (let i = 0; i < pages.length; i++) {
+    pageObjIds.push(4 + i * 2);
+  }
+  objects.push(
+    `<< /Type /Pages /Kids [${pageObjIds.map((id) => `${id} 0 R`).join(' ')}] /Count ${pages.length} >>`
+  );
 
-  pages.forEach((page) => {
-    const streamLines = page
-      .flatMap((line) => wrapPdfLine(line, 85))
-      .map((line) => `(${escapePdfText(line)}) Tj T*`)
-      .join('\n');
-    const stream = `BT\n/F1 10 Tf\n50 790 Td\n14 TL\n${streamLines}\nET`;
-    const contentRef = addObject(`<< /Length ${stream.length} >>\nstream\n${stream}\nendstream`);
-    const pageRef = addObject(`<< /Type /Page /Parent ${pagesRef} 0 R /MediaBox [0 0 612 842] /Resources << /Font << /F1 ${fontRef} 0 R >> >> /Contents ${contentRef} 0 R >>`);
-    contentObjectRefs.push(contentRef);
-    pageObjectRefs.push(pageRef);
+  objects.push('<< /Type /Font /Subtype /Type1 /BaseFont /Courier >>');
+
+  pages.forEach((pageLines, pageIdx) => {
+    const pageObjId = 4 + pageIdx * 2;
+    const contentObjId = pageObjId + 1;
+
+    objects.push(
+      `<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Resources << /Font << /F1 3 0 R >> >> /Contents ${contentObjId} 0 R >>`
+    );
+
+    let stream = 'BT\n/F1 9 Tf\n12 TL\n45 745 Td\n';
+    pageLines.forEach((l, idx) => {
+      const escaped = escapePdfText(l);
+      if (idx === 0) {
+        stream += `(${escaped}) Tj\n`;
+      } else {
+        stream += `T* (${escaped}) Tj\n`;
+      }
+    });
+    stream += 'ET';
+
+    objects.push(`<< /Length ${stream.length} >>\nstream\n${stream}\nendstream`);
   });
-
-  objects[catalogRef - 1] = `<< /Type /Catalog /Pages ${pagesRef} 0 R >>`;
-  objects[pagesRef - 1] = `<< /Type /Pages /Kids [${pageObjectRefs.map((ref) => `${ref} 0 R`).join(' ')}] /Count ${pageObjectRefs.length} >>`;
 
   let pdf = '%PDF-1.4\n';
-  const offsets: number[] = [];
-  objects.forEach((body) => {
-    offsets.push(pdf.length);
-    pdf += `${offsets.length} 0 obj\n${body}\nendobj\n`;
+  const xrefOffsets: number[] = [0];
+
+  objects.forEach((obj, idx) => {
+    xrefOffsets.push(pdf.length);
+    pdf += `${idx + 1} 0 obj\n${obj}\nendobj\n`;
   });
 
-  const xrefOffset = pdf.length;
-  pdf += `xref\n0 ${objects.length + 1}\n0000000000 65535 f \r\n`;
-  offsets.forEach((offset) => {
-    pdf += `${offset.toString().padStart(10, '0')} 00000 n \r\n`;
-  });
-  pdf += `trailer\n<< /Size ${objects.length + 1} /Root ${catalogRef} 0 R >>\nstartxref\n${xrefOffset}\n%%EOF`;
+  const xrefStart = pdf.length;
+  pdf += `xref\n0 ${objects.length + 1}\n`;
+  pdf += '0000000000 65535 f \n';
+  for (let i = 1; i <= objects.length; i++) {
+    const off = String(xrefOffsets[i]).padStart(10, '0');
+    pdf += `${off} 00000 n \n`;
+  }
 
+  pdf += `trailer\n<< /Size ${objects.length + 1} /Root 1 0 R >>\nstartxref\n${xrefStart}\n%%EOF`;
   return new Blob([pdf], { type: 'application/pdf' });
 };
 
@@ -116,7 +127,7 @@ const createPdfBlob = (title: string, rawLines: string[]) => {
 
   if (title) {
     wrappedLines.push('================================================================================');
-    wrappedLines.push(sanitizeTextForPdf(title).toUpperCase());
+    wrappedLines.push(`  ${title.toUpperCase()}`);
     wrappedLines.push('================================================================================');
     wrappedLines.push('');
   }
@@ -142,8 +153,10 @@ const createPdfBlob = (title: string, rawLines: string[]) => {
   return buildPdfBlob(pages);
 };
 
-export default function HealthRecordsPage() {
+function HealthRecordsContent() {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const urlPatientId = searchParams.get('patientId');
   const { t } = useI18n();
   const [activeTab, setActiveTab] = useState('medications');
   const [openSections, setOpenSections] = useState<Record<string, boolean>>({});
@@ -245,9 +258,12 @@ export default function HealthRecordsPage() {
           };
         });
         setPatients(mappedPatients);
+        return mappedPatients;
       }
+      return [];
     } catch (err) {
       console.warn('Error fetching real patient list:', err);
+      return [];
     } finally {
       setLoadingPatients(false);
     }
@@ -282,7 +298,7 @@ export default function HealthRecordsPage() {
         const pAbha = prof?.abha_id || `91-4502-8819-${targetId.slice(0, 4)}`;
         const pAllergies = prof?.allergies || 'No Known Drug Allergies (NKDA)';
 
-        setPatientProfile({
+        const loadedProf: RealPatientInfo = {
           id: targetId,
           name: pName,
           email: pEmail,
@@ -293,7 +309,10 @@ export default function HealthRecordsPage() {
           allergies: pAllergies,
           latestStatus: 'Registered Patient',
           lastVisit: new Date().toLocaleDateString(),
-        });
+        };
+
+        setPatientProfile(loadedProf);
+        setSelectedPatient(loadedProf);
       } catch (profErr) {
         console.warn('Note loading patient profile info:', profErr);
       }
@@ -423,7 +442,28 @@ export default function HealthRecordsPage() {
 
       if (activeRole === 'doctor' || activeRole === 'facility_manager' || activeRole === 'fhw') {
         // Clinician / Staff mode: fetch real patient directory for selection
-        await fetchRealPatients();
+        const loadedPatients = await fetchRealPatients();
+
+        // Auto-select patient from URL ?patientId= param (linked from doctor/fhw portals)
+        if (urlPatientId) {
+          const matched = loadedPatients?.find((p: any) => p.id === urlPatientId || p.abhaId === urlPatientId);
+          if (matched) {
+            handleSelectPatient(matched);
+          } else {
+            const targetProfile: RealPatientInfo = {
+              id: urlPatientId,
+              name: '',
+              age: 0,
+              gender: '',
+              bloodGroup: '',
+              abhaId: '',
+              allergies: 'No Known Drug Allergies (NKDA)',
+            };
+            setSelectedPatient(targetProfile);
+            setUserId(urlPatientId);
+            await loadPatientData(urlPatientId);
+          }
+        }
       } else if (user) {
         // Patient self-service mode
         setUserId(user.id);
@@ -2344,5 +2384,18 @@ export default function HealthRecordsPage() {
         </div>
       )}
     </div>
+  );
+}
+
+export default function HealthRecordsPage() {
+  return (
+    <Suspense fallback={
+      <div className="p-8 text-center text-xs font-bold text-primary flex items-center justify-center gap-2">
+        <span className="material-symbols-outlined animate-spin">sync</span>
+        <span>Loading Health Records...</span>
+      </div>
+    }>
+      <HealthRecordsContent />
+    </Suspense>
   );
 }

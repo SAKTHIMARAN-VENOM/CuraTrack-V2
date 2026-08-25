@@ -104,7 +104,7 @@ def generate_passport_qr(request: PassportGenerateRequest, http_request: Request
 
     buffer = io.BytesIO()
     try:
-        img.save(buffer, format="PNG")
+        img.save(buffer, format="PNG")  # type: ignore[call-arg]
     except TypeError:
         img.save(buffer)
     buffer.seek(0)

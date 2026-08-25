@@ -125,7 +125,8 @@ describe('Frontend Website: Clinical Drug Safety & ASHA Frontline Portals', () =
     expect(screen.getAllByText(/Frontline Health Worker/i).length).toBeGreaterThan(0);
 
     await waitFor(() => {
-      expect(screen.getByText(/Sunita Patil/i)).toBeInTheDocument();
+      expect(screen.getByText(/Number of Patients/i)).toBeInTheDocument();
+      expect(screen.getAllByText(/Sunita Patil/i).length).toBeGreaterThan(0);
       expect(screen.getByText(/Ramesh Tadvi/i)).toBeInTheDocument();
     });
   });
