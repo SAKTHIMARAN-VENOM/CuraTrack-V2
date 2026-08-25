@@ -6,11 +6,19 @@ load_dotenv()
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from routes import insurance, government, health_news, health_risks, qr
-from routes import passport, ingest, activity, insights, ocr, onboarding
-from routes import google_fit_auth, drug_checker, sdoh, vitals_alerts
-from routes import triage, referrals, fhw, facility, translation
-from services.ocr_service import validate_tesseract_on_startup
+
+try:
+    from routes import insurance, government, health_news, health_risks, qr
+    from routes import passport, ingest, activity, insights, ocr, onboarding
+    from routes import google_fit_auth, drug_checker, sdoh, vitals_alerts
+    from routes import triage, referrals, fhw, facility, translation
+    from services.ocr_service import validate_tesseract_on_startup
+except ImportError:
+    from backend.routes import insurance, government, health_news, health_risks, qr  # type: ignore
+    from backend.routes import passport, ingest, activity, insights, ocr, onboarding  # type: ignore
+    from backend.routes import google_fit_auth, drug_checker, sdoh, vitals_alerts  # type: ignore
+    from backend.routes import triage, referrals, fhw, facility, translation  # type: ignore
+    from backend.services.ocr_service import validate_tesseract_on_startup  # type: ignore
 
 app = FastAPI(title="CuraTrack API", version="2.0.0")
 

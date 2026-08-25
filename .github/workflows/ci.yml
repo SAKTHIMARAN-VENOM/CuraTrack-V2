@@ -43,7 +43,7 @@ jobs:
 
       - name: Run Backend Pytest Suite with Coverage Enforcement
         run: |
-          PYTHONPATH=. pytest tests/ -v --cov=backend --cov-report=term-missing
+          PYTHONPATH=.:backend pytest tests/ -v --cov=backend --cov-report=term-missing
 
   # ============================================================================
   # 2. Website Frontend Automated Test Suite & Production Build
