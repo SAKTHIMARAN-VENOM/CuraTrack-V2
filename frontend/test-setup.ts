@@ -49,19 +49,37 @@ vi.mock('@/lib/i18n', () => {
 });
 
 // Mock Supabase Client
-vi.mock('@/lib/supabase/client', () => ({
-  createClient: () => ({
-    auth: {
-      getUser: vi.fn().mockResolvedValue({ data: { user: null }, error: null }),
-      onAuthStateChange: vi.fn().mockReturnValue({ data: { subscription: { unsubscribe: vi.fn() } } }),
-    },
-    from: () => ({
-      select: () => ({
-        eq: () => ({
-          maybeSingle: vi.fn().mockResolvedValue({ data: null, error: null }),
-          single: vi.fn().mockResolvedValue({ data: null, error: null }),
-        }),
-      }),
+vi.mock('@/lib/supabase/client', () => {
+  const createChainableQuery = () => {
+    const query: any = {
+      select: vi.fn(() => query),
+      insert: vi.fn(() => query),
+      update: vi.fn(() => query),
+      delete: vi.fn(() => query),
+      eq: vi.fn(() => query),
+      neq: vi.fn(() => query),
+      in: vi.fn(() => query),
+      order: vi.fn(() => query),
+      limit: vi.fn(() => query),
+      single: vi.fn().mockResolvedValue({ data: null, error: null }),
+      maybeSingle: vi.fn().mockResolvedValue({ data: null, error: null }),
+      then: (resolve: any) => Promise.resolve({ data: [], error: null }).then(resolve),
+      catch: (reject: any) => Promise.resolve({ data: [], error: null }).catch(reject),
+    };
+    return query;
+  };
+
+  return {
+    createClient: () => ({
+      auth: {
+        getUser: vi.fn().mockResolvedValue({ data: { user: null }, error: null }),
+        getSession: vi.fn().mockResolvedValue({ data: { session: null }, error: null }),
+        onAuthStateChange: vi.fn().mockReturnValue({ data: { subscription: { unsubscribe: vi.fn() } } }),
+        signInWithOAuth: vi.fn().mockResolvedValue({ data: {}, error: null }),
+        signOut: vi.fn().mockResolvedValue({ error: null }),
+      },
+      from: vi.fn(() => createChainableQuery()),
     }),
-  }),
-}));
+  };
+});
+

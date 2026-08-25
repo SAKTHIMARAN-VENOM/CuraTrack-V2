@@ -49,10 +49,26 @@ def test_ocr_parse_invalid_file_type(client):
     assert "Unsupported file type" in data["detail"]
 
 
-def test_insights_generation(client):
+def test_insights_generation(client, monkeypatch):
     """Verify AI clinical insights endpoint returns structured health advice."""
+    from unittest.mock import MagicMock
+    mock_resp = MagicMock()
+    mock_resp.status_code = 200
+    mock_resp.json.return_value = {
+        "candidates": [{
+            "content": {
+                "parts": [{
+                    "text": '[{"category": "Heart Rate", "icon": "favorite", "status": "Normal", "statusColor": "green", "insight": "Normal heart rate.", "tip": "Keep active."}]'
+                }]
+            }
+        }]
+    }
+    import requests
+    monkeypatch.setattr(requests, "post", lambda *args, **kwargs: mock_resp)
     response = client.get("/api/health-insights")
     assert response.status_code == 200
     data = response.json()
     assert "insights" in data
     assert isinstance(data["insights"], list)
+    assert len(data["insights"]) > 0
+
