@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { apiFetch } from '@/lib/api';
 import { createClient } from '@/lib/supabase/client';
+import { useI18n } from '@/lib/i18n';
 
 interface TriageAlert {
   id: string;
@@ -40,6 +41,7 @@ interface TriageAlert {
 }
 
 export default function DoctorTriageDashboardPage() {
+  const { t } = useI18n();
   const router = useRouter();
   const [supabase] = useState(() => createClient());
 
@@ -209,28 +211,28 @@ export default function DoctorTriageDashboardPage() {
           <div className="space-y-2">
             <div className="inline-flex items-center gap-2 px-3 py-1 bg-white/10 backdrop-blur rounded-full text-xs font-semibold tracking-wide text-teal-200 border border-white/15">
               <span className="material-symbols-outlined text-sm">assignment_late</span>
-              <span>Clinical Triage Dispatch &amp; Patient Routing</span>
+              <span>{t('doctorTriage.badge', 'Clinical Triage Dispatch & Patient Routing')}</span>
             </div>
-            <h1 className="text-3xl font-extrabold tracking-tight">Doctor Triage Priority &amp; Consult Queue</h1>
+            <h1 className="text-3xl font-extrabold tracking-tight">{t('doctorTriage.title', 'Doctor Triage Priority & Consult Queue')}</h1>
             <p className="text-sm text-slate-300 max-w-2xl leading-relaxed">
-              Live intake of incoming patient emergency self-assessments and village danger reports. Classify immediate hospital visits vs. digital teleconsultations in real time.
+              {t('doctorTriage.description', 'Live intake of incoming patient emergency self-assessments and village danger reports. Classify immediate hospital visits vs. digital teleconsultations in real time.')}
             </p>
           </div>
 
           <div className="flex gap-3">
             <button
               onClick={fetchTriageAlerts}
-              className="px-4 py-3 bg-white/10 hover:bg-white/20 text-white font-bold text-xs rounded-2xl flex items-center gap-2 backdrop-blur transition-all border border-white/15"
+              className="px-4 py-3 bg-white/10 hover:bg-white/20 text-white font-bold text-xs rounded-2xl flex items-center gap-2 backdrop-blur transition-all border border-white/15 cursor-pointer"
             >
               <span className="material-symbols-outlined text-sm">sync</span>
-              <span>Refresh Feed</span>
+              <span>{t('doctorTriage.refreshFeed', 'Refresh Feed')}</span>
             </button>
             <Link
               href="/telemedicine"
               className="px-5 py-3 bg-teal-600 hover:bg-teal-700 text-white font-extrabold text-xs rounded-2xl shadow-lg flex items-center gap-2 transition-transform active:scale-95"
             >
               <span className="material-symbols-outlined text-sm">video_chat</span>
-              <span>Telemed Portal</span>
+              <span>{t('doctorTriage.telemedPortal', 'Telemed Portal')}</span>
             </Link>
           </div>
         </div>
@@ -249,7 +251,7 @@ export default function DoctorTriageDashboardPage() {
         >
           <div className="flex items-center justify-between">
             <span className={`text-[11px] font-extrabold uppercase tracking-wider ${activeTab === 'VISIT_EMERGENCY' ? 'text-red-100' : 'text-red-700'}`}>
-              🚨 In-Person Visit Needed
+              🚨 {t('doctorTriage.inPersonVisitNeeded', 'IN-PERSON VISIT NEEDED')}
             </span>
             <div className={`w-8 h-8 rounded-xl flex items-center justify-center ${activeTab === 'VISIT_EMERGENCY' ? 'bg-white/20' : 'bg-red-100 text-red-700'}`}>
               <span className="material-symbols-outlined text-lg animate-pulse">crisis_alert</span>
@@ -257,7 +259,7 @@ export default function DoctorTriageDashboardPage() {
           </div>
           <div className="mt-3 flex items-baseline gap-2">
             <h3 className="text-3xl font-black">{emergencyCount}</h3>
-            <span className={`text-xs ${activeTab === 'VISIT_EMERGENCY' ? 'text-red-100' : 'text-tertiary'}`}>critical alerts</span>
+            <span className={`text-xs ${activeTab === 'VISIT_EMERGENCY' ? 'text-red-100' : 'text-tertiary'}`}>{t('doctorTriage.criticalAlerts', 'critical alerts')}</span>
           </div>
         </div>
 
@@ -272,7 +274,7 @@ export default function DoctorTriageDashboardPage() {
         >
           <div className="flex items-center justify-between">
             <span className={`text-[11px] font-extrabold uppercase tracking-wider ${activeTab === 'ONLINE_CONSULTATION' ? 'text-amber-100' : 'text-amber-700'}`}>
-              💻 Online Teleconsult
+              💻 {t('doctorTriage.onlineTeleconsult', 'ONLINE TELECONSULT')}
             </span>
             <div className={`w-8 h-8 rounded-xl flex items-center justify-center ${activeTab === 'ONLINE_CONSULTATION' ? 'bg-white/20' : 'bg-amber-100 text-amber-700'}`}>
               <span className="material-symbols-outlined text-lg">video_camera_front</span>
@@ -280,7 +282,7 @@ export default function DoctorTriageDashboardPage() {
           </div>
           <div className="mt-3 flex items-baseline gap-2">
             <h3 className="text-3xl font-black">{onlineConsultCount}</h3>
-            <span className={`text-xs ${activeTab === 'ONLINE_CONSULTATION' ? 'text-amber-100' : 'text-tertiary'}`}>within 24h</span>
+            <span className={`text-xs ${activeTab === 'ONLINE_CONSULTATION' ? 'text-amber-100' : 'text-tertiary'}`}>{t('doctorTriage.within24h', 'within 24h')}</span>
           </div>
         </div>
 
@@ -295,7 +297,7 @@ export default function DoctorTriageDashboardPage() {
         >
           <div className="flex items-center justify-between">
             <span className={`text-[11px] font-extrabold uppercase tracking-wider ${activeTab === 'ROUTINE' ? 'text-emerald-100' : 'text-emerald-700'}`}>
-              📋 Home / ASHA Monitoring
+              📋 {t('doctorTriage.homeAshaMonitoring', 'HOME / ASHA MONITORING')}
             </span>
             <div className={`w-8 h-8 rounded-xl flex items-center justify-center ${activeTab === 'ROUTINE' ? 'bg-white/20' : 'bg-emerald-100 text-emerald-700'}`}>
               <span className="material-symbols-outlined text-lg">home_health</span>
@@ -303,7 +305,7 @@ export default function DoctorTriageDashboardPage() {
           </div>
           <div className="mt-3 flex items-baseline gap-2">
             <h3 className="text-3xl font-black">{routineCount}</h3>
-            <span className={`text-xs ${activeTab === 'ROUTINE' ? 'text-emerald-100' : 'text-tertiary'}`}>stable cases</span>
+            <span className={`text-xs ${activeTab === 'ROUTINE' ? 'text-emerald-100' : 'text-tertiary'}`}>{t('doctorTriage.stableCases', 'stable cases')}</span>
           </div>
         </div>
 
@@ -318,7 +320,7 @@ export default function DoctorTriageDashboardPage() {
         >
           <div className="flex items-center justify-between">
             <span className={`text-[11px] font-extrabold uppercase tracking-wider ${activeTab === 'RESOLVED' ? 'text-slate-200' : 'text-tertiary'}`}>
-              ✓ Resolved / Handled
+              ✓ {t('doctorTriage.resolvedHandled', 'RESOLVED / HANDLED')}
             </span>
             <div className={`w-8 h-8 rounded-xl flex items-center justify-center ${activeTab === 'RESOLVED' ? 'bg-white/20' : 'bg-surface-container text-tertiary'}`}>
               <span className="material-symbols-outlined text-lg">check_circle</span>
@@ -326,7 +328,7 @@ export default function DoctorTriageDashboardPage() {
           </div>
           <div className="mt-3 flex items-baseline gap-2">
             <h3 className="text-3xl font-black">{alerts.filter(a => a.status === 'RESOLVED').length}</h3>
-            <span className={`text-xs ${activeTab === 'RESOLVED' ? 'text-slate-200' : 'text-tertiary'}`}>completed</span>
+            <span className={`text-xs ${activeTab === 'RESOLVED' ? 'text-slate-200' : 'text-tertiary'}`}>{t('doctorTriage.completed', 'completed')}</span>
           </div>
         </div>
       </div>
@@ -337,54 +339,54 @@ export default function DoctorTriageDashboardPage() {
         <div className="flex flex-wrap gap-2 bg-surface-container-low p-1.5 rounded-2xl border border-surface-container-high w-full md:w-auto">
           <button
             onClick={() => setActiveTab('ALL')}
-            className={`px-4 py-2 rounded-xl text-xs font-extrabold transition-all ${
+            className={`px-4 py-2 rounded-xl text-xs font-extrabold transition-all cursor-pointer ${
               activeTab === 'ALL'
                 ? 'bg-white text-on-surface shadow-sm'
                 : 'text-tertiary hover:text-on-surface'
             }`}
           >
-            All Active ({emergencyCount + onlineConsultCount + routineCount})
+            {t('doctorTriage.allActive', { count: emergencyCount + onlineConsultCount + routineCount }, `All Active (${emergencyCount + onlineConsultCount + routineCount})`)}
           </button>
           <button
             onClick={() => setActiveTab('VISIT_EMERGENCY')}
-            className={`px-4 py-2 rounded-xl text-xs font-extrabold transition-all flex items-center gap-1.5 ${
+            className={`px-4 py-2 rounded-xl text-xs font-extrabold transition-all flex items-center gap-1.5 cursor-pointer ${
               activeTab === 'VISIT_EMERGENCY'
                 ? 'bg-red-600 text-white shadow-sm'
                 : 'text-red-700 hover:bg-red-50'
             }`}
           >
             <span className="w-2 h-2 rounded-full bg-red-400 animate-pulse" />
-            <span>Must Visit ({emergencyCount})</span>
+            <span>{t('doctorTriage.mustVisit', { count: emergencyCount }, `Must Visit (${emergencyCount})`)}</span>
           </button>
           <button
             onClick={() => setActiveTab('ONLINE_CONSULTATION')}
-            className={`px-4 py-2 rounded-xl text-xs font-extrabold transition-all flex items-center gap-1.5 ${
+            className={`px-4 py-2 rounded-xl text-xs font-extrabold transition-all flex items-center gap-1.5 cursor-pointer ${
               activeTab === 'ONLINE_CONSULTATION'
                 ? 'bg-amber-600 text-white shadow-sm'
                 : 'text-amber-700 hover:bg-amber-50'
             }`}
           >
-            <span>Online Teleconsult ({onlineConsultCount})</span>
+            <span>{t('doctorTriage.teleconsultTab', { count: onlineConsultCount }, `Online Teleconsult (${onlineConsultCount})`)}</span>
           </button>
           <button
             onClick={() => setActiveTab('ROUTINE')}
-            className={`px-4 py-2 rounded-xl text-xs font-extrabold transition-all ${
+            className={`px-4 py-2 rounded-xl text-xs font-extrabold transition-all cursor-pointer ${
               activeTab === 'ROUTINE'
                 ? 'bg-emerald-600 text-white shadow-sm'
                 : 'text-emerald-700 hover:bg-emerald-50'
             }`}
           >
-            Routine ({routineCount})
+            {t('doctorTriage.routineTab', { count: routineCount }, `Routine (${routineCount})`)}
           </button>
           <button
             onClick={() => setActiveTab('RESOLVED')}
-            className={`px-4 py-2 rounded-xl text-xs font-extrabold transition-all ${
+            className={`px-4 py-2 rounded-xl text-xs font-extrabold transition-all cursor-pointer ${
               activeTab === 'RESOLVED'
                 ? 'bg-slate-700 text-white shadow-sm'
                 : 'text-tertiary hover:text-on-surface'
             }`}
           >
-            Resolved
+            {t('doctorTriage.resolvedTab', 'Resolved')}
           </button>
         </div>
 
@@ -393,7 +395,7 @@ export default function DoctorTriageDashboardPage() {
           <span className="material-symbols-outlined text-tertiary text-lg">search</span>
           <input
             type="text"
-            placeholder="Search patient, symptoms..."
+            placeholder={t('doctorTriage.searchPlaceholder', 'Search patient, symptoms...')}
             value={searchQuery}
             onChange={e => setSearchQuery(e.target.value)}
             className="w-full text-xs font-semibold bg-transparent outline-none text-on-surface placeholder:text-tertiary"
@@ -405,16 +407,16 @@ export default function DoctorTriageDashboardPage() {
       {loading ? (
         <div className="py-20 text-center text-xs font-bold text-teal-600 flex items-center justify-center gap-2">
           <span className="material-symbols-outlined animate-spin text-xl">sync</span>
-          <span>Loading real-time triage intake stream...</span>
+          <span>{t('common.loading', 'Loading...')}</span>
         </div>
       ) : filteredAlerts.length === 0 ? (
         <div className="p-12 text-center bg-white rounded-3xl border border-surface-container-high space-y-3">
           <div className="w-12 h-12 rounded-2xl bg-teal-50 text-teal-700 flex items-center justify-center mx-auto">
             <span className="material-symbols-outlined text-2xl">task_alt</span>
           </div>
-          <h3 className="font-extrabold text-base text-on-surface">No Pending Alerts In This Category</h3>
+          <h3 className="font-extrabold text-base text-on-surface">{t('doctorTriage.noAlertsFound', 'No triage assessments match current filter.')}</h3>
           <p className="text-xs text-tertiary max-w-md mx-auto">
-            All patient self-assessments in this queue have been triaged, acknowledged, or resolved.
+            {t('doctorTriage.description', 'All patient self-assessments in this queue have been triaged, acknowledged, or resolved.')}
           </p>
         </div>
       ) : (
@@ -423,6 +425,12 @@ export default function DoctorTriageDashboardPage() {
             const isRed = alert.urgency === 'RED';
             const isYellow = alert.urgency === 'YELLOW';
             const isEmergencyVisit = isRed || alert.consult_action === 'VISIT_EMERGENCY';
+
+            const tierLabel = isRed
+              ? t('doctorTriage.redTier', 'RED TIER')
+              : isYellow
+              ? t('doctorTriage.yellowTier', 'YELLOW TIER')
+              : t('doctorTriage.greenTier', 'GREEN TIER');
 
             return (
               <div
@@ -444,7 +452,7 @@ export default function DoctorTriageDashboardPage() {
                       'bg-emerald-100 text-emerald-800'
                     }`}>
                       <span className={`w-1.5 h-1.5 rounded-full ${isRed ? 'bg-red-600 animate-ping' : isYellow ? 'bg-amber-600' : 'bg-emerald-600'}`} />
-                      <span>{alert.urgency} TIER</span>
+                      <span>{tierLabel}</span>
                     </span>
 
                     <span className="text-[11px] font-mono text-tertiary">
@@ -462,7 +470,9 @@ export default function DoctorTriageDashboardPage() {
                       {isEmergencyVisit ? 'local_hospital' : 'video_chat'}
                     </span>
                     <span>
-                      {isEmergencyVisit ? '🚨 MUST VISIT HOSPITAL / OPD' : '💻 ONLINE TELECONSULT CANDIDATE'}
+                      {isEmergencyVisit
+                        ? `🚨 ${t('doctorTriage.mustVisitHospital', 'MUST VISIT HOSPITAL / OPD')}`
+                        : `💻 ${t('doctorTriage.onlineTeleconsultCandidate', 'ONLINE TELECONSULT CANDIDATE')}`}
                     </span>
                   </div>
 
@@ -485,7 +495,7 @@ export default function DoctorTriageDashboardPage() {
                   {alert.red_flags && alert.red_flags.length > 0 && (
                     <div className="p-2.5 bg-red-50 rounded-xl border border-red-200 space-y-1">
                       <span className="text-[10px] font-black text-red-800 uppercase tracking-wider block">
-                        Danger Flags:
+                        {t('doctorTriage.dangerFlags', 'DANGER FLAGS:')}
                       </span>
                       {alert.red_flags.map((rf, idx) => (
                         <p key={idx} className="text-xs font-bold text-red-900 leading-tight">
@@ -497,7 +507,7 @@ export default function DoctorTriageDashboardPage() {
 
                   {/* Presenting Symptoms */}
                   <div className="space-y-1.5">
-                    <span className="text-[10px] font-extrabold uppercase text-tertiary">Reported Symptoms:</span>
+                    <span className="text-[10px] font-extrabold uppercase text-tertiary">{t('doctorTriage.reportedSymptoms', 'REPORTED SYMPTOMS:')}</span>
                     <p className="text-xs text-slate-700 font-medium line-clamp-2">
                       {alert.symptom_description || (alert.symptoms || []).join(', ') || 'No narrative provided'}
                     </p>
@@ -535,48 +545,48 @@ export default function DoctorTriageDashboardPage() {
                     {isEmergencyVisit ? (
                       <button
                         onClick={() => setSelectedAlert(alert)}
-                        className="flex-1 py-2.5 bg-red-600 hover:bg-red-700 text-white font-extrabold text-xs rounded-xl shadow transition-all flex items-center justify-center gap-1.5"
+                        className="flex-1 py-2.5 bg-red-600 hover:bg-red-700 text-white font-extrabold text-xs rounded-xl shadow transition-all flex items-center justify-center gap-1.5 cursor-pointer"
                       >
                         <span className="material-symbols-outlined text-sm">local_hospital</span>
-                        <span>Emergency Order</span>
+                        <span>{t('doctorTriage.mustVisitHospital', 'Emergency Order')}</span>
                       </button>
                     ) : (
                       <button
                         onClick={() => router.push(`/telemedicine?patientId=${alert.patient_id}&patientName=${encodeURIComponent(alert.patient_name || 'Patient')}`)}
-                        className="flex-1 py-2.5 bg-teal-700 hover:bg-teal-800 text-white font-extrabold text-xs rounded-xl shadow transition-all flex items-center justify-center gap-1.5"
+                        className="flex-1 py-2.5 bg-teal-700 hover:bg-teal-800 text-white font-extrabold text-xs rounded-xl shadow transition-all flex items-center justify-center gap-1.5 cursor-pointer"
                       >
                         <span className="material-symbols-outlined text-sm">video_chat</span>
-                        <span>Launch Consult</span>
+                        <span>{t('doctorTriage.createTeleconsult', 'Launch Consult')}</span>
                       </button>
                     )}
 
                     <button
                       onClick={() => setSelectedAlert(alert)}
-                      className="px-3 py-2.5 bg-surface-container-high hover:bg-surface-container text-on-surface font-bold text-xs rounded-xl transition-all"
+                      className="px-3 py-2.5 bg-surface-container-high hover:bg-surface-container text-on-surface font-bold text-xs rounded-xl transition-all cursor-pointer"
                     >
-                      Details
+                      {t('common.details', 'Details')}
                     </button>
                   </div>
 
                   {/* Status Toggle Buttons */}
                   <div className="flex items-center justify-between text-[11px] text-tertiary pt-1">
-                    <span>Status: <strong>{alert.status}</strong></span>
+                    <span>{t('referrals.status', 'Status')}: <strong>{alert.status}</strong></span>
                     {alert.status === 'PENDING' && (
                       <button
                         onClick={() => handleUpdateStatus(alert.id, 'ACKNOWLEDGED')}
                         disabled={updatingId === alert.id}
-                        className="text-primary hover:underline font-bold"
+                        className="text-primary hover:underline font-bold cursor-pointer"
                       >
-                        Acknowledge
+                        {t('doctorTriage.acknowledge', 'Acknowledge')}
                       </button>
                     )}
                     {alert.status === 'ACKNOWLEDGED' && (
                       <button
                         onClick={() => handleUpdateStatus(alert.id, 'RESOLVED')}
                         disabled={updatingId === alert.id}
-                        className="text-emerald-700 hover:underline font-bold"
+                        className="text-emerald-700 hover:underline font-bold cursor-pointer"
                       >
-                        Mark Resolved
+                        {t('doctorTriage.markResolved', 'Mark Resolved')}
                       </button>
                     )}
                   </div>
@@ -606,7 +616,7 @@ export default function DoctorTriageDashboardPage() {
               </div>
               <button
                 onClick={() => setSelectedAlert(null)}
-                className="w-8 h-8 rounded-full bg-surface-container hover:bg-surface-container-high flex items-center justify-center text-on-surface"
+                className="w-8 h-8 rounded-full bg-surface-container hover:bg-surface-container-high flex items-center justify-center text-on-surface cursor-pointer"
               >
                 <span className="material-symbols-outlined text-sm">close</span>
               </button>
@@ -621,12 +631,12 @@ export default function DoctorTriageDashboardPage() {
                   <span className="material-symbols-outlined text-base">
                     {selectedAlert.urgency === 'RED' ? 'warning' : 'info'}
                   </span>
-                  <span>Clinical Pathway Recommendation:</span>
+                  <span>{t('doctorTriage.badge', 'Clinical Pathway Recommendation:')}</span>
                 </p>
                 <p className="mt-1 font-semibold">
                   {selectedAlert.urgency === 'RED'
-                    ? 'Patient requires IMMEDIATE IN-PERSON emergency evaluation & bed triage.'
-                    : 'Patient is eligible for assisted ONLINE VIDEO TELECONSULTATION.'}
+                    ? t('doctorTriage.mustVisitHospital', 'Patient requires IMMEDIATE IN-PERSON emergency evaluation & bed triage.')
+                    : t('doctorTriage.onlineTeleconsultCandidate', 'Patient is eligible for assisted ONLINE VIDEO TELECONSULTATION.')}
                 </p>
                 <p className="mt-2 text-tertiary">Facility: <strong>{selectedAlert.recommended_facility}</strong></p>
               </div>
@@ -634,7 +644,7 @@ export default function DoctorTriageDashboardPage() {
               {/* Red flags */}
               {selectedAlert.red_flags && selectedAlert.red_flags.length > 0 && (
                 <div className="space-y-2">
-                  <h4 className="font-extrabold text-red-700 uppercase tracking-wider text-[11px]">Emergency Red Flags Triggered:</h4>
+                  <h4 className="font-extrabold text-red-700 uppercase tracking-wider text-[11px]">{t('doctorTriage.dangerFlags', 'Emergency Red Flags Triggered:')}</h4>
                   <div className="space-y-1">
                     {selectedAlert.red_flags.map((f, i) => (
                       <p key={i} className="p-2 bg-red-100/70 text-red-900 rounded-xl font-bold">⚠️ {f}</p>
@@ -645,7 +655,7 @@ export default function DoctorTriageDashboardPage() {
 
               {/* Symptoms */}
               <div className="space-y-2">
-                <h4 className="font-extrabold text-on-surface uppercase tracking-wider text-[11px]">Reported Symptoms &amp; Narrative:</h4>
+                <h4 className="font-extrabold text-on-surface uppercase tracking-wider text-[11px]">{t('doctorTriage.reportedSymptoms', 'Reported Symptoms & Narrative:')}</h4>
                 <div className="p-3 bg-surface-container-low rounded-xl border border-surface-container">
                   <p className="text-slate-800 font-medium leading-relaxed">
                     {selectedAlert.symptom_description || (selectedAlert.symptoms || []).join(', ') || 'None provided'}
@@ -665,7 +675,7 @@ export default function DoctorTriageDashboardPage() {
               {/* Immediate Actions */}
               {selectedAlert.immediate_actions && selectedAlert.immediate_actions.length > 0 && (
                 <div className="space-y-2">
-                  <h4 className="font-extrabold text-on-surface uppercase tracking-wider text-[11px]">Protocol Immediate Actions:</h4>
+                  <h4 className="font-extrabold text-on-surface uppercase tracking-wider text-[11px]">{t('doctorTriage.actions', 'Protocol Immediate Actions:')}</h4>
                   <ul className="space-y-1.5">
                     {selectedAlert.immediate_actions.map((act, i) => (
                       <li key={i} className="flex items-center gap-2 text-slate-700">
@@ -685,9 +695,9 @@ export default function DoctorTriageDashboardPage() {
                   handleUpdateStatus(selectedAlert.id, selectedAlert.status === 'PENDING' ? 'ACKNOWLEDGED' : 'RESOLVED');
                   setSelectedAlert(null);
                 }}
-                className="px-5 py-2.5 bg-surface-container-high hover:bg-surface-container font-bold text-xs rounded-xl"
+                className="px-5 py-2.5 bg-surface-container-high hover:bg-surface-container font-bold text-xs rounded-xl cursor-pointer"
               >
-                {selectedAlert.status === 'PENDING' ? 'Mark Acknowledged' : 'Mark Resolved'}
+                {selectedAlert.status === 'PENDING' ? t('doctorTriage.acknowledge', 'Mark Acknowledged') : t('doctorTriage.markResolved', 'Mark Resolved')}
               </button>
 
               <button
@@ -695,10 +705,10 @@ export default function DoctorTriageDashboardPage() {
                   setSelectedAlert(null);
                   router.push(`/telemedicine?patientId=${selectedAlert.patient_id}&patientName=${encodeURIComponent(selectedAlert.patient_name || 'Patient')}`);
                 }}
-                className="px-6 py-2.5 bg-teal-700 hover:bg-teal-800 text-white font-extrabold text-xs rounded-xl shadow flex items-center gap-2"
+                className="px-6 py-2.5 bg-teal-700 hover:bg-teal-800 text-white font-extrabold text-xs rounded-xl shadow flex items-center gap-2 cursor-pointer"
               >
                 <span className="material-symbols-outlined text-sm">video_chat</span>
-                <span>Open in Teleconsultation</span>
+                <span>{t('doctorTriage.createTeleconsult', 'Open in Teleconsultation')}</span>
               </button>
             </div>
           </div>

@@ -3,6 +3,7 @@
 import { useState, KeyboardEvent } from 'react';
 import Link from 'next/link';
 import { API_BASE } from '@/lib/api';
+import { useI18n } from '@/lib/i18n';
 
 interface DrugPair {
   drug_a: string;
@@ -18,76 +19,76 @@ interface CheckResult {
   safe_combinations: string[];
 }
 
-const COMMON_PRESETS = [
-  {
-    name: 'Cardio & Antiplatelet',
-    desc: 'Dual antiplatelet + Statin review',
-    drugs: ['Aspirin', 'Clopidogrel', 'Atorvastatin']
-  },
-  {
-    name: 'NCD: HTN + T2DM',
-    desc: 'Common rural chronic combo',
-    drugs: ['Metformin', 'Telmisartan', 'Amlodipine']
-  },
-  {
-    name: 'High Risk Bleed Alert',
-    desc: 'Anticoagulant + NSAID warning',
-    drugs: ['Warfarin', 'Ibuprofen']
-  },
-  {
-    name: 'Malaria + Fever Protocol',
-    desc: 'EDL ACT therapy + Analgesic',
-    drugs: ['Artesunate', 'Lumefantrine', 'Paracetamol']
-  },
-  {
-    name: 'Antibiotic + Antacid',
-    desc: 'Chelation / absorption block check',
-    drugs: ['Ciprofloxacin', 'Calcium Carbonate']
-  }
-];
-
-const SEVERITY_CONFIG: Record<string, { bg: string; border: string; badge: string; badgeText: string; icon: string; title: string }> = {
-  high: {
-    bg: 'bg-red-50',
-    border: 'border-red-300',
-    badge: 'bg-red-100 text-red-700 border-red-200',
-    badgeText: 'HIGH RISK',
-    icon: 'dangerous',
-    title: 'text-red-800',
-  },
-  moderate: {
-    bg: 'bg-amber-50',
-    border: 'border-amber-300',
-    badge: 'bg-amber-100 text-amber-800 border-amber-200',
-    badgeText: 'MODERATE RISK',
-    icon: 'warning',
-    title: 'text-amber-800',
-  },
-  low: {
-    bg: 'bg-blue-50',
-    border: 'border-blue-200',
-    badge: 'bg-blue-100 text-blue-700 border-blue-200',
-    badgeText: 'MINOR / LOW',
-    icon: 'info',
-    title: 'text-blue-800',
-  },
-  unknown: {
-    bg: 'bg-slate-50',
-    border: 'border-slate-200',
-    badge: 'bg-slate-100 text-slate-600 border-slate-200',
-    badgeText: 'NO DIRECT INTERACTION',
-    icon: 'verified_user',
-    title: 'text-slate-700',
-  },
-};
-
 export default function DrugCheckerPage() {
+  const { t } = useI18n();
   const [drugs, setDrugs] = useState<string[]>(['Metformin', 'Telmisartan', 'Amlodipine']);
   const [inputValue, setInputValue] = useState('');
   const [loading, setLoading] = useState(false);
   const [result, setResult] = useState<CheckResult | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [selectedSpecialty, setSelectedSpecialty] = useState<'All' | 'Renal' | 'Hepatic' | 'Pregnancy'>('All');
+
+  const COMMON_PRESETS = [
+    {
+      name: t('drugChecker.presetCardio', 'Cardio & Antiplatelet'),
+      desc: t('drugChecker.presetCardioDesc', 'Dual antiplatelet + Statin review'),
+      drugs: ['Aspirin', 'Clopidogrel', 'Atorvastatin']
+    },
+    {
+      name: t('drugChecker.presetNcd', 'NCD: HTN + T2DM'),
+      desc: t('drugChecker.presetNcdDesc', 'Common rural chronic combo'),
+      drugs: ['Metformin', 'Telmisartan', 'Amlodipine']
+    },
+    {
+      name: t('drugChecker.presetBleed', 'High Risk Bleed Alert'),
+      desc: t('drugChecker.presetBleedDesc', 'Anticoagulant + NSAID warning'),
+      drugs: ['Warfarin', 'Ibuprofen']
+    },
+    {
+      name: t('drugChecker.presetMalaria', 'Malaria + Fever Protocol'),
+      desc: t('drugChecker.presetMalariaDesc', 'EDL ACT therapy + Analgesic'),
+      drugs: ['Artesunate', 'Lumefantrine', 'Paracetamol']
+    },
+    {
+      name: t('drugChecker.presetAntibiotic', 'Antibiotic + Antacid'),
+      desc: t('drugChecker.presetAntibioticDesc', 'Chelation / absorption block check'),
+      drugs: ['Ciprofloxacin', 'Calcium Carbonate']
+    }
+  ];
+
+  const SEVERITY_CONFIG: Record<string, { bg: string; border: string; badge: string; badgeText: string; icon: string; title: string }> = {
+    high: {
+      bg: 'bg-red-50',
+      border: 'border-red-300',
+      badge: 'bg-red-100 text-red-700 border-red-200',
+      badgeText: t('drugChecker.severityHigh', 'HIGH RISK'),
+      icon: 'dangerous',
+      title: 'text-red-800',
+    },
+    moderate: {
+      bg: 'bg-amber-50',
+      border: 'border-amber-300',
+      badge: 'bg-amber-100 text-amber-800 border-amber-200',
+      badgeText: t('drugChecker.severityModerate', 'MODERATE RISK'),
+      icon: 'warning',
+      title: 'text-amber-800',
+    },
+    low: {
+      bg: 'bg-blue-50',
+      border: 'border-blue-200',
+      badge: 'bg-blue-100 text-blue-700 border-blue-200',
+      badgeText: t('drugChecker.severityLow', 'MINOR / LOW'),
+      icon: 'info',
+      title: 'text-blue-800',
+    },
+    unknown: {
+      bg: 'bg-slate-50',
+      border: 'border-slate-200',
+      badge: 'bg-slate-100 text-slate-600 border-slate-200',
+      badgeText: t('drugChecker.noInteractions', 'NO DIRECT INTERACTION'),
+      icon: 'verified_user',
+      title: 'text-slate-700',
+    },
+  };
 
   const addDrug = (drugName?: string) => {
     const val = (drugName || inputValue).trim();
@@ -143,41 +144,41 @@ export default function DrugCheckerPage() {
         <div>
           <div className="inline-flex items-center gap-2 px-3 py-1 bg-white/10 backdrop-blur rounded-full text-xs font-semibold tracking-wide text-teal-200 mb-3">
             <span className="material-symbols-outlined text-sm">pill</span>
-            <span>Clinical Pharmacology & Multidrug Safety Suite</span>
+            <span>{t('drugChecker.badge', 'Clinical Pharmacology & Multidrug Safety Suite')}</span>
           </div>
-          <h1 className="text-3xl lg:text-4xl font-extrabold tracking-tight">Drug Interaction & EDL Safety Checker</h1>
+          <h1 className="text-3xl lg:text-4xl font-extrabold tracking-tight">{t('drugChecker.title', 'Drug Interaction & EDL Safety Checker')}</h1>
         </div>
 
         <div className="flex items-center gap-3 flex-wrap">
           <Link
             href="/doctor"
-            className="px-4 py-3 bg-white/10 hover:bg-white/20 text-white font-bold text-xs rounded-2xl flex items-center gap-2 backdrop-blur transition-all"
+            className="px-4 py-3 bg-white/10 hover:bg-white/20 text-white font-bold text-xs rounded-2xl flex items-center gap-2 backdrop-blur transition-all cursor-pointer"
           >
             <span className="material-symbols-outlined text-lg">arrow_back</span>
-            <span>Back to OPD Queue</span>
+            <span>{t('drugChecker.backToOpd', 'Back to OPD Queue')}</span>
           </Link>
           <button
             onClick={checkInteractions}
             disabled={drugs.length < 2 || loading}
-            className="px-6 py-3 bg-teal-400 hover:bg-teal-300 text-teal-950 font-extrabold text-xs rounded-2xl flex items-center gap-2 shadow-lg transition-all active:scale-95 disabled:opacity-40 disabled:cursor-not-allowed"
+            className="px-6 py-3 bg-teal-400 hover:bg-teal-300 text-teal-950 font-extrabold text-xs rounded-2xl flex items-center gap-2 shadow-lg transition-all active:scale-95 disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer"
           >
             <span className={`material-symbols-outlined text-lg ${loading ? 'animate-spin' : ''}`}>
               {loading ? 'progress_activity' : 'verified_user'}
             </span>
-            <span>{loading ? 'Analyzing...' : 'Run Safety Screen'}</span>
+            <span>{loading ? t('drugChecker.analyzing', 'Analyzing...') : t('drugChecker.runSafetyScreen', 'Run Safety Screen')}</span>
           </button>
         </div>
       </div>
 
       {/* Preset Polypharmacy Combinations */}
       <div className="space-y-2">
-        <span className="text-xs font-bold uppercase tracking-wider text-tertiary">Quick Clinical Regimen Presets:</span>
+        <span className="text-xs font-bold uppercase tracking-wider text-tertiary">{t('drugChecker.presetsTitle', 'Quick Clinical Regimen Presets:')}</span>
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3">
           {COMMON_PRESETS.map((preset, idx) => (
             <button
               key={idx}
               onClick={() => loadPreset(preset.drugs)}
-              className="p-3.5 bg-white border border-surface-container-high rounded-2xl text-left hover:border-primary hover:bg-primary/5 transition-all shadow-xs space-y-1"
+              className="p-3.5 bg-white border border-surface-container-high rounded-2xl text-left hover:border-primary hover:bg-primary/5 transition-all shadow-xs space-y-1 cursor-pointer"
             >
               <div className="flex items-center justify-between">
                 <span className="font-bold text-xs text-on-surface">{preset.name}</span>
@@ -196,8 +197,8 @@ export default function DrugCheckerPage() {
           <div className="bg-white rounded-3xl p-6 shadow-card border border-surface-container-high space-y-5">
             <div className="flex items-center justify-between">
               <div>
-                <h2 className="text-base font-bold text-on-surface">Active Drug Regimen</h2>
-                <p className="text-xs text-tertiary">Add up to 10 medicines to screen for contraindications</p>
+                <h2 className="text-base font-bold text-on-surface">{t('drugChecker.activeRegimen', 'Active Drug Regimen')}</h2>
+                <p className="text-xs text-tertiary">{t('drugChecker.regimenLimit', 'Add up to 10 medicines to screen for contraindications')}</p>
               </div>
               <span className="px-2.5 py-1 bg-surface-container-low text-tertiary font-mono font-bold text-xs rounded-xl">
                 {drugs.length}/10
@@ -211,28 +212,28 @@ export default function DrugCheckerPage() {
                 value={inputValue}
                 onChange={e => setInputValue(e.target.value)}
                 onKeyDown={handleKeyDown}
-                placeholder="Type drug name (e.g. Paracetamol, Warfarin)..."
+                placeholder={t('drugChecker.searchPlaceholder', 'Type drug name (e.g. Paracetamol, Warfarin)...')}
                 className="flex-1 px-4 py-2.5 rounded-xl border border-surface-container-high bg-surface-container-low text-on-surface text-xs font-bold focus:outline-none focus:border-primary"
               />
               <button
                 onClick={() => addDrug()}
                 disabled={!inputValue.trim() || drugs.length >= 10}
-                className="px-4 py-2.5 bg-primary text-white font-bold text-xs rounded-xl hover:bg-primary/90 transition-all disabled:opacity-40 flex items-center gap-1.5 shadow-sm"
+                className="px-4 py-2.5 bg-primary text-white font-bold text-xs rounded-xl hover:bg-primary/90 transition-all disabled:opacity-40 flex items-center gap-1.5 shadow-sm cursor-pointer"
               >
                 <span className="material-symbols-outlined text-sm">add</span>
-                <span>Add</span>
+                <span>{t('drugChecker.addBtn', 'Add')}</span>
               </button>
             </div>
 
             {/* Quick Essential Drug List (EDL) Chips */}
             <div className="space-y-1.5 pt-1">
-              <span className="text-[10px] font-bold uppercase tracking-wider text-tertiary block">Quick Add EDL Medicines:</span>
+              <span className="text-[10px] font-bold uppercase tracking-wider text-tertiary block">{t('drugChecker.quickAddTitle', 'Quick Add EDL Medicines:')}</span>
               <div className="flex flex-wrap gap-1.5">
                 {['Paracetamol', 'Amoxicillin', 'Metformin', 'Telmisartan', 'Amlodipine', 'Aspirin', 'Ibuprofen', 'Ciprofloxacin', 'Artesunate', 'Omeprazole'].map(med => (
                   <button
                     key={med}
                     onClick={() => addDrug(med)}
-                    className="px-2.5 py-1 bg-surface-container-low hover:bg-primary/10 hover:text-primary rounded-lg text-[11px] font-bold text-slate-700 transition-colors border border-surface-container"
+                    className="px-2.5 py-1 bg-surface-container-low hover:bg-primary/10 hover:text-primary rounded-lg text-[11px] font-bold text-slate-700 transition-colors border border-surface-container cursor-pointer"
                   >
                     + {med}
                   </button>
@@ -242,7 +243,7 @@ export default function DrugCheckerPage() {
 
             {/* Selected Drug Tags List */}
             <div className="space-y-2 pt-2 border-t border-surface-container-high">
-              <span className="text-xs font-bold text-on-surface block">Currently Selected Medicines:</span>
+              <span className="text-xs font-bold text-on-surface block">{t('drugChecker.selectedMedicinesTitle', 'Currently Selected Medicines:')}</span>
               {drugs.length === 0 ? (
                 <div className="p-6 text-center rounded-2xl bg-surface-container-low border border-dashed border-surface-container">
                   <span className="material-symbols-outlined text-2xl text-tertiary">medication</span>
@@ -263,8 +264,8 @@ export default function DrugCheckerPage() {
                       </div>
                       <button
                         onClick={() => removeDrug(i)}
-                        className="text-tertiary hover:text-red-600 transition-colors p-1"
-                        title="Remove medicine"
+                        className="text-tertiary hover:text-red-600 transition-colors p-1 cursor-pointer"
+                        title={t('drugChecker.removeDrug', 'Remove medicine')}
                       >
                         <span className="material-symbols-outlined text-base">close</span>
                       </button>
@@ -278,18 +279,18 @@ export default function DrugCheckerPage() {
             <div className="pt-3 border-t border-surface-container-high flex items-center justify-between">
               <button
                 onClick={() => { setDrugs([]); setResult(null); }}
-                className="text-xs text-tertiary hover:text-red-600 font-bold"
+                className="text-xs text-tertiary hover:text-red-600 font-bold cursor-pointer"
               >
-                Clear All
+                {t('common.clear', 'Clear All')}
               </button>
 
               <button
                 onClick={checkInteractions}
                 disabled={drugs.length < 2 || loading}
-                className="px-5 py-2.5 bg-primary text-white font-bold text-xs rounded-xl hover:bg-primary/90 transition-all disabled:opacity-40 flex items-center gap-2 shadow-sm"
+                className="px-5 py-2.5 bg-primary text-white font-bold text-xs rounded-xl hover:bg-primary/90 transition-all disabled:opacity-40 flex items-center gap-2 shadow-sm cursor-pointer"
               >
                 <span className="material-symbols-outlined text-sm">play_arrow</span>
-                <span>Run Analysis</span>
+                <span>{t('drugChecker.runSafetyScreen', 'Run Analysis')}</span>
               </button>
             </div>
           </div>
@@ -309,9 +310,9 @@ export default function DrugCheckerPage() {
               <div className="w-16 h-16 rounded-3xl bg-primary/10 text-primary flex items-center justify-center mx-auto shadow-sm">
                 <span className="material-symbols-outlined text-3xl">clinical_notes</span>
               </div>
-              <h3 className="text-lg font-bold text-on-surface">Ready to Perform Drug Interaction Analysis</h3>
+              <h3 className="text-lg font-bold text-on-surface">{t('drugChecker.readyTitle', 'Ready to Perform Drug Interaction Analysis')}</h3>
               <p className="text-xs text-tertiary max-w-md mx-auto">
-                Select 2 or more medicines on the left and click <strong>Run Safety Screen</strong> to check against pharmacological safety databases.
+                {t('drugChecker.readyDesc', 'Select 2 or more medicines on the left and click Run Safety Screen to check against pharmacological safety databases.')}
               </p>
             </div>
           )}
@@ -319,7 +320,7 @@ export default function DrugCheckerPage() {
           {loading && (
             <div className="bg-white rounded-3xl p-16 text-center border border-surface-container-high space-y-3 shadow-card">
               <span className="material-symbols-outlined animate-spin text-4xl text-primary">progress_activity</span>
-              <h3 className="text-base font-bold text-on-surface">Analyzing Pharmacological Pathways...</h3>
+              <h3 className="text-base font-bold text-on-surface">{t('drugChecker.analyzing', 'Analyzing Pharmacological Pathways...')}</h3>
               <p className="text-xs text-tertiary">Scanning CYP450 enzyme metabolism, renal excretion, and adverse reaction literature.</p>
             </div>
           )}
@@ -348,7 +349,7 @@ export default function DrugCheckerPage() {
                     <h2 className="text-lg font-extrabold text-on-surface">
                       {result.interactions_found
                         ? `${result.pairs.length} Potential Interaction(s) Flagged`
-                        : 'No Adverse Drug Interactions Detected'}
+                        : t('drugChecker.noInteractions', 'No Adverse Drug Interactions Detected')}
                     </h2>
                     <p className="text-xs text-slate-700 mt-0.5">
                       {result.interactions_found
