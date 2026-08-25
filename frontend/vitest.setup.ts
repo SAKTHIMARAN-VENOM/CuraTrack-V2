@@ -20,31 +20,25 @@ vi.mock('next/headers', () => ({
   }),
 }));
 
+const mockI18nReturn = {
+  language: 'en',
+  locale: 'en',
+  setLanguage: vi.fn(),
+  setLocale: vi.fn(),
+  t: (key: string, paramsOrFallback?: any, maybeFallback?: string) => {
+    if (typeof paramsOrFallback === 'string') return paramsOrFallback;
+    if (maybeFallback) return maybeFallback;
+    const parts = key.split('.');
+    return parts[parts.length - 1] || key;
+  },
+  translate: vi.fn(async (t: string) => t),
+  translateBatch: vi.fn(async (t: string[]) => t),
+};
+
 vi.mock('@/lib/i18n', () => ({
-  useI18n: () => ({
-    language: 'en',
-    locale: 'en',
-    setLanguage: vi.fn(),
-    setLocale: vi.fn(),
-    t: (key: string, paramsOrFallback?: any, maybeFallback?: string) => {
-      if (typeof paramsOrFallback === 'string') return paramsOrFallback;
-      if (maybeFallback) return maybeFallback;
-      const parts = key.split('.');
-      return parts[parts.length - 1] || key;
-    },
-  }),
-  useTranslation: () => ({
-    language: 'en',
-    locale: 'en',
-    setLanguage: vi.fn(),
-    setLocale: vi.fn(),
-    t: (key: string, paramsOrFallback?: any, maybeFallback?: string) => {
-      if (typeof paramsOrFallback === 'string') return paramsOrFallback;
-      if (maybeFallback) return maybeFallback;
-      const parts = key.split('.');
-      return parts[parts.length - 1] || key;
-    },
-  }),
+  useI18n: () => mockI18nReturn,
+  useLanguage: () => mockI18nReturn,
+  useTranslation: () => mockI18nReturn,
   useTranslations: () => (key: string) => key,
   I18nProvider: ({ children }: { children: React.ReactNode }) => children,
 }));

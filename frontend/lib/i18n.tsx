@@ -1,10 +1,11 @@
 'use client';
 
-import React, { createContext, useContext, useState, useEffect, useMemo, ReactNode } from 'react';
+import React, { createContext, useContext, useState, useEffect, useMemo, useCallback, useRef, ReactNode } from 'react';
 import enMessages from '@/messages/en.json';
 import hiMessages from '@/messages/hi.json';
 import mrMessages from '@/messages/mr.json';
 import taMessages from '@/messages/ta.json';
+import { API_BASE } from './api';
 
 export type SupportedLanguage = 'en' | 'hi' | 'mr' | 'ta';
 
@@ -14,6 +15,8 @@ export interface I18nContextType {
   setLanguage: (lang: SupportedLanguage) => void;
   setLocale: (lang: SupportedLanguage) => void;
   t: (key: string, paramsOrFallback?: Record<string, any> | string, maybeFallback?: string) => string;
+  translate: (text: string, targetLang?: SupportedLanguage) => Promise<string>;
+  translateBatch: (texts: string[], targetLang?: SupportedLanguage) => Promise<string[]>;
 }
 
 export const DICTIONARIES: Record<SupportedLanguage, Record<string, any>> = {
@@ -33,6 +36,8 @@ const I18nContext = createContext<I18nContextType>({
     if (maybeFallback) return maybeFallback;
     return key;
   },
+  translate: async (text: string) => text,
+  translateBatch: async (texts: string[]) => texts
 });
 
 function getNestedValue(obj: any, path: string): string | undefined {
@@ -56,9 +61,15 @@ function interpolate(template: string, params?: Record<string, any>): string {
   });
 }
 
+// In-memory client-side translation cache across requests
+const clientTranslationCache = new Map<string, string>();
+
 export function I18nProvider({ children }: { children: ReactNode }) {
   const [language, setLanguageState] = useState<SupportedLanguage>('en');
+  const pendingBatchRef = useRef<Set<string>>(new Set());
+  const batchTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
+  // Initialize from localStorage or cookie
   useEffect(() => {
     try {
       const saved = localStorage.getItem('curatrack_language') as SupportedLanguage;
@@ -98,6 +109,87 @@ export function I18nProvider({ children }: { children: ReactNode }) {
     } catch {}
   };
 
+  /**
+   * Batch translates strings via FastAPI backend (powered by Sarvam AI).
+   */
+  const translateBatch = useCallback(async (texts: string[], targetLang?: SupportedLanguage): Promise<string[]> => {
+    const target = targetLang || language;
+    if (target === 'en' || !texts || texts.length === 0) {
+      return texts;
+    }
+
+    const results: string[] = new Array(texts.length);
+    const toFetchIndices: number[] = [];
+    const toFetchTexts: string[] = [];
+
+    // Check client-side memory cache first
+    texts.forEach((txt, idx) => {
+      if (!txt || !txt.trim()) {
+        results[idx] = txt;
+        return;
+      }
+      const cacheKey = `en:${target}:${txt.trim()}`;
+      if (clientTranslationCache.has(cacheKey)) {
+        results[idx] = clientTranslationCache.get(cacheKey)!;
+      } else {
+        // Also check if it exists in pre-warmed dictionary
+        const dictVal = getNestedValue(DICTIONARIES[target], txt.trim());
+        if (dictVal) {
+          clientTranslationCache.set(cacheKey, dictVal);
+          results[idx] = dictVal;
+        } else {
+          results[idx] = txt; // Temporary fallback
+          toFetchIndices.push(idx);
+          toFetchTexts.push(txt.trim());
+        }
+      }
+    });
+
+    if (toFetchTexts.length === 0) {
+      return results;
+    }
+
+    try {
+      const res = await fetch(`${API_BASE}/api/translation/translate`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          texts: toFetchTexts,
+          source_language: 'en',
+          target_language: target
+        })
+      });
+
+      if (res.ok) {
+        const data = await res.json();
+        const translations: string[] = data.translations || [];
+        translations.forEach((trans, i) => {
+          const originalIdx = toFetchIndices[i];
+          const originalText = toFetchTexts[i];
+          const cacheKey = `en:${target}:${originalText}`;
+          clientTranslationCache.set(cacheKey, trans);
+          results[originalIdx] = trans;
+        });
+      }
+    } catch (err) {
+      console.warn('Sarvam translation API fetch error:', err);
+    }
+
+    return results;
+  }, [language]);
+
+  /**
+   * Single string translation helper via Sarvam AI backend.
+   */
+  const translate = useCallback(async (text: string, targetLang?: SupportedLanguage): Promise<string> => {
+    if (!text) return text;
+    const batch = await translateBatch([text], targetLang);
+    return batch[0] || text;
+  }, [translateBatch]);
+
+  /**
+   * Synchronous translation method for instant UI rendering with fallback and interpolation.
+   */
   const t = useMemo(() => {
     return (
       key: string,
@@ -114,6 +206,12 @@ export function I18nProvider({ children }: { children: ReactNode }) {
       } else if (paramsOrFallback && typeof paramsOrFallback === 'object') {
         params = paramsOrFallback;
         fallback = maybeFallback;
+      }
+
+      // Check client translation cache (e.g. from Sarvam AI)
+      const cacheKey = `en:${language}:${key.trim()}`;
+      if (clientTranslationCache.has(cacheKey)) {
+        return interpolate(clientTranslationCache.get(cacheKey)!, params);
       }
 
       // 1. Try current language dictionary
@@ -142,8 +240,10 @@ export function I18nProvider({ children }: { children: ReactNode }) {
     locale: language,
     setLanguage,
     setLocale: setLanguage,
-    t
-  }), [language, t]);
+    t,
+    translate,
+    translateBatch
+  }), [language, t, translate, translateBatch]);
 
   return (
     <I18nContext.Provider value={value}>
@@ -156,6 +256,7 @@ export function useI18n() {
   return useContext(I18nContext);
 }
 
+export const useLanguage = useI18n;
 export const useTranslation = useI18n;
 
 export function useTranslations(namespace?: string) {
