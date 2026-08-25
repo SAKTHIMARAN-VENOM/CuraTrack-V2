@@ -166,6 +166,7 @@ curatrack/
 │   ├── app/                        # Next.js App Router
 │   │   ├── (dashboard)/            # Authenticated stakeholder routes
 │   │   │   ├── dashboard/          # Citizen / Patient health overview
+│   │   │   ├── self-triage/        # Patient Emergency Self-Assessment & Emergency Alerting
 │   │   │   ├── triage/             # Digital Clinical Triage Suite
 │   │   │   ├── referrals/          # Public Health Referral Tracking Pipeline
 │   │   │   ├── fhw/                # ASHA Frontline Worker Catchment Center
@@ -173,8 +174,8 @@ curatrack/
 │   │   │   ├── telemedicine/       # WebRTC Video Consult Launcher
 │   │   │   ├── records/            # OCR Medical Document Archive
 │   │   │   ├── benefits/           # PM-JAY & Ayushman Bharat Scheme Ingestion
-
-│   │   ├── doctor/                 # Medical Officer OPD Queue & Schedule
+│   │   ├── doctor/                 # Medical Officer OPD Queue, Schedule & Triage Dashboard
+│   │   │   ├── triage/             # Live Triage Alerts & Consult Pathway Router (Visit vs Telemed)
 │   │   ├── admin/                  # District Administrator Portal & Verification
 │   │   ├── call/[roomId]/          # WebRTC P2P Video Call Interface
 │   │   ├── login/                  # 5-Tier 1-Click Demo Login & Authentication

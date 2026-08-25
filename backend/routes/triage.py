@@ -222,3 +222,227 @@ def assess_triage(req: TriageAssessmentRequest):
         "clinical_notes": clinical_notes,
         "triage_summary": f"{urgency} tier triage: Recommend {recommended_facility}."
     }
+
+
+class SelfTriageStatusUpdateRequest(BaseModel):
+    status: str = "ACKNOWLEDGED"  # "PENDING" | "ACKNOWLEDGED" | "RESOLVED"
+    acknowledged_by: Optional[str] = "Dr. David Ross"
+    notes: Optional[str] = None
+
+
+# In-memory storage for self-assessments (used alongside Supabase)
+_self_triage_db: List[dict] = [
+    {
+        "id": "ST-9001",
+        "patient_id": "p-101",
+        "patient_name": "Rameshwar Patel",
+        "age": 54,
+        "gender": "Male",
+        "symptoms": ["Chest pain / Heavy pressure", "Dizziness when standing"],
+        "symptom_description": "Severe pressure in chest radiating to left shoulder since morning",
+        "red_flags": ["Severe central chest pain radiating to left arm or jaw"],
+        "severity": 9,
+        "duration_days": 1,
+        "vitals": {
+            "spo2": 91.0,
+            "heart_rate": 118.0,
+            "systolic_bp": 182.0,
+            "temperature": 37.2
+        },
+        "urgency": "RED",
+        "urgency_label": "EMERGENCY / IMMEDIATE EVACUATION",
+        "color": "red",
+        "recommended_facility": "District Hospital / Tertiary Medical College Hospital",
+        "immediate_actions": [
+            "Call 108 Emergency Ambulance immediately for rapid transit.",
+            "Keep patient in recovery position; administer supplemental oxygen.",
+            "Alert Emergency Medical Officer at receiving District Hospital."
+        ],
+        "potential_conditions": ["Acute Coronary Syndrome (ACS)", "Angina Pectoris", "Hypertensive Emergency"],
+        "teleconsult_recommended": False,
+        "consult_action": "VISIT_EMERGENCY",
+        "notified_parties": ["Emergency Medical Officer", "108 Ambulance Command", "ASHA Supervisor"],
+        "status": "PENDING",
+        "acknowledged_by": None,
+        "acknowledged_at": None,
+        "created_at": "2026-08-25T10:15:00Z"
+    },
+    {
+        "id": "ST-9002",
+        "patient_id": "p-102",
+        "patient_name": "Sunita Devi",
+        "age": 28,
+        "gender": "Female",
+        "symptoms": ["Acute Diarrhea (> 3 episodes/day)", "Persistent nausea / vomiting"],
+        "symptom_description": "Dehydrated after 4 episodes of watery diarrhea since yesterday",
+        "red_flags": [],
+        "severity": 6,
+        "duration_days": 2,
+        "vitals": {
+            "spo2": 97.0,
+            "heart_rate": 88.0,
+            "systolic_bp": 110.0,
+            "temperature": 38.4
+        },
+        "urgency": "YELLOW",
+        "urgency_label": "PRIORITY / CLINICAL CONSULT WITHIN 24 HOURS",
+        "color": "amber",
+        "recommended_facility": "Primary Health Centre (PHC) / Community Health Centre (CHC)",
+        "immediate_actions": [
+            "Schedule assisted teleconsultation with Medical Officer today.",
+            "Maintain fluid intake with Oral Rehydration Salts (ORS) + Zinc.",
+            "Visit nearest PHC for diagnostic workup if symptoms persist."
+        ],
+        "potential_conditions": ["Acute Gastroenteritis with Dehydration", "Foodborne Illness"],
+        "teleconsult_recommended": True,
+        "consult_action": "ONLINE_CONSULTATION",
+        "notified_parties": ["Assigned ASHA Worker (Sunita Bai)", "PHC Medical Officer"],
+        "status": "PENDING",
+        "acknowledged_by": None,
+        "acknowledged_at": None,
+        "created_at": "2026-08-25T09:40:00Z"
+    }
+]
+
+
+@router.post("/triage/self-assess")
+def self_assess_triage(req: TriageAssessmentRequest):
+    """
+    Patient emergency self-assessment endpoint. Evaluates symptoms and severity,
+    determines urgency tier, assigns consultation pathway (In-Person/Online),
+    and dispatches notifications to FHW or Doctor based on clinical urgency.
+    """
+    import uuid
+    import datetime
+
+    # Run base clinical triage evaluation
+    base_result = assess_triage(req)
+    urgency = base_result["urgency"]
+
+    # Determine automated notifications based on severity
+    if urgency == "RED":
+        notified_parties = [
+            "District Hospital Emergency Medical Officer (EMO)",
+            "108 Ambulance Emergency Response Center",
+            "Catchment ASHA Health Worker"
+        ]
+        consult_action = "VISIT_EMERGENCY"
+        notification_message = (
+            "🚨 CRITICAL EMERGENCY ALERT: Immediate in-person hospital evaluation required. "
+            "108 Ambulance alert dispatched to nearest dispatch station."
+        )
+    elif urgency == "YELLOW":
+        notified_parties = [
+            "Primary Health Centre (PHC) Medical Officer",
+            "Frontline Health Worker (ASHA / ANM)"
+        ]
+        consult_action = "ONLINE_CONSULTATION"
+        notification_message = (
+            "⚠️ PRIORITY ALERT: Clinical review required within 24 hours. "
+            "ASHA Worker and Doctor have been notified for teleconsultation or clinic visit."
+        )
+    else:
+        notified_parties = [
+            "Frontline Health Worker (ASHA Catchment)",
+            "Ayushman Arogya Mandir Sub-Centre Team"
+        ]
+        consult_action = "HOME_CARE_FOLLOWUP"
+        notification_message = (
+            "✅ ROUTINE CARE: Mild symptoms logged. Local ASHA worker notified for routine health checkup."
+        )
+
+    st_id = f"ST-{uuid.uuid4().hex[:6].upper()}"
+    now_iso = datetime.datetime.utcnow().isoformat() + "Z"
+
+    record = {
+        "id": st_id,
+        "patient_id": req.patient_id or "patient-self",
+        "patient_name": req.patient_name or "Self Patient",
+        "age": req.age or 30,
+        "gender": req.gender or "Other",
+        "symptoms": req.symptoms,
+        "symptom_description": req.notes or "",
+        "red_flags": req.red_flags,
+        "severity": req.severity,
+        "duration_days": req.duration_days,
+        "vitals": {
+            "spo2": req.spo2,
+            "heart_rate": req.heart_rate,
+            "systolic_bp": req.systolic_bp,
+            "temperature": req.temperature
+        },
+        "urgency": urgency,
+        "urgency_label": base_result["urgency_label"],
+        "color": base_result["color"],
+        "recommended_facility": base_result["recommended_facility"],
+        "immediate_actions": base_result["immediate_actions"],
+        "potential_conditions": base_result["potential_conditions"],
+        "teleconsult_recommended": base_result["teleconsult_recommended"],
+        "consult_action": consult_action,
+        "notified_parties": notified_parties,
+        "notification_message": notification_message,
+        "status": "PENDING",
+        "acknowledged_by": None,
+        "acknowledged_at": None,
+        "created_at": now_iso
+    }
+
+    _self_triage_db.insert(0, record)
+
+    return {
+        **base_result,
+        "id": st_id,
+        "consult_action": consult_action,
+        "notified_parties": notified_parties,
+        "notification_message": notification_message,
+        "created_at": now_iso
+    }
+
+
+@router.get("/triage/self-assessments")
+def get_self_assessments(
+    urgency: Optional[str] = None,
+    status: Optional[str] = None,
+    patient_id: Optional[str] = None
+):
+    """
+    Returns self-triage assessments filtered by urgency, status, or patient ID.
+    Used by Doctor Triage Dashboard and Patient Self-Triage History.
+    """
+    results = _self_triage_db
+    if urgency and urgency != "ALL":
+        results = [r for r in results if r.get("urgency") == urgency]
+    if status and status != "ALL":
+        results = [r for r in results if r.get("status") == status]
+    if patient_id:
+        results = [r for r in results if r.get("patient_id") == patient_id]
+
+    return {
+        "assessments": results,
+        "total": len(results),
+        "emergency_count": sum(1 for r in _self_triage_db if r.get("urgency") == "RED" and r.get("status") == "PENDING"),
+        "priority_count": sum(1 for r in _self_triage_db if r.get("urgency") == "YELLOW" and r.get("status") == "PENDING"),
+        "routine_count": sum(1 for r in _self_triage_db if r.get("urgency") == "GREEN" and r.get("status") == "PENDING")
+    }
+
+
+@router.patch("/triage/self-assessments/{assessment_id}/status")
+def update_self_assessment_status(assessment_id: str, req: SelfTriageStatusUpdateRequest):
+    """
+    Allows a doctor or FHW to acknowledge or resolve a patient's self-triage alert.
+    """
+    import datetime
+    for item in _self_triage_db:
+        if item["id"] == assessment_id:
+            item["status"] = req.status
+            item["acknowledged_by"] = req.acknowledged_by
+            now_iso = datetime.datetime.utcnow().isoformat() + "Z"
+            if req.status == "ACKNOWLEDGED":
+                item["acknowledged_at"] = now_iso
+            elif req.status == "RESOLVED":
+                item["resolved_at"] = now_iso
+            return {"status": "success", "assessment": item}
+
+    from fastapi import HTTPException
+    raise HTTPException(status_code=404, detail=f"Self assessment {assessment_id} not found")
+

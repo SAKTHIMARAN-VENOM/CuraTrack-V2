@@ -178,8 +178,14 @@ export default function Dashboard() {
                         </div>
                     </div>
                 </div>
-                <div className="flex gap-3">
-
+                <div className="flex flex-wrap gap-3">
+                    <button 
+                        onClick={() => router.push('/self-triage')}
+                        className="px-6 py-3 bg-gradient-to-r from-red-600 to-rose-600 text-white font-bold rounded-2xl shadow-md hover:opacity-95 hover:shadow-lg transition-all flex items-center gap-2"
+                    >
+                        <span className="material-symbols-outlined !text-lg animate-pulse">emergency</span>
+                        Self-Triage
+                    </button>
                     <button 
                         onClick={() => setShowPassportModal(true)}
                         className="px-6 py-3 bg-gradient-to-br from-secondary to-secondary/80 text-white font-bold rounded-2xl shadow-md hover:opacity-90 transition-all flex items-center gap-2"
@@ -400,6 +406,16 @@ export default function Dashboard() {
                         <div>
                             <p className="font-bold text-sm text-on-surface">Health Records (OCR)</p>
                             <p className="text-xs text-tertiary">Upload and index prescriptions</p>
+                        </div>
+                    </button>
+
+                    <button onClick={() => router.push('/self-triage')} className="group p-5 bg-white rounded-2xl shadow-sm hover:shadow-md transition-all flex flex-col gap-3 text-left border border-surface-container-high hover:border-red-500">
+                        <div className="h-10 w-10 bg-red-500/10 rounded-xl flex items-center justify-center text-red-600 group-hover:scale-105 transition-transform">
+                            <span className="material-symbols-outlined text-xl animate-pulse">emergency</span>
+                        </div>
+                        <div>
+                            <p className="font-bold text-sm text-on-surface">Emergency Self-Triage</p>
+                            <p className="text-xs text-tertiary">Assess symptoms & alert doctor</p>
                         </div>
                     </button>
 

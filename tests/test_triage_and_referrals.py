@@ -71,6 +71,66 @@ def test_triage_routine_green(client):
     assert "Ayushman Arogya Mandir" in data["recommended_facility"] or "Home Care" in data["recommended_facility"]
 
 
+def test_patient_emergency_self_triage_flow(client):
+    """Verify patient emergency self-assessment, severity notification routing, and doctor queue listing."""
+    # 1. Critical RED emergency self-assessment
+    red_payload = {
+        "patient_id": "test-patient-self-99",
+        "patient_name": "Rohan Sharma",
+        "age": 45,
+        "gender": "Male",
+        "symptoms": ["Chest pain / Heavy pressure"],
+        "red_flags": ["Severe central chest pain radiating to left arm or jaw"],
+        "severity": 9,
+        "duration_days": 1,
+        "spo2": 90,
+        "systolic_bp": 185,
+        "notes": "Crushing chest pain radiating to left arm since 30 mins"
+    }
+    red_res = client.post("/api/triage/self-assess", json=red_payload)
+    assert red_res.status_code == 200
+    red_data = red_res.json()
+    assert red_data["urgency"] == "RED"
+    assert red_data["consult_action"] == "VISIT_EMERGENCY"
+    assert any("Emergency Medical Officer" in p for p in red_data["notified_parties"])
+    assessment_id = red_data["id"]
+
+    # 2. Priority YELLOW self-assessment
+    yellow_payload = {
+        "patient_id": "test-patient-self-100",
+        "patient_name": "Geeta Bai",
+        "age": 35,
+        "gender": "Female",
+        "symptoms": ["Acute Diarrhea (> 3 episodes/day)"],
+        "severity": 6,
+        "duration_days": 2,
+        "spo2": 97
+    }
+    yellow_res = client.post("/api/triage/self-assess", json=yellow_payload)
+    assert yellow_res.status_code == 200
+    yellow_data = yellow_res.json()
+    assert yellow_data["urgency"] == "YELLOW"
+    assert yellow_data["consult_action"] == "ONLINE_CONSULTATION"
+    assert yellow_data["teleconsult_recommended"] is True
+
+    # 3. Doctor retrieves self-assessments list
+    list_res = client.get("/api/triage/self-assessments")
+    assert list_res.status_code == 200
+    list_data = list_res.json()
+    assert list_data["total"] > 0
+    assert list_data["emergency_count"] >= 1
+
+    # 4. Doctor acknowledges and resolves the alert
+    ack_res = client.patch(f"/api/triage/self-assessments/{assessment_id}/status", json={"status": "ACKNOWLEDGED", "acknowledged_by": "Dr. David Ross"})
+    assert ack_res.status_code == 200
+    assert ack_res.json()["assessment"]["status"] == "ACKNOWLEDGED"
+
+    resolve_res = client.patch(f"/api/triage/self-assessments/{assessment_id}/status", json={"status": "RESOLVED", "acknowledged_by": "Dr. David Ross"})
+    assert resolve_res.status_code == 200
+    assert resolve_res.json()["assessment"]["status"] == "RESOLVED"
+
+
+
 def test_referral_creation_and_listing(client):
     """Verify referral creation and retrieval through the public health referral pipeline."""
     create_payload = {

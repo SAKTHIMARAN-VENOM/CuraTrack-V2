@@ -11,6 +11,7 @@ export type UserRole = 'patient' | 'doctor' | 'fhw' | 'facility_manager' | 'admi
 
 const PATIENT_NAV_ITEMS = [
     { href: '/dashboard', icon: 'dashboard', label: 'My Health Dashboard' },
+    { href: '/self-triage', icon: 'emergency', label: 'Emergency Self-Triage' },
     { href: '/telemedicine', icon: 'video_chat', label: 'Consult Doctor' },
     { href: '/records', icon: 'folder_shared', label: 'My Medical Records' },
     { href: '/benefits', icon: 'account_balance_wallet', label: 'Gov Schemes & PMJAY' },
@@ -20,6 +21,7 @@ const PATIENT_NAV_ITEMS = [
 
 const DOCTOR_NAV_ITEMS = [
     { href: '/doctor', icon: 'dashboard', label: 'Clinical OPD Queue' },
+    { href: '/doctor/triage', icon: 'assignment_late', label: 'Triage Alerts' },
     { href: '/doctor/clinical-schedule', icon: 'calendar_month', label: 'Consultation Schedule' },
     { href: '/referrals', icon: 'alt_route', label: 'Referral Pipeline' },
     { href: '/drug-checker', icon: 'pill', label: 'Drug Safety' },
