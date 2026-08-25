@@ -21,32 +21,81 @@ export async function POST(req: NextRequest) {
             );
         }
 
-        const rawLicenseKey = body.doctorLicenseKey ? String(body.doctorLicenseKey).trim().toUpperCase() : '';
+        const rawRoleKey = body.roleKey || body.doctorLicenseKey || body.licenseKey || '';
+        const roleKey = String(rawRoleKey).trim().toUpperCase();
         const lowerEmail = email.toLowerCase().trim();
+        const targetRole = body.role || 'patient';
 
-        const isOfficialDoctorEmail = lowerEmail === 'dr.thorne@curatrack.com' || lowerEmail === 'doctor@curatrack.com';
-        const isDoctorKeyValid = rawLicenseKey === 'DOC-KEY-2025' || rawLicenseKey === 'MED-00471-TX' || rawLicenseKey.startsWith('DOC-') || rawLicenseKey.startsWith('MED-');
-        
-        const isDoctorClaim = isOfficialDoctorEmail || isDoctorKeyValid || (Boolean(rawLicenseKey) && (lowerEmail.includes('doctor') || lowerEmail.includes('dr.'))) || body.role === 'doctor';
+        // 1. Doctor verification
+        const isOfficialDoctorEmail = lowerEmail === 'dr.thorne@curatrack.com' || lowerEmail === 'doctor@curatrack.com' || (lowerEmail.endsWith('@curatrack.in') && lowerEmail.includes('doctor'));
+        const isDoctorKeyValid = roleKey === 'DOC-KEY-2025' || roleKey === 'MED-00471-TX' || roleKey.startsWith('DOC-') || roleKey.startsWith('MED-') || (roleKey.length >= 5 && isOfficialDoctorEmail);
 
-        // Reject doctor email signups without a valid license key
-        if ((lowerEmail.includes('doctor') || lowerEmail.includes('dr.')) && !isDoctorClaim) {
-            return NextResponse.json(
-                { error: 'Doctor account registration requires a verified Doctor Medical Key (e.g. DOC-KEY-2025). Please enter key or contact administrator.' },
-                { status: 403 }
-            );
+        // 2. Frontline Health Worker (ASHA / ANM) verification
+        const isOfficialFhwEmail = lowerEmail === 'fhw@curatrack.in' || lowerEmail === 'fhw@curatrack.com' || lowerEmail.includes('asha') || lowerEmail.includes('fhw');
+        const isFhwKeyValid = roleKey === 'ASHA-KEY-2025' || roleKey === 'ASHA-402' || roleKey === 'ANM-108' || roleKey === 'FHW-KEY-2025' || roleKey.startsWith('ASHA-') || roleKey.startsWith('ANM-') || roleKey.startsWith('FHW-') || (roleKey.length >= 5 && isOfficialFhwEmail);
+
+        // 3. Facility & Pharmacy Manager verification
+        const isOfficialManagerEmail = lowerEmail === 'manager@curatrack.in' || lowerEmail === 'manager@curatrack.com' || lowerEmail.includes('manager') || lowerEmail.includes('facility');
+        const isManagerKeyValid = roleKey === 'FAC-KEY-2025' || roleKey === 'FAC-MH-NDB-104' || roleKey === 'OPS-KEY-2025' || roleKey === 'PHARM-501' || roleKey.startsWith('FAC-') || roleKey.startsWith('OPS-') || roleKey.startsWith('PHARM-') || roleKey.startsWith('HOSP-') || (roleKey.length >= 5 && isOfficialManagerEmail);
+
+        // 4. District Health Administrator verification
+        const isOfficialAdminEmail = lowerEmail === 'admin@curatrack.in' || lowerEmail === 'admin@curatrack.com' || lowerEmail.includes('admin');
+        const isAdminKeyValid = roleKey === 'ADMIN-KEY-2025' || roleKey === 'DIST-ADMIN-99' || roleKey === 'GOV-HQ-2025' || roleKey.startsWith('ADMIN-') || roleKey.startsWith('DIST-') || roleKey.startsWith('GOV-') || roleKey.startsWith('ADM-') || (roleKey.length >= 5 && isOfficialAdminEmail);
+
+        // Validate Key according to role (Patient does not require a key)
+        if (targetRole === 'doctor') {
+            if (!roleKey && !isOfficialDoctorEmail) {
+                return NextResponse.json(
+                    { error: 'Doctor account registration requires a verified Medical License Key (e.g. DOC-KEY-2025).' },
+                    { status: 403 }
+                );
+            }
+            if (roleKey && !isDoctorKeyValid && !isOfficialDoctorEmail) {
+                return NextResponse.json(
+                    { error: 'Invalid Doctor Medical License Key. Please enter a valid key (e.g. DOC-KEY-2025).' },
+                    { status: 400 }
+                );
+            }
+        } else if (targetRole === 'fhw') {
+            if (!roleKey && !isOfficialFhwEmail) {
+                return NextResponse.json(
+                    { error: 'ASHA / Frontline Worker registration requires a verified Govt Field Key (e.g. ASHA-KEY-2025 or ASHA-402).' },
+                    { status: 403 }
+                );
+            }
+            if (roleKey && !isFhwKeyValid && !isOfficialFhwEmail) {
+                return NextResponse.json(
+                    { error: 'Invalid ASHA / ANM Govt Field Key. Please enter a valid key (e.g. ASHA-KEY-2025).' },
+                    { status: 400 }
+                );
+            }
+        } else if (targetRole === 'facility_manager') {
+            if (!roleKey && !isOfficialManagerEmail) {
+                return NextResponse.json(
+                    { error: 'Facility Manager registration requires an Institutional Authorization Key (e.g. FAC-KEY-2025 or FAC-MH-NDB-104).' },
+                    { status: 403 }
+                );
+            }
+            if (roleKey && !isManagerKeyValid && !isOfficialManagerEmail) {
+                return NextResponse.json(
+                    { error: 'Invalid Facility Authorization Key. Please enter a valid key (e.g. FAC-KEY-2025).' },
+                    { status: 400 }
+                );
+            }
+        } else if (targetRole === 'admin') {
+            if (!roleKey && !isOfficialAdminEmail) {
+                return NextResponse.json(
+                    { error: 'District Administrator registration requires a Security Passkey (e.g. ADMIN-KEY-2025 or DIST-ADMIN-99).' },
+                    { status: 403 }
+                );
+            }
+            if (roleKey && !isAdminKeyValid && !isOfficialAdminEmail) {
+                return NextResponse.json(
+                    { error: 'Invalid District Administrator Security Key. Please enter a valid key (e.g. ADMIN-KEY-2025).' },
+                    { status: 400 }
+                );
+            }
         }
-
-        // Reject if user provided an invalid license key
-        if (rawLicenseKey.length > 0 && !isDoctorKeyValid && !isOfficialDoctorEmail) {
-            return NextResponse.json(
-                { error: 'Invalid Doctor License Key. Please enter a valid key (e.g. DOC-KEY-2025).' },
-                { status: 400 }
-            );
-        }
-
-        let targetRole = body.role || (isDoctorClaim ? 'doctor' : 'patient');
-        if (isDoctorClaim) targetRole = 'doctor';
 
         const adminClient = createAdminClient();
         const supabase = await createClient();
@@ -157,7 +206,7 @@ export async function POST(req: NextRequest) {
             if (targetRole === 'doctor') {
                 await adminClient.from('doctor_profile').upsert({
                     doctor_id: userId,
-                    reg_number: rawLicenseKey || 'DOC-KEY-2025',
+                    reg_number: roleKey || 'DOC-KEY-2025',
                     qualification: 'M.D. / M.B.B.S.',
                     specialization: 'General Medicine',
                     experience_years: 5,

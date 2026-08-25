@@ -14,11 +14,42 @@ export default function LoginPage() {
     const [password, setPassword] = useState('');
     const [name, setName] = useState('');
     const [signupRole, setSignupRole] = useState<UserRole>('patient');
-    const [doctorLicenseKey, setDoctorLicenseKey] = useState('');
+    const [roleVerificationKey, setRoleVerificationKey] = useState('');
     const [showPassword, setShowPassword] = useState(false);
     const [error, setError] = useState('');
     const [loading, setLoading] = useState(false);
     const [googleLoading, setGoogleLoading] = useState(false);
+
+    const getRoleKeyInfo = (role: UserRole) => {
+        switch (role) {
+            case 'doctor':
+                return {
+                    label: 'Doctor Medical License Key',
+                    placeholder: 'e.g. DOC-KEY-2025 or MED-00471-TX',
+                    helpText: 'Requires verified medical license for OPD queue and clinical prescriptions.'
+                };
+            case 'fhw':
+                return {
+                    label: 'ASHA / ANM Govt Authorization Key',
+                    placeholder: 'e.g. ASHA-KEY-2025 or ASHA-402',
+                    helpText: 'Requires official frontline healthcare worker badge or government registration code.'
+                };
+            case 'facility_manager':
+                return {
+                    label: 'Facility Institutional Passkey',
+                    placeholder: 'e.g. FAC-KEY-2025 or FAC-MH-NDB-104',
+                    helpText: 'Requires hospital / PHC facility administration authority code for EDL inventory.'
+                };
+            case 'admin':
+                return {
+                    label: 'District Administrator Security Key',
+                    placeholder: 'e.g. ADMIN-KEY-2025 or DIST-ADMIN-99',
+                    helpText: 'Requires district health authority security passkey for governance audits.'
+                };
+            default:
+                return null;
+        }
+    };
 
     const handleGoogleLogin = async (e?: React.SyntheticEvent) => {
         if (e) e.preventDefault();
@@ -77,7 +108,14 @@ export default function LoginPage() {
             const endpoint = mode === 'login' ? '/api/auth/login' : '/api/auth/signup';
             const body = mode === 'login'
                 ? { email: email.trim().toLowerCase(), password }
-                : { email: email.trim().toLowerCase(), password, name, role: signupRole, doctorLicenseKey };
+                : {
+                    email: email.trim().toLowerCase(),
+                    password,
+                    name,
+                    role: signupRole,
+                    roleKey: roleVerificationKey.trim(),
+                    doctorLicenseKey: roleVerificationKey.trim(),
+                };
 
             const res = await fetch(endpoint, {
                 method: 'POST',
@@ -224,20 +262,28 @@ export default function LoginPage() {
                                 </div>
                             )}
 
-                            {/* Doctor License Key (Doctor signup only) */}
-                            {mode === 'signup' && signupRole === 'doctor' && (
-                                <div className="space-y-1">
-                                    <label className="block text-xs font-semibold text-tertiary">Doctor Medical License Key</label>
-                                    <input
-                                        className="w-full px-4 py-3 bg-surface-container-low rounded-xl text-xs font-bold text-on-surface border border-surface-container-high outline-none focus:border-primary"
-                                        placeholder="e.g. DOC-KEY-2025"
-                                        type="text"
-                                        value={doctorLicenseKey}
-                                        onChange={e => setDoctorLicenseKey(e.target.value)}
-                                        required
-                                    />
-                                </div>
-                            )}
+                            {/* Role Authorization / License Key (All non-patient roles) */}
+                            {mode === 'signup' && signupRole !== 'patient' && (() => {
+                                const keyInfo = getRoleKeyInfo(signupRole);
+                                if (!keyInfo) return null;
+                                return (
+                                    <div className="space-y-1 animate-fadeIn">
+                                        <div className="flex justify-between items-center">
+                                            <label className="block text-xs font-semibold text-tertiary">{keyInfo.label}</label>
+                                            <span className="text-[10px] font-bold text-primary bg-primary/10 px-2 py-0.5 rounded-full">REQUIRED</span>
+                                        </div>
+                                        <input
+                                            className="w-full px-4 py-3 bg-surface-container-low rounded-xl text-xs font-bold text-on-surface border border-surface-container-high outline-none focus:border-primary uppercase tracking-wider font-mono"
+                                            placeholder={keyInfo.placeholder}
+                                            type="text"
+                                            value={roleVerificationKey}
+                                            onChange={e => setRoleVerificationKey(e.target.value)}
+                                            required
+                                        />
+                                        <p className="text-[10px] text-tertiary leading-tight">{keyInfo.helpText}</p>
+                                    </div>
+                                );
+                            })()}
 
                             {/* Email */}
                             <div className="space-y-1">
