@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { apiFetch } from '@/lib/api';
 import AnimatedSelect, { SelectOption } from '@/components/ui/AnimatedSelect';
+import { useI18n } from '@/lib/i18n';
 
 const STATUS_OPTIONS: SelectOption[] = [
     { value: 'ALL', label: 'All Active Referrals', icon: 'alt_route', badge: 'Active', badgeColor: 'bg-primary/10 text-primary' },
@@ -22,6 +23,7 @@ const URGENCY_OPTIONS: SelectOption[] = [
 ];
 
 export default function ReferralPipelinePage() {
+    const { t } = useI18n();
     const [referrals, setReferrals] = useState<any[]>([]);
     const [loading, setLoading] = useState<boolean>(true);
     const [filterStatus, setFilterStatus] = useState<string>('ALL');
@@ -160,18 +162,18 @@ export default function ReferralPipelinePage() {
                     <div>
                         <div className="inline-flex items-center gap-2 px-3 py-1 bg-white/10 backdrop-blur rounded-full text-xs font-semibold tracking-wide text-teal-200 mb-3">
                             <span className="material-symbols-outlined text-sm">alt_route</span>
-                            <span>Public Health Referral Network • End-to-End Tracking</span>
+                            <span>{t('referrals.subtitle', 'Public Health Referral Network • End-to-End Tracking')}</span>
                         </div>
-                        <h1 className="text-3xl font-extrabold tracking-tight">Clinical Referral Pipeline</h1>
+                        <h1 className="text-3xl font-extrabold tracking-tight">{t('referrals.title', 'Clinical Referral Pipeline')}</h1>
                     </div>
 
                     <div className="flex items-center gap-3">
                         <button
                             onClick={() => setIsCreateModalOpen(true)}
-                            className="bg-teal-400 hover:bg-teal-300 text-teal-950 font-bold text-xs px-5 py-3 rounded-2xl flex items-center gap-2 shadow-md transition-all active:scale-95"
+                            className="bg-teal-400 hover:bg-teal-300 text-teal-950 font-bold text-xs px-5 py-3 rounded-2xl flex items-center gap-2 shadow-md transition-all active:scale-95 cursor-pointer"
                         >
                             <span className="material-symbols-outlined text-lg">add_circle</span>
-                            <span>Generate Referral Pass</span>
+                            <span>{t('referrals.createReferral', 'Generate Referral Pass')}</span>
                         </button>
                     </div>
                 </div>

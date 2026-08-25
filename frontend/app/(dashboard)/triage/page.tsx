@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { apiFetch } from '@/lib/api';
 import { createClient } from '@/lib/supabase/client';
+import { useI18n } from '@/lib/i18n';
 
 interface RealPatientInfo {
   id: string;
@@ -39,6 +40,7 @@ interface TriageHistoryItem {
 
 function DigitalTriageContent() {
   const router = useRouter();
+  const { t } = useI18n();
   const searchParams = useSearchParams();
   const initialPatientId = searchParams.get('patientId') || '';
   const initialApptId = searchParams.get('apptId') || '';
@@ -564,9 +566,9 @@ function DigitalTriageContent() {
             <div className="relative z-10 space-y-2">
               <div className="inline-flex items-center gap-2 px-3 py-1 bg-[#E6F2F2]/15 backdrop-blur rounded-full text-xs font-semibold tracking-wide text-[#E6F2F2] border border-[#E6F2F2]/20">
                 <span className="material-symbols-outlined text-sm">clinical_notes</span>
-                <span>Clinical Protocol • Primary Healthcare Hierarchy</span>
+                <span>{t('triage.subtitle', 'Clinical Protocol • Primary Healthcare Hierarchy')}</span>
               </div>
-              <h1 className="text-3xl font-extrabold tracking-tight text-white">Smart Clinical Triage &amp; Facility Routing</h1>
+              <h1 className="text-3xl font-extrabold tracking-tight text-white">{t('triage.title', 'Smart Clinical Triage & Facility Routing')}</h1>
             </div>
           </div>
           {/* Search bar - Centered & Shortened */}
@@ -576,7 +578,7 @@ function DigitalTriageContent() {
                 <span className="material-symbols-outlined text-primary text-xl">search</span>
                 <input
                   type="text"
-                  placeholder="Search active patients by Name, ABHA ID, or Token..."
+                  placeholder={t('actions.search', 'Search active patients by Name, ABHA ID, or Token...')}
                   value={patientSearch}
                   onChange={e => setPatientSearch(e.target.value)}
                   className="w-full text-xs font-semibold bg-transparent outline-none text-on-surface placeholder:text-tertiary"

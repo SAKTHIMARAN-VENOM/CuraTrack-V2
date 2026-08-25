@@ -4,57 +4,59 @@ import Link from 'next/link';
 import { useEffect, useMemo, useState } from 'react';
 import { useRouter, usePathname } from 'next/navigation';
 import { createClient } from '@/lib/supabase/client';
+import { useI18n } from '@/lib/i18n';
 import clsx from 'clsx';
 import { twMerge } from 'tailwind-merge';
 
 export type UserRole = 'patient' | 'doctor' | 'fhw' | 'facility_manager' | 'admin';
 
 const PATIENT_NAV_ITEMS = [
-    { href: '/dashboard', icon: 'dashboard', label: 'My Health Dashboard' },
-    { href: '/self-triage', icon: 'emergency', label: 'Emergency Self-Triage' },
-    { href: '/telemedicine', icon: 'video_chat', label: 'Consult Doctor' },
-    { href: '/records', icon: 'folder_shared', label: 'My Medical Records' },
-    { href: '/benefits', icon: 'account_balance_wallet', label: 'Gov Schemes & PMJAY' },
-    { href: '/alerts', icon: 'notifications_active', label: 'Health Alerts' },
-    { href: '/profile', icon: 'person', label: 'Medical ID & Passport' }
+    { href: '/dashboard', icon: 'dashboard', i18nKey: 'nav.dashboard', label: 'My Health Dashboard' },
+    { href: '/self-triage', icon: 'emergency', i18nKey: 'nav.selfTriage', label: 'Emergency Self-Triage' },
+    { href: '/telemedicine', icon: 'video_chat', i18nKey: 'nav.telemedicine', label: 'Consult Doctor' },
+    { href: '/records', icon: 'folder_shared', i18nKey: 'nav.records', label: 'My Medical Records' },
+    { href: '/benefits', icon: 'account_balance_wallet', i18nKey: 'nav.benefits', label: 'Gov Schemes & PMJAY' },
+    { href: '/alerts', icon: 'notifications_active', i18nKey: 'nav.alerts', label: 'Health Alerts' },
+    { href: '/profile', icon: 'person', i18nKey: 'nav.profile', label: 'Medical ID & Passport' }
 ];
 
 const DOCTOR_NAV_ITEMS = [
-    { href: '/doctor', icon: 'dashboard', label: 'Clinical OPD Queue' },
-    { href: '/doctor/triage', icon: 'assignment_late', label: 'Triage Alerts' },
-    { href: '/doctor/clinical-schedule', icon: 'calendar_month', label: 'Consultation Schedule' },
-    { href: '/referrals', icon: 'alt_route', label: 'Referral Pipeline' },
-    { href: '/drug-checker', icon: 'pill', label: 'Drug Safety' },
-    { href: '/records', icon: 'folder_shared', label: 'Patient Records' },
-    { href: '/profile', icon: 'person', label: 'Doctor Profile' }
+    { href: '/doctor', icon: 'dashboard', i18nKey: 'nav.doctorQueue', label: 'Clinical OPD Queue' },
+    { href: '/doctor/triage', icon: 'assignment_late', i18nKey: 'nav.doctorTriage', label: 'Triage Alerts' },
+    { href: '/doctor/clinical-schedule', icon: 'calendar_month', i18nKey: 'nav.doctorSchedule', label: 'Consultation Schedule' },
+    { href: '/referrals', icon: 'alt_route', i18nKey: 'nav.referrals', label: 'Referral Pipeline' },
+    { href: '/drug-checker', icon: 'pill', i18nKey: 'nav.drugChecker', label: 'Drug Safety' },
+    { href: '/records', icon: 'folder_shared', i18nKey: 'nav.patientRecords', label: 'Patient Records' },
+    { href: '/profile', icon: 'person', i18nKey: 'nav.doctorProfile', label: 'Doctor Profile' }
 ];
 
 const FHW_NAV_ITEMS = [
-    { href: '/fhw', icon: 'volunteer_activism', label: 'ASHA Catchment Center' },
-    { href: '/triage', icon: 'medical_information', label: 'Community Triage' },
-    { href: '/referrals', icon: 'alt_route', label: 'Village Referrals' },
-    { href: '/telemedicine', icon: 'video_chat', label: 'Assisted Teleconsult' },
-    { href: '/alerts', icon: 'notifications_active', label: 'Outbreak Alerts' },
-    { href: '/profile', icon: 'person', label: 'ASHA Profile' }
+    { href: '/fhw', icon: 'volunteer_activism', i18nKey: 'nav.fhwCatchment', label: 'ASHA Catchment Center' },
+    { href: '/triage', icon: 'medical_information', i18nKey: 'nav.communityTriage', label: 'Community Triage' },
+    { href: '/referrals', icon: 'alt_route', i18nKey: 'nav.villageReferrals', label: 'Village Referrals' },
+    { href: '/telemedicine', icon: 'video_chat', i18nKey: 'nav.assistedTeleconsult', label: 'Assisted Teleconsult' },
+    { href: '/alerts', icon: 'notifications_active', i18nKey: 'nav.outbreakAlerts', label: 'Outbreak Alerts' },
+    { href: '/profile', icon: 'person', i18nKey: 'nav.ashaProfile', label: 'ASHA Profile' }
 ];
 
 const FACILITY_NAV_ITEMS = [
-    { href: '/facility', icon: 'local_hospital', label: 'Facility Operations' },
-    { href: '/records', icon: 'folder_shared', label: 'Facility Archive' },
-    { href: '/profile', icon: 'person', label: 'Manager Profile' }
+    { href: '/facility', icon: 'local_hospital', i18nKey: 'nav.facilityOps', label: 'Facility Operations' },
+    { href: '/records', icon: 'folder_shared', i18nKey: 'nav.facilityArchive', label: 'Facility Archive' },
+    { href: '/profile', icon: 'person', i18nKey: 'nav.managerProfile', label: 'Manager Profile' }
 ];
 
 const ADMIN_NAV_ITEMS = [
-    { href: '/admin', icon: 'admin_panel_settings', label: 'District Admin' },
-    { href: '/facility', icon: 'local_hospital', label: 'Facility Oversight' },
-    { href: '/referrals', icon: 'alt_route', label: 'Referral Audit Track' },
-    { href: '/fhw', icon: 'volunteer_activism', label: 'Catchment Metrics' },
-    { href: '/profile', icon: 'person', label: 'Admin Profile' }
+    { href: '/admin', icon: 'admin_panel_settings', i18nKey: 'nav.districtAdmin', label: 'District Admin' },
+    { href: '/facility', icon: 'local_hospital', i18nKey: 'nav.facilityOversight', label: 'Facility Oversight' },
+    { href: '/referrals', icon: 'alt_route', i18nKey: 'nav.referralAudit', label: 'Referral Audit Track' },
+    { href: '/fhw', icon: 'volunteer_activism', i18nKey: 'nav.catchmentMetrics', label: 'Catchment Metrics' },
+    { href: '/profile', icon: 'person', i18nKey: 'nav.adminProfile', label: 'Admin Profile' }
 ];
 
 export function SideNavBar() {
     const pathname = usePathname();
     const router = useRouter();
+    const { t } = useI18n();
     const supabase = useMemo(() => createClient(), []);
     const [profile, setProfile] = useState<any>(null);
     const [currentRole, setCurrentRole] = useState<UserRole>('patient');
@@ -176,7 +178,7 @@ export function SideNavBar() {
 
             {/* Scoped Nav Items */}
             <nav className="flex flex-col gap-1 flex-grow overflow-y-auto pr-1">
-                {navItems.map((item) => {
+                {navItems.map((item: any) => {
                     const isActive = pathname === item.href;
                     return (
                         <Link
@@ -197,7 +199,7 @@ export function SideNavBar() {
                             >
                                 {item.icon}
                             </span>
-                            <span className="truncate">{item.label}</span>
+                            <span className="truncate">{t(item.i18nKey, item.label)}</span>
                         </Link>
                     );
                 })}
@@ -211,10 +213,10 @@ export function SideNavBar() {
                         await fetch('/api/logout', { method: 'POST' });
                         router.push('/login');
                     }}
-                    className="w-full flex items-center gap-2.5 px-3.5 py-2 rounded-xl transition-all hover:bg-red-50 text-red-700 font-bold text-xs"
+                    className="w-full flex items-center gap-2.5 px-3.5 py-2 rounded-xl transition-all hover:bg-red-50 text-red-700 font-bold text-xs cursor-pointer"
                 >
                     <span className="material-symbols-outlined text-base">logout</span>
-                    <span>Sign Out</span>
+                    <span>{t('nav.logout', 'Sign Out')}</span>
                 </button>
 
                 <div className="flex items-center gap-3 bg-surface-container-low p-2.5 rounded-xl">
@@ -225,7 +227,7 @@ export function SideNavBar() {
                     </div>
                     <div className="min-w-0">
                         <p className="text-xs font-bold text-on-surface truncate">
-                            {profile?.name || 'Active User'}
+                            {profile?.name || t('topNav.user', 'User')}
                         </p>
                         <p className="text-[10px] text-tertiary font-semibold capitalize truncate">
                             {currentRole.replace('_', ' ')}

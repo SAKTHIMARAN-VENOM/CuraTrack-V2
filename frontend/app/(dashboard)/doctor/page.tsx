@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { createClient } from '@/lib/supabase/client';
 import { apiFetch } from '@/lib/api';
+import { useI18n } from '@/lib/i18n';
 
 interface OPDQueuePatient {
   id: string;
@@ -88,6 +89,7 @@ interface PatientTriageDetails {
 
 export default function DoctorOPDPage() {
   const router = useRouter();
+  const { t } = useI18n();
   const supabase = useMemo(() => createClient(), []);
 
   // Live Database States
@@ -1090,7 +1092,7 @@ export default function DoctorOPDPage() {
         <div>
           <div className="inline-flex items-center gap-2 px-3 py-1 bg-white/10 backdrop-blur rounded-full text-xs font-semibold tracking-wide text-teal-200 mb-3">
             <span className="material-symbols-outlined text-sm">stethoscope</span>
-            <span>Clinical OPD & Teleconsultation Workspace</span>
+            <span>{t('doctor.workspaceTitle', 'Clinical OPD & Teleconsultation Workspace')}</span>
           </div>
           <h1 className="text-3xl lg:text-4xl font-extrabold tracking-tight">{doctorInfo.name}</h1>
           <p className="text-teal-100 text-sm mt-1 max-w-2xl">
@@ -1099,7 +1101,7 @@ export default function DoctorOPDPage() {
           <div className="flex flex-wrap items-center gap-3 mt-4 text-xs font-semibold">
             <span className="px-3 py-1 bg-emerald-500/20 text-emerald-300 border border-emerald-400/30 rounded-full flex items-center gap-1.5">
               <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
-              On Duty (Morning Shift 08:00 - 14:00)
+              {t('doctor.dutyShift', 'On Duty (Morning Shift 08:00 - 14:00)')}
             </span>
             <span className="px-3 py-1 bg-white/10 rounded-full text-teal-100">
               License: {doctorInfo.license}
@@ -1113,14 +1115,14 @@ export default function DoctorOPDPage() {
             className="px-4 py-3 bg-white/10 hover:bg-white/20 text-white font-bold text-xs rounded-2xl flex items-center gap-2 backdrop-blur transition-all"
           >
             <span className="material-symbols-outlined text-lg">calendar_month</span>
-            <span>Duty Roster</span>
+            <span>{t('doctor.dutyRoster', 'Duty Roster')}</span>
           </Link>
           <button
             onClick={handleStartTeleconsult}
-            className="px-5 py-3 bg-white text-primary hover:bg-teal-50 font-extrabold text-xs rounded-2xl flex items-center gap-2 shadow-lg transition-all active:scale-95"
+            className="px-5 py-3 bg-white text-primary hover:bg-teal-50 font-extrabold text-xs rounded-2xl flex items-center gap-2 shadow-lg transition-all active:scale-95 cursor-pointer"
           >
             <span className="material-symbols-outlined text-lg">video_call</span>
-            <span>Start Teleconsult</span>
+            <span>{t('doctor.startTeleconsult', 'Start Teleconsult')}</span>
           </button>
         </div>
       </div>
@@ -1128,7 +1130,7 @@ export default function DoctorOPDPage() {
       {/* Metrics Row */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
         <div className="bg-white border border-surface-container-high p-5 rounded-3xl shadow-card">
-          <span className="text-[11px] font-bold uppercase tracking-wider text-tertiary block">Patients in OPD Queue</span>
+          <span className="text-[11px] font-bold uppercase tracking-wider text-tertiary block">{t('doctor.patientsInQueue', 'Patients in OPD Queue')}</span>
           <span className="text-3xl font-black text-on-surface mt-1 block">
             {queue.filter(p => p.status === 'WAITING' || p.status === 'IN-CONSULT').length}
           </span>
@@ -1138,7 +1140,7 @@ export default function DoctorOPDPage() {
         </div>
 
         <div className="bg-white border border-surface-container-high p-5 rounded-3xl shadow-card">
-          <span className="text-[11px] font-bold uppercase tracking-wider text-tertiary block">Completed Today</span>
+          <span className="text-[11px] font-bold uppercase tracking-wider text-tertiary block">{t('doctor.completedToday', 'Completed Today')}</span>
           <span className="text-3xl font-black text-on-surface mt-1 block">
             {queue.filter(p => p.status === 'COMPLETED').length}
           </span>
@@ -1146,13 +1148,13 @@ export default function DoctorOPDPage() {
         </div>
 
         <div className="bg-white border border-surface-container-high p-5 rounded-3xl shadow-card">
-          <span className="text-[11px] font-bold uppercase tracking-wider text-tertiary block">EDL Prescriptions</span>
+          <span className="text-[11px] font-bold uppercase tracking-wider text-tertiary block">{t('doctor.edlPrescriptions', 'EDL Prescriptions')}</span>
           <span className="text-3xl font-black text-on-surface mt-1 block">{prescriptions.length}</span>
           <span className="text-[10px] text-blue-600 font-semibold">Active Encounter Items</span>
         </div>
 
         <div className="bg-white border border-surface-container-high p-5 rounded-3xl shadow-card">
-          <span className="text-[11px] font-bold uppercase tracking-wider text-tertiary block">Lab Orders Pending</span>
+          <span className="text-[11px] font-bold uppercase tracking-wider text-tertiary block">{t('doctor.labOrdersPending', 'Lab Orders Pending')}</span>
           <span className="text-3xl font-black text-on-surface mt-1 block">{selectedLabs.length}</span>
           <span className="text-[10px] text-purple-600 font-semibold">Diagnostic Pipeline Active</span>
         </div>
@@ -1164,55 +1166,48 @@ export default function DoctorOPDPage() {
         <div className="bg-white border border-surface-container-high rounded-3xl shadow-card overflow-hidden">
           <button
             onClick={() => setShowBedPanel(!showBedPanel)}
-            className="w-full p-5 flex items-center justify-between hover:bg-surface-container-low transition-all"
+            className="w-full p-5 flex items-center justify-between hover:bg-surface-container-low transition-all cursor-pointer"
           >
             <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-2xl bg-teal-50 text-teal-700 flex items-center justify-center">
-                <span className="material-symbols-outlined">bed</span>
+              <div className="w-10 h-10 rounded-2xl bg-primary/10 text-primary flex items-center justify-center">
+                <span className="material-symbols-outlined">hotel</span>
               </div>
               <div className="text-left">
-                <span className="text-xs font-bold text-on-surface block">Inpatient Bed Availability</span>
+                <span className="text-xs font-bold text-on-surface block">{t('doctor.inpatientBeds', 'Inpatient Bed Availability')}</span>
                 <span className="text-[10px] text-tertiary">
-                  {loadingBeds ? (
-                    'Loading live bed status...'
-                  ) : bedsData && typeof bedsData.total_available === 'number' ? (
-                    `${bedsData.total_available} beds available • ${bedsData.occupancy_rate}% occupancy`
-                  ) : (
-                    'Bed status currently unavailable'
-                  )}
+                  {loadingBeds
+                    ? 'Loading live bed matrix...'
+                    : `${bedsData?.available ?? 0} of ${bedsData?.total ?? 0} beds available • Occupancy: ${bedsData?.occupancy_rate ?? '0%'}`}
                 </span>
               </div>
             </div>
-            <div className="flex items-center gap-2">
-              <span className="text-2xl font-black text-teal-700">
-                {loadingBeds ? '—' : (bedsData?.total_available ?? '—')}
-              </span>
-              <span className={`material-symbols-outlined text-tertiary transition-transform ${showBedPanel ? 'rotate-180' : ''}`}>expand_more</span>
-            </div>
+            <span className="material-symbols-outlined text-tertiary text-sm">
+              {showBedPanel ? 'expand_less' : 'expand_more'}
+            </span>
           </button>
 
           {showBedPanel && bedsData?.wards && (
-            <div className="px-5 pb-5 space-y-2 border-t border-surface-container">
-              {bedsData.wards.map((ward: any, i: number) => {
-                const pct = ward.total > 0 ? Math.round((ward.occupied / ward.total) * 100) : 0;
-                const isOverflow = ward.available < 0;
-                const isCritical = ward.available <= 1 && !isOverflow;
+            <div className="p-4 pt-0 border-t border-surface-container-high grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs">
+              {bedsData.wards.map((w: any) => {
+                const avail = w.available_beds ?? (w.total_beds - w.occupied_beds);
+                const isFull = avail <= 0;
                 return (
-                  <div key={i} className="flex items-center justify-between py-2 text-xs">
-                    <div className="flex-1">
-                      <span className="font-bold text-on-surface block">{ward.ward}</span>
-                      <div className="w-full h-1.5 bg-surface-container rounded-full mt-1 overflow-hidden">
-                        <div
-                          className={`h-full rounded-full ${isOverflow ? 'bg-red-500' : isCritical ? 'bg-amber-500' : 'bg-teal-600'}`}
-                          style={{ width: `${Math.min(100, pct)}%` }}
-                        />
-                      </div>
+                  <div
+                    key={w.ward_id}
+                    className={`p-3 rounded-2xl border flex items-center justify-between ${
+                      isFull ? 'bg-red-50/60 border-red-200' : 'bg-surface-container-low border-surface-container-high'
+                    }`}
+                  >
+                    <div>
+                      <span className="font-bold text-on-surface block text-[11px]">{w.ward_name}</span>
+                      <span className="text-[10px] text-tertiary">{w.ward_type}</span>
                     </div>
-                    <span className={`ml-3 font-black whitespace-nowrap ${
-                      isOverflow ? 'text-red-600' : isCritical ? 'text-amber-700' : 'text-teal-700'
-                    }`}>
-                      {Math.max(0, ward.available)} / {ward.total}
-                    </span>
+                    <div className="text-right">
+                      <span className={`text-xs font-extrabold ${isFull ? 'text-red-700' : 'text-primary'}`}>
+                        {avail} / {w.total_beds}
+                      </span>
+                      <span className="text-[9px] text-tertiary block">beds free</span>
+                    </div>
                   </div>
                 );
               })}
@@ -1231,7 +1226,7 @@ export default function DoctorOPDPage() {
               <span className="material-symbols-outlined">{medAlerts.length > 0 ? 'warning' : 'pill'}</span>
             </div>
             <div>
-              <span className="text-xs font-bold text-on-surface block">EDL Medicine Stock Alerts</span>
+              <span className="text-xs font-bold text-on-surface block">{t('doctor.medicineStockAlerts', 'EDL Medicine Stock Alerts')}</span>
               <span className="text-[10px] text-tertiary">
                 {medAlerts.length > 0
                   ? `${medAlerts.length} medicine(s) at low or critical stock level`
@@ -1267,8 +1262,8 @@ export default function DoctorOPDPage() {
           <div className="bg-white border border-surface-container-high p-5 rounded-3xl shadow-card space-y-4">
             <div className="flex items-center justify-between">
               <div>
-                <h2 className="text-base font-bold text-on-surface">Live Outpatient Queue</h2>
-                <p className="text-xs text-tertiary">Select patient to load clinical chart & encounter</p>
+                <h2 className="text-base font-bold text-on-surface">{t('doctor.liveQueue', 'Live Outpatient Queue')}</h2>
+                <p className="text-xs text-tertiary">{t('doctor.selectPatientPrompt', 'Select patient to load clinical chart & encounter')}</p>
               </div>
               <span className="px-2.5 py-1 bg-primary/10 text-primary text-xs font-bold rounded-xl">
                 Room 101
@@ -1280,7 +1275,7 @@ export default function DoctorOPDPage() {
               <span className="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-tertiary text-sm">search</span>
               <input
                 type="text"
-                placeholder="Search patient name, token or complaint..."
+                placeholder={t('doctor.searchPatient', 'Search patient name, token or complaint...')}
                 value={searchQuery}
                 onChange={e => setSearchQuery(e.target.value)}
                 className="w-full pl-9 pr-4 py-2 bg-surface-container-low rounded-xl text-xs font-bold border border-surface-container-high outline-none focus:border-primary"
@@ -1289,26 +1284,38 @@ export default function DoctorOPDPage() {
 
             {/* Filter Chips */}
             <div className="flex flex-wrap gap-1.5 pt-1">
-              {(['ALL', 'WAITING', 'EMERGENCY', 'TELECONSULT', 'REFERRALS', 'COMPLETED'] as const).map(tab => (
-                <button
-                  key={tab}
-                  onClick={() => setFilterType(tab)}
-                  className={`px-3 py-1 rounded-xl text-[11px] font-bold transition-all relative ${
-                    filterType === tab ? 'bg-primary text-white shadow-sm' : 'bg-surface-container-low text-tertiary hover:bg-surface-container'
-                  }`}
-                >
-                  {tab === 'REFERRALS' ? (
-                    <span className="flex items-center gap-1">
-                      <span>Inbound Referrals</span>
-                      {inboundReferrals.filter(r => r.status !== 'COMPLETED').length > 0 && (
-                        <span className="w-2 h-2 rounded-full bg-red-400 animate-ping"></span>
-                      )}
-                    </span>
-                  ) : (
-                    tab
-                  )}
-                </button>
-              ))}
+              {(['ALL', 'WAITING', 'EMERGENCY', 'TELECONSULT', 'REFERRALS', 'COMPLETED'] as const).map(tab => {
+                const getTabLabel = () => {
+                  switch (tab) {
+                    case 'ALL': return t('doctor.tabAll', 'ALL');
+                    case 'WAITING': return t('doctor.tabWaiting', 'WAITING');
+                    case 'EMERGENCY': return t('doctor.tabEmergency', 'EMERGENCY');
+                    case 'TELECONSULT': return t('doctor.tabTeleconsult', 'TELECONSULT');
+                    case 'REFERRALS': return t('doctor.tabReferrals', 'Inbound Referrals');
+                    case 'COMPLETED': return t('doctor.tabCompleted', 'COMPLETED');
+                  }
+                };
+                return (
+                  <button
+                    key={tab}
+                    onClick={() => setFilterType(tab)}
+                    className={`px-3 py-1 rounded-xl text-[11px] font-bold transition-all relative cursor-pointer ${
+                      filterType === tab ? 'bg-primary text-white shadow-sm' : 'bg-surface-container-low text-tertiary hover:bg-surface-container'
+                    }`}
+                  >
+                    {tab === 'REFERRALS' ? (
+                      <span className="flex items-center gap-1">
+                        <span>{getTabLabel()}</span>
+                        {inboundReferrals.filter(r => r.status !== 'COMPLETED').length > 0 && (
+                          <span className="w-2 h-2 rounded-full bg-red-400 animate-ping"></span>
+                        )}
+                      </span>
+                    ) : (
+                      getTabLabel()
+                    )}
+                  </button>
+                );
+              })}
             </div>
 
             {/* Inbound Referrals View Mode */}
@@ -1919,7 +1926,7 @@ export default function DoctorOPDPage() {
                           : 'bg-white border-surface-container-high text-tertiary hover:bg-surface-container-low'
                       }`}
                     >
-                      <span className="material-symbols-outlined text-sm text-teal-600">
+                  <span className="material-symbols-outlined text-sm text-teal-600">
                         {isSelected ? 'check_box' : 'check_box_outline_blank'}
                       </span>
                       <span className="truncate">{lab}</span>
@@ -1935,35 +1942,38 @@ export default function DoctorOPDPage() {
                 <button
                   disabled={submittingEncounter}
                   onClick={handleSubmitEncounter}
-                  className={`px-5 py-2.5 bg-primary hover:bg-primary/90 text-white font-bold text-xs rounded-xl shadow-md transition-all flex items-center gap-2 ${
+                  className={`px-5 py-2.5 bg-primary hover:bg-primary/90 text-white font-bold text-xs rounded-xl shadow-md transition-all flex items-center gap-2 cursor-pointer ${
                     submittingEncounter ? 'opacity-70 cursor-not-allowed' : 'active:scale-95'
                   }`}
                 >
                   <span className={`material-symbols-outlined text-base ${submittingEncounter ? 'animate-spin' : ''}`}>
                     {submittingEncounter ? 'sync' : 'send'}
                   </span>
-                  <span>{submittingEncounter ? 'Persisting to Database...' : 'Submit Encounter & Order EDL Drugs'}</span>
+                  <span>{submittingEncounter ? t('actions.loading', 'Persisting...') : t('doctor.submitEncounter', 'Submit Encounter & Order EDL Drugs')}</span>
                 </button>
                 <button
                   onClick={() => setShowAshaModal(true)}
-                  className="px-4 py-2.5 bg-amber-50 hover:bg-amber-100 text-amber-900 border border-amber-300 font-bold text-xs rounded-xl transition-all flex items-center gap-1.5 shadow-sm active:scale-95"
+                  className="px-4 py-2.5 bg-amber-50 hover:bg-amber-100 text-amber-900 border border-amber-300 font-bold text-xs rounded-xl transition-all flex items-center gap-1.5 shadow-sm active:scale-95 cursor-pointer"
                 >
                   <span className="material-symbols-outlined text-base text-amber-700">home_health</span>
-                  <span>Assign ASHA Follow-up</span>
+                  <span>{t('doctor.assignAshaFollowup', 'Assign ASHA Follow-up')}</span>
                 </button>
+              </div>
+
+              <div className="flex items-center gap-2">
                 <Link
-                  href="/referrals"
-                  className="px-4 py-2.5 bg-surface-container hover:bg-surface-container-high text-slate-700 font-bold text-xs rounded-xl transition-all flex items-center gap-1.5"
+                  href={`/referrals`}
+                  className="px-3.5 py-2.5 bg-teal-50 hover:bg-teal-100 text-teal-900 border border-teal-200 font-bold text-xs rounded-xl transition-all flex items-center gap-1.5"
                 >
-                  <span className="material-symbols-outlined text-base">alt_route</span>
-                  <span>Refer Patient</span>
+                  <span className="material-symbols-outlined text-base text-teal-700">alt_route</span>
+                  <span>{t('doctor.referPatient', 'Refer Patient')}</span>
                 </Link>
                 <Link
                   href={`/records?patientId=${selectedPatient.clientId || selectedPatient.id}`}
-                  className="px-4 py-2.5 bg-purple-50 hover:bg-purple-100 text-purple-900 border border-purple-200 font-bold text-xs rounded-xl transition-all flex items-center gap-1.5"
+                  className="px-3.5 py-2.5 bg-surface-container-low hover:bg-surface-container text-tertiary font-bold text-xs rounded-xl transition-all flex items-center gap-1.5"
                 >
-                  <span className="material-symbols-outlined text-base text-purple-700">folder_shared</span>
-                  <span>Patient Record</span>
+                  <span className="material-symbols-outlined text-base">folder_shared</span>
+                  <span>{t('doctor.patientRecord', 'Patient Record')}</span>
                 </Link>
               </div>
 
