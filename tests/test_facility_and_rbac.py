@@ -27,14 +27,41 @@ def test_essential_medicines_inventory_and_stock_update(client):
     target_id = target_med["id"]
     initial_stock = target_med["stock_units"]
 
+    # 1. Update stock (Add)
     update_payload = {
         "medicine_id": target_id,
-        "units_added": 1000
+        "action": "ADD",
+        "units": 1000
     }
     update_res = client.post("/api/facility/medicines/update-stock", json=update_payload)
     assert update_res.status_code == 200
     assert update_res.json()["success"] is True
-    assert update_res.json()["updated_medicine"]["stock_units"] >= initial_stock + 1000
+    post_add_stock = update_res.json()["updated_medicine"]["stock_units"]
+    assert post_add_stock >= initial_stock + 1000
+
+    # 2. Update stock (Reduce / Deduct)
+    reduce_payload = {
+        "medicine_id": target_id,
+        "action": "REDUCE",
+        "units": 200,
+        "reason": "Dispensed to Inpatient / Emergency Ward"
+    }
+    reduce_res = client.post("/api/facility/medicines/update-stock", json=reduce_payload)
+    assert reduce_res.status_code == 200
+    assert reduce_res.json()["success"] is True
+    assert reduce_res.json()["updated_medicine"]["stock_units"] == post_add_stock - 200
+
+    # 3. Update stock (Set exact count via audit)
+    set_payload = {
+        "medicine_id": target_id,
+        "action": "SET",
+        "units": 750,
+        "reason": "Physical Inventory Audit Count"
+    }
+    set_res = client.post(f"/api/facility/medicines/{target_id}/update-stock", json=set_payload)
+    assert set_res.status_code == 200
+    assert set_res.json()["success"] is True
+    assert set_res.json()["updated_medicine"]["stock_units"] == 750
 
 
 def test_diagnostic_lab_order_lifecycle(client):

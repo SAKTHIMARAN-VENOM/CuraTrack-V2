@@ -11,16 +11,19 @@ export default function FacilityOperationsPage() {
     const [medicines, setMedicines] = useState<any[]>([]);
     const [beds, setBeds] = useState<any>(null);
     const [loading, setLoading] = useState<boolean>(true);
-    const [activeTab, setActiveTab] = useState<'doctors' | 'medicines' | 'beds'>('doctors');
+    const [activeTab, setActiveTab] = useState<'doctors' | 'medicines' | 'beds'>('medicines');
 
     // Filters
     const [docFilter, setDocFilter] = useState<string>('ALL');
     const [medFilter, setMedFilter] = useState<string>('ALL');
 
-    // Stock Update Modal
+    // Stock Update / Adjustment Modal State
     const [isStockModalOpen, setIsStockModalOpen] = useState<boolean>(false);
     const [selectedMed, setSelectedMed] = useState<any>(null);
-    const [unitsToAdd, setUnitsToAdd] = useState<number>(500);
+    const [stockAction, setStockAction] = useState<'ADD' | 'REDUCE' | 'SET'>('ADD');
+    const [unitsValue, setUnitsValue] = useState<number>(500);
+    const [reason, setReason] = useState<string>('Depot Batch Receipt (DMSD / MMSCL)');
+    const [batchNumber, setBatchNumber] = useState<string>('');
     const [updatingStock, setUpdatingStock] = useState<boolean>(false);
 
     const fetchData = async () => {
@@ -47,23 +50,71 @@ export default function FacilityOperationsPage() {
         fetchData();
     }, [docFilter, medFilter]);
 
+    const openStockModal = (med: any, action: 'ADD' | 'REDUCE' | 'SET' = 'ADD') => {
+        setSelectedMed(med);
+        setStockAction(action);
+        setUnitsValue(action === 'SET' ? med.stock_units : action === 'REDUCE' ? Math.min(100, med.stock_units) : 500);
+        setReason(
+            action === 'REDUCE'
+                ? 'Dispensed to Inpatient / Emergency Ward'
+                : action === 'SET'
+                ? 'Physical Inventory Audit Count'
+                : 'Depot Batch Receipt (DMSD / MMSCL)'
+        );
+        setBatchNumber('');
+        setIsStockModalOpen(true);
+    };
+
     const handleUpdateStock = async (e: React.FormEvent) => {
         e.preventDefault();
-        if (!selectedMed || unitsToAdd <= 0) return;
+        if (!selectedMed) return;
+        if (stockAction !== 'SET' && unitsValue <= 0) {
+            alert('Please enter a valid unit quantity greater than 0.');
+            return;
+        }
+        if (stockAction === 'REDUCE' && unitsValue > selectedMed.stock_units) {
+            alert(`Cannot reduce more than available stock (${selectedMed.stock_units} ${selectedMed.unit}).`);
+            return;
+        }
+
         setUpdatingStock(true);
         try {
-            await apiFetch(`/api/facility/medicines/${selectedMed.id}/update-stock`, {
+            await apiFetch('/api/facility/medicines/update-stock', {
                 method: 'POST',
-                body: JSON.stringify({ units_to_add: unitsToAdd })
+                body: JSON.stringify({
+                    medicine_id: selectedMed.id,
+                    action: stockAction,
+                    units: unitsValue,
+                    reason: reason.trim(),
+                    batch_number: batchNumber.trim() || undefined
+                })
             });
             setIsStockModalOpen(false);
-            fetchData();
+            await fetchData();
         } catch (err: any) {
-            alert('Failed to update stock: ' + (err.message || 'Error'));
+            alert('Failed to update stock: ' + (err.message || 'Error communicating with backend'));
         } finally {
             setUpdatingStock(false);
         }
     };
+
+    // Live calculation for modal preview
+    const curStock = selectedMed?.stock_units ?? 0;
+    const projectedStock = stockAction === 'ADD'
+        ? curStock + unitsValue
+        : stockAction === 'REDUCE'
+        ? Math.max(0, curStock - unitsValue)
+        : Math.max(0, unitsValue);
+
+    const monthlyCons = Math.max(1, selectedMed?.monthly_consumption ?? 300);
+    const dailyConsumption = Math.max(1, Math.floor(monthlyCons / 30));
+    const projectedDaysOfSupply = Math.floor(projectedStock / dailyConsumption);
+
+    const projectedStatus = projectedDaysOfSupply > 20
+        ? 'ADEQUATE'
+        : projectedDaysOfSupply > 7
+        ? 'LOW_STOCK'
+        : 'CRITICAL_STOCKOUT_RISK';
 
     const onDutyCount = doctors.filter(d => d.status === 'ON_DUTY').length;
     const criticalMeds = medicines.filter(m => m.status !== 'ADEQUATE').length;
@@ -78,9 +129,10 @@ export default function FacilityOperationsPage() {
                     <div>
                         <div className="inline-flex items-center gap-2 px-3 py-1 bg-white/10 backdrop-blur rounded-full text-xs font-semibold tracking-wide text-teal-200 mb-3">
                             <span className="material-symbols-outlined text-sm">local_hospital</span>
-                            <span>{t('facility.subtitle', 'Facility Operations & Bed Matrix')}</span>
+                            <span>{t('facility.subtitle', 'Facility Operations & Supply Chain')}</span>
                         </div>
-                        <h1 className="text-3xl font-extrabold tracking-tight">{t('facility.title', 'Facility Operations & Bed Matrix')}</h1>
+                        <h1 className="text-3xl font-extrabold tracking-tight">{t('facility.title', 'Nandurbar Sub-District Hospital & CHC')}</h1>
+                        <p className="text-xs text-teal-100/80 mt-1">Real-time inventory management, EDL supply monitoring, and bed occupancy.</p>
                     </div>
 
                     <div className="flex items-center gap-3">
@@ -147,8 +199,25 @@ export default function FacilityOperationsPage() {
             {/* Navigation Tabs */}
             <div className="flex border-b border-surface-container-high gap-2">
                 <button
+                    onClick={() => setActiveTab('medicines')}
+                    className={`px-5 py-3 text-xs font-extrabold flex items-center gap-2 border-b-2 transition-all cursor-pointer ${
+                        activeTab === 'medicines'
+                            ? 'border-primary text-primary'
+                            : 'border-transparent text-tertiary hover:text-on-surface'
+                    }`}
+                >
+                    <span className="material-symbols-outlined text-base">pill</span>
+                    <span>Medicine Stock (EDL)</span>
+                    {criticalMeds > 0 && (
+                        <span className="px-1.5 py-0.5 rounded-full text-[10px] font-black bg-red-100 text-red-700">
+                            {criticalMeds}
+                        </span>
+                    )}
+                </button>
+
+                <button
                     onClick={() => setActiveTab('doctors')}
-                    className={`px-5 py-3 text-xs font-extrabold flex items-center gap-2 border-b-2 transition-all ${
+                    className={`px-5 py-3 text-xs font-extrabold flex items-center gap-2 border-b-2 transition-all cursor-pointer ${
                         activeTab === 'doctors'
                             ? 'border-primary text-primary'
                             : 'border-transparent text-tertiary hover:text-on-surface'
@@ -159,20 +228,8 @@ export default function FacilityOperationsPage() {
                 </button>
 
                 <button
-                    onClick={() => setActiveTab('medicines')}
-                    className={`px-5 py-3 text-xs font-extrabold flex items-center gap-2 border-b-2 transition-all ${
-                        activeTab === 'medicines'
-                            ? 'border-primary text-primary'
-                            : 'border-transparent text-tertiary hover:text-on-surface'
-                    }`}
-                >
-                    <span className="material-symbols-outlined text-base">pill</span>
-                    <span>Medicine Stock (EDL)</span>
-                </button>
-
-                <button
                     onClick={() => setActiveTab('beds')}
-                    className={`px-5 py-3 text-xs font-extrabold flex items-center gap-2 border-b-2 transition-all ${
+                    className={`px-5 py-3 text-xs font-extrabold flex items-center gap-2 border-b-2 transition-all cursor-pointer ${
                         activeTab === 'beds'
                             ? 'border-primary text-primary'
                             : 'border-transparent text-tertiary hover:text-on-surface'
@@ -183,7 +240,110 @@ export default function FacilityOperationsPage() {
                 </button>
             </div>
 
-            {/* TAB 1: My Doctors (Available Doctors Only) */}
+            {/* TAB 1: Medicine Stock (EDL) */}
+            {activeTab === 'medicines' && (
+                <div className="space-y-6">
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                        <div className="flex flex-wrap gap-1.5">
+                            {['ALL', 'ADEQUATE', 'LOW_STOCK', 'CRITICAL_STOCKOUT_RISK'].map((st) => (
+                                <button
+                                    key={st}
+                                    onClick={() => setMedFilter(st)}
+                                    className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+                                        medFilter === st
+                                            ? 'bg-primary text-white shadow-sm'
+                                            : 'bg-surface-container-low text-tertiary hover:bg-surface-container'
+                                    }`}
+                                >
+                                    {st.replace(/_/g, ' ')}
+                                </button>
+                            ))}
+                        </div>
+
+                        <div className="text-xs text-tertiary font-medium">
+                            Showing <strong className="text-on-surface">{medicines.length}</strong> essential medicines
+                        </div>
+                    </div>
+
+                    {loading ? (
+                        <div className="text-center py-16">
+                            <span className="material-symbols-outlined animate-spin text-3xl text-primary">progress_activity</span>
+                            <p className="text-xs text-tertiary mt-2">Loading facility drug inventory...</p>
+                        </div>
+                    ) : (
+                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
+                            {medicines.map((med) => (
+                                <div
+                                    key={med.id}
+                                    className="bg-white rounded-3xl p-6 border border-surface-container-high shadow-card flex flex-col justify-between space-y-4 hover:shadow-lg transition-all"
+                                >
+                                    <div>
+                                        <div className="flex items-center justify-between mb-2">
+                                            <span className="text-xs font-mono font-bold text-primary">{med.id}</span>
+                                            <span className={`text-[10px] font-extrabold uppercase px-2.5 py-0.5 rounded-full ${
+                                                med.status === 'ADEQUATE'
+                                                    ? 'bg-teal-100 text-teal-800'
+                                                    : med.status === 'LOW_STOCK'
+                                                    ? 'bg-amber-100 text-amber-800'
+                                                    : 'bg-red-100 text-red-800 animate-pulse'
+                                            }`}>
+                                                {med.status.replace(/_/g, ' ')}
+                                            </span>
+                                        </div>
+
+                                        <h3 className="text-base font-bold text-on-surface">{med.name}</h3>
+                                        <span className="text-xs text-tertiary block mt-1">{med.category} • {med.storage_location}</span>
+
+                                        <div className="mt-4 grid grid-cols-2 gap-2 bg-surface-container-low p-3.5 rounded-2xl text-xs">
+                                            <div>
+                                                <span className="text-[10px] uppercase font-bold text-tertiary block">Current Stock</span>
+                                                <span className="text-base font-black text-on-surface">{med.stock_units.toLocaleString()} {med.unit}</span>
+                                            </div>
+                                            <div>
+                                                <span className="text-[10px] uppercase font-bold text-tertiary block">Supply Remaining</span>
+                                                <span className={`text-base font-black ${med.days_of_supply < 7 ? 'text-red-600 font-extrabold' : med.days_of_supply < 20 ? 'text-amber-600' : 'text-teal-700'}`}>
+                                                    {med.days_of_supply} days
+                                                </span>
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    {/* Action Buttons: Add (+) and Deduct / Reduce (-) */}
+                                    <div className="space-y-2 pt-2 border-t border-surface-container-high">
+                                        <div className="grid grid-cols-2 gap-2">
+                                            <button
+                                                onClick={() => openStockModal(med, 'ADD')}
+                                                className="py-2.5 px-3 bg-teal-50 hover:bg-teal-100 text-teal-800 font-bold text-xs rounded-xl flex items-center justify-center gap-1.5 transition-all cursor-pointer active:scale-95"
+                                            >
+                                                <span className="material-symbols-outlined text-base text-teal-700">add_circle</span>
+                                                <span>+ Add Stock</span>
+                                            </button>
+
+                                            <button
+                                                onClick={() => openStockModal(med, 'REDUCE')}
+                                                className="py-2.5 px-3 bg-red-50 hover:bg-red-100 text-red-800 font-bold text-xs rounded-xl flex items-center justify-center gap-1.5 transition-all cursor-pointer active:scale-95"
+                                            >
+                                                <span className="material-symbols-outlined text-base text-red-700">remove_circle</span>
+                                                <span>- Deduct / Use</span>
+                                            </button>
+                                        </div>
+
+                                        <button
+                                            onClick={() => openStockModal(med, 'SET')}
+                                            className="w-full py-1.5 text-[11px] font-semibold text-tertiary hover:text-on-surface flex items-center justify-center gap-1 transition-colors cursor-pointer"
+                                        >
+                                            <span className="material-symbols-outlined text-sm">tune</span>
+                                            <span>Set Exact Count (Audit)</span>
+                                        </button>
+                                    </div>
+                                </div>
+                            ))}
+                        </div>
+                    )}
+                </div>
+            )}
+
+            {/* TAB 2: My Doctors */}
             {activeTab === 'doctors' && (
                 <div className="space-y-6">
                     <div className="flex items-center justify-between">
@@ -239,84 +399,6 @@ export default function FacilityOperationsPage() {
                                             <span className="font-bold text-on-surface">{doc.phone || '+91 98230 11223'}</span>
                                         </div>
                                     </div>
-                                </div>
-                            ))}
-                        </div>
-                    )}
-                </div>
-            )}
-
-            {/* TAB 2: Medicine Stock (EDL) */}
-            {activeTab === 'medicines' && (
-                <div className="space-y-6">
-                    <div className="flex flex-wrap gap-1.5">
-                        {['ALL', 'ADEQUATE', 'LOW_STOCK', 'CRITICAL_STOCKOUT_RISK'].map((st) => (
-                            <button
-                                key={st}
-                                onClick={() => setMedFilter(st)}
-                                className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all ${
-                                    medFilter === st
-                                        ? 'bg-primary text-white shadow-sm'
-                                        : 'bg-surface-container-low text-tertiary hover:bg-surface-container'
-                                }`}
-                            >
-                                {st.replace(/_/g, ' ')}
-                            </button>
-                        ))}
-                    </div>
-
-                    {loading ? (
-                        <div className="text-center py-12">
-                            <span className="material-symbols-outlined animate-spin text-3xl text-primary">progress_activity</span>
-                        </div>
-                    ) : (
-                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
-                            {medicines.map((med) => (
-                                <div
-                                    key={med.id}
-                                    className="bg-white rounded-3xl p-6 border border-surface-container-high shadow-card flex flex-col justify-between space-y-4"
-                                >
-                                    <div>
-                                        <div className="flex items-center justify-between mb-2">
-                                            <span className="text-xs font-mono font-bold text-primary">{med.id}</span>
-                                            <span className={`text-[10px] font-extrabold uppercase px-2.5 py-0.5 rounded-full ${
-                                                med.status === 'ADEQUATE'
-                                                    ? 'bg-teal-100 text-teal-800'
-                                                    : med.status === 'LOW_STOCK'
-                                                    ? 'bg-amber-100 text-amber-800'
-                                                    : 'bg-red-100 text-red-800 animate-pulse'
-                                            }`}>
-                                                {med.status.replace(/_/g, ' ')}
-                                            </span>
-                                        </div>
-
-                                        <h3 className="text-base font-bold text-on-surface">{med.name}</h3>
-                                        <span className="text-xs text-tertiary block mt-1">{med.category} • {med.storage_location}</span>
-
-                                        <div className="mt-4 grid grid-cols-2 gap-2 bg-surface-container-low p-3.5 rounded-2xl text-xs">
-                                            <div>
-                                                <span className="text-[10px] uppercase font-bold text-tertiary block">Current Stock</span>
-                                                <span className="text-base font-black text-on-surface">{med.stock_units.toLocaleString()} {med.unit}</span>
-                                            </div>
-                                            <div>
-                                                <span className="text-[10px] uppercase font-bold text-tertiary block">Supply Remaining</span>
-                                                <span className={`text-base font-black ${med.days_of_supply < 7 ? 'text-red-600 font-extrabold' : 'text-teal-700'}`}>
-                                                    {med.days_of_supply} days
-                                                </span>
-                                            </div>
-                                        </div>
-                                    </div>
-
-                                    <button
-                                        onClick={() => {
-                                            setSelectedMed(med);
-                                            setIsStockModalOpen(true);
-                                        }}
-                                        className="w-full py-2.5 bg-surface-container hover:bg-surface-container-high text-on-surface font-bold text-xs rounded-xl flex items-center justify-center gap-2 transition-all"
-                                    >
-                                        <span className="material-symbols-outlined text-base">add_box</span>
-                                        <span>Log Batch Receipt</span>
-                                    </button>
                                 </div>
                             ))}
                         </div>
@@ -425,36 +507,250 @@ export default function FacilityOperationsPage() {
                 </div>
             )}
 
-            {/* Stock Receipt Modal */}
+            {/* Comprehensive Stock Adjustment Modal (Add, Reduce, Set) */}
             {isStockModalOpen && selectedMed && (
                 <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
-                    <div className="bg-white max-w-sm w-full rounded-3xl p-6 shadow-2xl border border-surface-container-high animate-in fade-in zoom-in duration-200">
-                        <h3 className="text-base font-bold text-on-surface mb-2">Log Stock Receipt</h3>
-                        <p className="text-xs text-tertiary mb-4">Adding units for <strong>{selectedMed.name}</strong></p>
+                    <div className="bg-white max-w-lg w-full rounded-3xl p-6 sm:p-7 shadow-2xl border border-surface-container-high animate-in fade-in zoom-in duration-200 space-y-5 max-h-[90vh] overflow-y-auto">
+                        <div className="flex items-start justify-between gap-3">
+                            <div>
+                                <span className="text-[10px] font-mono font-bold text-primary tracking-wider uppercase">{selectedMed.id}</span>
+                                <h3 className="text-lg font-black text-on-surface">{selectedMed.name}</h3>
+                                <p className="text-xs text-tertiary mt-0.5">{selectedMed.category} • Storage: {selectedMed.storage_location}</p>
+                            </div>
+                            <button
+                                onClick={() => setIsStockModalOpen(false)}
+                                className="w-8 h-8 rounded-full bg-surface-container flex items-center justify-center text-tertiary hover:text-on-surface transition-colors"
+                            >
+                                <span className="material-symbols-outlined text-base">close</span>
+                            </button>
+                        </div>
+
+                        {/* Mode Selector Tabs: ADD, REDUCE, SET */}
+                        <div className="grid grid-cols-3 gap-1 bg-surface-container-low p-1.5 rounded-2xl">
+                            <button
+                                type="button"
+                                onClick={() => {
+                                    setStockAction('ADD');
+                                    setUnitsValue(500);
+                                    setReason('Depot Batch Receipt (DMSD / MMSCL)');
+                                }}
+                                className={`py-2 px-2 rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 transition-all cursor-pointer ${
+                                    stockAction === 'ADD'
+                                        ? 'bg-teal-600 text-white shadow-sm'
+                                        : 'text-tertiary hover:text-on-surface'
+                                }`}
+                            >
+                                <span className="material-symbols-outlined text-base">add_circle</span>
+                                <span>+ Add Stock</span>
+                            </button>
+
+                            <button
+                                type="button"
+                                onClick={() => {
+                                    setStockAction('REDUCE');
+                                    setUnitsValue(Math.min(100, selectedMed.stock_units));
+                                    setReason('Dispensed to Inpatient / Emergency Ward');
+                                }}
+                                className={`py-2 px-2 rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 transition-all cursor-pointer ${
+                                    stockAction === 'REDUCE'
+                                        ? 'bg-red-600 text-white shadow-sm'
+                                        : 'text-tertiary hover:text-on-surface'
+                                }`}
+                            >
+                                <span className="material-symbols-outlined text-base">remove_circle</span>
+                                <span>- Deduct / Use</span>
+                            </button>
+
+                            <button
+                                type="button"
+                                onClick={() => {
+                                    setStockAction('SET');
+                                    setUnitsValue(selectedMed.stock_units);
+                                    setReason('Physical Inventory Audit Count');
+                                }}
+                                className={`py-2 px-2 rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 transition-all cursor-pointer ${
+                                    stockAction === 'SET'
+                                        ? 'bg-slate-800 text-white shadow-sm'
+                                        : 'text-tertiary hover:text-on-surface'
+                                }`}
+                            >
+                                <span className="material-symbols-outlined text-base">tune</span>
+                                <span>Set Exact</span>
+                            </button>
+                        </div>
+
+                        {/* Live Impact Preview Card */}
+                        <div className={`p-4 rounded-2xl border text-xs space-y-2.5 ${
+                            stockAction === 'REDUCE'
+                                ? 'bg-red-50/70 border-red-200 text-red-950'
+                                : stockAction === 'ADD'
+                                ? 'bg-teal-50/70 border-teal-200 text-teal-950'
+                                : 'bg-slate-50 border-slate-200 text-slate-900'
+                        }`}>
+                            <div className="flex items-center justify-between font-bold">
+                                <span>Stock Impact Preview:</span>
+                                <span className={`px-2 py-0.5 rounded-full text-[10px] font-extrabold uppercase ${
+                                    projectedStatus === 'ADEQUATE'
+                                        ? 'bg-teal-100 text-teal-800'
+                                        : projectedStatus === 'LOW_STOCK'
+                                        ? 'bg-amber-100 text-amber-800'
+                                        : 'bg-red-100 text-red-800'
+                                }`}>
+                                    {projectedStatus.replace(/_/g, ' ')}
+                                </span>
+                            </div>
+
+                            <div className="grid grid-cols-3 gap-2 bg-white/80 backdrop-blur p-2.5 rounded-xl border border-black/5 text-center">
+                                <div>
+                                    <span className="text-[10px] text-tertiary font-bold uppercase block">Current</span>
+                                    <span className="text-sm font-black text-on-surface">{curStock.toLocaleString()} {selectedMed.unit}</span>
+                                </div>
+                                <div className="flex flex-col justify-center">
+                                    <span className="text-[10px] text-tertiary font-bold uppercase block">Adjustment</span>
+                                    <span className={`text-sm font-black ${
+                                        stockAction === 'ADD' ? 'text-teal-700' : stockAction === 'REDUCE' ? 'text-red-600' : 'text-slate-700'
+                                    }`}>
+                                        {stockAction === 'ADD' ? `+${unitsValue}` : stockAction === 'REDUCE' ? `-${unitsValue}` : `=${unitsValue}`}
+                                    </span>
+                                </div>
+                                <div>
+                                    <span className="text-[10px] text-tertiary font-bold uppercase block">New Total</span>
+                                    <span className="text-sm font-black text-on-surface">{projectedStock.toLocaleString()} {selectedMed.unit}</span>
+                                </div>
+                            </div>
+
+                            <div className="flex items-center justify-between text-[11px] pt-1">
+                                <span className="text-tertiary">Forecasted Days of Supply:</span>
+                                <strong className="text-on-surface">{projectedDaysOfSupply} days remaining</strong>
+                            </div>
+                        </div>
 
                         <form onSubmit={handleUpdateStock} className="space-y-4">
+                            {/* Quantity Input */}
                             <div>
-                                <label className="block text-xs font-semibold text-tertiary mb-1">Units Received ({selectedMed.unit})</label>
+                                <div className="flex items-center justify-between mb-1">
+                                    <label className="text-xs font-bold text-on-surface">
+                                        {stockAction === 'ADD'
+                                            ? `Units Received (${selectedMed.unit})`
+                                            : stockAction === 'REDUCE'
+                                            ? `Units to Deduct / Dispense (${selectedMed.unit})`
+                                            : `New Verified Physical Count (${selectedMed.unit})`}
+                                    </label>
+                                    {stockAction === 'REDUCE' && (
+                                        <button
+                                            type="button"
+                                            onClick={() => setUnitsValue(selectedMed.stock_units)}
+                                            className="text-[10px] text-red-700 font-bold hover:underline"
+                                        >
+                                            Max Available ({selectedMed.stock_units})
+                                        </button>
+                                    )}
+                                </div>
+
                                 <input
                                     type="number"
                                     required
-                                    min="1"
-                                    value={unitsToAdd}
-                                    onChange={(e) => setUnitsToAdd(parseInt(e.target.value) || 0)}
-                                    className="w-full p-2.5 bg-surface-container-low rounded-xl text-xs font-bold text-on-surface border border-surface-container-high outline-none focus:border-primary"
+                                    min={stockAction === 'SET' ? 0 : 1}
+                                    max={stockAction === 'REDUCE' ? selectedMed.stock_units : undefined}
+                                    value={unitsValue}
+                                    onChange={(e) => setUnitsValue(Math.max(0, parseInt(e.target.value) || 0))}
+                                    className="w-full p-3 bg-surface-container-low rounded-2xl text-base font-black text-on-surface border border-surface-container-high outline-none focus:border-primary transition-all"
+                                />
+
+                                {/* Quick Increment Pills */}
+                                <div className="flex flex-wrap gap-1.5 mt-2">
+                                    {[50, 100, 250, 500, 1000].map((step) => (
+                                        <button
+                                            key={step}
+                                            type="button"
+                                            onClick={() => setUnitsValue(stockAction === 'REDUCE' ? Math.min(step, selectedMed.stock_units) : step)}
+                                            className="px-2.5 py-1 bg-surface-container hover:bg-surface-container-high text-[11px] font-bold rounded-lg text-on-surface transition-all cursor-pointer"
+                                        >
+                                            {stockAction === 'ADD' ? `+${step}` : stockAction === 'REDUCE' ? `-${step}` : step}
+                                        </button>
+                                    ))}
+                                </div>
+                            </div>
+
+                            {/* Reason / Purpose Selector */}
+                            <div>
+                                <label className="block text-xs font-bold text-on-surface mb-1">Reason / Transaction Type</label>
+                                <select
+                                    value={reason}
+                                    onChange={(e) => setReason(e.target.value)}
+                                    className="w-full p-2.5 bg-surface-container-low rounded-xl text-xs font-semibold text-on-surface border border-surface-container-high outline-none focus:border-primary"
+                                >
+                                    {stockAction === 'REDUCE' ? (
+                                        <>
+                                            <option value="Dispensed to Inpatient / Emergency Ward">Dispensed to Inpatient / Emergency Ward</option>
+                                            <option value="Dispensed to OPD Pharmacy Counter">Dispensed to OPD Pharmacy Counter</option>
+                                            <option value="Expired Stock Safe Disposal">Expired Stock Safe Disposal</option>
+                                            <option value="Damaged / Broken Packaging Write-off">Damaged / Broken Packaging Write-off</option>
+                                            <option value="Inter-facility Sub-centre Transfer">Inter-facility Sub-centre Transfer</option>
+                                            <option value="Physical Audit Count Discrepancy Correction">Physical Audit Count Discrepancy Correction</option>
+                                        </>
+                                    ) : stockAction === 'ADD' ? (
+                                        <>
+                                            <option value="Depot Batch Receipt (DMSD / MMSCL)">Depot Batch Receipt (DMSD / MMSCL)</option>
+                                            <option value="Emergency State Medical Quota Shipment">Emergency State Medical Quota Shipment</option>
+                                            <option value="Returned Unused Medication from Ward">Returned Unused Medication from Ward</option>
+                                            <option value="Physical Audit Count Reconciliation">Physical Audit Count Reconciliation</option>
+                                        </>
+                                    ) : (
+                                        <>
+                                            <option value="Physical Inventory Audit Count">Physical Inventory Audit Count</option>
+                                            <option value="Quarterly State Pharmacy Verification">Quarterly State Pharmacy Verification</option>
+                                            <option value="Initial System Migration / Baseline">Initial System Migration / Baseline</option>
+                                        </>
+                                    )}
+                                </select>
+                            </div>
+
+                            {/* Optional Batch Number / Notes */}
+                            <div>
+                                <label className="block text-xs font-bold text-on-surface mb-1">Batch Number / Reference (Optional)</label>
+                                <input
+                                    type="text"
+                                    placeholder="e.g. BATCH-MH-2026-X09"
+                                    value={batchNumber}
+                                    onChange={(e) => setBatchNumber(e.target.value)}
+                                    className="w-full p-2.5 bg-surface-container-low rounded-xl text-xs text-on-surface border border-surface-container-high outline-none focus:border-primary"
                                 />
                             </div>
 
-                            <div className="pt-2 flex justify-end gap-2">
-                                <button type="button" onClick={() => setIsStockModalOpen(false)} className="px-4 py-2 rounded-xl text-xs font-bold text-tertiary">
+                            {/* Modal Action Footer */}
+                            <div className="pt-3 flex items-center justify-end gap-2 border-t border-surface-container-high">
+                                <button
+                                    type="button"
+                                    onClick={() => setIsStockModalOpen(false)}
+                                    className="px-4 py-2.5 rounded-xl text-xs font-bold text-tertiary hover:bg-surface-container transition-all cursor-pointer"
+                                >
                                     Cancel
                                 </button>
+
                                 <button
                                     type="submit"
-                                    disabled={updatingStock}
-                                    className="px-5 py-2.5 bg-primary text-white font-bold text-xs rounded-xl shadow-md disabled:opacity-50"
+                                    disabled={updatingStock || (stockAction === 'REDUCE' && unitsValue > selectedMed.stock_units)}
+                                    className={`px-5 py-2.5 font-bold text-xs rounded-xl shadow-md flex items-center gap-1.5 transition-all cursor-pointer disabled:opacity-50 ${
+                                        stockAction === 'REDUCE'
+                                            ? 'bg-red-600 hover:bg-red-700 text-white'
+                                            : stockAction === 'SET'
+                                            ? 'bg-slate-900 hover:bg-black text-white'
+                                            : 'bg-teal-700 hover:bg-teal-800 text-white'
+                                    }`}
                                 >
-                                    {updatingStock ? 'Saving...' : 'Add To Inventory'}
+                                    <span className="material-symbols-outlined text-base">
+                                        {updatingStock ? 'progress_activity' : 'check'}
+                                    </span>
+                                    <span>
+                                        {updatingStock
+                                            ? 'Saving Inventory...'
+                                            : stockAction === 'REDUCE'
+                                            ? `Confirm Deduct (-${unitsValue} ${selectedMed.unit})`
+                                            : stockAction === 'SET'
+                                            ? `Set Stock to ${unitsValue} ${selectedMed.unit}`
+                                            : `Confirm Add (+${unitsValue} ${selectedMed.unit})`}
+                                    </span>
                                 </button>
                             </div>
                         </form>

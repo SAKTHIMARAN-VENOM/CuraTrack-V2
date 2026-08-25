@@ -1,7 +1,6 @@
 'use client';
 
 import React, { createContext, useContext, useState, useEffect, useMemo, ReactNode } from 'react';
-import { NextIntlClientProvider, useTranslations as useNextIntlTranslations } from 'next-intl';
 import enMessages from '@/messages/en.json';
 import hiMessages from '@/messages/hi.json';
 import mrMessages from '@/messages/mr.json';
@@ -148,9 +147,7 @@ export function I18nProvider({ children }: { children: ReactNode }) {
 
   return (
     <I18nContext.Provider value={value}>
-      <NextIntlClientProvider locale={language} messages={DICTIONARIES[language]}>
-        {children}
-      </NextIntlClientProvider>
+      {children}
     </I18nContext.Provider>
   );
 }
