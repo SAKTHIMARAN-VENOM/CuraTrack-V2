@@ -1,6 +1,7 @@
 'use client';
 
 import React, { createContext, useContext, useState, useEffect, useMemo, ReactNode } from 'react';
+import { NextIntlClientProvider, useTranslations as useNextIntlTranslations } from 'next-intl';
 import enMessages from '@/messages/en.json';
 import hiMessages from '@/messages/hi.json';
 import mrMessages from '@/messages/mr.json';
@@ -10,7 +11,9 @@ export type SupportedLanguage = 'en' | 'hi' | 'mr' | 'ta';
 
 export interface I18nContextType {
   language: SupportedLanguage;
+  locale: SupportedLanguage;
   setLanguage: (lang: SupportedLanguage) => void;
+  setLocale: (lang: SupportedLanguage) => void;
   t: (key: string, paramsOrFallback?: Record<string, any> | string, maybeFallback?: string) => string;
 }
 
@@ -23,7 +26,9 @@ export const DICTIONARIES: Record<SupportedLanguage, Record<string, any>> = {
 
 const I18nContext = createContext<I18nContextType>({
   language: 'en',
+  locale: 'en',
   setLanguage: () => {},
+  setLocale: () => {},
   t: (key: string, paramsOrFallback?: any, maybeFallback?: string) => {
     if (typeof paramsOrFallback === 'string') return paramsOrFallback;
     if (maybeFallback) return maybeFallback;
@@ -133,9 +138,21 @@ export function I18nProvider({ children }: { children: ReactNode }) {
     };
   }, [language]);
 
-  const value = useMemo(() => ({ language, setLanguage, t }), [language, t]);
+  const value = useMemo(() => ({
+    language,
+    locale: language,
+    setLanguage,
+    setLocale: setLanguage,
+    t
+  }), [language, t]);
 
-  return <I18nContext.Provider value={value}>{children}</I18nContext.Provider>;
+  return (
+    <I18nContext.Provider value={value}>
+      <NextIntlClientProvider locale={language} messages={DICTIONARIES[language]}>
+        {children}
+      </NextIntlClientProvider>
+    </I18nContext.Provider>
+  );
 }
 
 export function useI18n() {
@@ -143,3 +160,13 @@ export function useI18n() {
 }
 
 export const useTranslation = useI18n;
+
+export function useTranslations(namespace?: string) {
+  const { t } = useI18n();
+  return useMemo(() => {
+    return (key: string, values?: Record<string, any>) => {
+      const fullKey = namespace ? `${namespace}.${key}` : key;
+      return t(fullKey, values);
+    };
+  }, [namespace, t]);
+}

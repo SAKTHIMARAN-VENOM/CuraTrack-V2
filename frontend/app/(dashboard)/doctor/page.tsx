@@ -1377,7 +1377,7 @@ export default function DoctorOPDPage() {
                               onClick={() => handleUpdateReferralStatus(ref.id, 'ACCEPTED')}
                               className="px-2.5 py-1 bg-primary text-white font-bold rounded-lg hover:bg-primary/90 transition-all"
                             >
-                              Accept
+                              {t('doctor.accept', 'Accept')}
                             </button>
                           )}
                           {ref.status === 'ACCEPTED' && (
@@ -1385,7 +1385,7 @@ export default function DoctorOPDPage() {
                               onClick={() => handleUpdateReferralStatus(ref.id, 'IN_TRANSIT')}
                               className="px-2.5 py-1 bg-amber-600 text-white font-bold rounded-lg hover:bg-amber-700 transition-all"
                             >
-                              In Transit (108)
+                              {t('doctor.inTransit', 'In Transit (108)')}
                             </button>
                           )}
                           {ref.status === 'IN_TRANSIT' && (
@@ -1393,7 +1393,7 @@ export default function DoctorOPDPage() {
                               onClick={() => handleUpdateReferralStatus(ref.id, 'ARRIVED')}
                               className="px-2.5 py-1 bg-teal-600 text-white font-bold rounded-lg hover:bg-teal-700 transition-all"
                             >
-                              Mark Arrived
+                              {t('doctor.arrived', 'Mark Arrived')}
                             </button>
                           )}
                           {ref.status === 'ARRIVED' && (
@@ -1401,7 +1401,7 @@ export default function DoctorOPDPage() {
                               onClick={() => handleUpdateReferralStatus(ref.id, 'CONSULTED')}
                               className="px-2.5 py-1 bg-blue-600 text-white font-bold rounded-lg hover:bg-blue-700 transition-all"
                             >
-                              Start Consult
+                              {t('doctor.consult', 'Start Consult')}
                             </button>
                           )}
                           {ref.status === 'CONSULTED' && (
@@ -1409,7 +1409,7 @@ export default function DoctorOPDPage() {
                               onClick={() => handleUpdateReferralStatus(ref.id, 'COMPLETED')}
                               className="px-2.5 py-1 bg-emerald-600 text-white font-bold rounded-lg hover:bg-emerald-700 transition-all"
                             >
-                              Discharge & Complete
+                              {t('doctor.complete', 'Discharge & Complete')}
                             </button>
                           )}
                         </div>
@@ -1560,14 +1560,14 @@ export default function DoctorOPDPage() {
                   className="px-3.5 py-2 bg-purple-50 hover:bg-purple-100 text-purple-900 border border-purple-200 font-bold text-xs rounded-xl shadow-sm transition-all flex items-center gap-1.5"
                 >
                   <span className="material-symbols-outlined text-sm text-purple-700">folder_shared</span>
-                  <span>Patient Record</span>
+                  <span>{t('doctor.patientRecord', 'Patient Record')}</span>
                 </Link>
                 {selectedPatient.status !== 'IN-CONSULT' && (
                   <button
                     onClick={() => handleStatusChange(selectedPatient.id, 'IN-CONSULT')}
                     className="px-3.5 py-2 bg-teal-600 hover:bg-teal-700 text-white font-bold text-xs rounded-xl shadow-sm transition-all"
                   >
-                    Call into Room
+                    {t('doctor.callIntoRoom', 'Call into Room')}
                   </button>
                 )}
                 {selectedPatient.status !== 'COMPLETED' && (
@@ -1575,7 +1575,7 @@ export default function DoctorOPDPage() {
                     onClick={() => handleStatusChange(selectedPatient.id, 'COMPLETED')}
                     className="px-3.5 py-2 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs rounded-xl shadow-sm transition-all"
                   >
-                    Mark Encounter Done
+                    {t('doctor.complete', 'Mark Encounter Done')}
                   </button>
                 )}
               </div>

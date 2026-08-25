@@ -225,7 +225,7 @@ export default function Dashboard() {
                         <span className="material-symbols-outlined">steps</span>
                     </div>
                     <div>
-                        <p className="text-tertiary text-sm font-medium">Daily Steps</p>
+                        <p className="text-tertiary text-sm font-medium">{t('dashboard.dailySteps', 'Daily Steps')}</p>
                         <div className="flex items-baseline gap-2">
                             <h3 className="text-3xl font-extrabold text-on-surface">{steps.toLocaleString()}</h3>
                         </div>
@@ -233,7 +233,7 @@ export default function Dashboard() {
                     <div className="w-full bg-slate-100 h-2 rounded-full mt-2 overflow-hidden">
                         <div className="bg-secondary h-full rounded-full transition-all" style={{ width: `${Math.min((steps / 10000) * 100, 100)}%` }}></div>
                     </div>
-                    <p className="text-[10px] text-tertiary font-bold tracking-wider uppercase">{(Math.min((steps / 10000) * 100, 100)).toFixed(0)}% of 10,000 goal</p>
+                    <p className="text-[10px] text-tertiary font-bold tracking-wider uppercase">{t('dashboard.goalProgress', { pct: (Math.min((steps / 10000) * 100, 100)).toFixed(0) })}</p>
                 </div>
 
                 {/* Sleep */}
@@ -242,14 +242,14 @@ export default function Dashboard() {
                         <span className="material-symbols-outlined" style={{ fontVariationSettings: "'FILL' 1" }}>bedtime</span>
                     </div>
                     <div>
-                        <p className="text-tertiary text-sm font-medium">Sleep Trend</p>
+                        <p className="text-tertiary text-sm font-medium">{t('dashboard.sleepTrend', 'Sleep Trend')}</p>
                         <div className="flex items-baseline gap-2">
                             <h3 className="text-3xl font-extrabold text-on-surface">{data?.sleep?.formatted || '--'}</h3>
                         </div>
                     </div>
                     <div className="flex items-center gap-2 text-secondary text-sm font-bold">
                         <span className="material-symbols-outlined !text-sm">trending_up</span>
-                        <span>Sync Active</span>
+                        <span>{t('dashboard.syncActive', 'Sync Active')}</span>
                     </div>
                 </div>
             </div>
