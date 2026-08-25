@@ -44,19 +44,20 @@ def test_translate_endpoint_batch_mocked(client):
     mock_resp.status_code = 200
     mock_resp.json.return_value = {"translated_text": "डैशबोर्ड"}
 
-    with patch("requests.post", return_value=mock_resp):
-        payload = {
-            "texts": ["Dashboard", "100", ""],
-            "source_language": "en",
-            "target_language": "hi"
-        }
-        res = client.post("/api/translation/translate", json=payload)
-        assert res.status_code == 200
-        data = res.json()
-        assert len(data["translations"]) == 3
-        assert data["translations"][0] == "डैशबोर्ड"
-        assert data["translations"][1] == "100"  # Numbers preserved
-        assert data["translations"][2] == ""  # Empty string preserved
+    with patch("os.getenv", return_value="mock_api_key"):
+        with patch("requests.post", return_value=mock_resp):
+            payload = {
+                "texts": ["Dashboard", "100", ""],
+                "source_language": "en",
+                "target_language": "hi"
+            }
+            res = client.post("/api/translation/translate", json=payload)
+            assert res.status_code == 200
+            data = res.json()
+            assert len(data["translations"]) == 3
+            assert data["translations"][0] == "डैशबोर्ड"
+            assert data["translations"][1] == "100"  # Numbers preserved
+            assert data["translations"][2] == ""  # Empty string preserved
 
 
 def test_translate_endpoint_invalid_language(client):
