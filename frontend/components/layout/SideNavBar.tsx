@@ -23,7 +23,6 @@ const PATIENT_NAV_ITEMS = [
 const DOCTOR_NAV_ITEMS = [
     { href: '/doctor', icon: 'dashboard', i18nKey: 'navigation.doctorQueue', label: 'Clinical OPD Queue' },
     { href: '/doctor/triage', icon: 'assignment_late', i18nKey: 'navigation.doctorTriage', label: 'Triage Alerts' },
-    { href: '/doctor/clinical-schedule', icon: 'calendar_month', i18nKey: 'navigation.doctorSchedule', label: 'Consultation Schedule' },
     { href: '/referrals', icon: 'alt_route', i18nKey: 'navigation.referrals', label: 'Referral Pipeline' },
     { href: '/drug-checker', icon: 'pill', i18nKey: 'navigation.drugChecker', label: 'Drug Safety' },
     { href: '/records', icon: 'folder_shared', i18nKey: 'navigation.patientRecords', label: 'Patient Records' },
@@ -41,6 +40,7 @@ const FHW_NAV_ITEMS = [
 
 const FACILITY_NAV_ITEMS = [
     { href: '/facility', icon: 'local_hospital', i18nKey: 'navigation.facilityOps', label: 'Facility Operations' },
+    { href: '/facility/clinical-schedule', icon: 'calendar_month', i18nKey: 'navigation.consultationServices', label: 'Consultation Services' },
     { href: '/records', icon: 'folder_shared', i18nKey: 'navigation.facilityArchive', label: 'Facility Archive' },
     { href: '/profile', icon: 'person', i18nKey: 'navigation.managerProfile', label: 'Manager Profile' }
 ];

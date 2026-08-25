@@ -20,14 +20,16 @@ describe('Frontend Website: Navigation & Role-Based Workspaces', () => {
     });
   });
 
-  it('renders Doctor clinical navigation items when doctor role is active', async () => {
+  it('renders Doctor clinical navigation items when doctor role is active (Consultation Schedule moved to Facility Manager)', async () => {
     localStorage.setItem('curatrack_active_role', 'doctor');
     render(<SideNavBar />);
     await waitFor(() => {
       expect(screen.getByText(/Clinical OPD Queue/i)).toBeInTheDocument();
-      expect(screen.getByText(/Consultation Schedule/i)).toBeInTheDocument();
+      expect(screen.getByText(/Triage Alerts/i)).toBeInTheDocument();
       expect(screen.getByText(/Referral Pipeline/i)).toBeInTheDocument();
       expect(screen.getByText(/Drug Safety/i)).toBeInTheDocument();
+      expect(screen.queryByText(/Consultation Schedule/i)).not.toBeInTheDocument();
+      expect(screen.queryByText(/Consultation Services/i)).not.toBeInTheDocument();
     });
   });
 
@@ -40,12 +42,13 @@ describe('Frontend Website: Navigation & Role-Based Workspaces', () => {
     });
   });
 
-  it('renders Facility Operations navigation when facility role is active', async () => {
+  it('renders Facility Operations and Consultation Services navigation when facility role is active', async () => {
     localStorage.setItem('curatrack_active_role', 'facility_manager');
     render(<SideNavBar />);
     await waitFor(() => {
       const facilityElements = screen.getAllByText(/Facility Operations/i);
       expect(facilityElements.length).toBeGreaterThan(0);
+      expect(screen.getByText(/Consultation Services/i)).toBeInTheDocument();
       expect(screen.getByText(/Facility Archive/i)).toBeInTheDocument();
     });
   });

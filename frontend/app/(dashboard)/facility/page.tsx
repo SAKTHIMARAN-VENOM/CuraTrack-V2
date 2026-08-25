@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect, useMemo } from 'react';
+import Link from 'next/link';
 import { apiFetch } from '@/lib/api';
 import { useI18n } from '@/lib/i18n';
 
@@ -311,6 +312,13 @@ export default function FacilityOperationsPage() {
                     </div>
 
                     <div className="flex items-center gap-3">
+                        <Link
+                            href="/facility/clinical-schedule"
+                            className="bg-white/15 hover:bg-white/25 text-white font-bold text-xs px-5 py-3 rounded-2xl flex items-center gap-2 backdrop-blur transition-all"
+                        >
+                            <span className="material-symbols-outlined text-lg">calendar_month</span>
+                            <span>{t('navigation.consultationServices', 'Consultation Services')}</span>
+                        </Link>
                         <button
                             onClick={() => fetchData()}
                             className="bg-teal-400 hover:bg-teal-300 text-teal-950 font-bold text-xs px-5 py-3 rounded-2xl flex items-center gap-2 shadow-md transition-all active:scale-95 cursor-pointer"
