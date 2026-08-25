@@ -1,8 +1,7 @@
 import { SideNavBar } from '@/components/layout/SideNavBar';
 import { TopNavBar } from '@/components/layout/TopNavBar';
 import { MobileNav } from '@/components/layout/MobileNav';
-
-
+import { HealthProfileModal } from '@/components/HealthProfileModal';
 
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
   return (
@@ -11,6 +10,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
       
       <div className="flex-grow flex flex-col min-w-0">
         <TopNavBar />
+        <HealthProfileModal />
         {children}
       </div>
 

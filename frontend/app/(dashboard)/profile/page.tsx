@@ -94,6 +94,16 @@ export default function ProfilePage() {
             } catch {}
         };
         fetchUser();
+
+        const handleProfileUpdated = (e: any) => {
+            if (e.detail?.blood_group) setUserBlood(e.detail.blood_group);
+            if (e.detail?.gender) setUserGender(e.detail.gender);
+            if (e.detail?.age) setUserAge(String(e.detail.age));
+            if (e.detail?.phone) setUserPhone(e.detail.phone);
+        };
+
+        window.addEventListener('curatrack-profile-updated', handleProfileUpdated);
+        return () => window.removeEventListener('curatrack-profile-updated', handleProfileUpdated);
     }, []);
 
     // Countdown timer for QR expiration
@@ -346,23 +356,54 @@ export default function ProfilePage() {
 
                     {/* Data List: Profile Fields */}
                     <div className="space-y-1">
-                        <div className="p-6 bg-surface-container-low rounded-xl group transition-all hover:bg-surface-container shadow-sm border border-surface-container">
-                            <p className="text-xs font-bold text-tertiary uppercase tracking-widest mb-1">Full Name</p>
-                            <p className="text-xl font-headline font-bold text-on-surface">{userName || 'Citizen Patient'}</p>
-                            {userEmail && <p className="text-xs text-tertiary mt-0.5">{userEmail}</p>}
+                        <div className="p-6 bg-surface-container-low rounded-xl group transition-all hover:bg-surface-container shadow-sm border border-surface-container flex items-center justify-between">
+                            <div>
+                                <p className="text-xs font-bold text-tertiary uppercase tracking-widest mb-1">Full Name</p>
+                                <p className="text-xl font-headline font-bold text-on-surface">{userName || 'Citizen Patient'}</p>
+                                {userEmail && <p className="text-xs text-tertiary mt-0.5">{userEmail}</p>}
+                            </div>
+                            <button
+                                onClick={() => window.dispatchEvent(new CustomEvent('open-health-profile-modal', { detail: { blood_group: userBlood, gender: userGender, age: userAge, phone: userPhone } }))}
+                                className="px-4 py-2 bg-primary/10 hover:bg-primary text-primary hover:text-white rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer shadow-sm"
+                                title="Edit Blood Group, Gender & Health Details"
+                            >
+                                <span className="material-symbols-outlined text-sm">edit</span>
+                                <span>Edit Profile</span>
+                            </button>
                         </div>
                         <div className="grid grid-cols-1 sm:grid-cols-3 gap-1 mt-1">
-                            <div className="p-6 bg-surface-container-low rounded-xl group transition-all hover:bg-surface-container shadow-sm border border-surface-container">
-                                <p className="text-xs font-bold text-tertiary uppercase tracking-widest mb-1">Age</p>
-                                <p className="text-xl font-headline font-bold text-on-surface">{userAge}</p>
+                            <div 
+                                onClick={() => window.dispatchEvent(new CustomEvent('open-health-profile-modal', { detail: { blood_group: userBlood, gender: userGender, age: userAge, phone: userPhone } }))}
+                                className="p-6 bg-surface-container-low rounded-xl group transition-all hover:bg-surface-container shadow-sm border border-surface-container cursor-pointer hover:border-primary/40"
+                                title="Click to edit Age"
+                            >
+                                <p className="text-xs font-bold text-tertiary uppercase tracking-widest mb-1 flex items-center justify-between">
+                                    <span>Age</span>
+                                    <span className="material-symbols-outlined text-xs opacity-0 group-hover:opacity-100 text-primary transition-opacity">edit</span>
+                                </p>
+                                <p className="text-xl font-headline font-bold text-on-surface">{userAge || '-'}</p>
                             </div>
-                            <div className="p-6 bg-surface-container-low rounded-xl group transition-all hover:bg-surface-container shadow-sm border border-surface-container">
-                                <p className="text-xs font-bold text-tertiary uppercase tracking-widest mb-1">Gender</p>
-                                <p className="text-xl font-headline font-bold text-on-surface">{userGender}</p>
+                            <div 
+                                onClick={() => window.dispatchEvent(new CustomEvent('open-health-profile-modal', { detail: { blood_group: userBlood, gender: userGender, age: userAge, phone: userPhone } }))}
+                                className="p-6 bg-surface-container-low rounded-xl group transition-all hover:bg-surface-container shadow-sm border border-surface-container cursor-pointer hover:border-primary/40"
+                                title="Click to edit Gender"
+                            >
+                                <p className="text-xs font-bold text-tertiary uppercase tracking-widest mb-1 flex items-center justify-between">
+                                    <span>Gender</span>
+                                    <span className="material-symbols-outlined text-xs opacity-0 group-hover:opacity-100 text-primary transition-opacity">edit</span>
+                                </p>
+                                <p className="text-xl font-headline font-bold text-on-surface">{userGender || '-'}</p>
                             </div>
-                            <div className="p-6 bg-surface-container-low rounded-xl group transition-all hover:bg-surface-container shadow-sm border border-surface-container">
-                                <p className="text-xs font-bold text-tertiary uppercase tracking-widest mb-1">Blood</p>
-                                <p className="text-xl font-headline font-bold text-on-surface">{userBlood}</p>
+                            <div 
+                                onClick={() => window.dispatchEvent(new CustomEvent('open-health-profile-modal', { detail: { blood_group: userBlood, gender: userGender, age: userAge, phone: userPhone } }))}
+                                className="p-6 bg-surface-container-low rounded-xl group transition-all hover:bg-surface-container shadow-sm border border-surface-container cursor-pointer hover:border-red-400 bg-red-50/20"
+                                title="Click to edit Blood Group"
+                            >
+                                <p className="text-xs font-bold text-red-600 uppercase tracking-widest mb-1 flex items-center justify-between">
+                                    <span>Blood Group</span>
+                                    <span className="material-symbols-outlined text-xs opacity-0 group-hover:opacity-100 text-red-600 transition-opacity">edit</span>
+                                </p>
+                                <p className="text-xl font-headline font-bold text-red-700">{userBlood || 'Set Now'}</p>
                             </div>
                         </div>
                     </div>
@@ -371,7 +412,7 @@ export default function ProfilePage() {
                     <button
                         onClick={fetchQR}
                         disabled={qrLoading}
-                        className="w-full px-8 py-4 bg-gradient-to-br from-primary to-primary-container text-white font-bold rounded-2xl shadow-lg shadow-primary/20 hover:scale-[1.02] active:scale-95 transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-3"
+                        className="w-full px-8 py-4 bg-gradient-to-br from-primary to-primary-container text-white font-bold rounded-2xl shadow-lg shadow-primary/20 hover:scale-[1.02] active:scale-95 transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-3 cursor-pointer"
                     >
                         <span className="material-symbols-outlined" style={{ fontVariationSettings: "'FILL' 1" }}>qr_code_2</span>
                         {qrLoading ? 'Generating...' : isExpired ? 'Regenerate Secure QR' : 'Generate Secure QR'}

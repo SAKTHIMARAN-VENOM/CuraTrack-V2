@@ -119,12 +119,21 @@ export default function Dashboard() {
 
         const handleOnline = () => setIsOffline(false);
         const handleOffline = () => setIsOffline(true);
+        const handleProfileUpdated = (e: any) => {
+            setUser((prev: any) => ({
+                ...prev,
+                ...(e.detail || {}),
+            }));
+        };
+
         window.addEventListener('online', handleOnline);
         window.addEventListener('offline', handleOffline);
+        window.addEventListener('curatrack-profile-updated', handleProfileUpdated);
 
         return () => {
             window.removeEventListener('online', handleOnline);
             window.removeEventListener('offline', handleOffline);
+            window.removeEventListener('curatrack-profile-updated', handleProfileUpdated);
         };
     }, [router]);
 
@@ -166,8 +175,20 @@ export default function Dashboard() {
                         <h2 className="text-3xl font-extrabold tracking-tight text-on-surface">
                             {t('topNav.hello', 'Welcome back')}, {userName}
                         </h2>
-                        <div className="flex items-center gap-2 mt-1">
-                            <p className="text-tertiary">{t('dashboard.subtitle', 'Your health overview for today')}</p>
+                        <div className="flex flex-wrap items-center gap-2.5 mt-1.5">
+                            <button
+                                onClick={() => window.dispatchEvent(new CustomEvent('open-health-profile-modal', { detail: user }))}
+                                className="inline-flex items-center gap-1.5 px-3 py-1 bg-red-50 hover:bg-red-100 border border-red-200 text-red-700 rounded-full text-xs font-bold transition-all cursor-pointer shadow-2xs"
+                                title="Click to edit Blood Group & Gender"
+                            >
+                                <span className="material-symbols-outlined text-xs">bloodtype</span>
+                                <span>{user?.blood_group ? `Blood: ${user.blood_group}` : 'Set Blood Group'}</span>
+                                <span className="text-red-300">•</span>
+                                <span>{user?.gender ? user.gender : 'Set Gender'}</span>
+                                <span className="material-symbols-outlined text-xs text-red-500">edit</span>
+                            </button>
+                            <span className="w-1 h-1 bg-tertiary/40 rounded-full"></span>
+                            <p className="text-tertiary text-xs sm:text-sm">{t('dashboard.subtitle', 'Your health overview for today')}</p>
                             <span className="w-1 h-1 bg-tertiary/40 rounded-full"></span>
                             <button 
                                 onClick={fetchFitData}
