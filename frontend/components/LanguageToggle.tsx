@@ -1,7 +1,7 @@
 'use client';
 
 import React from 'react';
-import { useLanguage, SupportedLanguage } from '@/lib/i18n';
+import { useI18n, useLanguage, SupportedLanguage } from '@/lib/i18n';
 
 const LANGUAGES: { code: SupportedLanguage; label: string; nativeName: string }[] = [
   { code: 'en', label: 'English', nativeName: 'English' },
@@ -11,7 +11,9 @@ const LANGUAGES: { code: SupportedLanguage; label: string; nativeName: string }[
 ];
 
 export function LanguageToggle() {
-  const { language, setLanguage } = useLanguage();
+  const i18n = typeof useI18n === 'function' ? useI18n() : (typeof useLanguage === 'function' ? useLanguage() : { language: 'en', setLanguage: () => {} });
+  const language = i18n?.language || 'en';
+  const setLanguage = i18n?.setLanguage || (() => {});
 
   return (
     <div className="inline-flex items-center p-1 bg-surface-container rounded-2xl border border-surface-container-high text-xs font-bold shadow-xs">
