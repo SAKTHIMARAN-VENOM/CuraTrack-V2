@@ -20,6 +20,10 @@ elif command -v python >/dev/null 2>&1 && python -c "import sys" >/dev/null 2>&1
     PYTHON_CMD="python"
 elif command -v python3 >/dev/null 2>&1 && python3 -c "import sys" >/dev/null 2>&1; then
     PYTHON_CMD="python3"
+elif [ -f "/c/Users/aksha/AppData/Local/Programs/Python/Python314/python.exe" ]; then
+    PYTHON_CMD="/c/Users/aksha/AppData/Local/Programs/Python/Python314/python.exe"
+elif [ -f "C:/Users/aksha/AppData/Local/Programs/Python/Python314/python.exe" ]; then
+    PYTHON_CMD="C:/Users/aksha/AppData/Local/Programs/Python/Python314/python.exe"
 elif [ -f "/c/Users/Sakth/AppData/Local/Programs/Python/Python313/python.exe" ]; then
     PYTHON_CMD="/c/Users/Sakth/AppData/Local/Programs/Python/Python313/python.exe"
 elif [ -f "C:/Users/Sakth/AppData/Local/Programs/Python/Python313/python.exe" ]; then
