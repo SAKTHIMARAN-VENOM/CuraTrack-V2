@@ -15,6 +15,7 @@ export default defineConfig({
     pool: 'forks',
   },
   resolve: {
+    dedupe: ['react', 'react-dom'],
     alias: {
       '@': path.resolve(__dirname, './'),
     },
