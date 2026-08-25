@@ -853,7 +853,7 @@ export default function FrontlineHealthWorkerPage() {
                                     className="w-full py-3 bg-teal-700 hover:bg-teal-800 text-white font-bold text-xs rounded-xl shadow-md flex items-center justify-center gap-2"
                                 >
                                     <span className="material-symbols-outlined">video_call</span>
-                                    <span>Connect Assisted Teleconsultation with MO</span>
+                                    <span>Connect Video Consult with Medical Officer</span>
                                 </button>
                             )}
                             <button
