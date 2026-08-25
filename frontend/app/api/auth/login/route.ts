@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
+import { createAdminClient } from '@/lib/supabase/admin';
 
 const OFFICIAL_ROLE_ACCOUNTS: Record<string, { role: string; name: string }> = {
     'facility@curatrack.com': { role: 'facility_manager', name: 'Anil Deshmukh (Hospital Ops)' },
@@ -27,6 +28,7 @@ export async function POST(req: NextRequest) {
 
         const emailLower = email.trim().toLowerCase();
         const supabase = await createClient();
+        const adminClient = createAdminClient();
 
         // 1. Attempt Supabase Auth Sign In
         const signInRes = await supabase.auth.signInWithPassword({
@@ -37,25 +39,25 @@ export async function POST(req: NextRequest) {
         let authUser = signInRes.data?.user;
         let authError = signInRes.error;
 
-        // 2. If user does not exist in Supabase Auth yet but is an official stakeholder account, auto-provision
+        // 2. If user does not exist in Supabase Auth yet but is an official stakeholder account, auto-provision via Admin API
         const officialAccount = OFFICIAL_ROLE_ACCOUNTS[emailLower];
         if (!authUser && officialAccount) {
             try {
-                // Try signing up the official account in Supabase
-                const signupRes = await supabase.auth.signUp({
+                // Use admin API with email_confirm: true to avoid email rate limits
+                const { data: adminCreated } = await adminClient.auth.admin.createUser({
                     email: emailLower,
                     password,
-                    options: {
-                        data: {
-                            name: officialAccount.name,
-                            role: officialAccount.role,
-                        }
-                    }
+                    email_confirm: true,
+                    user_metadata: {
+                        name: officialAccount.name,
+                        role: officialAccount.role,
+                    },
                 });
 
-                if (signupRes.data?.user) {
-                    authUser = signupRes.data.user;
+                if (adminCreated?.user) {
+                    authUser = adminCreated.user;
                     authError = null;
+                    await supabase.auth.signInWithPassword({ email: emailLower, password });
                 } else {
                     const secondAttempt = await supabase.auth.signInWithPassword({ email: emailLower, password });
                     if (secondAttempt.data?.user) {
