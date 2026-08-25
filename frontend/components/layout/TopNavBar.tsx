@@ -1,6 +1,7 @@
 'use client';
 import { useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
+import { LanguageToggle } from '@/components/LanguageToggle';
 
 export function TopNavBar() {
   const router = useRouter();
@@ -24,6 +25,7 @@ export function TopNavBar() {
         </div>
 
         <div className="flex items-center gap-6 ml-8">
+            <LanguageToggle />
             <div className="flex items-center gap-4">
                 <button 
                   onClick={() => router.push('/alerts')}

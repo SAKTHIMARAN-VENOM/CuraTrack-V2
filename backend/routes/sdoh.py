@@ -1,11 +1,16 @@
 import time
+import logging
+from datetime import datetime, timezone
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 from typing import Optional
 
+from services.supabase_client import get_supabase_client
+
+logger = logging.getLogger("curatrack.sdoh")
 router = APIRouter()
 
-# In-memory store for SDOH scores (replace with Supabase in production)
+# In-memory fallback store for SDOH scores
 _sdoh_scores: dict = {}
 
 
@@ -61,6 +66,7 @@ def calculate_sdoh(req: SDOHRequest):
         "health_literacy": req.health_literacy,
     }
 
+    now_iso = datetime.now(timezone.utc).isoformat()
     record = {
         "patient_id": req.patient_id,
         "score": score,
@@ -68,10 +74,24 @@ def calculate_sdoh(req: SDOHRequest):
         "risk_color": risk_color,
         "responses": breakdown,
         "recommendations": recommendations,
-        "created_at": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
+        "created_at": now_iso,
     }
 
     _sdoh_scores[req.patient_id] = record
+
+    sb = get_supabase_client()
+    if sb:
+        try:
+            sb.table("sdoh_scores").insert({
+                "patient_id": req.patient_id,
+                "score": score,
+                "risk_level": risk_level,
+                "responses": breakdown,
+                "recommendations": recommendations,
+                "created_at": now_iso
+            }).execute()
+        except Exception as e:
+            logger.warning(f"Could not persist SDOH score to Supabase table: {e}")
 
     return {
         "score": score,
@@ -84,6 +104,15 @@ def calculate_sdoh(req: SDOHRequest):
 
 @router.get("/sdoh/{patient_id}")
 def get_sdoh(patient_id: str):
+    sb = get_supabase_client()
+    if sb:
+        try:
+            res = sb.table("sdoh_scores").select("*").eq("patient_id", patient_id).order("created_at", desc=True).limit(1).execute()
+            if res.data and len(res.data) > 0:
+                return res.data[0]
+        except Exception as e:
+            logger.warning(f"Supabase SDOH query error: {e}")
+
     record = _sdoh_scores.get(patient_id)
     if not record:
         raise HTTPException(status_code=404, detail="No SDOH score found for this patient.")
