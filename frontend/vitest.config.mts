@@ -7,6 +7,14 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
 export default defineConfig({
   plugins: [react()],
+  esbuild: {
+    jsx: 'automatic',
+    tsconfigRaw: {
+      compilerOptions: {
+        jsx: 'react-jsx',
+      },
+    },
+  },
   test: {
     environment: 'jsdom',
     globals: true,
