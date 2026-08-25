@@ -7,12 +7,20 @@ from typing import List, Optional
 from fastapi import APIRouter, HTTPException, status
 from pydantic import BaseModel, Field
 
-from services.sarvam_translation import (
-    translate_batch,
-    SUPPORTED_LANGUAGES,
-    get_cache_size,
-    get_sarvam_api_key,
-)
+try:
+    from backend.services.sarvam_translation import (
+        translate_batch,
+        SUPPORTED_LANGUAGES,
+        get_cache_size,
+        get_sarvam_api_key,
+    )
+except ImportError:
+    from services.sarvam_translation import (
+        translate_batch,
+        SUPPORTED_LANGUAGES,
+        get_cache_size,
+        get_sarvam_api_key,
+    )
 
 router = APIRouter(prefix="/translation", tags=["Translation"])
 

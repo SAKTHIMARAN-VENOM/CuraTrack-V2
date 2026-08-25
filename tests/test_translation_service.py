@@ -5,13 +5,23 @@ All external network calls to Sarvam AI are safely mocked.
 
 from unittest.mock import patch, MagicMock
 import pytest
-from backend.services.sarvam_translation import (
-    translate_batch,
-    translate_single_sarvam,
-    clear_translation_cache,
-    get_cache_size,
-    _TRANSLATION_CACHE
-)
+
+try:
+    from backend.services.sarvam_translation import (
+        translate_batch,
+        translate_single_sarvam,
+        clear_translation_cache,
+        get_cache_size,
+        _TRANSLATION_CACHE,
+    )
+except ImportError:
+    from services.sarvam_translation import (
+        translate_batch,
+        translate_single_sarvam,
+        clear_translation_cache,
+        get_cache_size,
+        _TRANSLATION_CACHE,
+    )
 
 
 def test_translation_service_status(client):
