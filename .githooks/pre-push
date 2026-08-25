@@ -11,15 +11,22 @@ echo "  [CURATRACK LOCAL PRE-PUSH HOOK]: Executing Full Automated Test Suite"
 echo "==========================================================================="
 echo ""
 
-# Execute the Master Python test runner
-if command -v python3 >/dev/null 2>&1; then
-    PYTHON_CMD="python3"
-elif command -v python >/dev/null 2>&1; then
+# Robust Python discovery across Windows (Git Bash/CMD/PS), macOS, and Linux
+PYTHON_CMD=""
+
+if command -v py >/dev/null 2>&1 && py -3 -c "import sys" >/dev/null 2>&1; then
+    PYTHON_CMD="py -3"
+elif command -v python >/dev/null 2>&1 && python -c "import sys" >/dev/null 2>&1; then
     PYTHON_CMD="python"
-elif command -v py >/dev/null 2>&1; then
-    PYTHON_CMD="py"
+elif command -v python3 >/dev/null 2>&1 && python3 -c "import sys" >/dev/null 2>&1; then
+    PYTHON_CMD="python3"
+elif [ -f "/c/Users/Sakth/AppData/Local/Programs/Python/Python313/python.exe" ]; then
+    PYTHON_CMD="/c/Users/Sakth/AppData/Local/Programs/Python/Python313/python.exe"
+elif [ -f "C:/Users/Sakth/AppData/Local/Programs/Python/Python313/python.exe" ]; then
+    PYTHON_CMD="C:/Users/Sakth/AppData/Local/Programs/Python/Python313/python.exe"
 else
-    echo "ERROR: Python is required to run pre-push automated tests."
+    echo "ERROR: Valid Python interpreter not found."
+    echo "Please ensure Python 3.10+ is installed and accessible in PATH."
     exit 1
 fi
 
