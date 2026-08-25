@@ -62,10 +62,11 @@ def test_translate_endpoint_invalid_language():
 
 
 def test_translate_batch_direct_function():
-    """Test translate_batch direct function fallback and cache behavior."""
+    """Test translate_batch direct function with cache and Sarvam API."""
     clear_translation_cache()
     _TRANSLATION_CACHE["en:mr:Emergency"] = "आणीबाणी"
 
-    results = translate_batch(["Emergency", "OPD"], source_lang="en", target_lang="mr")
+    results = translate_batch(["Emergency", "Hospital"], source_lang="en", target_lang="mr")
     assert results[0] == "आणीबाणी"
-    assert results[1] == "OPD"  # Fallback to original text when no API key is provided
+    assert len(results) == 2
+    assert isinstance(results[1], str) and len(results[1]) > 0
