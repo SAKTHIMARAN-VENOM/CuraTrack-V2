@@ -15,7 +15,7 @@ try:
         get_sarvam_api_key,
     )
 except ImportError:
-    from services.sarvam_translation import (
+    from services.sarvam_translation import (  # type: ignore
         translate_batch,
         SUPPORTED_LANGUAGES,
         get_cache_size,
@@ -101,7 +101,7 @@ async def get_translation_status():
     return {
         "status": "online",
         "service": "sarvam-ai-translate",
-        "supported_languages": SUPPORTED_LANGUAGES,
+        "supported_languages": list(SUPPORTED_LANGUAGES),
         "sarvam_configured": bool(api_key),
         "cached_entries": get_cache_size()
     }

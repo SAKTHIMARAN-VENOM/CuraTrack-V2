@@ -22,7 +22,7 @@ try:
         _TRANSLATION_CACHE
     )
 except ImportError:
-    from services.sarvam_translation import (
+    from services.sarvam_translation import (  # type: ignore
         translate_batch,
         clear_translation_cache,
         get_cache_size,
