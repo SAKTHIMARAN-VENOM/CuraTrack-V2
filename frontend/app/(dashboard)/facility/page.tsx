@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { apiFetch } from '@/lib/api';
 import { useI18n } from '@/lib/i18n';
 
@@ -8,14 +8,14 @@ export default function FacilityOperationsPage() {
     const { t } = useI18n();
     const [stats, setStats] = useState<any>(null);
     const [doctors, setDoctors] = useState<any[]>([]);
-    const [medicines, setMedicines] = useState<any[]>([]);
+    const [allMedicines, setAllMedicines] = useState<any[]>([]);
     const [beds, setBeds] = useState<any>(null);
     const [loading, setLoading] = useState<boolean>(true);
-    const [activeTab, setActiveTab] = useState<'doctors' | 'medicines' | 'beds'>('medicines');
+    const [activeTab, setActiveTab] = useState<'medicines' | 'doctors' | 'beds'>('medicines');
 
-    // Filters
+    // Filter states
     const [docFilter, setDocFilter] = useState<string>('ALL');
-    const [medFilter, setMedFilter] = useState<string>('ALL');
+    const [medFilter, setMedFilter] = useState<'ALL' | 'ADEQUATE' | 'LOW_STOCK' | 'CRITICAL_STOCKOUT_RISK'>('ALL');
 
     // Stock Update / Adjustment Modal State
     const [isStockModalOpen, setIsStockModalOpen] = useState<boolean>(false);
@@ -32,12 +32,12 @@ export default function FacilityOperationsPage() {
             const [statsRes, docsRes, medsRes, bedsRes] = await Promise.all([
                 apiFetch('/api/facility/stats'),
                 apiFetch(`/api/facility/doctors${docFilter !== 'ALL' ? `?status=${docFilter}` : ''}`),
-                apiFetch(`/api/facility/medicines${medFilter !== 'ALL' ? `?status=${medFilter}` : ''}`),
+                apiFetch('/api/facility/medicines'),
                 apiFetch('/api/facility/beds')
             ]);
             setStats(statsRes);
             if (docsRes.doctors) setDoctors(docsRes.doctors);
-            if (medsRes.medicines) setMedicines(medsRes.medicines);
+            if (medsRes.medicines) setAllMedicines(medsRes.medicines);
             setBeds(bedsRes);
         } catch (err) {
             console.error('Failed to load facility data:', err);
@@ -48,7 +48,26 @@ export default function FacilityOperationsPage() {
 
     useEffect(() => {
         fetchData();
-    }, [docFilter, medFilter]);
+    }, [docFilter]);
+
+    // Computed inventory counts across status tiers
+    const allCount = allMedicines.length;
+    const adequateMeds = useMemo(() => allMedicines.filter(m => m.status === 'ADEQUATE'), [allMedicines]);
+    const lowStockMeds = useMemo(() => allMedicines.filter(m => m.status === 'LOW_STOCK'), [allMedicines]);
+    const criticalMeds = useMemo(() => allMedicines.filter(m => m.status === 'CRITICAL_STOCKOUT_RISK'), [allMedicines]);
+
+    const adequateCount = adequateMeds.length;
+    const lowStockCount = lowStockMeds.length;
+    const criticalCount = criticalMeds.length;
+    const totalAlertCount = lowStockCount + criticalCount;
+
+    // Filtered list strictly based on selected category tab
+    const displayedMedicines = useMemo(() => {
+        if (medFilter === 'ADEQUATE') return adequateMeds;
+        if (medFilter === 'LOW_STOCK') return lowStockMeds;
+        if (medFilter === 'CRITICAL_STOCKOUT_RISK') return criticalMeds;
+        return allMedicines;
+    }, [allMedicines, medFilter, adequateMeds, lowStockMeds, criticalMeds]);
 
     const openStockModal = (med: any, action: 'ADD' | 'REDUCE' | 'SET' = 'ADD') => {
         setSelectedMed(med);
@@ -117,16 +136,39 @@ export default function FacilityOperationsPage() {
         : 'CRITICAL_STOCKOUT_RISK';
 
     const onDutyCount = doctors.filter(d => d.status === 'ON_DUTY').length;
-    const criticalMeds = medicines.filter(m => m.status !== 'ADEQUATE').length;
     const totalAvailBeds = beds?.total_available ?? 13;
     const totalBeds = beds?.total_beds ?? 50;
 
-    const filterStatusMap: Record<string, string> = {
-        'ALL': t('common.all', 'ALL'),
-        'ADEQUATE': t('common.adequate', 'ADEQUATE'),
-        'LOW_STOCK': t('common.lowStock', 'LOW STOCK'),
-        'CRITICAL_STOCKOUT_RISK': t('common.criticalStock', 'CRITICAL STOCKOUT RISK')
-    };
+    const FILTER_TABS = [
+        {
+            key: 'ALL' as const,
+            label: t('facility.allMedicines', 'All Medicines'),
+            count: allCount,
+            activeClass: 'bg-primary text-white shadow-sm',
+            badgeClass: 'bg-white/20 text-white'
+        },
+        {
+            key: 'ADEQUATE' as const,
+            label: t('facility.adequateStock', 'Adequate Stock'),
+            count: adequateCount,
+            activeClass: 'bg-teal-700 text-white shadow-sm',
+            badgeClass: 'bg-teal-100 text-teal-800'
+        },
+        {
+            key: 'LOW_STOCK' as const,
+            label: t('facility.lowStock', 'Low Stock'),
+            count: lowStockCount,
+            activeClass: 'bg-amber-600 text-white shadow-sm',
+            badgeClass: 'bg-amber-100 text-amber-900'
+        },
+        {
+            key: 'CRITICAL_STOCKOUT_RISK' as const,
+            label: t('facility.criticalStockoutRisk', 'Critical Stockout Risk'),
+            count: criticalCount,
+            activeClass: 'bg-red-600 text-white shadow-sm',
+            badgeClass: 'bg-red-100 text-red-900'
+        }
+    ];
 
     return (
         <div className="space-y-8 max-w-7xl mx-auto pb-16">
@@ -139,7 +181,7 @@ export default function FacilityOperationsPage() {
                             <span>{t('facility.subtitle', 'Facility Operations & Supply Chain')}</span>
                         </div>
                         <h1 className="text-3xl font-extrabold tracking-tight">{t('facility.title', 'Nandurbar Sub-District Hospital & CHC')}</h1>
-                        <p className="text-xs text-teal-100/80 mt-1">{t('facility.description', 'Real-time inventory management, EDL supply monitoring, and bed occupancy.')}</p>
+                        <p className="text-xs text-teal-100/80 mt-1">{t('facility.bannerDesc', 'Real-time inventory management, EDL supply monitoring, and bed occupancy.')}</p>
                     </div>
 
                     <div className="flex items-center gap-3">
@@ -148,7 +190,7 @@ export default function FacilityOperationsPage() {
                             className="bg-teal-400 hover:bg-teal-300 text-teal-950 font-bold text-xs px-5 py-3 rounded-2xl flex items-center gap-2 shadow-md transition-all active:scale-95 cursor-pointer"
                         >
                             <span className="material-symbols-outlined text-lg">refresh</span>
-                            <span>{t('common.refresh', 'Refresh All Data')}</span>
+                            <span>{t('actions.refresh', 'Refresh All Data')}</span>
                         </button>
                     </div>
                 </div>
@@ -156,45 +198,63 @@ export default function FacilityOperationsPage() {
 
             {/* Metric KPI Overview */}
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                <div className="bg-white border border-surface-container-high p-5 rounded-3xl shadow-card flex items-center justify-between cursor-pointer hover:border-primary/40 transition-all" onClick={() => setActiveTab('doctors')}>
+                <div
+                    className="bg-white border border-surface-container-high p-5 rounded-3xl shadow-card flex items-center justify-between cursor-pointer hover:border-primary/40 transition-all"
+                    onClick={() => setActiveTab('doctors')}
+                >
                     <div>
                         <span className="text-[11px] font-bold uppercase tracking-wider text-tertiary block">{t('facility.availableDoctors', 'Available Doctors')}</span>
                         <div className="flex items-baseline gap-2 mt-1">
                             <span className="text-3xl font-black text-teal-700">{onDutyCount}</span>
                             <span className="text-xs text-tertiary font-bold">{t('facility.onDuty', 'on duty')}</span>
                         </div>
-                        <span className="text-[10px] text-teal-600 font-semibold">{t('facility.readyForConsults', 'Active & ready for consultations')}</span>
+                        <span className="text-[10px] text-teal-600 font-semibold">{t('facility.readyForConsultations', 'Active & ready for consultations')}</span>
                     </div>
                     <div className="w-12 h-12 rounded-2xl bg-blue-50 text-blue-700 flex items-center justify-center">
                         <span className="material-symbols-outlined text-2xl">stethoscope</span>
                     </div>
                 </div>
 
-                <div className={`border p-5 rounded-3xl shadow-card flex items-center justify-between cursor-pointer hover:border-primary/40 transition-all ${criticalMeds > 0 ? 'bg-red-50 border-red-200' : 'bg-white border-surface-container-high'}`} onClick={() => setActiveTab('medicines')}>
+                <div
+                    className={`border p-5 rounded-3xl shadow-card flex items-center justify-between cursor-pointer hover:border-primary/40 transition-all ${
+                        totalAlertCount > 0 ? 'bg-red-50 border-red-200' : 'bg-white border-surface-container-high'
+                    }`}
+                    onClick={() => {
+                        setActiveTab('medicines');
+                        if (criticalCount > 0) setMedFilter('CRITICAL_STOCKOUT_RISK');
+                        else if (lowStockCount > 0) setMedFilter('LOW_STOCK');
+                        else setMedFilter('ALL');
+                    }}
+                >
                     <div>
-                        <span className={`text-[11px] font-bold uppercase tracking-wider block ${criticalMeds > 0 ? 'text-red-700' : 'text-tertiary'}`}>{t('facility.edlStockAlerts', 'EDL Stock Alerts')}</span>
+                        <span className={`text-[11px] font-bold uppercase tracking-wider block ${totalAlertCount > 0 ? 'text-red-700' : 'text-tertiary'}`}>
+                            {t('facility.edlStockAlerts', 'EDL Stock Alerts')}
+                        </span>
                         <div className="flex items-baseline gap-2 mt-1">
-                            <span className={`text-3xl font-black ${criticalMeds > 0 ? 'text-red-900' : 'text-on-surface'}`}>{criticalMeds}</span>
-                            <span className="text-xs text-tertiary font-bold">/ {medicines.length}</span>
+                            <span className={`text-3xl font-black ${totalAlertCount > 0 ? 'text-red-900' : 'text-on-surface'}`}>{totalAlertCount}</span>
+                            <span className="text-xs text-tertiary font-bold">/ {allCount} {t('facility.medicinesLabel', 'medicines')}</span>
                         </div>
-                        <span className={`text-[10px] font-semibold ${criticalMeds > 0 ? 'text-red-600' : 'text-teal-600'}`}>
-                            {criticalMeds > 0 ? t('facility.stockLowRisk', 'Low stock / critical stockout risk') : t('facility.stockAdequate', 'All stock levels adequate')}
+                        <span className={`text-[10px] font-semibold ${totalAlertCount > 0 ? 'text-red-600' : 'text-teal-600'}`}>
+                            {totalAlertCount > 0 ? `${criticalCount} ${t('facility.criticalStockoutRisk', 'Critical')} + ${lowStockCount} ${t('facility.lowStock', 'Low Stock')}` : t('facility.allStockAdequate', 'All stock levels adequate')}
                         </span>
                     </div>
-                    <div className={`w-12 h-12 rounded-2xl flex items-center justify-center ${criticalMeds > 0 ? 'bg-red-200/80 text-red-700' : 'bg-teal-50 text-teal-700'}`}>
-                        <span className="material-symbols-outlined text-2xl">{criticalMeds > 0 ? 'warning' : 'pill'}</span>
+                    <div className={`w-12 h-12 rounded-2xl flex items-center justify-center ${totalAlertCount > 0 ? 'bg-red-200/80 text-red-700' : 'bg-teal-50 text-teal-700'}`}>
+                        <span className="material-symbols-outlined text-2xl">{totalAlertCount > 0 ? 'warning' : 'pill'}</span>
                     </div>
                 </div>
 
-                <div className="bg-white border border-surface-container-high p-5 rounded-3xl shadow-card flex items-center justify-between cursor-pointer hover:border-primary/40 transition-all" onClick={() => setActiveTab('beds')}>
+                <div
+                    className="bg-white border border-surface-container-high p-5 rounded-3xl shadow-card flex items-center justify-between cursor-pointer hover:border-primary/40 transition-all"
+                    onClick={() => setActiveTab('beds')}
+                >
                     <div>
-                        <span className="text-[11px] font-bold uppercase tracking-wider text-tertiary block">{t('facility.availableBeds', 'Beds Available')}</span>
+                        <span className="text-[11px] font-bold uppercase tracking-wider text-tertiary block">{t('facility.bedsAvailable', 'Beds Available')}</span>
                         <div className="flex items-baseline gap-2 mt-1">
                             <span className="text-3xl font-black text-on-surface">{totalAvailBeds}</span>
-                            <span className="text-xs text-tertiary font-bold">/ {totalBeds}</span>
+                            <span className="text-xs text-tertiary font-bold">/ {totalBeds} {t('facility.total', 'total')}</span>
                         </div>
                         <span className="text-[10px] text-teal-600 font-semibold">
-                            {t('facility.occupancyAcrossWards', { pct: beds?.occupancy_rate ?? 76 }, `${beds?.occupancy_rate ?? 76}% occupancy across all wards`)}
+                            {beds?.occupancy_rate ?? 76}% {t('facility.occupancyAcrossWards', 'occupancy across all wards')}
                         </span>
                     </div>
                     <div className="w-12 h-12 rounded-2xl bg-teal-50 text-teal-700 flex items-center justify-center">
@@ -214,10 +274,10 @@ export default function FacilityOperationsPage() {
                     }`}
                 >
                     <span className="material-symbols-outlined text-base">pill</span>
-                    <span>{t('facility.edlStockOverview', 'Medicine Stock (EDL)')}</span>
-                    {criticalMeds > 0 && (
+                    <span>{t('facility.medicineStockEDL', 'Medicine Stock (EDL)')}</span>
+                    {totalAlertCount > 0 && (
                         <span className="px-1.5 py-0.5 rounded-full text-[10px] font-black bg-red-100 text-red-700">
-                            {criticalMeds}
+                            {totalAlertCount}
                         </span>
                     )}
                 </button>
@@ -250,25 +310,34 @@ export default function FacilityOperationsPage() {
             {/* TAB 1: Medicine Stock (EDL) */}
             {activeTab === 'medicines' && (
                 <div className="space-y-6">
+                    {/* EDL Category Filter Tabs with Live Badges */}
                     <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-                        <div className="flex flex-wrap gap-1.5">
-                            {['ALL', 'ADEQUATE', 'LOW_STOCK', 'CRITICAL_STOCKOUT_RISK'].map((st) => (
-                                <button
-                                    key={st}
-                                    onClick={() => setMedFilter(st)}
-                                    className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${
-                                        medFilter === st
-                                            ? 'bg-primary text-white shadow-sm'
-                                            : 'bg-surface-container-low text-tertiary hover:bg-surface-container'
-                                    }`}
-                                >
-                                    {filterStatusMap[st] || st.replace(/_/g, ' ')}
-                                </button>
-                            ))}
+                        <div className="flex flex-wrap gap-2">
+                            {FILTER_TABS.map((tab) => {
+                                const isSelected = medFilter === tab.key;
+                                return (
+                                    <button
+                                        key={tab.key}
+                                        onClick={() => setMedFilter(tab.key)}
+                                        className={`px-4 py-2 rounded-2xl text-xs font-bold transition-all flex items-center gap-2 cursor-pointer ${
+                                            isSelected
+                                                ? tab.activeClass
+                                                : 'bg-surface-container-low text-tertiary hover:bg-surface-container hover:text-on-surface'
+                                        }`}
+                                    >
+                                        <span>{tab.label}</span>
+                                        <span className={`px-2 py-0.5 rounded-full text-[10px] font-black ${
+                                            isSelected ? tab.badgeClass : 'bg-surface-container text-tertiary'
+                                        }`}>
+                                            {tab.count}
+                                        </span>
+                                    </button>
+                                );
+                            })}
                         </div>
 
                         <div className="text-xs text-tertiary font-medium">
-                            {t('facility.showingMedicines', { count: medicines.length }, `Showing ${medicines.length} essential medicines`)}
+                            Showing <strong className="text-on-surface font-bold">{displayedMedicines.length}</strong> of {allCount} medicines
                         </div>
                     </div>
 
@@ -277,12 +346,45 @@ export default function FacilityOperationsPage() {
                             <span className="material-symbols-outlined animate-spin text-3xl text-primary">progress_activity</span>
                             <p className="text-xs text-tertiary mt-2">{t('facility.loadingInventory', 'Loading facility drug inventory...')}</p>
                         </div>
+                    ) : displayedMedicines.length === 0 ? (
+                        /* Empty state when the selected stock tab has no medicines */
+                        <div className="bg-white rounded-3xl p-12 border border-surface-container-high text-center shadow-card space-y-4 max-w-lg mx-auto">
+                            <div className="w-16 h-16 rounded-2xl bg-teal-50 text-teal-700 flex items-center justify-center mx-auto">
+                                <span className="material-symbols-outlined text-3xl">check_circle</span>
+                            </div>
+                            <div>
+                                <h3 className="text-base font-bold text-on-surface">
+                                    No medicines in {FILTER_TABS.find(t => t.key === medFilter)?.label}
+                                </h3>
+                                <p className="text-xs text-tertiary mt-1">
+                                    {medFilter === 'LOW_STOCK'
+                                        ? 'Great news! There are currently no medicines running at low stock levels.'
+                                        : medFilter === 'CRITICAL_STOCKOUT_RISK'
+                                        ? 'No critical stockout risks detected. All medicines have adequate buffer stock.'
+                                        : 'No medicines match the selected filter criteria.'}
+                                </p>
+                            </div>
+                            <button
+                                onClick={() => setMedFilter('ALL')}
+                                className="px-5 py-2.5 bg-surface-container hover:bg-surface-container-high text-on-surface font-bold text-xs rounded-xl inline-flex items-center gap-1.5 transition-all cursor-pointer"
+                            >
+                                <span className="material-symbols-outlined text-sm">visibility</span>
+                                <span>{t('facility.allMedicines', 'View All Medicines')}</span>
+                            </button>
+                        </div>
                     ) : (
+                        /* Medicine Grid Cards */
                         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
-                            {medicines.map((med) => (
+                            {displayedMedicines.map((med) => (
                                 <div
                                     key={med.id}
-                                    className="bg-white rounded-3xl p-6 border border-surface-container-high shadow-card flex flex-col justify-between space-y-4 hover:shadow-lg transition-all"
+                                    className={`rounded-3xl p-6 border shadow-card flex flex-col justify-between space-y-4 hover:shadow-lg transition-all ${
+                                        med.status === 'CRITICAL_STOCKOUT_RISK'
+                                            ? 'bg-red-50/40 border-red-200'
+                                            : med.status === 'LOW_STOCK'
+                                            ? 'bg-amber-50/30 border-amber-200'
+                                            : 'bg-white border-surface-container-high'
+                                    }`}
                                 >
                                     <div>
                                         <div className="flex items-center justify-between mb-2">
@@ -294,7 +396,7 @@ export default function FacilityOperationsPage() {
                                                     ? 'bg-amber-100 text-amber-800'
                                                     : 'bg-red-100 text-red-800 animate-pulse'
                                             }`}>
-                                                {filterStatusMap[med.status] || med.status.replace(/_/g, ' ')}
+                                                {med.status.replace(/_/g, ' ')}
                                             </span>
                                         </div>
 
@@ -308,8 +410,14 @@ export default function FacilityOperationsPage() {
                                             </div>
                                             <div>
                                                 <span className="text-[10px] uppercase font-bold text-tertiary block">{t('facility.supplyRemaining', 'Supply Remaining')}</span>
-                                                <span className={`text-base font-black ${med.days_of_supply < 7 ? 'text-red-600 font-extrabold' : med.days_of_supply < 20 ? 'text-amber-600' : 'text-teal-700'}`}>
-                                                    {t('facility.days', { count: med.days_of_supply }, `${med.days_of_supply} days`)}
+                                                <span className={`text-base font-black ${
+                                                    med.days_of_supply <= 7
+                                                        ? 'text-red-600 font-extrabold'
+                                                        : med.days_of_supply <= 20
+                                                        ? 'text-amber-600'
+                                                        : 'text-teal-700'
+                                                }`}>
+                                                    {med.days_of_supply} {t('facility.days', 'days')}
                                                 </span>
                                             </div>
                                         </div>
@@ -323,7 +431,7 @@ export default function FacilityOperationsPage() {
                                                 className="py-2.5 px-3 bg-teal-50 hover:bg-teal-100 text-teal-800 font-bold text-xs rounded-xl flex items-center justify-center gap-1.5 transition-all cursor-pointer active:scale-95"
                                             >
                                                 <span className="material-symbols-outlined text-base text-teal-700">add_circle</span>
-                                                <span>{t('facility.addStockBtn', '+ Add Stock')}</span>
+                                                <span>+ {t('facility.addStock', 'Add Stock')}</span>
                                             </button>
 
                                             <button
@@ -331,7 +439,7 @@ export default function FacilityOperationsPage() {
                                                 className="py-2.5 px-3 bg-red-50 hover:bg-red-100 text-red-800 font-bold text-xs rounded-xl flex items-center justify-center gap-1.5 transition-all cursor-pointer active:scale-95"
                                             >
                                                 <span className="material-symbols-outlined text-base text-red-700">remove_circle</span>
-                                                <span>{t('facility.deductStockBtn', '- Deduct / Use')}</span>
+                                                <span>- {t('facility.deductUse', 'Deduct / Use')}</span>
                                             </button>
                                         </div>
 
@@ -340,7 +448,7 @@ export default function FacilityOperationsPage() {
                                             className="w-full py-1.5 text-[11px] font-semibold text-tertiary hover:text-on-surface flex items-center justify-center gap-1 transition-colors cursor-pointer"
                                         >
                                             <span className="material-symbols-outlined text-sm">tune</span>
-                                            <span>{t('facility.setExactCountBtn', 'Set Exact Count (Audit)')}</span>
+                                            <span>{t('facility.setExactCount', 'Set Exact Count (Audit)')}</span>
                                         </button>
                                     </div>
                                 </div>
@@ -357,7 +465,7 @@ export default function FacilityOperationsPage() {
                         <div className="flex items-center gap-2">
                             <span className="inline-flex items-center gap-1.5 px-3 py-1 bg-teal-100 text-teal-800 rounded-full text-xs font-bold">
                                 <span className="w-2 h-2 rounded-full bg-teal-600 animate-pulse"></span>
-                                {t('facility.availableMedicalOfficers', { count: doctors.filter(d => d.status === 'ON_DUTY').length }, `Available On-Duty Medical Officers (${doctors.filter(d => d.status === 'ON_DUTY').length})`)}
+                                {t('facility.availableDoctorsTitle', `Available On-Duty Medical Officers (${doctors.filter(d => d.status === 'ON_DUTY').length})`)}
                             </span>
                         </div>
                     </div>
@@ -384,7 +492,7 @@ export default function FacilityOperationsPage() {
                                             </div>
                                         </div>
                                         <span className="text-[10px] font-extrabold uppercase px-2.5 py-0.5 rounded-full bg-teal-100 text-teal-800">
-                                            {t('common.available', 'AVAILABLE')}
+                                            {t('status.available', 'AVAILABLE')}
                                         </span>
                                     </div>
 
@@ -420,9 +528,10 @@ export default function FacilityOperationsPage() {
                     <div className="bg-gradient-to-br from-teal-50 to-emerald-50 p-6 rounded-3xl border border-teal-200 shadow-sm">
                         <div className="flex items-center justify-between mb-4">
                             <div>
-                                <h3 className="text-lg font-extrabold text-teal-900">{t('facility.wardBedOccupancy', 'Ward-Level Bed Occupancy')}</h3>
+                                <h3 className="text-lg font-extrabold text-teal-900">{t('facility.wardLevelBedOccupancy', 'Ward-Level Bed Occupancy')}</h3>
                                 <p className="text-xs text-teal-700">
-                                    {t('facility.bedsAvailAcrossWards', { avail: beds?.total_available ?? 13, wards: beds?.wards?.length ?? 6, rate: beds?.occupancy_rate ?? 76 }, `${beds?.total_available ?? 13} beds available across ${beds?.wards?.length ?? 6} wards • ${beds?.occupancy_rate ?? 76}% overall occupancy`)}
+                                    {beds?.total_available ?? 13} {t('facility.bedsAvailableAcross', 'beds available across')} {beds?.wards?.length ?? 6} {t('facility.wardsLabel', 'wards')}
+                                    • {beds?.occupancy_rate ?? 76}% {t('facility.overallOccupancy', 'overall occupancy')}
                                 </p>
                             </div>
                             <div className="w-16 h-16 rounded-2xl bg-teal-600 text-white flex items-center justify-center text-2xl font-black">
@@ -476,15 +585,15 @@ export default function FacilityOperationsPage() {
 
                                     <div className="grid grid-cols-3 gap-2 text-center bg-surface-container-low p-3 rounded-2xl">
                                         <div>
-                                            <span className="text-[10px] uppercase font-bold text-tertiary block">{t('facility.wardTotal', 'Total')}</span>
+                                            <span className="text-[10px] uppercase font-bold text-tertiary block">{t('facility.total', 'Total')}</span>
                                             <span className="text-lg font-black text-on-surface">{ward.total}</span>
                                         </div>
                                         <div>
-                                            <span className="text-[10px] uppercase font-bold text-tertiary block">{t('facility.wardOccupied', 'Occupied')}</span>
+                                            <span className="text-[10px] uppercase font-bold text-tertiary block">{t('facility.occupied', 'Occupied')}</span>
                                             <span className={`text-lg font-black ${isOverflow ? 'text-red-600' : 'text-on-surface'}`}>{ward.occupied}</span>
                                         </div>
                                         <div>
-                                            <span className="text-[10px] uppercase font-bold text-tertiary block">{t('facility.wardAvailable', 'Available')}</span>
+                                            <span className="text-[10px] uppercase font-bold text-tertiary block">{t('facility.available', 'Available')}</span>
                                             <span className={`text-lg font-black ${isOverflow ? 'text-red-600' : isCritical ? 'text-amber-700' : 'text-teal-700'}`}>
                                                 {Math.max(0, ward.available)}
                                             </span>
@@ -494,7 +603,7 @@ export default function FacilityOperationsPage() {
                                     {/* Progress Bar */}
                                     <div className="space-y-1">
                                         <div className="flex justify-between text-[10px] font-bold text-tertiary">
-                                            <span>{t('facility.wardOccupancyPct', 'Occupancy')}</span>
+                                            <span>{t('facility.occupancy', 'Occupancy')}</span>
                                             <span>{Math.min(100, occupancyPct)}%</span>
                                         </div>
                                         <div className="w-full h-2.5 bg-surface-container rounded-full overflow-hidden">
@@ -521,7 +630,7 @@ export default function FacilityOperationsPage() {
                             <div>
                                 <span className="text-[10px] font-mono font-bold text-primary tracking-wider uppercase">{selectedMed.id}</span>
                                 <h3 className="text-lg font-black text-on-surface">{selectedMed.name}</h3>
-                                <p className="text-xs text-tertiary mt-0.5">{selectedMed.category} • Storage: {selectedMed.storage_location}</p>
+                                <p className="text-xs text-tertiary mt-0.5">{selectedMed.category} • {selectedMed.storage_location}</p>
                             </div>
                             <button
                                 onClick={() => setIsStockModalOpen(false)}
@@ -547,7 +656,7 @@ export default function FacilityOperationsPage() {
                                 }`}
                             >
                                 <span className="material-symbols-outlined text-base">add_circle</span>
-                                <span>{t('facility.addStockBtn', '+ Add Stock')}</span>
+                                <span>+ {t('facility.addStock', 'Add Stock')}</span>
                             </button>
 
                             <button
@@ -564,7 +673,7 @@ export default function FacilityOperationsPage() {
                                 }`}
                             >
                                 <span className="material-symbols-outlined text-base">remove_circle</span>
-                                <span>{t('facility.deductStockBtn', '- Deduct / Use')}</span>
+                                <span>- {t('facility.deductUse', 'Deduct / Use')}</span>
                             </button>
 
                             <button
@@ -581,7 +690,7 @@ export default function FacilityOperationsPage() {
                                 }`}
                             >
                                 <span className="material-symbols-outlined text-base">tune</span>
-                                <span>{t('facility.setExactCountBtn', 'Set Exact')}</span>
+                                <span>{t('facility.setExactCount', 'Set Exact')}</span>
                             </button>
                         </div>
 
@@ -594,7 +703,7 @@ export default function FacilityOperationsPage() {
                                 : 'bg-slate-50 border-slate-200 text-slate-900'
                         }`}>
                             <div className="flex items-center justify-between font-bold">
-                                <span>Stock Impact Preview:</span>
+                                <span>{t('facility.stockImpactPreview', 'Stock Impact Preview:')}</span>
                                 <span className={`px-2 py-0.5 rounded-full text-[10px] font-extrabold uppercase ${
                                     projectedStatus === 'ADEQUATE'
                                         ? 'bg-teal-100 text-teal-800'
@@ -602,17 +711,17 @@ export default function FacilityOperationsPage() {
                                         ? 'bg-amber-100 text-amber-800'
                                         : 'bg-red-100 text-red-800'
                                 }`}>
-                                    {filterStatusMap[projectedStatus] || projectedStatus.replace(/_/g, ' ')}
+                                    {projectedStatus.replace(/_/g, ' ')}
                                 </span>
                             </div>
 
                             <div className="grid grid-cols-3 gap-2 bg-white/80 backdrop-blur p-2.5 rounded-xl border border-black/5 text-center">
                                 <div>
-                                    <span className="text-[10px] text-tertiary font-bold uppercase block">{t('facility.currentStock', 'Current')}</span>
+                                    <span className="text-[10px] text-tertiary font-bold uppercase block">{t('facility.current', 'Current')}</span>
                                     <span className="text-sm font-black text-on-surface">{curStock.toLocaleString()} {selectedMed.unit}</span>
                                 </div>
                                 <div className="flex flex-col justify-center">
-                                    <span className="text-[10px] text-tertiary font-bold uppercase block">Adjustment</span>
+                                    <span className="text-[10px] text-tertiary font-bold uppercase block">{t('facility.adjustment', 'Adjustment')}</span>
                                     <span className={`text-sm font-black ${
                                         stockAction === 'ADD' ? 'text-teal-700' : stockAction === 'REDUCE' ? 'text-red-600' : 'text-slate-700'
                                     }`}>
@@ -620,14 +729,14 @@ export default function FacilityOperationsPage() {
                                     </span>
                                 </div>
                                 <div>
-                                    <span className="text-[10px] text-tertiary font-bold uppercase block">{t('facility.newCount', 'New Total')}</span>
+                                    <span className="text-[10px] text-tertiary font-bold uppercase block">{t('facility.newTotal', 'New Total')}</span>
                                     <span className="text-sm font-black text-on-surface">{projectedStock.toLocaleString()} {selectedMed.unit}</span>
                                 </div>
                             </div>
 
                             <div className="flex items-center justify-between text-[11px] pt-1">
-                                <span className="text-tertiary">{t('facility.supplyRemaining', 'Forecasted Days of Supply:')}</span>
-                                <strong className="text-on-surface">{t('facility.days', { count: projectedDaysOfSupply }, `${projectedDaysOfSupply} days remaining`)}</strong>
+                                <span className="text-tertiary">{t('facility.forecastedDaysSupply', 'Forecasted Days of Supply:')}</span>
+                                <strong className="text-on-surface">{projectedDaysOfSupply} {t('facility.daysRemaining', 'days remaining')}</strong>
                             </div>
                         </div>
 
@@ -637,10 +746,10 @@ export default function FacilityOperationsPage() {
                                 <div className="flex items-center justify-between mb-1">
                                     <label className="text-xs font-bold text-on-surface">
                                         {stockAction === 'ADD'
-                                            ? `${t('facility.unitsToAdd', 'Units Received')} (${selectedMed.unit})`
+                                            ? `${t('facility.unitsReceived', 'Units Received')} (${selectedMed.unit})`
                                             : stockAction === 'REDUCE'
-                                            ? `${t('facility.unitsToDeduct', 'Units to Deduct')} (${selectedMed.unit})`
-                                            : `${t('facility.newCount', 'New Verified Physical Count')} (${selectedMed.unit})`}
+                                            ? `${t('facility.unitsToDeduct', 'Units to Deduct / Dispense')} (${selectedMed.unit})`
+                                            : `${t('facility.newVerifiedPhysicalCount', 'New Verified Physical Count')} (${selectedMed.unit})`}
                                     </label>
                                     {stockAction === 'REDUCE' && (
                                         <button
@@ -648,7 +757,7 @@ export default function FacilityOperationsPage() {
                                             onClick={() => setUnitsValue(selectedMed.stock_units)}
                                             className="text-[10px] text-red-700 font-bold hover:underline cursor-pointer"
                                         >
-                                            Max ({selectedMed.stock_units})
+                                            {t('facility.maxAvailable', 'Max Available')} ({selectedMed.stock_units})
                                         </button>
                                     )}
                                 </div>
@@ -680,7 +789,7 @@ export default function FacilityOperationsPage() {
 
                             {/* Reason / Purpose Selector */}
                             <div>
-                                <label className="block text-xs font-bold text-on-surface mb-1">{t('facility.reasonLabel', 'Reason / Transaction Type')}</label>
+                                <label className="block text-xs font-bold text-on-surface mb-1">{t('facility.reasonTransactionType', 'Reason / Transaction Type')}</label>
                                 <select
                                     value={reason}
                                     onChange={(e) => setReason(e.target.value)}
@@ -714,10 +823,10 @@ export default function FacilityOperationsPage() {
 
                             {/* Optional Batch Number / Notes */}
                             <div>
-                                <label className="block text-xs font-bold text-on-surface mb-1">{t('facility.batchNumberLabel', 'Batch Number / Reference (Optional)')}</label>
+                                <label className="block text-xs font-bold text-on-surface mb-1">{t('facility.batchNumberRefOptional', 'Batch Number / Reference (Optional)')}</label>
                                 <input
                                     type="text"
-                                    placeholder={t('facility.batchNumberPlaceholder', 'e.g. BATCH-MH-2026-X09')}
+                                    placeholder="e.g. BATCH-MH-2026-X09"
                                     value={batchNumber}
                                     onChange={(e) => setBatchNumber(e.target.value)}
                                     className="w-full p-2.5 bg-surface-container-low rounded-xl text-xs text-on-surface border border-surface-container-high outline-none focus:border-primary"
@@ -731,7 +840,7 @@ export default function FacilityOperationsPage() {
                                     onClick={() => setIsStockModalOpen(false)}
                                     className="px-4 py-2.5 rounded-xl text-xs font-bold text-tertiary hover:bg-surface-container transition-all cursor-pointer"
                                 >
-                                    {t('common.cancel', 'Cancel')}
+                                    {t('actions.cancel', 'Cancel')}
                                 </button>
 
                                 <button
@@ -750,8 +859,12 @@ export default function FacilityOperationsPage() {
                                     </span>
                                     <span>
                                         {updatingStock
-                                            ? t('facility.updating', 'Saving Inventory...')
-                                            : t('facility.confirmStockUpdate', 'Confirm Stock Update')}
+                                            ? t('actions.saving', 'Saving Inventory...')
+                                            : stockAction === 'REDUCE'
+                                            ? `${t('actions.confirmDeduct', 'Confirm Deduct')} (-${unitsValue} ${selectedMed.unit})`
+                                            : stockAction === 'SET'
+                                            ? `${t('actions.setStockTo', 'Set Stock to')} ${unitsValue} ${selectedMed.unit}`
+                                            : `${t('actions.confirmAdd', 'Confirm Add')} (+${unitsValue} ${selectedMed.unit})`}
                                     </span>
                                 </button>
                             </div>

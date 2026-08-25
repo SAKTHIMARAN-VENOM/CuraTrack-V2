@@ -26,7 +26,7 @@ _supabase = None
 
 _DEFAULT_FACILITY_MEDICINES = [
     {"id": "MED-101", "name": "Paracetamol 500mg (Tablet)", "category": "Analgesics / Antipyretics", "stock_units": 12500, "monthly_consumption": 10000, "days_of_supply": 37, "status": "ADEQUATE", "unit": "tablets", "storage_location": "Pharmacy Bay A2", "last_restocked": "2026-07-01"},
-    {"id": "MED-102", "name": "Amoxicillin 500mg (Capsule)", "category": "Antibiotics", "stock_units": 1800, "monthly_consumption": 2500, "days_of_supply": 21, "status": "LOW_STOCK", "unit": "capsules", "storage_location": "Pharmacy Bay A4", "last_restocked": "2026-06-15"},
+    {"id": "MED-102", "name": "Amoxicillin 500mg (Capsule)", "category": "Antibiotics", "stock_units": 950, "monthly_consumption": 2500, "days_of_supply": 11, "status": "LOW_STOCK", "unit": "capsules", "storage_location": "Pharmacy Bay A4", "last_restocked": "2026-06-15"},
     {"id": "MED-103", "name": "ORS Sachets", "category": "Fluid & Electrolyte", "stock_units": 150, "monthly_consumption": 2000, "days_of_supply": 2, "status": "CRITICAL_STOCKOUT_RISK", "unit": "sachets", "storage_location": "Pharmacy Bay B1", "last_restocked": "2026-05-20"},
     {"id": "MED-104", "name": "Iron & Folic Acid (IFA)", "category": "Maternal Supplements", "stock_units": 22000, "monthly_consumption": 8000, "days_of_supply": 82, "status": "ADEQUATE", "unit": "tablets", "storage_location": "Pharmacy Bay B3", "last_restocked": "2026-07-10"},
     {"id": "MED-105", "name": "Ceftriaxone 1g (Injection)", "category": "Antibiotics / Emergency", "stock_units": 45, "monthly_consumption": 300, "days_of_supply": 4, "status": "CRITICAL_STOCKOUT_RISK", "unit": "vials", "storage_location": "Cold Chain Refrigerator 2", "last_restocked": "2026-06-25"},
@@ -155,35 +155,76 @@ def list_essential_medicines(
         query = db.table("facility_medicines").select("*")
         if category and category != "ALL":
             query = query.ilike("category", f"%{category}%")
+        if status and status != "ALL":
+            query = query.eq("status", status)
+            
         res = query.execute()
         results = res.data or []
 
-        if not results:
+        if not results and not status:
             results = [m for m in _DEFAULT_FACILITY_MEDICINES]
             if category and category != "ALL":
                 results = [m for m in results if category.lower() in m.get("category", "").lower()]
-            if status and status != "ALL":
-                results = [m for m in results if m.get("status") == status]
-            critical_count = len([m for m in _DEFAULT_FACILITY_MEDICINES if m.get("status") in ("LOW_STOCK", "CRITICAL_STOCKOUT_RISK")])
+
+        # Dynamically ensure days_of_supply and status are consistent with current stock_units
+        all_meds_res = db.table("facility_medicines").select("*").execute()
+        all_meds = all_meds_res.data if (all_meds_res and all_meds_res.data) else _DEFAULT_FACILITY_MEDICINES
+        
+        for m in all_meds:
+            stock = int(m.get("stock_units", 0))
+            monthly = max(1, int(m.get("monthly_consumption", 300)))
+            daily_rate = max(monthly / 30.0, 0.1)
+            dos = int(stock / daily_rate)
+            m["days_of_supply"] = dos
+            if dos > 20:
+                m["status"] = "ADEQUATE"
+            elif dos > 7:
+                m["status"] = "LOW_STOCK"
+            else:
+                m["status"] = "CRITICAL_STOCKOUT_RISK"
+
+        if status and status != "ALL":
+            filtered_meds = [m for m in all_meds if m.get("status") == status]
+            if category and category != "ALL":
+                filtered_meds = [m for m in filtered_meds if category.lower() in m.get("category", "").lower()]
+            results = filtered_meds
         else:
-            all_res = db.table("facility_medicines").select("status").execute()
-            critical_count = len([m for m in (all_res.data or []) if m.get("status") in ("LOW_STOCK", "CRITICAL_STOCKOUT_RISK")])
+            results = all_meds
+
+        critical_count = len([m for m in all_meds if m.get("status") in ("LOW_STOCK", "CRITICAL_STOCKOUT_RISK")])
 
         return {
             "count": len(results),
+            "total_count": len(all_meds),
             "critical_alerts_count": critical_count,
             "medicines": results
         }
     except Exception as e:
         logger.error(f"Error listing medicines from Supabase: {e}")
-        results = [m for m in _DEFAULT_FACILITY_MEDICINES]
+        all_meds = [dict(m) for m in _DEFAULT_FACILITY_MEDICINES]
+        for m in all_meds:
+            stock = int(m.get("stock_units", 0))
+            monthly = max(1, int(m.get("monthly_consumption", 300)))
+            daily_rate = max(monthly / 30.0, 0.1)
+            dos = int(stock / daily_rate)
+            m["days_of_supply"] = dos
+            if dos > 20:
+                m["status"] = "ADEQUATE"
+            elif dos > 7:
+                m["status"] = "LOW_STOCK"
+            else:
+                m["status"] = "CRITICAL_STOCKOUT_RISK"
+
+        results = all_meds
         if category and category != "ALL":
             results = [m for m in results if category.lower() in m.get("category", "").lower()]
         if status and status != "ALL":
             results = [m for m in results if m.get("status") == status]
-        critical_count = len([m for m in _DEFAULT_FACILITY_MEDICINES if m.get("status") in ("LOW_STOCK", "CRITICAL_STOCKOUT_RISK")])
+
+        critical_count = len([m for m in all_meds if m.get("status") in ("LOW_STOCK", "CRITICAL_STOCKOUT_RISK")])
         return {
             "count": len(results),
+            "total_count": len(all_meds),
             "critical_alerts_count": critical_count,
             "medicines": results
         }
