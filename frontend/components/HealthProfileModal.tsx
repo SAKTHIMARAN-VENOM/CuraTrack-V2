@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { createClient } from '@/lib/supabase/client';
+import { offlineStorage } from '@/lib/offline-storage';
 
 const BLOOD_GROUPS = ['A+', 'A-', 'B+', 'B-', 'AB+', 'AB-', 'O+', 'O-'];
 const GENDER_OPTIONS = [
@@ -39,6 +40,9 @@ export function HealthProfileModal() {
         if (raw) savedUser = JSON.parse(raw);
         if (!currentUid && savedUser?.id) currentUid = savedUser.id;
       } catch {}
+
+      const offlineProf = offlineStorage.getProfile();
+      if (!currentUid && offlineProf?.id) currentUid = offlineProf.id;
 
       if (!currentUid) {
         setLoading(false);
@@ -170,22 +174,37 @@ export function HealthProfileModal() {
         console.warn('Supabase local sync warning:', sbErr);
       }
 
-      // 3. Update localStorage cache
+      // 3. Update localStorage and offlineStorage caches
+      const mergedUserPayload: any = {
+        id: userId,
+        name: userName || 'Citizen Patient',
+        blood_group: bloodGroup,
+        gender: gender,
+        age: age ? parseInt(age, 10) : null,
+        phone: phone || null,
+      };
+
       try {
         const raw = localStorage.getItem('curatrack_auth_user');
         if (raw) {
           const authUser = JSON.parse(raw);
-          authUser.blood_group = bloodGroup;
-          authUser.gender = gender;
-          if (age) authUser.age = parseInt(age, 10);
-          if (phone) authUser.phone = phone;
-          localStorage.setItem('curatrack_auth_user', JSON.stringify(authUser));
+          Object.assign(mergedUserPayload, authUser, {
+            blood_group: bloodGroup,
+            gender: gender,
+            age: age ? parseInt(age, 10) : authUser.age,
+            phone: phone || authUser.phone,
+          });
         }
-      } catch {}
+        localStorage.setItem('curatrack_auth_user', JSON.stringify(mergedUserPayload));
+        offlineStorage.saveProfile(mergedUserPayload);
+        document.cookie = `curatrack_auth=${encodeURIComponent(JSON.stringify(mergedUserPayload))}; path=/; max-age=604800; SameSite=Lax`;
+      } catch (cacheErr) {
+        console.warn('Cache write warning:', cacheErr);
+      }
 
       // Dispatch global update event
       window.dispatchEvent(new CustomEvent('curatrack-profile-updated', {
-        detail: { blood_group: bloodGroup, gender, age, phone }
+        detail: mergedUserPayload
       }));
 
       setSaveSuccess(true);
@@ -195,7 +214,7 @@ export function HealthProfileModal() {
       setTimeout(() => {
         setIsOpen(false);
         setSaveSuccess(false);
-      }, 1200);
+      }, 1000);
     } catch (err: any) {
       setErrorMsg(err.message || 'Unable to save profile. Please try again.');
     } finally {

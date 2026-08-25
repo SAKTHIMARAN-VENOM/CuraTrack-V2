@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { createClient } from '@/lib/supabase/client';
 import { API_BASE } from '@/lib/api';
+import { offlineStorage } from '@/lib/offline-storage';
 import { useI18n } from '@/lib/i18n';
 
 export default function ProfilePage() {
@@ -18,10 +19,10 @@ export default function ProfilePage() {
     // Profile States
     const [userName, setUserName] = useState<string>('');
     const [userEmail, setUserEmail] = useState<string>('');
-    const [userPhone, setUserPhone] = useState<string>('+91 98201 44521');
-    const [userAge, setUserAge] = useState<string>('28');
-    const [userGender, setUserGender] = useState<string>('Female');
-    const [userBlood, setUserBlood] = useState<string>('O+');
+    const [userPhone, setUserPhone] = useState<string>('');
+    const [userAge, setUserAge] = useState<string>('');
+    const [userGender, setUserGender] = useState<string>('');
+    const [userBlood, setUserBlood] = useState<string>('');
 
     // Manager Profile States
     const [facilityName, setFacilityName] = useState<string>('Nandurbar Sub-District Hospital');
@@ -43,38 +44,76 @@ export default function ProfilePage() {
                 if (raw) savedAuthUser = JSON.parse(raw);
             } catch {}
 
+            const offlineProf = offlineStorage.getProfile();
+            const initialBlood = savedAuthUser?.blood_group || offlineProf?.blood_group || '';
+            const initialGender = savedAuthUser?.gender || offlineProf?.gender || '';
+            const initialAge = savedAuthUser?.age ? String(savedAuthUser.age) : (offlineProf?.age ? String(offlineProf.age) : '');
+            const initialPhone = savedAuthUser?.phone || offlineProf?.phone || '';
+            const initialName = savedAuthUser?.name || offlineProf?.name || '';
+            const initialEmail = savedAuthUser?.email || offlineProf?.email || '';
+
+            if (initialBlood) setUserBlood(initialBlood);
+            if (initialGender) setUserGender(initialGender);
+            if (initialAge) setUserAge(initialAge);
+            if (initialPhone) setUserPhone(initialPhone);
+            if (initialName) setUserName(initialName);
+            if (initialEmail) setUserEmail(initialEmail);
+
             const activeRole = localStorage.getItem('curatrack_active_role') || savedAuthUser?.role || 'patient';
             setCurrentRole(activeRole);
 
-            const supabase = createClient();
-            let authUser: any = null;
+            // Fetch from backend API
             try {
-                const { data } = await supabase.auth.getUser();
-                authUser = data?.user;
-            } catch {}
+                const res = await fetch('/api/auth-status');
+                if (res.ok) {
+                    const d = await res.json();
+                    if (d.isAuthenticated && d.user) {
+                        const u = d.user;
+                        if (u.name) setUserName(u.name);
+                        if (u.email) setUserEmail(u.email);
+                        if (u.phone) setUserPhone(u.phone);
+                        if (u.age) setUserAge(String(u.age));
+                        if (u.gender) setUserGender(u.gender);
+                        if (u.blood_group) setUserBlood(u.blood_group);
 
-            const email = authUser?.email || savedAuthUser?.email || '';
-            setUserEmail(email);
-
-            let profileData: any = null;
-            if (authUser?.id) {
-                try {
-                    const { data: profile } = await supabase.from('profiles').select('*').eq('id', authUser.id).maybeSingle();
-                    profileData = profile;
-                } catch {}
+                        const merged = {
+                            ...(savedAuthUser || {}),
+                            ...(offlineProf || {}),
+                            ...u,
+                        };
+                        localStorage.setItem('curatrack_auth_user', JSON.stringify(merged));
+                        offlineStorage.saveProfile(merged);
+                    }
+                }
+            } catch (netErr) {
+                console.warn('Network error loading auth status on profile page:', netErr);
             }
 
-            if (profileData) {
-                setUserName(profileData.name || '');
-                if (profileData.phone) setUserPhone(profileData.phone);
-                if (profileData.age) setUserAge(String(profileData.age));
-                if (profileData.gender) setUserGender(profileData.gender);
-                if (profileData.blood_group) setUserBlood(profileData.blood_group);
-            } else if (savedAuthUser?.name) {
-                setUserName(savedAuthUser.name);
-            } else if (email) {
-                const namePart = email.split('@')[0].replace(/[._-]/g, ' ');
-                setUserName(namePart.charAt(0).toUpperCase() + namePart.slice(1));
+            // Also read direct from Supabase as fallback
+            try {
+                const supabase = createClient();
+                const { data } = await supabase.auth.getUser();
+                const authUid = data?.user?.id || savedAuthUser?.id || offlineProf?.id;
+                if (authUid) {
+                    const { data: prof } = await supabase.from('profiles').select('*').eq('id', authUid).maybeSingle();
+                    if (prof) {
+                        if (prof.name) setUserName(prof.name);
+                        if (prof.phone) setUserPhone(prof.phone);
+                        if (prof.age) setUserAge(String(prof.age));
+                        if (prof.gender) setUserGender(prof.gender);
+                        if (prof.blood_group) setUserBlood(prof.blood_group);
+
+                        const merged = {
+                            ...(savedAuthUser || {}),
+                            ...(offlineProf || {}),
+                            ...prof,
+                        };
+                        localStorage.setItem('curatrack_auth_user', JSON.stringify(merged));
+                        offlineStorage.saveProfile(merged);
+                    }
+                }
+            } catch (sbErr) {
+                console.warn('Supabase profile fetch error:', sbErr);
             }
 
             // Load persisted manager settings if any

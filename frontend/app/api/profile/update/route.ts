@@ -61,11 +61,41 @@ export async function POST(req: NextRequest) {
             console.warn('Could not update auth metadata:', metaErr);
         }
 
-        return NextResponse.json({
+        const finalProfile = updatedProfile || { id: targetId, ...updateData };
+
+        const curatrackCookie = req.cookies.get('curatrack_auth')?.value;
+        let cookieUser: any = {};
+        if (curatrackCookie) {
+            try {
+                cookieUser = JSON.parse(curatrackCookie);
+            } catch {}
+        }
+
+        const updatedCookieUser = {
+            ...cookieUser,
+            id: targetId,
+            name: finalProfile.name || cookieUser.name,
+            role: finalProfile.role || cookieUser.role || 'patient',
+            email: finalProfile.email || cookieUser.email,
+            blood_group: finalProfile.blood_group,
+            gender: finalProfile.gender,
+            age: finalProfile.age,
+            phone: finalProfile.phone,
+        };
+
+        const res = NextResponse.json({
             success: true,
             message: 'Health profile successfully updated',
-            profile: updatedProfile || { id: targetId, ...updateData },
+            profile: finalProfile,
         });
+
+        res.cookies.set('curatrack_auth', JSON.stringify(updatedCookieUser), {
+            path: '/',
+            maxAge: 60 * 60 * 24 * 7,
+            sameSite: 'lax',
+        });
+
+        return res;
     } catch (err: any) {
         console.error('Error in profile update route:', err);
         return NextResponse.json(
