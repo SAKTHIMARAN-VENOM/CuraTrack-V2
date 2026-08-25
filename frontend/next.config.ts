@@ -1,4 +1,5 @@
 import type { NextConfig } from "next";
+import path from "path";
 
 const nextConfig: NextConfig = {
   typescript: {
@@ -16,6 +17,13 @@ const nextConfig: NextConfig = {
     },
   },
   webpack: (config, { dev, isServer }) => {
+    config.resolve = config.resolve || {};
+    config.resolve.alias = config.resolve.alias || {};
+    config.resolve.alias['@splinetool/react-spline$'] = path.resolve(
+      __dirname,
+      'node_modules/@splinetool/react-spline/dist/react-spline.js'
+    );
+
     if (dev && !isServer) {
       config.watchOptions = {
         ignored: ['**/node_modules/**', '**/.next/**'],
