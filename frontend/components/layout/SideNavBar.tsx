@@ -15,7 +15,7 @@ const PATIENT_NAV_ITEMS = [
     { href: '/self-triage', icon: 'emergency', i18nKey: 'nav.selfTriage', label: 'Emergency Self-Triage' },
     { href: '/telemedicine', icon: 'video_chat', i18nKey: 'nav.telemedicine', label: 'Consult Doctor' },
     { href: '/records', icon: 'folder_shared', i18nKey: 'nav.records', label: 'My Medical Records' },
-    { href: '/benefits', icon: 'account_balance_wallet', i18nKey: 'nav.benefits', label: 'Gov Schemes & PMJAY' },
+    { href: '/benefits', icon: 'account_balance_wallet', i18nKey: 'nav.benefits', label: 'Gov Schemes & Hospitals' },
     { href: '/alerts', icon: 'notifications_active', i18nKey: 'nav.alerts', label: 'Health Alerts' },
     { href: '/profile', icon: 'person', i18nKey: 'nav.profile', label: 'Medical ID & Passport' }
 ];

@@ -89,3 +89,76 @@ def test_activity_fit_data(client):
     data = response.json()
     assert "steps" in data
     assert "goal" in data
+
+
+def test_government_schemes_hospitals_listing(client):
+    """Verify search and listing of hospitals and diagnostic centres under government schemes."""
+    response = client.get("/api/government-schemes/hospitals")
+    assert response.status_code == 200
+    data = response.json()
+    assert "total" in data
+    assert "facilities" in data
+    assert len(data["facilities"]) > 0
+    first = data["facilities"][0]
+    assert "name" in first
+    assert "facility_type" in first
+    assert "empanelment_status" in first
+    assert "empanelled_schemes" in first
+    assert "covered_diagnostic_tests" in first
+
+
+def test_government_schemes_hospitals_filtering(client):
+    """Verify filtering by state and facility_type (Diagnostic Centres)."""
+    response = client.get("/api/government-schemes/hospitals?state=Maharashtra&facility_type=DIAGNOSTIC_CENTRE")
+    assert response.status_code == 200
+    data = response.json()
+    assert len(data["facilities"]) > 0
+    for fac in data["facilities"]:
+        assert fac["state"] == "Maharashtra"
+        assert fac["facility_type"] == "DIAGNOSTIC_CENTRE"
+
+
+def test_verify_hospital_empanelment_active(client):
+    """Verify checking an empanelled hospital returns active status, covered procedures, and docs."""
+    payload = {
+        "hospital_name": "Nandurbar Sub-District Civil Hospital",
+        "scheme_id": "gov_ayushman",
+        "patient_id": "PAT-123"
+    }
+    response = client.post("/api/government-schemes/verify-hospital", json=payload)
+    assert response.status_code == 200
+    data = response.json()
+    assert data["is_empanelled"] is True
+    assert data["empanelment_status"] == "EMPANELLED_ACTIVE"
+    assert "Ayushman Bharat" in str(data["matched_schemes"])
+    assert len(data["covered_diagnostics"]) > 0
+    assert len(data["required_documents"]) > 0
+    assert "pre_authorization_available" in data
+    assert data["pre_authorization_available"] is True
+
+
+def test_verify_hospital_not_empanelled(client):
+    """Verify checking an unknown private clinic flags not empanelled."""
+    payload = {
+        "hospital_name": "NonExistent Private Cosmetic Clinic",
+        "patient_id": "PAT-123"
+    }
+    response = client.post("/api/government-schemes/verify-hospital", json=payload)
+    assert response.status_code == 200
+    data = response.json()
+    assert data["is_empanelled"] is False
+    assert data["empanelment_status"] == "NOT_EMPANELLED"
+    assert data["pre_authorization_available"] is False
+
+
+def test_government_schemes_filters_metadata(client):
+    """Verify metadata endpoint returns states, districts, schemes, and facility types."""
+    response = client.get("/api/government-schemes/filters")
+    assert response.status_code == 200
+    data = response.json()
+    assert "states" in data
+    assert "districts" in data
+    assert "schemes" in data
+    assert "facility_types" in data
+    assert len(data["states"]) > 0
+    assert len(data["facility_types"]) > 0
