@@ -365,62 +365,6 @@ export default function Dashboard() {
                 )}
             </div>
 
-            {/* Quick Actions Section */}
-            <div>
-                <h3 className="text-lg font-extrabold text-on-surface mb-4">Patient Health Actions</h3>
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
-                    <button onClick={() => router.push('/telemedicine')} className="group p-5 bg-white rounded-2xl shadow-sm hover:shadow-md transition-all flex flex-col gap-3 text-left border border-surface-container-high hover:border-primary">
-                        <div className="h-10 w-10 bg-primary/10 rounded-xl flex items-center justify-center text-primary group-hover:scale-105 transition-transform">
-                            <span className="material-symbols-outlined text-xl">video_chat</span>
-                        </div>
-                        <div>
-                            <p className="font-bold text-sm text-on-surface">Consult Doctor</p>
-                            <p className="text-xs text-tertiary">Live WebRTC video consultation</p>
-                        </div>
-                    </button>
-
-                    <button onClick={() => setShowPassportModal(true)} className="group p-5 bg-white rounded-2xl shadow-sm hover:shadow-md transition-all flex flex-col gap-3 text-left border border-surface-container-high hover:border-secondary">
-                        <div className="h-10 w-10 bg-secondary/10 rounded-xl flex items-center justify-center text-secondary group-hover:scale-105 transition-transform">
-                            <span className="material-symbols-outlined text-xl">qr_code_2</span>
-                        </div>
-                        <div>
-                            <p className="font-bold text-sm text-on-surface">Medical ID Passport</p>
-                            <p className="text-xs text-tertiary">Generate secure scoped QR</p>
-                        </div>
-                    </button>
-
-                    <button onClick={() => router.push('/benefits')} className="group p-5 bg-white rounded-2xl shadow-sm hover:shadow-md transition-all flex flex-col gap-3 text-left border border-surface-container-high hover:border-tertiary">
-                        <div className="h-10 w-10 bg-tertiary/10 rounded-xl flex items-center justify-center text-tertiary group-hover:scale-105 transition-transform">
-                            <span className="material-symbols-outlined text-xl">account_balance_wallet</span>
-                        </div>
-                        <div>
-                            <p className="font-bold text-sm text-on-surface">Government Schemes</p>
-                            <p className="text-xs text-tertiary">PMJAY & Ayushman Bharat cover</p>
-                        </div>
-                    </button>
-
-                    <button onClick={() => router.push('/records')} className="group p-5 bg-white rounded-2xl shadow-sm hover:shadow-md transition-all flex flex-col gap-3 text-left border border-surface-container-high hover:border-teal-600">
-                        <div className="h-10 w-10 bg-teal-500/10 rounded-xl flex items-center justify-center text-teal-700 group-hover:scale-105 transition-transform">
-                            <span className="material-symbols-outlined text-xl">folder_shared</span>
-                        </div>
-                        <div>
-                            <p className="font-bold text-sm text-on-surface">Health Records (OCR)</p>
-                            <p className="text-xs text-tertiary">Upload and index prescriptions</p>
-                        </div>
-                    </button>
-
-                    <button onClick={() => router.push('/self-triage')} className="group p-5 bg-white rounded-2xl shadow-sm hover:shadow-md transition-all flex flex-col gap-3 text-left border border-surface-container-high hover:border-red-500">
-                        <div className="h-10 w-10 bg-red-500/10 rounded-xl flex items-center justify-center text-red-600 group-hover:scale-105 transition-transform">
-                            <span className="material-symbols-outlined text-xl animate-pulse">emergency</span>
-                        </div>
-                        <div>
-                            <p className="font-bold text-sm text-on-surface">Emergency Self-Triage</p>
-                            <p className="text-xs text-tertiary">Assess symptoms & alert doctor</p>
-                        </div>
-                    </button>
-
-                </div>
-            </div>
 
             {/* Bottom Spacing */}
             <footer className="mt-auto">
