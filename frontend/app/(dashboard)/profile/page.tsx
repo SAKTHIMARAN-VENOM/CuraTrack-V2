@@ -475,36 +475,6 @@ export default function ProfilePage() {
                 </div>
             </div>
 
-            {/* Footer Section: Trust indicators */}
-            <div className="mt-16 pt-8 border-t border-outline-variant/10 grid grid-cols-1 md:grid-cols-3 gap-8">
-                <div className="flex items-start gap-4">
-                    <div className="w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center text-primary">
-                        <span className="material-symbols-outlined">health_and_safety</span>
-                    </div>
-                    <div>
-                        <h4 className="font-bold text-sm">HIPAA Compliant</h4>
-                        <p className="text-xs text-tertiary leading-tight mt-1">Your data is stored and transmitted using industry-leading encryption standards.</p>
-                    </div>
-                </div>
-                <div className="flex items-start gap-4">
-                    <div className="w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center text-primary">
-                        <span className="material-symbols-outlined">history</span>
-                    </div>
-                    <div>
-                        <h4 className="font-bold text-sm">Access Logs</h4>
-                        <p className="text-xs text-tertiary leading-tight mt-1">Every scan of your Health ID is logged. You receive a notification for every external access.</p>
-                    </div>
-                </div>
-                <div className="flex items-start gap-4">
-                    <div className="w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center text-primary">
-                        <span className="material-symbols-outlined">toggle_on</span>
-                    </div>
-                    <div>
-                        <h4 className="font-bold text-sm">You&apos;re in Control</h4>
-                        <p className="text-xs text-tertiary leading-tight mt-1">Revoke access or update sharing permissions instantly from your profile settings.</p>
-                    </div>
-                </div>
-            </div>
         </div>
     );
 }
