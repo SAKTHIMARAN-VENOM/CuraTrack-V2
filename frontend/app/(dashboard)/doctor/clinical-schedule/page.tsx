@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
+import { useI18n } from '@/lib/i18n';
 
 interface DoctorRosterEntry {
   id: string;
@@ -10,7 +11,7 @@ interface DoctorRosterEntry {
   specialization: string;
   department: string;
   roomNumber: string;
-  shift: 'Morning (08:00 - 14:00)' | 'Evening (14:00 - 20:00)' | 'Night On-Call (20:00 - 08:00)';
+  shift: string;
   status: 'ON-DUTY' | 'IN-CONSULT' | 'ON-CALL' | 'ON-LEAVE';
   patientsInQueue: number;
   phone: string;
@@ -80,6 +81,7 @@ const INITIAL_ROSTER: DoctorRosterEntry[] = [
 ];
 
 export default function ClinicalSchedulePage() {
+  const { t } = useI18n();
   const [roster, setRoster] = useState<DoctorRosterEntry[]>(INITIAL_ROSTER);
   const [filterDept, setFilterDept] = useState<string>('ALL');
   const [filterShift, setFilterShift] = useState<string>('ALL');
@@ -133,7 +135,7 @@ export default function ClinicalSchedulePage() {
     });
 
     saveRoster(updated);
-    setToastMsg('Doctor duty status updated.');
+    setToastMsg(t('facility.dutyStatusUpdated', 'Doctor duty status updated.'));
     setTimeout(() => setToastMsg(null), 2500);
   };
 
@@ -168,7 +170,7 @@ export default function ClinicalSchedulePage() {
       patientsInQueue: 0,
       phone: '+91 98000 00000'
     });
-    setToastMsg(`Doctor ${entry.doctorName} assigned to roster.`);
+    setToastMsg(t('facility.doctorAssignedToast', { name: entry.doctorName }, `Doctor ${entry.doctorName} assigned to roster.`));
     setTimeout(() => setToastMsg(null), 3000);
   };
 
@@ -180,7 +182,29 @@ export default function ClinicalSchedulePage() {
 
   const onDutyCount = roster.filter(d => d.status === 'ON-DUTY' || d.status === 'IN-CONSULT').length;
   const onCallCount = roster.filter(d => d.status === 'ON-CALL').length;
-  const totalQueue = roster.reduce((acc, curr) => acc + curr.patientsInQueue, 0);
+
+  const departmentLabelMap: Record<string, string> = {
+    'ALL': t('common.all', 'ALL'),
+    'General OPD': t('facility.generalOpd', 'General OPD'),
+    'Maternal & ANC': t('facility.maternalAnc', 'Maternal & ANC'),
+    'Pediatrics OPD': t('facility.pediatricsOpd', 'Pediatrics OPD'),
+    'Casualty / Trauma Bay': t('facility.casualtyTrauma', 'Casualty / Trauma Bay'),
+    'Surgical OPD': t('facility.surgicalOpd', 'Surgical OPD')
+  };
+
+  const shiftLabelMap: Record<string, string> = {
+    'ALL': t('common.all', 'ALL'),
+    'Morning': t('facility.morningShift', 'Morning'),
+    'Evening': t('facility.eveningShift', 'Evening'),
+    'Night': t('facility.nightShift', 'Night')
+  };
+
+  const statusLabelMap: Record<string, string> = {
+    'ON-DUTY': t('common.onDuty', 'ON-DUTY'),
+    'IN-CONSULT': t('common.inConsult', 'IN-CONSULT'),
+    'ON-CALL': t('common.onCall', 'ON-CALL'),
+    'ON-LEAVE': t('common.onLeave', 'ON-LEAVE')
+  };
 
   return (
     <div className="space-y-8 max-w-7xl mx-auto p-4 sm:p-6 lg:p-8 pb-16 font-sans">
@@ -189,11 +213,11 @@ export default function ClinicalSchedulePage() {
         <div>
           <div className="inline-flex items-center gap-2 px-3 py-1 bg-white/10 backdrop-blur rounded-full text-xs font-semibold tracking-wide text-blue-200 mb-3">
             <span className="material-symbols-outlined text-sm">calendar_month</span>
-            <span>Hospital Operations & Clinical Staffing</span>
+            <span>{t('facility.doctorDutyRosterSubtitle', 'Hospital Operations & Clinical Staffing')}</span>
           </div>
-          <h1 className="text-3xl font-extrabold tracking-tight">Facility Doctor Duty Roster</h1>
+          <h1 className="text-3xl font-extrabold tracking-tight">{t('facility.doctorDutyRoster', 'Facility Doctor Duty Roster')}</h1>
           <p className="text-blue-100 text-sm mt-2 max-w-2xl leading-relaxed">
-            Real-time OPD consultation schedule, on-duty clinical officers, room allocations, and emergency on-call staffing roster.
+            {t('facility.realtimeSchedule', 'Real-time OPD consultation schedule, on-duty clinical officers, room allocations, and emergency on-call staffing roster.')}
           </p>
         </div>
 
@@ -203,15 +227,15 @@ export default function ClinicalSchedulePage() {
             className="px-4 py-3 bg-white/15 hover:bg-white/25 text-white font-bold text-xs rounded-2xl flex items-center gap-2 backdrop-blur transition-all"
           >
             <span className="material-symbols-outlined text-lg">dashboard</span>
-            <span>Doctor Portal</span>
+            <span>{t('facility.doctorPortalBtn', 'Doctor Portal')}</span>
           </Link>
 
           <button
             onClick={() => setIsAddModalOpen(true)}
-            className="bg-teal-400 hover:bg-teal-300 text-teal-950 font-bold text-xs px-5 py-3 rounded-2xl flex items-center gap-2 shadow-md transition-all active:scale-95"
+            className="bg-teal-400 hover:bg-teal-300 text-teal-950 font-bold text-xs px-5 py-3 rounded-2xl flex items-center gap-2 shadow-md transition-all active:scale-95 cursor-pointer"
           >
             <span className="material-symbols-outlined text-lg">add_circle</span>
-            <span>Assign Doctor Shift</span>
+            <span>{t('facility.assignDoctorShift', 'Assign Doctor Shift')}</span>
           </button>
         </div>
       </div>
@@ -227,9 +251,9 @@ export default function ClinicalSchedulePage() {
       <div className="grid grid-cols-1 sm:grid-cols-4 gap-4">
         <div className="bg-white border border-surface-container-high p-5 rounded-3xl shadow-card flex items-center justify-between">
           <div>
-            <span className="text-[11px] font-bold uppercase tracking-wider text-tertiary block">On-Duty Doctors</span>
+            <span className="text-[11px] font-bold uppercase tracking-wider text-tertiary block">{t('facility.onDutyDoctors', 'On-Duty Doctors')}</span>
             <span className="text-3xl font-black text-on-surface mt-1 block">{onDutyCount}</span>
-            <span className="text-[10px] text-teal-600 font-semibold">Active OPD consultations</span>
+            <span className="text-[10px] text-teal-600 font-semibold">{t('facility.activeOpdConsultations', 'Active OPD consultations')}</span>
           </div>
           <div className="w-12 h-12 rounded-2xl bg-teal-50 text-teal-700 flex items-center justify-center">
             <span className="material-symbols-outlined text-2xl">stethoscope</span>
@@ -238,9 +262,9 @@ export default function ClinicalSchedulePage() {
 
         <div className="bg-white border border-surface-container-high p-5 rounded-3xl shadow-card flex items-center justify-between">
           <div>
-            <span className="text-[11px] font-bold uppercase tracking-wider text-tertiary block">Emergency On-Call</span>
+            <span className="text-[11px] font-bold uppercase tracking-wider text-tertiary block">{t('facility.emergencyOnCall', 'Emergency On-Call')}</span>
             <span className="text-3xl font-black text-on-surface mt-1 block">{onCallCount}</span>
-            <span className="text-[10px] text-amber-600 font-semibold">Standby specialists</span>
+            <span className="text-[10px] text-amber-600 font-semibold">{t('facility.standbySpecialists', 'Standby specialists')}</span>
           </div>
           <div className="w-12 h-12 rounded-2xl bg-amber-50 text-amber-700 flex items-center justify-center">
             <span className="material-symbols-outlined text-2xl">phone_in_talk</span>
@@ -249,9 +273,9 @@ export default function ClinicalSchedulePage() {
 
         <div className="bg-white border border-surface-container-high p-5 rounded-3xl shadow-card flex items-center justify-between">
           <div>
-            <span className="text-[11px] font-bold uppercase tracking-wider text-tertiary block">Active Departments</span>
+            <span className="text-[11px] font-bold uppercase tracking-wider text-tertiary block">{t('facility.activeDepartments', 'Active Departments')}</span>
             <span className="text-3xl font-black text-on-surface mt-1 block">5</span>
-            <span className="text-[10px] text-blue-600 font-semibold">Specialty coverage staffed</span>
+            <span className="text-[10px] text-blue-600 font-semibold">{t('facility.specialtyCoverage', 'Specialty coverage staffed')}</span>
           </div>
           <div className="w-12 h-12 rounded-2xl bg-blue-50 text-blue-700 flex items-center justify-center">
             <span className="material-symbols-outlined text-2xl">domain</span>
@@ -260,9 +284,9 @@ export default function ClinicalSchedulePage() {
 
         <div className="bg-white border border-surface-container-high p-5 rounded-3xl shadow-card flex items-center justify-between">
           <div>
-            <span className="text-[11px] font-bold uppercase tracking-wider text-tertiary block">Active OPD Rooms</span>
+            <span className="text-[11px] font-bold uppercase tracking-wider text-tertiary block">{t('facility.activeOpdRooms', 'Active OPD Rooms')}</span>
             <span className="text-3xl font-black text-on-surface mt-1 block">5</span>
-            <span className="text-[10px] text-purple-600 font-semibold">Rooms 101, 103, 105, 108 & Trauma</span>
+            <span className="text-[10px] text-purple-600 font-semibold">{t('facility.roomsCovered', 'Rooms 101, 103, 105, 108 & Trauma')}</span>
           </div>
           <div className="w-12 h-12 rounded-2xl bg-purple-50 text-purple-700 flex items-center justify-center">
             <span className="material-symbols-outlined text-2xl">meeting_room</span>
@@ -277,30 +301,30 @@ export default function ClinicalSchedulePage() {
             <button
               key={dept}
               onClick={() => setFilterDept(dept)}
-              className={`px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all ${
+              className={`px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${
                 filterDept === dept
                   ? 'bg-primary text-white shadow-sm'
                   : 'bg-surface-container-low text-tertiary hover:bg-surface-container'
               }`}
             >
-              {dept}
+              {departmentLabelMap[dept] || dept}
             </button>
           ))}
         </div>
 
         <div className="flex items-center gap-2">
-          <span className="text-xs font-semibold text-tertiary">Shift:</span>
+          <span className="text-xs font-semibold text-tertiary">{t('facility.shiftFilter', 'Shift:')}</span>
           {['ALL', 'Morning', 'Evening', 'Night'].map((s) => (
             <button
               key={s}
               onClick={() => setFilterShift(s)}
-              className={`px-3 py-1 rounded-lg text-xs font-bold ${
+              className={`px-3 py-1 rounded-lg text-xs font-bold transition-all cursor-pointer ${
                 filterShift === s
                   ? 'bg-on-surface text-white'
                   : 'bg-surface-container-low text-tertiary hover:bg-surface-container'
               }`}
             >
-              {s}
+              {shiftLabelMap[s] || s}
             </button>
           ))}
         </div>
@@ -326,10 +350,10 @@ export default function ClinicalSchedulePage() {
                   </div>
                   <button
                     onClick={() => handleToggleStatus(doc.id)}
-                    title="Click to cycle status"
+                    title={t('facility.clickCycleStatus', 'Click to cycle status')}
                     className={`px-2.5 py-1 rounded-full text-[10px] font-black uppercase tracking-wider border cursor-pointer ${statusBadge}`}
                   >
-                    {doc.status}
+                    {statusLabelMap[doc.status] || doc.status}
                   </button>
                 </div>
 
@@ -340,7 +364,7 @@ export default function ClinicalSchedulePage() {
                   </div>
                   <div className="flex items-center gap-2 text-slate-700 font-medium">
                     <span className="material-symbols-outlined text-base text-tertiary">meeting_room</span>
-                    <span>{doc.roomNumber} ({doc.department})</span>
+                    <span>{doc.roomNumber} ({departmentLabelMap[doc.department] || doc.department})</span>
                   </div>
                   <div className="flex items-center gap-2 text-slate-700 font-medium">
                     <span className="material-symbols-outlined text-base text-tertiary">schedule</span>
@@ -356,10 +380,10 @@ export default function ClinicalSchedulePage() {
               <div className="pt-3 border-t border-surface-container-high flex items-center justify-between">
                 <div className="flex items-center gap-1.5">
                   <span className="w-2 h-2 rounded-full bg-teal-500 animate-pulse"></span>
-                  <span className="text-xs font-bold text-slate-800">Shift Active & Available</span>
+                  <span className="text-xs font-bold text-slate-800">{t('facility.readyForConsults', 'Active & ready for consultations')}</span>
                 </div>
                 <span className="text-[11px] text-tertiary font-medium">
-                  {doc.department}
+                  {departmentLabelMap[doc.department] || doc.department}
                 </span>
               </div>
             </div>
@@ -372,18 +396,21 @@ export default function ClinicalSchedulePage() {
         <div className="fixed inset-0 z-50 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4">
           <div className="bg-white rounded-3xl max-w-lg w-full p-6 sm:p-8 shadow-2xl border border-surface-container-high space-y-6">
             <div className="flex items-center justify-between border-b border-surface-container pb-4">
-              <h2 className="text-lg font-bold text-on-surface">Assign Doctor Shift & Room</h2>
-              <button onClick={() => setIsAddModalOpen(false)} className="text-tertiary hover:text-on-surface">
+              <div>
+                <h2 className="text-lg font-bold text-on-surface">{t('facility.assignDutyModalTitle', 'Assign Doctor Duty Shift')}</h2>
+                <p className="text-xs text-tertiary mt-0.5">{t('facility.assignDutyModalDesc', 'Add a medical officer to today\'s active clinical roster and assign an OPD consultation room.')}</p>
+              </div>
+              <button onClick={() => setIsAddModalOpen(false)} className="text-tertiary hover:text-on-surface cursor-pointer">
                 <span className="material-symbols-outlined">close</span>
               </button>
             </div>
 
             <form onSubmit={handleAddDoctorDuty} className="space-y-4">
               <div>
-                <label className="block text-xs font-bold text-tertiary uppercase mb-1">Doctor Name</label>
+                <label className="block text-xs font-bold text-tertiary uppercase mb-1">{t('facility.doctorNameLabel', 'Doctor Name *')}</label>
                 <input
                   type="text"
-                  placeholder="e.g. Dr. Smita Patil"
+                  placeholder={t('facility.doctorNamePlaceholder', 'e.g. Dr. Rajesh Kulkarni')}
                   value={newEntry.doctorName}
                   onChange={e => setNewEntry({ ...newEntry, doctorName: e.target.value })}
                   className="w-full px-4 py-2.5 bg-surface-container-low rounded-xl text-xs font-bold border border-surface-container-high outline-none focus:border-primary"
@@ -393,18 +420,20 @@ export default function ClinicalSchedulePage() {
 
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="block text-xs font-bold text-tertiary uppercase mb-1">Qualification</label>
+                  <label className="block text-xs font-bold text-tertiary uppercase mb-1">{t('facility.qualificationLabel', 'Qualification')}</label>
                   <input
                     type="text"
+                    placeholder={t('facility.qualificationPlaceholder', 'e.g. MBBS, MD (Medicine)')}
                     value={newEntry.qualification}
                     onChange={e => setNewEntry({ ...newEntry, qualification: e.target.value })}
                     className="w-full px-4 py-2.5 bg-surface-container-low rounded-xl text-xs font-bold border border-surface-container-high outline-none focus:border-primary"
                   />
                 </div>
                 <div>
-                  <label className="block text-xs font-bold text-tertiary uppercase mb-1">Specialization</label>
+                  <label className="block text-xs font-bold text-tertiary uppercase mb-1">{t('facility.specializationLabel', 'Specialization')}</label>
                   <input
                     type="text"
+                    placeholder={t('facility.specializationPlaceholder', 'e.g. Pediatrics & Neonatology')}
                     value={newEntry.specialization}
                     onChange={e => setNewEntry({ ...newEntry, specialization: e.target.value })}
                     className="w-full px-4 py-2.5 bg-surface-container-low rounded-xl text-xs font-bold border border-surface-container-high outline-none focus:border-primary"
@@ -414,23 +443,24 @@ export default function ClinicalSchedulePage() {
 
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="block text-xs font-bold text-tertiary uppercase mb-1">Department</label>
+                  <label className="block text-xs font-bold text-tertiary uppercase mb-1">{t('facility.departmentLabel', 'Department')}</label>
                   <select
                     value={newEntry.department}
                     onChange={e => setNewEntry({ ...newEntry, department: e.target.value })}
                     className="w-full px-4 py-2.5 bg-surface-container-low rounded-xl text-xs font-bold border border-surface-container-high outline-none focus:border-primary"
                   >
-                    <option value="General OPD">General OPD</option>
-                    <option value="Maternal & ANC">Maternal & ANC</option>
-                    <option value="Pediatrics OPD">Pediatrics OPD</option>
-                    <option value="Casualty / Trauma Bay">Casualty / Trauma Bay</option>
-                    <option value="Surgical OPD">Surgical OPD</option>
+                    <option value="General OPD">{t('facility.generalOpd', 'General OPD')}</option>
+                    <option value="Maternal & ANC">{t('facility.maternalAnc', 'Maternal & ANC')}</option>
+                    <option value="Pediatrics OPD">{t('facility.pediatricsOpd', 'Pediatrics OPD')}</option>
+                    <option value="Casualty / Trauma Bay">{t('facility.casualtyTrauma', 'Casualty / Trauma Bay')}</option>
+                    <option value="Surgical OPD">{t('facility.surgicalOpd', 'Surgical OPD')}</option>
                   </select>
                 </div>
                 <div>
-                  <label className="block text-xs font-bold text-tertiary uppercase mb-1">Room Allocation</label>
+                  <label className="block text-xs font-bold text-tertiary uppercase mb-1">{t('facility.roomNumberLabel', 'Room Number / Bay')}</label>
                   <input
                     type="text"
+                    placeholder={t('facility.roomNumberPlaceholder', 'e.g. OPD Room 104')}
                     value={newEntry.roomNumber}
                     onChange={e => setNewEntry({ ...newEntry, roomNumber: e.target.value })}
                     className="w-full px-4 py-2.5 bg-surface-container-low rounded-xl text-xs font-bold border border-surface-container-high outline-none focus:border-primary"
@@ -439,15 +469,15 @@ export default function ClinicalSchedulePage() {
               </div>
 
               <div>
-                <label className="block text-xs font-bold text-tertiary uppercase mb-1">Duty Shift</label>
+                <label className="block text-xs font-bold text-tertiary uppercase mb-1">{t('facility.dutyShiftLabel', 'Duty Shift')}</label>
                 <select
                   value={newEntry.shift}
-                  onChange={e => setNewEntry({ ...newEntry, shift: e.target.value as any })}
+                  onChange={e => setNewEntry({ ...newEntry, shift: e.target.value })}
                   className="w-full px-4 py-2.5 bg-surface-container-low rounded-xl text-xs font-bold border border-surface-container-high outline-none focus:border-primary"
                 >
-                  <option value="Morning (08:00 - 14:00)">Morning (08:00 - 14:00)</option>
-                  <option value="Evening (14:00 - 20:00)">Evening (14:00 - 20:00)</option>
-                  <option value="Night On-Call (20:00 - 08:00)">Night On-Call (20:00 - 08:00)</option>
+                  <option value="Morning (08:00 - 14:00)">{t('facility.morningShift', 'Morning')} (08:00 - 14:00)</option>
+                  <option value="Evening (14:00 - 20:00)">{t('facility.eveningShift', 'Evening')} (14:00 - 20:00)</option>
+                  <option value="Night On-Call (20:00 - 08:00)">{t('facility.nightShift', 'Night')} (20:00 - 08:00)</option>
                 </select>
               </div>
 
@@ -455,15 +485,15 @@ export default function ClinicalSchedulePage() {
                 <button
                   type="button"
                   onClick={() => setIsAddModalOpen(false)}
-                  className="px-5 py-2.5 bg-surface-container-low text-tertiary font-bold text-xs rounded-xl"
+                  className="px-5 py-2.5 bg-surface-container-low text-tertiary font-bold text-xs rounded-xl cursor-pointer"
                 >
-                  Cancel
+                  {t('common.cancel', 'Cancel')}
                 </button>
                 <button
                   type="submit"
-                  className="px-6 py-2.5 bg-primary text-white font-bold text-xs rounded-xl shadow-md"
+                  className="px-6 py-2.5 bg-primary text-white font-bold text-xs rounded-xl shadow-md cursor-pointer"
                 >
-                  Confirm Assignment
+                  {t('facility.saveAssignBtn', 'Save & Assign Shift')}
                 </button>
               </div>
             </form>

@@ -121,6 +121,13 @@ export default function FacilityOperationsPage() {
     const totalAvailBeds = beds?.total_available ?? 13;
     const totalBeds = beds?.total_beds ?? 50;
 
+    const filterStatusMap: Record<string, string> = {
+        'ALL': t('common.all', 'ALL'),
+        'ADEQUATE': t('common.adequate', 'ADEQUATE'),
+        'LOW_STOCK': t('common.lowStock', 'LOW STOCK'),
+        'CRITICAL_STOCKOUT_RISK': t('common.criticalStock', 'CRITICAL STOCKOUT RISK')
+    };
+
     return (
         <div className="space-y-8 max-w-7xl mx-auto pb-16">
             {/* Header Banner */}
@@ -132,7 +139,7 @@ export default function FacilityOperationsPage() {
                             <span>{t('facility.subtitle', 'Facility Operations & Supply Chain')}</span>
                         </div>
                         <h1 className="text-3xl font-extrabold tracking-tight">{t('facility.title', 'Nandurbar Sub-District Hospital & CHC')}</h1>
-                        <p className="text-xs text-teal-100/80 mt-1">Real-time inventory management, EDL supply monitoring, and bed occupancy.</p>
+                        <p className="text-xs text-teal-100/80 mt-1">{t('facility.description', 'Real-time inventory management, EDL supply monitoring, and bed occupancy.')}</p>
                     </div>
 
                     <div className="flex items-center gap-3">
@@ -141,7 +148,7 @@ export default function FacilityOperationsPage() {
                             className="bg-teal-400 hover:bg-teal-300 text-teal-950 font-bold text-xs px-5 py-3 rounded-2xl flex items-center gap-2 shadow-md transition-all active:scale-95 cursor-pointer"
                         >
                             <span className="material-symbols-outlined text-lg">refresh</span>
-                            <span>{t('actions.refresh', 'Refresh All Data')}</span>
+                            <span>{t('common.refresh', 'Refresh All Data')}</span>
                         </button>
                     </div>
                 </div>
@@ -151,12 +158,12 @@ export default function FacilityOperationsPage() {
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                 <div className="bg-white border border-surface-container-high p-5 rounded-3xl shadow-card flex items-center justify-between cursor-pointer hover:border-primary/40 transition-all" onClick={() => setActiveTab('doctors')}>
                     <div>
-                        <span className="text-[11px] font-bold uppercase tracking-wider text-tertiary block">Available Doctors</span>
+                        <span className="text-[11px] font-bold uppercase tracking-wider text-tertiary block">{t('facility.availableDoctors', 'Available Doctors')}</span>
                         <div className="flex items-baseline gap-2 mt-1">
                             <span className="text-3xl font-black text-teal-700">{onDutyCount}</span>
-                            <span className="text-xs text-tertiary font-bold">on duty</span>
+                            <span className="text-xs text-tertiary font-bold">{t('facility.onDuty', 'on duty')}</span>
                         </div>
-                        <span className="text-[10px] text-teal-600 font-semibold">Active & ready for consultations</span>
+                        <span className="text-[10px] text-teal-600 font-semibold">{t('facility.readyForConsults', 'Active & ready for consultations')}</span>
                     </div>
                     <div className="w-12 h-12 rounded-2xl bg-blue-50 text-blue-700 flex items-center justify-center">
                         <span className="material-symbols-outlined text-2xl">stethoscope</span>
@@ -165,13 +172,13 @@ export default function FacilityOperationsPage() {
 
                 <div className={`border p-5 rounded-3xl shadow-card flex items-center justify-between cursor-pointer hover:border-primary/40 transition-all ${criticalMeds > 0 ? 'bg-red-50 border-red-200' : 'bg-white border-surface-container-high'}`} onClick={() => setActiveTab('medicines')}>
                     <div>
-                        <span className={`text-[11px] font-bold uppercase tracking-wider block ${criticalMeds > 0 ? 'text-red-700' : 'text-tertiary'}`}>EDL Stock Alerts</span>
+                        <span className={`text-[11px] font-bold uppercase tracking-wider block ${criticalMeds > 0 ? 'text-red-700' : 'text-tertiary'}`}>{t('facility.edlStockAlerts', 'EDL Stock Alerts')}</span>
                         <div className="flex items-baseline gap-2 mt-1">
                             <span className={`text-3xl font-black ${criticalMeds > 0 ? 'text-red-900' : 'text-on-surface'}`}>{criticalMeds}</span>
-                            <span className="text-xs text-tertiary font-bold">/ {medicines.length} medicines</span>
+                            <span className="text-xs text-tertiary font-bold">/ {medicines.length}</span>
                         </div>
                         <span className={`text-[10px] font-semibold ${criticalMeds > 0 ? 'text-red-600' : 'text-teal-600'}`}>
-                            {criticalMeds > 0 ? 'Low stock / critical stockout risk' : 'All stock levels adequate'}
+                            {criticalMeds > 0 ? t('facility.stockLowRisk', 'Low stock / critical stockout risk') : t('facility.stockAdequate', 'All stock levels adequate')}
                         </span>
                     </div>
                     <div className={`w-12 h-12 rounded-2xl flex items-center justify-center ${criticalMeds > 0 ? 'bg-red-200/80 text-red-700' : 'bg-teal-50 text-teal-700'}`}>
@@ -181,13 +188,13 @@ export default function FacilityOperationsPage() {
 
                 <div className="bg-white border border-surface-container-high p-5 rounded-3xl shadow-card flex items-center justify-between cursor-pointer hover:border-primary/40 transition-all" onClick={() => setActiveTab('beds')}>
                     <div>
-                        <span className="text-[11px] font-bold uppercase tracking-wider text-tertiary block">Beds Available</span>
+                        <span className="text-[11px] font-bold uppercase tracking-wider text-tertiary block">{t('facility.availableBeds', 'Beds Available')}</span>
                         <div className="flex items-baseline gap-2 mt-1">
                             <span className="text-3xl font-black text-on-surface">{totalAvailBeds}</span>
-                            <span className="text-xs text-tertiary font-bold">/ {totalBeds} total</span>
+                            <span className="text-xs text-tertiary font-bold">/ {totalBeds}</span>
                         </div>
                         <span className="text-[10px] text-teal-600 font-semibold">
-                            {beds?.occupancy_rate ?? 76}% occupancy across all wards
+                            {t('facility.occupancyAcrossWards', { pct: beds?.occupancy_rate ?? 76 }, `${beds?.occupancy_rate ?? 76}% occupancy across all wards`)}
                         </span>
                     </div>
                     <div className="w-12 h-12 rounded-2xl bg-teal-50 text-teal-700 flex items-center justify-center">
@@ -207,7 +214,7 @@ export default function FacilityOperationsPage() {
                     }`}
                 >
                     <span className="material-symbols-outlined text-base">pill</span>
-                    <span>Medicine Stock (EDL)</span>
+                    <span>{t('facility.edlStockOverview', 'Medicine Stock (EDL)')}</span>
                     {criticalMeds > 0 && (
                         <span className="px-1.5 py-0.5 rounded-full text-[10px] font-black bg-red-100 text-red-700">
                             {criticalMeds}
@@ -224,7 +231,7 @@ export default function FacilityOperationsPage() {
                     }`}
                 >
                     <span className="material-symbols-outlined text-base">stethoscope</span>
-                    <span>My Doctors</span>
+                    <span>{t('facility.myDoctors', 'My Doctors')}</span>
                 </button>
 
                 <button
@@ -236,7 +243,7 @@ export default function FacilityOperationsPage() {
                     }`}
                 >
                     <span className="material-symbols-outlined text-base">bed</span>
-                    <span>Bed Availability</span>
+                    <span>{t('facility.bedAvailability', 'Bed Availability')}</span>
                 </button>
             </div>
 
@@ -255,20 +262,20 @@ export default function FacilityOperationsPage() {
                                             : 'bg-surface-container-low text-tertiary hover:bg-surface-container'
                                     }`}
                                 >
-                                    {st.replace(/_/g, ' ')}
+                                    {filterStatusMap[st] || st.replace(/_/g, ' ')}
                                 </button>
                             ))}
                         </div>
 
                         <div className="text-xs text-tertiary font-medium">
-                            Showing <strong className="text-on-surface">{medicines.length}</strong> essential medicines
+                            {t('facility.showingMedicines', { count: medicines.length }, `Showing ${medicines.length} essential medicines`)}
                         </div>
                     </div>
 
                     {loading ? (
                         <div className="text-center py-16">
                             <span className="material-symbols-outlined animate-spin text-3xl text-primary">progress_activity</span>
-                            <p className="text-xs text-tertiary mt-2">Loading facility drug inventory...</p>
+                            <p className="text-xs text-tertiary mt-2">{t('facility.loadingInventory', 'Loading facility drug inventory...')}</p>
                         </div>
                     ) : (
                         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
@@ -287,7 +294,7 @@ export default function FacilityOperationsPage() {
                                                     ? 'bg-amber-100 text-amber-800'
                                                     : 'bg-red-100 text-red-800 animate-pulse'
                                             }`}>
-                                                {med.status.replace(/_/g, ' ')}
+                                                {filterStatusMap[med.status] || med.status.replace(/_/g, ' ')}
                                             </span>
                                         </div>
 
@@ -296,13 +303,13 @@ export default function FacilityOperationsPage() {
 
                                         <div className="mt-4 grid grid-cols-2 gap-2 bg-surface-container-low p-3.5 rounded-2xl text-xs">
                                             <div>
-                                                <span className="text-[10px] uppercase font-bold text-tertiary block">Current Stock</span>
+                                                <span className="text-[10px] uppercase font-bold text-tertiary block">{t('facility.currentStock', 'Current Stock')}</span>
                                                 <span className="text-base font-black text-on-surface">{med.stock_units.toLocaleString()} {med.unit}</span>
                                             </div>
                                             <div>
-                                                <span className="text-[10px] uppercase font-bold text-tertiary block">Supply Remaining</span>
+                                                <span className="text-[10px] uppercase font-bold text-tertiary block">{t('facility.supplyRemaining', 'Supply Remaining')}</span>
                                                 <span className={`text-base font-black ${med.days_of_supply < 7 ? 'text-red-600 font-extrabold' : med.days_of_supply < 20 ? 'text-amber-600' : 'text-teal-700'}`}>
-                                                    {med.days_of_supply} days
+                                                    {t('facility.days', { count: med.days_of_supply }, `${med.days_of_supply} days`)}
                                                 </span>
                                             </div>
                                         </div>
@@ -316,7 +323,7 @@ export default function FacilityOperationsPage() {
                                                 className="py-2.5 px-3 bg-teal-50 hover:bg-teal-100 text-teal-800 font-bold text-xs rounded-xl flex items-center justify-center gap-1.5 transition-all cursor-pointer active:scale-95"
                                             >
                                                 <span className="material-symbols-outlined text-base text-teal-700">add_circle</span>
-                                                <span>+ Add Stock</span>
+                                                <span>{t('facility.addStockBtn', '+ Add Stock')}</span>
                                             </button>
 
                                             <button
@@ -324,7 +331,7 @@ export default function FacilityOperationsPage() {
                                                 className="py-2.5 px-3 bg-red-50 hover:bg-red-100 text-red-800 font-bold text-xs rounded-xl flex items-center justify-center gap-1.5 transition-all cursor-pointer active:scale-95"
                                             >
                                                 <span className="material-symbols-outlined text-base text-red-700">remove_circle</span>
-                                                <span>- Deduct / Use</span>
+                                                <span>{t('facility.deductStockBtn', '- Deduct / Use')}</span>
                                             </button>
                                         </div>
 
@@ -333,7 +340,7 @@ export default function FacilityOperationsPage() {
                                             className="w-full py-1.5 text-[11px] font-semibold text-tertiary hover:text-on-surface flex items-center justify-center gap-1 transition-colors cursor-pointer"
                                         >
                                             <span className="material-symbols-outlined text-sm">tune</span>
-                                            <span>Set Exact Count (Audit)</span>
+                                            <span>{t('facility.setExactCountBtn', 'Set Exact Count (Audit)')}</span>
                                         </button>
                                     </div>
                                 </div>
@@ -350,7 +357,7 @@ export default function FacilityOperationsPage() {
                         <div className="flex items-center gap-2">
                             <span className="inline-flex items-center gap-1.5 px-3 py-1 bg-teal-100 text-teal-800 rounded-full text-xs font-bold">
                                 <span className="w-2 h-2 rounded-full bg-teal-600 animate-pulse"></span>
-                                Available On-Duty Medical Officers ({doctors.filter(d => d.status === 'ON_DUTY').length})
+                                {t('facility.availableMedicalOfficers', { count: doctors.filter(d => d.status === 'ON_DUTY').length }, `Available On-Duty Medical Officers (${doctors.filter(d => d.status === 'ON_DUTY').length})`)}
                             </span>
                         </div>
                     </div>
@@ -377,7 +384,7 @@ export default function FacilityOperationsPage() {
                                             </div>
                                         </div>
                                         <span className="text-[10px] font-extrabold uppercase px-2.5 py-0.5 rounded-full bg-teal-100 text-teal-800">
-                                            AVAILABLE
+                                            {t('common.available', 'AVAILABLE')}
                                         </span>
                                     </div>
 
@@ -413,10 +420,9 @@ export default function FacilityOperationsPage() {
                     <div className="bg-gradient-to-br from-teal-50 to-emerald-50 p-6 rounded-3xl border border-teal-200 shadow-sm">
                         <div className="flex items-center justify-between mb-4">
                             <div>
-                                <h3 className="text-lg font-extrabold text-teal-900">Ward-Level Bed Occupancy</h3>
+                                <h3 className="text-lg font-extrabold text-teal-900">{t('facility.wardBedOccupancy', 'Ward-Level Bed Occupancy')}</h3>
                                 <p className="text-xs text-teal-700">
-                                    {beds?.total_available ?? 13} beds available across {beds?.wards?.length ?? 6} wards
-                                    • {beds?.occupancy_rate ?? 76}% overall occupancy
+                                    {t('facility.bedsAvailAcrossWards', { avail: beds?.total_available ?? 13, wards: beds?.wards?.length ?? 6, rate: beds?.occupancy_rate ?? 76 }, `${beds?.total_available ?? 13} beds available across ${beds?.wards?.length ?? 6} wards • ${beds?.occupancy_rate ?? 76}% overall occupancy`)}
                                 </p>
                             </div>
                             <div className="w-16 h-16 rounded-2xl bg-teal-600 text-white flex items-center justify-center text-2xl font-black">
@@ -470,15 +476,15 @@ export default function FacilityOperationsPage() {
 
                                     <div className="grid grid-cols-3 gap-2 text-center bg-surface-container-low p-3 rounded-2xl">
                                         <div>
-                                            <span className="text-[10px] uppercase font-bold text-tertiary block">Total</span>
+                                            <span className="text-[10px] uppercase font-bold text-tertiary block">{t('facility.wardTotal', 'Total')}</span>
                                             <span className="text-lg font-black text-on-surface">{ward.total}</span>
                                         </div>
                                         <div>
-                                            <span className="text-[10px] uppercase font-bold text-tertiary block">Occupied</span>
+                                            <span className="text-[10px] uppercase font-bold text-tertiary block">{t('facility.wardOccupied', 'Occupied')}</span>
                                             <span className={`text-lg font-black ${isOverflow ? 'text-red-600' : 'text-on-surface'}`}>{ward.occupied}</span>
                                         </div>
                                         <div>
-                                            <span className="text-[10px] uppercase font-bold text-tertiary block">Available</span>
+                                            <span className="text-[10px] uppercase font-bold text-tertiary block">{t('facility.wardAvailable', 'Available')}</span>
                                             <span className={`text-lg font-black ${isOverflow ? 'text-red-600' : isCritical ? 'text-amber-700' : 'text-teal-700'}`}>
                                                 {Math.max(0, ward.available)}
                                             </span>
@@ -488,7 +494,7 @@ export default function FacilityOperationsPage() {
                                     {/* Progress Bar */}
                                     <div className="space-y-1">
                                         <div className="flex justify-between text-[10px] font-bold text-tertiary">
-                                            <span>Occupancy</span>
+                                            <span>{t('facility.wardOccupancyPct', 'Occupancy')}</span>
                                             <span>{Math.min(100, occupancyPct)}%</span>
                                         </div>
                                         <div className="w-full h-2.5 bg-surface-container rounded-full overflow-hidden">
@@ -519,7 +525,7 @@ export default function FacilityOperationsPage() {
                             </div>
                             <button
                                 onClick={() => setIsStockModalOpen(false)}
-                                className="w-8 h-8 rounded-full bg-surface-container flex items-center justify-center text-tertiary hover:text-on-surface transition-colors"
+                                className="w-8 h-8 rounded-full bg-surface-container flex items-center justify-center text-tertiary hover:text-on-surface transition-colors cursor-pointer"
                             >
                                 <span className="material-symbols-outlined text-base">close</span>
                             </button>
@@ -541,7 +547,7 @@ export default function FacilityOperationsPage() {
                                 }`}
                             >
                                 <span className="material-symbols-outlined text-base">add_circle</span>
-                                <span>+ Add Stock</span>
+                                <span>{t('facility.addStockBtn', '+ Add Stock')}</span>
                             </button>
 
                             <button
@@ -558,7 +564,7 @@ export default function FacilityOperationsPage() {
                                 }`}
                             >
                                 <span className="material-symbols-outlined text-base">remove_circle</span>
-                                <span>- Deduct / Use</span>
+                                <span>{t('facility.deductStockBtn', '- Deduct / Use')}</span>
                             </button>
 
                             <button
@@ -575,7 +581,7 @@ export default function FacilityOperationsPage() {
                                 }`}
                             >
                                 <span className="material-symbols-outlined text-base">tune</span>
-                                <span>Set Exact</span>
+                                <span>{t('facility.setExactCountBtn', 'Set Exact')}</span>
                             </button>
                         </div>
 
@@ -596,13 +602,13 @@ export default function FacilityOperationsPage() {
                                         ? 'bg-amber-100 text-amber-800'
                                         : 'bg-red-100 text-red-800'
                                 }`}>
-                                    {projectedStatus.replace(/_/g, ' ')}
+                                    {filterStatusMap[projectedStatus] || projectedStatus.replace(/_/g, ' ')}
                                 </span>
                             </div>
 
                             <div className="grid grid-cols-3 gap-2 bg-white/80 backdrop-blur p-2.5 rounded-xl border border-black/5 text-center">
                                 <div>
-                                    <span className="text-[10px] text-tertiary font-bold uppercase block">Current</span>
+                                    <span className="text-[10px] text-tertiary font-bold uppercase block">{t('facility.currentStock', 'Current')}</span>
                                     <span className="text-sm font-black text-on-surface">{curStock.toLocaleString()} {selectedMed.unit}</span>
                                 </div>
                                 <div className="flex flex-col justify-center">
@@ -614,14 +620,14 @@ export default function FacilityOperationsPage() {
                                     </span>
                                 </div>
                                 <div>
-                                    <span className="text-[10px] text-tertiary font-bold uppercase block">New Total</span>
+                                    <span className="text-[10px] text-tertiary font-bold uppercase block">{t('facility.newCount', 'New Total')}</span>
                                     <span className="text-sm font-black text-on-surface">{projectedStock.toLocaleString()} {selectedMed.unit}</span>
                                 </div>
                             </div>
 
                             <div className="flex items-center justify-between text-[11px] pt-1">
-                                <span className="text-tertiary">Forecasted Days of Supply:</span>
-                                <strong className="text-on-surface">{projectedDaysOfSupply} days remaining</strong>
+                                <span className="text-tertiary">{t('facility.supplyRemaining', 'Forecasted Days of Supply:')}</span>
+                                <strong className="text-on-surface">{t('facility.days', { count: projectedDaysOfSupply }, `${projectedDaysOfSupply} days remaining`)}</strong>
                             </div>
                         </div>
 
@@ -631,18 +637,18 @@ export default function FacilityOperationsPage() {
                                 <div className="flex items-center justify-between mb-1">
                                     <label className="text-xs font-bold text-on-surface">
                                         {stockAction === 'ADD'
-                                            ? `Units Received (${selectedMed.unit})`
+                                            ? `${t('facility.unitsToAdd', 'Units Received')} (${selectedMed.unit})`
                                             : stockAction === 'REDUCE'
-                                            ? `Units to Deduct / Dispense (${selectedMed.unit})`
-                                            : `New Verified Physical Count (${selectedMed.unit})`}
+                                            ? `${t('facility.unitsToDeduct', 'Units to Deduct')} (${selectedMed.unit})`
+                                            : `${t('facility.newCount', 'New Verified Physical Count')} (${selectedMed.unit})`}
                                     </label>
                                     {stockAction === 'REDUCE' && (
                                         <button
                                             type="button"
                                             onClick={() => setUnitsValue(selectedMed.stock_units)}
-                                            className="text-[10px] text-red-700 font-bold hover:underline"
+                                            className="text-[10px] text-red-700 font-bold hover:underline cursor-pointer"
                                         >
-                                            Max Available ({selectedMed.stock_units})
+                                            Max ({selectedMed.stock_units})
                                         </button>
                                     )}
                                 </div>
@@ -674,7 +680,7 @@ export default function FacilityOperationsPage() {
 
                             {/* Reason / Purpose Selector */}
                             <div>
-                                <label className="block text-xs font-bold text-on-surface mb-1">Reason / Transaction Type</label>
+                                <label className="block text-xs font-bold text-on-surface mb-1">{t('facility.reasonLabel', 'Reason / Transaction Type')}</label>
                                 <select
                                     value={reason}
                                     onChange={(e) => setReason(e.target.value)}
@@ -708,10 +714,10 @@ export default function FacilityOperationsPage() {
 
                             {/* Optional Batch Number / Notes */}
                             <div>
-                                <label className="block text-xs font-bold text-on-surface mb-1">Batch Number / Reference (Optional)</label>
+                                <label className="block text-xs font-bold text-on-surface mb-1">{t('facility.batchNumberLabel', 'Batch Number / Reference (Optional)')}</label>
                                 <input
                                     type="text"
-                                    placeholder="e.g. BATCH-MH-2026-X09"
+                                    placeholder={t('facility.batchNumberPlaceholder', 'e.g. BATCH-MH-2026-X09')}
                                     value={batchNumber}
                                     onChange={(e) => setBatchNumber(e.target.value)}
                                     className="w-full p-2.5 bg-surface-container-low rounded-xl text-xs text-on-surface border border-surface-container-high outline-none focus:border-primary"
@@ -725,7 +731,7 @@ export default function FacilityOperationsPage() {
                                     onClick={() => setIsStockModalOpen(false)}
                                     className="px-4 py-2.5 rounded-xl text-xs font-bold text-tertiary hover:bg-surface-container transition-all cursor-pointer"
                                 >
-                                    Cancel
+                                    {t('common.cancel', 'Cancel')}
                                 </button>
 
                                 <button
@@ -744,12 +750,8 @@ export default function FacilityOperationsPage() {
                                     </span>
                                     <span>
                                         {updatingStock
-                                            ? 'Saving Inventory...'
-                                            : stockAction === 'REDUCE'
-                                            ? `Confirm Deduct (-${unitsValue} ${selectedMed.unit})`
-                                            : stockAction === 'SET'
-                                            ? `Set Stock to ${unitsValue} ${selectedMed.unit}`
-                                            : `Confirm Add (+${unitsValue} ${selectedMed.unit})`}
+                                            ? t('facility.updating', 'Saving Inventory...')
+                                            : t('facility.confirmStockUpdate', 'Confirm Stock Update')}
                                     </span>
                                 </button>
                             </div>
