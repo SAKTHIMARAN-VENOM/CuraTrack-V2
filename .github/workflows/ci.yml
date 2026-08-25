@@ -34,6 +34,11 @@ jobs:
           python-version: ${{ matrix.python-version }}
           cache: 'pip'
 
+      - name: Install System Dependencies (Tesseract & OpenCV libs)
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y tesseract-ocr libgl1 libglib2.0-0 poppler-utils
+
       - name: Install Python Backend Dependencies
         run: |
           python -m pip install --upgrade pip
@@ -43,7 +48,7 @@ jobs:
 
       - name: Run Backend Pytest Suite with Coverage Enforcement
         run: |
-          PYTHONPATH=.:backend pytest tests/ -v --cov=backend --cov-report=term-missing
+          PYTHONPATH=.:backend:backend/services:backend/routes pytest tests/ -v --cov=backend --cov-report=term-missing
 
   # ============================================================================
   # 2. Website Frontend Automated Test Suite & Production Build
