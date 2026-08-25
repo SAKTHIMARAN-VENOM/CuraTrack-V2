@@ -303,7 +303,7 @@ export default function Dashboard() {
                 <HeartRateChart data={chartData} />
             </div>
 
-            {/* AI Health Insights - Moved Below Graph */}
+            {/* Health Tips - Moved Below Graph */}
             <div className="bg-surface-container-lowest rounded-3xl p-8 shadow-sm">
                 <div className="flex justify-between items-center mb-6">
                     <div className="flex items-center gap-3">
@@ -311,7 +311,7 @@ export default function Dashboard() {
                             <span className="material-symbols-outlined text-primary" style={{ fontVariationSettings: "'FILL' 1" }}>auto_awesome</span>
                         </div>
                         <div>
-                            <h3 className="text-xl font-extrabold text-on-surface">AI Health Insights</h3>
+                            <h3 className="text-xl font-extrabold text-on-surface">Health Tips</h3>
                             <p className="text-[10px] text-tertiary font-bold uppercase tracking-widest">Powered by Llama 3.1</p>
                         </div>
                     </div>
