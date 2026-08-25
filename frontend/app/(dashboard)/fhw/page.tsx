@@ -184,13 +184,7 @@ export default function FrontlineHealthWorkerPage() {
                             <span className="material-symbols-outlined text-lg">cloud_sync</span>
                             <span>Sync Surveys ({offlineSyncPending})</span>
                         </button>
-                        <Link
-                            href="/bluetooth/fhw"
-                            className="px-4 py-3 bg-white/10 hover:bg-white/20 text-white font-bold text-xs rounded-2xl flex items-center gap-2 backdrop-blur transition-all border border-white/20"
-                        >
-                            <span className="material-symbols-outlined text-lg">bluetooth_searching</span>
-                            <span>Bluetooth Offline Care Hub</span>
-                        </Link>
+
                         <button
                             onClick={() => setIsRegisterOpen(true)}
                             className="px-5 py-3 bg-white text-primary hover:bg-slate-50 font-black text-xs rounded-2xl shadow-lg flex items-center gap-2 transition-transform active:scale-95 cursor-pointer"

@@ -173,7 +173,7 @@ curatrack/
 │   │   │   ├── telemedicine/       # WebRTC Video Consult Launcher
 │   │   │   ├── records/            # OCR Medical Document Archive
 │   │   │   ├── benefits/           # PM-JAY & Ayushman Bharat Scheme Ingestion
-│   │   │   └── bluetooth/          # Zero-Internet BLE Offline Handshake
+
 │   │   ├── doctor/                 # Medical Officer OPD Queue & Schedule
 │   │   ├── admin/                  # District Administrator Portal & Verification
 │   │   ├── call/[roomId]/          # WebRTC P2P Video Call Interface
@@ -287,7 +287,7 @@ tests/test_facility_and_rbac.py .....                                   [ 42%]
 tests/test_fhw.py ....                                                  [ 52%]
 tests/test_frontend_mobile_build.py ...                                 [ 60%]
 tests/test_mobile_backend_contract.py ......                            [ 72%]
-tests/test_offline_ble.py ..                                            [ 77%]
+
 tests/test_passport_security.py ...                                     [ 85%]
 tests/test_triage_and_referrals.py ......                               [100%]
 

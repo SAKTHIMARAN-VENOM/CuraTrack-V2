@@ -179,13 +179,7 @@ export default function Dashboard() {
                     </div>
                 </div>
                 <div className="flex gap-3">
-                    <button 
-                        onClick={() => router.push('/bluetooth')}
-                        className="px-6 py-3 bg-gradient-to-br from-cyan-600 to-teal-500 text-white font-bold rounded-2xl shadow-md hover:opacity-90 transition-all flex items-center gap-2"
-                    >
-                        <span className="material-symbols-outlined !text-lg">bluetooth</span>
-                        Offline Care
-                    </button>
+
                     <button 
                         onClick={() => setShowPassportModal(true)}
                         className="px-6 py-3 bg-gradient-to-br from-secondary to-secondary/80 text-white font-bold rounded-2xl shadow-md hover:opacity-90 transition-all flex items-center gap-2"
@@ -409,15 +403,6 @@ export default function Dashboard() {
                         </div>
                     </button>
 
-                    <button onClick={() => router.push('/bluetooth/patient')} className="group p-5 bg-white rounded-2xl shadow-sm hover:shadow-md transition-all flex flex-col gap-3 text-left border border-surface-container-high hover:border-blue-600">
-                        <div className="h-10 w-10 bg-blue-500/10 rounded-xl flex items-center justify-center text-blue-700 group-hover:scale-105 transition-transform">
-                            <span className="material-symbols-outlined text-xl">bluetooth</span>
-                        </div>
-                        <div>
-                            <p className="font-bold text-sm text-on-surface">Offline BLE Transfer</p>
-                            <p className="text-xs text-tertiary">Zero-internet doctor handshake</p>
-                        </div>
-                    </button>
                 </div>
             </div>
 

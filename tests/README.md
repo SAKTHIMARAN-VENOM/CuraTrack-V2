@@ -25,7 +25,7 @@ pytest tests/ -v
 | **`test_backend_core.py`** | Tests root health checks, seasonal outbreak calendar, SDOH scoring calculations, and government scheme eligibility rules. |
 | **`test_passport_security.py`** | Tests encrypted Patient Passport QR generation, valid/invalid scope verification, JWT expiry, and strict one-time access policies. |
 | **`test_drug_and_vitals.py`** | Tests real-time vitals emergency threshold scoring (Hypoxemia, Hypertensive Crisis, Tachycardia) and OpenFDA drug interaction checker. |
-| **`test_offline_ble.py`** | Tests offline Bluetooth Doctor Presence broadcasting, peer discovery, and pairing handshake request/response cycles. |
+
 | **`test_frontend_mobile_build.py`** | Validates structural integrity of critical routes for both Next.js Web Frontend and Mobile Web App, plus deployment configuration files (`render.yaml`). |
 
 ---

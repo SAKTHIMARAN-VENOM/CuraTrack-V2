@@ -14,7 +14,6 @@ const PATIENT_NAV_ITEMS = [
     { href: '/telemedicine', icon: 'video_chat', label: 'Consult Doctor' },
     { href: '/records', icon: 'folder_shared', label: 'My Medical Records' },
     { href: '/benefits', icon: 'account_balance_wallet', label: 'Gov Schemes & PMJAY' },
-    { href: '/bluetooth/patient', icon: 'bluetooth', label: 'Offline Data (BLE)' },
     { href: '/alerts', icon: 'notifications_active', label: 'Health Alerts' },
     { href: '/profile', icon: 'person', label: 'Medical ID & Passport' }
 ];
@@ -33,7 +32,6 @@ const FHW_NAV_ITEMS = [
     { href: '/triage', icon: 'medical_information', label: 'Community Triage' },
     { href: '/referrals', icon: 'alt_route', label: 'Village Referrals' },
     { href: '/telemedicine', icon: 'video_chat', label: 'Assisted Teleconsult' },
-    { href: '/bluetooth/fhw', icon: 'bluetooth', label: 'Offline Field Sync' },
     { href: '/alerts', icon: 'notifications_active', label: 'Outbreak Alerts' },
     { href: '/profile', icon: 'person', label: 'ASHA Profile' }
 ];
