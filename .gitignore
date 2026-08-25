@@ -1,4 +1,7 @@
 # Dependency directories
+package-lock.json
+frontend/package-lock.json
+mobile/package-lock.json
 node_modules/
 frontend/node_modules/
 mobile/node_modules/

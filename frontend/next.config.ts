@@ -4,6 +4,7 @@ const nextConfig: NextConfig = {
   typescript: {
     ignoreBuildErrors: true,
   },
+  transpilePackages: ['@splinetool/react-spline', '@splinetool/runtime'],
   turbopack: {},
   output: process.env.NEXT_EXPORT === 'true' ? 'export' : undefined,
   images: {

@@ -2,7 +2,12 @@
 
 import React from "react";
 import Link from "next/link";
-import Spline from "@splinetool/react-spline";
+import dynamic from "next/dynamic";
+
+const Spline = dynamic(() => import("@splinetool/react-spline"), {
+  ssr: false,
+  loading: () => <SplineFallback />,
+});
 
 // --- Sub-components ---
 
