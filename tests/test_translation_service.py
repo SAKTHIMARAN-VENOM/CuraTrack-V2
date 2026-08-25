@@ -2,15 +2,32 @@
 Unit tests for Sarvam AI Translation Service and API endpoints in CuraTrack-V2.
 """
 
+import os
+import sys
 import pytest
 from fastapi.testclient import TestClient
+
+# Ensure backend directory is in sys.path
+BACKEND_DIR = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "backend")
+if BACKEND_DIR not in sys.path:
+    sys.path.insert(0, BACKEND_DIR)
+
 from backend.main import app
-from services.sarvam_translation import (
-    translate_batch,
-    clear_translation_cache,
-    get_cache_size,
-    _TRANSLATION_CACHE
-)
+
+try:
+    from backend.services.sarvam_translation import (
+        translate_batch,
+        clear_translation_cache,
+        get_cache_size,
+        _TRANSLATION_CACHE
+    )
+except ImportError:
+    from services.sarvam_translation import (
+        translate_batch,
+        clear_translation_cache,
+        get_cache_size,
+        _TRANSLATION_CACHE
+    )
 
 client = TestClient(app)
 
