@@ -47,6 +47,14 @@ class ReferralStatusUpdateRequest(BaseModel):
     doctor_name: Optional[str] = None
 
 
+# ─── Registered Facility Registry ──────────────────────────────────────────
+_REFERRAL_FACILITIES = [
+    {"id": "FAC-001", "name": "Nandurbar Sub-District Hospital & CHC", "type": "Sub-District Hospital (SDH)", "district": "Nandurbar", "state": "Maharashtra", "beds_total": 50, "beds_available": 12, "icu_available": 2, "specialties": ["General Medicine", "Obstetrics & Gynecology", "Pediatrics", "Emergency & Trauma"]},
+    {"id": "FAC-002", "name": "Nandurbar District Civil Hospital", "type": "District Hospital (DH)", "district": "Nandurbar", "state": "Maharashtra", "beds_total": 200, "beds_available": 45, "icu_available": 8, "specialties": ["General Medicine", "Cardiology", "Neurology", "Obstetrics & Gynecology", "Pediatrics", "Trauma & Orthopedics"]},
+    {"id": "FAC-003", "name": "Shahada Community Health Centre", "type": "Community Health Centre (CHC)", "district": "Nandurbar", "state": "Maharashtra", "beds_total": 30, "beds_available": 8, "icu_available": 1, "specialties": ["General Medicine", "Pediatrics", "Obstetrics"]},
+    {"id": "FAC-004", "name": "Taloda Rural Hospital & CHC", "type": "Rural Hospital (RH)", "district": "Nandurbar", "state": "Maharashtra", "beds_total": 30, "beds_available": 10, "icu_available": 0, "specialties": ["General Medicine", "Community Health"]}
+]
+
 # ─── Default Registered Patient Registry ────────────────────────────────────
 _DEFAULT_PATIENTS = [
     {
