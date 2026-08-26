@@ -324,7 +324,7 @@ export default function FrontlineHealthWorkerPage() {
     }
 
     return (
-        <div className="space-y-6 max-w-7xl mx-auto pb-16">
+        <div className="flex-1 p-6 lg:p-10 max-w-7xl mx-auto w-full space-y-8 pb-16">
             {/* Clean Header */}
             <div className="flex flex-col md:flex-row md:items-center justify-between gap-5 pb-2">
                 <div>

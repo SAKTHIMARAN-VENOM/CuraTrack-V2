@@ -329,7 +329,7 @@ export default function DoctorReferralsPage() {
     };
 
     return (
-        <div className="space-y-8 max-w-7xl mx-auto pb-16">
+        <div className="flex-1 p-6 lg:p-10 max-w-7xl mx-auto w-full space-y-8 pb-16">
             {/* Clean Header */}
             <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-6 pb-2">
                 <div>

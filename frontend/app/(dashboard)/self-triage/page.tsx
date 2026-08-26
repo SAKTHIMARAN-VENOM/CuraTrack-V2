@@ -389,7 +389,7 @@ export default function PatientSelfTriagePage() {
   };
 
   return (
-    <div className="max-w-6xl mx-auto space-y-8 pb-20">
+    <div className="flex-1 p-6 lg:p-10 max-w-7xl mx-auto w-full space-y-8 pb-20">
       {/* Clean Header */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 pb-2">
         <div>

@@ -554,7 +554,7 @@ function DigitalTriageContent() {
   };
 
   return (
-    <div className="space-y-8 max-w-7xl mx-auto pb-16">
+    <div className="flex-1 p-6 lg:p-10 max-w-7xl mx-auto w-full space-y-8 pb-16">
       {/* ========================================================================= */}
       {/* WORKFLOW VIEW 1: PATIENT SELECTION LIST (When no patient is selected)    */}
       {/* ========================================================================= */}

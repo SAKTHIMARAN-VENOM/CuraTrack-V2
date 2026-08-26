@@ -1596,7 +1596,7 @@ export default function DoctorOPDPage() {
   }
 
   return (
-    <div suppressHydrationWarning className="flex-1 p-4 lg:p-8 max-w-7xl mx-auto w-full space-y-6 relative">
+    <div suppressHydrationWarning className="flex-1 p-6 lg:p-10 max-w-7xl mx-auto w-full space-y-8 relative pb-16">
       {/* Floating Incoming Teleconsultation Banner/Modal */}
       {incomingCall && (
         <div className="fixed top-6 right-6 z-50 max-w-md w-full bg-slate-900/95 backdrop-blur-xl border border-teal-500/40 p-6 rounded-3xl shadow-2xl text-white animate-bounce-short">

@@ -680,7 +680,7 @@ export default function TelemedicinePage() {
   }
 
   return (
-    <div className="flex-1 p-8 lg:p-10 max-w-7xl mx-auto w-full space-y-8">
+    <div className="flex-1 p-6 lg:p-10 max-w-7xl mx-auto w-full space-y-8 pb-16">
       <section className="relative overflow-hidden rounded-[2.5rem] bg-white border border-outline-variant/30 shadow-[0_8px_30px_rgb(0,0,0,0.04)] p-8 lg:p-12">
         <div className="absolute inset-0 pointer-events-none">
           <div className="absolute -top-24 -right-12 h-80 w-80 rounded-full bg-primary/5 blur-3xl" />

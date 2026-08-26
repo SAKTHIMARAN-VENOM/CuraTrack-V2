@@ -280,7 +280,7 @@ export default function BenefitsPage() {
     const bestGovScheme = govSchemes.length > 0 ? govSchemes[0] : null;
 
     return (
-        <div className="p-4 md:p-8 max-w-7xl mx-auto w-full font-sans antialiased text-on-surface">
+        <div className="flex-1 p-6 lg:p-10 max-w-7xl mx-auto w-full space-y-8 pb-16 font-sans antialiased text-on-surface">
             {/* Clean Header */}
             <section className="mb-8">
                 <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">

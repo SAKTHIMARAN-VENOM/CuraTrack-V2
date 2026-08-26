@@ -139,7 +139,7 @@ export default function AlertsPage() {
     const activeAlertsCount = (healthRisks ? healthRisks.length : 0) + (activityData && activityData.steps < activityData.goal && activityData.steps > 0 ? 1 : 0);
 
     return (
-        <div className="p-8 max-w-7xl mx-auto w-full space-y-8">
+        <div className="flex-1 p-6 lg:p-10 max-w-7xl mx-auto w-full space-y-8 pb-16">
             {isOffline && (
                 <div className="bg-amber-500/10 border border-amber-500/30 text-amber-900 px-4 py-3 rounded-2xl flex items-center gap-3 text-xs font-bold shadow-sm">
                     <span className="material-symbols-outlined text-amber-600">wifi_off</span>
