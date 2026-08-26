@@ -169,7 +169,7 @@ export default function Dashboard() {
                 </div>
             )}
             {/* Hero Header */}
-            <div className="flex justify-between items-end">
+            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
                 <div className="flex items-center gap-4">
                     <div>
                         <h2 className="text-3xl font-extrabold tracking-tight text-on-surface">
@@ -203,17 +203,17 @@ export default function Dashboard() {
                         </div>
                     </div>
                 </div>
-                <div className="flex flex-wrap gap-3">
+                <div className="flex flex-row items-center gap-3 shrink-0">
                     <button 
                         onClick={() => router.push('/self-triage')}
-                        className="px-6 py-3 bg-gradient-to-r from-red-600 to-rose-600 text-white font-bold rounded-2xl shadow-md hover:opacity-95 hover:shadow-lg transition-all flex items-center gap-2 cursor-pointer"
+                        className="px-5 py-3 bg-gradient-to-r from-red-600 to-rose-600 text-white font-bold rounded-2xl shadow-md hover:opacity-95 hover:shadow-lg transition-all flex items-center gap-2 cursor-pointer whitespace-nowrap"
                     >
                         <span className="material-symbols-outlined !text-lg animate-pulse">emergency</span>
                         {t('dashboard.emergencyTriage', 'Emergency Self-Triage')}
                     </button>
                     <button 
                         onClick={() => setShowPassportModal(true)}
-                        className="px-6 py-3 bg-gradient-to-br from-secondary to-secondary/80 text-white font-bold rounded-2xl shadow-md hover:opacity-90 transition-all flex items-center gap-2 cursor-pointer"
+                        className="px-5 py-3 bg-gradient-to-br from-secondary to-secondary/80 text-white font-bold rounded-2xl shadow-md hover:opacity-90 transition-all flex items-center gap-2 cursor-pointer whitespace-nowrap"
                     >
                         <span className="material-symbols-outlined !text-lg">qr_code_2</span>
                         {t('nav.profile', 'Medical ID & Passport')}
