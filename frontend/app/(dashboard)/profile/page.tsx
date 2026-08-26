@@ -235,10 +235,6 @@ export default function ProfilePage() {
         }
     }, [user, userName]);
 
-    useEffect(() => {
-        fetchQR();
-    }, [fetchQR]);
-
     // FACILITY MANAGER PROFILE VIEW
     if (currentRole === 'facility_manager') {
         return (
