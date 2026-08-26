@@ -8,14 +8,19 @@ export const API_BASE = typeof window !== 'undefined'
   ? (process.env.NEXT_PUBLIC_FASTAPI_URL || `${window.location.protocol}//${window.location.hostname}:8000`)
   : (process.env.NEXT_PUBLIC_FASTAPI_URL || 'http://localhost:8000');
 
+export interface ApiFetchOptions extends RequestInit {
+  throwOnError?: boolean;
+}
+
 /**
  * Authenticated fetch wrapper that auto-attaches the Supabase session token
  * as a Bearer token in the Authorization header.
  */
 export async function apiFetch<T = any>(
   endpoint: string,
-  options: RequestInit = {}
+  options: ApiFetchOptions = {}
 ): Promise<T> {
+  const { throwOnError = false, ...fetchOptions } = options;
   let session = null;
   try {
     const supabase = createClient();
@@ -25,7 +30,7 @@ export async function apiFetch<T = any>(
 
   const headers: Record<string, string> = {
     'Content-Type': 'application/json',
-    ...(options.headers as Record<string, string> || {}),
+    ...(fetchOptions.headers as Record<string, string> || {}),
   };
 
   if (session?.access_token) {
@@ -40,7 +45,7 @@ export async function apiFetch<T = any>(
   let res: Response;
   try {
     res = await fetch(targetUrl, {
-      ...options,
+      ...fetchOptions,
       headers,
     });
   } catch (err: any) {
@@ -49,13 +54,21 @@ export async function apiFetch<T = any>(
       ? `Backend API server unavailable at ${API_BASE}. Please verify that the FastAPI backend is running.`
       : `Network error reaching ${targetUrl}: ${err?.message || 'Unknown network error'}`;
     console.warn(`[apiFetch Connection Warning]`, msg);
-    throw new Error(msg);
+    if (throwOnError) {
+      throw new Error(msg);
+    }
+    return null as unknown as T;
   }
 
   if (!res.ok) {
     const errorBody = await res.text().catch(() => '');
-    throw new Error(`API error ${res.status}: ${res.statusText} - ${errorBody}`);
+    const msg = `API error ${res.status}: ${res.statusText} - ${errorBody}`;
+    console.warn(`[apiFetch HTTP Error]`, msg);
+    if (throwOnError) {
+      throw new Error(msg);
+    }
+    return null as unknown as T;
   }
 
-  return res.json();
+  return res.json().catch(() => (null as unknown as T));
 }
