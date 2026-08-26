@@ -1,3 +1,5 @@
+import os
+import json
 import time
 import random
 import logging
@@ -270,7 +272,10 @@ _DEFAULT_DOCTORS = [
 ]
 
 
-# ─── Fallback Seed Data (Used only if Supabase table is unreachable) ────────
+# ─── Fallback Seed Data & Durable Storage ─────────────────────────────────────
+REFERRALS_DATA_DIR = os.path.join(os.path.dirname(__file__), "..", "data")
+REFERRALS_STORAGE_FILE = os.path.join(REFERRALS_DATA_DIR, "referrals_storage.json")
+
 _FALLBACK_REFERRALS = [
     {
         "id": "REF-8841",
@@ -391,6 +396,38 @@ _FALLBACK_REFERRALS = [
 ]
 
 
+def _load_stored_referrals() -> list[dict]:
+    """Loads all referrals from persistent disk storage, initializing with seed data if not yet created."""
+    os.makedirs(REFERRALS_DATA_DIR, exist_ok=True)
+    if os.path.exists(REFERRALS_STORAGE_FILE):
+        try:
+            with open(REFERRALS_STORAGE_FILE, "r", encoding="utf-8") as f:
+                data = json.load(f)
+                if isinstance(data, list) and len(data) > 0:
+                    return data
+        except Exception as e:
+            logger.error(f"Error reading referrals storage file: {e}")
+
+    # Initialize with default seed referrals
+    _save_stored_referrals(_FALLBACK_REFERRALS)
+    return list(_FALLBACK_REFERRALS)
+
+
+def _save_stored_referrals(referrals: list[dict]):
+    """Saves referrals atomically to disk to ensure permanence across sessions and server restarts."""
+    os.makedirs(REFERRALS_DATA_DIR, exist_ok=True)
+    try:
+        tmp_file = REFERRALS_STORAGE_FILE + ".tmp"
+        with open(tmp_file, "w", encoding="utf-8") as f:
+            json.dump(referrals, f, indent=2, ensure_ascii=False)
+        if os.path.exists(REFERRALS_STORAGE_FILE):
+            os.replace(tmp_file, REFERRALS_STORAGE_FILE)
+        else:
+            os.rename(tmp_file, REFERRALS_STORAGE_FILE)
+    except Exception as e:
+        logger.error(f"Error persisting referrals storage file: {e}")
+
+
 def _auto_check_and_escalate_overdue(referrals: list) -> list:
     """
     Automated Referral SLA Escalation:
@@ -482,12 +519,15 @@ def get_referrals(
                 query = query.ilike("specialty", f"%{specialty}%")
             
             res = query.order("created_at", desc=True).execute()
-            referrals_data = res.data if res.data is not None else []
+            if res.data and len(res.data) > 0:
+                referrals_data = res.data
+            else:
+                referrals_data = _load_stored_referrals()
         except Exception as e:
-            logger.error(f"Failed to fetch referrals from Supabase: {e}")
-            referrals_data = _FALLBACK_REFERRALS
+            logger.warning(f"Supabase query failed ({e}), loading from permanent storage.")
+            referrals_data = _load_stored_referrals()
     else:
-        referrals_data = _FALLBACK_REFERRALS
+        referrals_data = _load_stored_referrals()
 
     # Run automated SLA check on active emergency referrals
     referrals_data = _auto_check_and_escalate_overdue(referrals_data)
@@ -673,10 +713,11 @@ def get_referral_by_id(
             if res and res.data:
                 target_ref = res.data
         except Exception as e:
-            logger.error(f"Supabase lookup error for {referral_id}: {e}")
+            logger.warning(f"Supabase lookup warning for {referral_id}: {e}")
 
     if not target_ref:
-        for r in _FALLBACK_REFERRALS:
+        stored = _load_stored_referrals()
+        for r in stored:
             if r["id"] == referral_id or r.get("referral_token") == referral_id:
                 target_ref = r
                 break
@@ -713,7 +754,7 @@ def get_referral_by_id(
 @router.post("/referrals/create")
 def create_referral(req: ReferralCreateRequest):
     """
-    Create a new inter-facility referral pass and persist to Supabase with RBAC enforcement:
+    Create a new inter-facility referral pass and persist to Supabase & disk with RBAC enforcement:
     - Patients cannot create clinical referrals (403 Forbidden).
     - ASHA frontline health workers ('fhw', 'asha') can ONLY refer patients upwards to Medical Officers / Doctors.
     - Doctors ('doctor') can refer patients to peer Doctors / Specialists across secondary/tertiary facilities.
@@ -786,16 +827,20 @@ def create_referral(req: ReferralCreateRequest):
         ]
     }
 
+    # 1. Persist permanently to durable disk storage
+    stored = _load_stored_referrals()
+    stored = [r for r in stored if r.get("id") != referral_id]
+    stored.insert(0, new_record)
+    _save_stored_referrals(stored)
+
+    # 2. Attempt Supabase Table Insert
     sb = get_supabase_client()
     if sb:
         try:
             sb.table("referrals").insert(new_record).execute()
             logger.info(f"Referral {referral_id} persisted to Supabase successfully.")
         except Exception as e:
-            logger.error(f"Failed to insert referral into Supabase: {e}")
-            _FALLBACK_REFERRALS.insert(0, new_record)
-    else:
-        _FALLBACK_REFERRALS.insert(0, new_record)
+            logger.info(f"Referral {referral_id} saved to permanent disk storage (Supabase table not active): {e}")
 
     return {
         "status": "success",
@@ -825,20 +870,22 @@ def update_referral_status(referral_id: str, req: ReferralStatusUpdateRequest):
     sb = get_supabase_client()
     now_iso = datetime.now(timezone.utc).isoformat()
     
+    stored = _load_stored_referrals()
     existing = None
+    existing_idx = -1
+    for idx, r in enumerate(stored):
+        if r.get("id") == referral_id or r.get("referral_token") == referral_id:
+            existing = r
+            existing_idx = idx
+            break
+
     if sb:
         try:
             res = sb.table("referrals").select("*").or_(f"id.eq.{referral_id},referral_token.eq.{referral_id}").maybe_single().execute()
             if res and res.data:
                 existing = res.data
         except Exception as ex:
-            logger.error(f"Error fetching referral {referral_id} for update: {ex}")
-
-    if not existing:
-        for r in _FALLBACK_REFERRALS:
-            if r["id"] == referral_id or r.get("referral_token") == referral_id:
-                existing = r
-                break
+            logger.info(f"Supabase referral lookup: {ex}")
 
     if not existing:
         raise HTTPException(status_code=404, detail=f"Referral {referral_id} not found.")
@@ -897,13 +944,21 @@ def update_referral_status(referral_id: str, req: ReferralStatusUpdateRequest):
         update_payload["escalated_at"] = now_iso
         update_payload["escalation_reason"] = req.notes or "Escalated due to SLA breach"
 
+    existing.update(update_payload)
+
+    # Persist updated referral to disk storage
+    if existing_idx >= 0:
+        stored[existing_idx] = existing
+    else:
+        stored.insert(0, existing)
+    _save_stored_referrals(stored)
+
+    # Attempt Supabase update
     if sb:
         try:
             sb.table("referrals").update(update_payload).or_(f"id.eq.{referral_id},referral_token.eq.{referral_id}").execute()
         except Exception as e:
-            logger.error(f"Failed to update referral in Supabase: {e}")
-
-    existing.update(update_payload)
+            logger.info(f"Supabase update: {e}")
 
     return {
         "status": "success",

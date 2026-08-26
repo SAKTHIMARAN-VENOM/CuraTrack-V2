@@ -1,0 +1,424 @@
+[
+  {
+    "id": "REF-7700",
+    "referral_token": "REF-7700",
+    "patient_id": "p-101",
+    "patient_name": "Rameshwar Patel",
+    "patient_age": 54,
+    "patient_gender": "Male",
+    "abha_id": "91-1153-7199-8040",
+    "referring_doctor_name": "Sunita Tai (ASHA)",
+    "referring_role": "fhw",
+    "referring_facility_type": "Sub-Centre",
+    "referring_facility_name": "Sub-Centre Borvihir",
+    "destination_doctor_id": "doc-david-ross",
+    "destination_doctor_name": "Dr. David Ross",
+    "destination_role": "doctor",
+    "destination_facility_type": "Primary Health Centre (PHC)",
+    "destination_facility_name": "PHC Nandurbar Rural",
+    "specialty": "General Medicine",
+    "urgency": "URGENT",
+    "clinical_reason": "Severe fever and cough",
+    "provisional_diagnosis": "Acute Bronchitis",
+    "vitals_summary": "BP 130/84, HR 78, SpO2 98%",
+    "status": "CREATED",
+    "created_at": "2026-08-26T09:35:36.950677+00:00",
+    "updated_at": "2026-08-26T09:35:36.950677+00:00",
+    "timeline": [
+      {
+        "status": "CREATED",
+        "timestamp": "2026-08-26T09:35:36.950677+00:00",
+        "actor": "Sunita Tai (ASHA) (FHW)",
+        "notes": "Referral created for Rameshwar Patel -> Transferred to Dr. David Ross at PHC Nandurbar Rural. Urgency: URGENT."
+      }
+    ]
+  },
+  {
+    "id": "REF-7390",
+    "referral_token": "REF-7390",
+    "patient_id": "p-204",
+    "patient_name": "Sunita Devi (Dr Priya Patient)",
+    "patient_age": 27,
+    "patient_gender": "Female",
+    "abha_id": "91-3096-2158-2886",
+    "referring_doctor_name": "Rekha ANM",
+    "referring_role": "fhw",
+    "referring_facility_type": "Sub-Centre",
+    "referring_facility_name": "Sub-Centre Dhanora",
+    "destination_doctor_id": "doc-priya-nair",
+    "destination_doctor_name": "Dr. Priya Nair",
+    "destination_role": "doctor",
+    "destination_facility_type": "Community Health Centre (CHC)",
+    "destination_facility_name": "CHC Shahada Block",
+    "specialty": "Obstetrics & Gynecology",
+    "urgency": "EMERGENCY",
+    "clinical_reason": "Eclampsia risk",
+    "provisional_diagnosis": "Severe Preeclampsia",
+    "vitals_summary": "BP 130/84, HR 78, SpO2 98%",
+    "status": "CREATED",
+    "created_at": "2026-08-26T09:33:46.554487+00:00",
+    "updated_at": "2026-08-26T09:33:46.554487+00:00",
+    "timeline": [
+      {
+        "status": "CREATED",
+        "timestamp": "2026-08-26T09:33:46.554487+00:00",
+        "actor": "Rekha ANM (FHW)",
+        "notes": "Referral created for Sunita Devi (Dr Priya Patient) -> Transferred to Dr. Priya Nair at CHC Shahada Block. Urgency: EMERGENCY."
+      }
+    ]
+  },
+  {
+    "id": "REF-4479",
+    "referral_token": "REF-4479",
+    "patient_id": "p-101",
+    "patient_name": "Rameshwar Patel (Dr Ross Patient)",
+    "patient_age": 54,
+    "patient_gender": "Male",
+    "abha_id": "91-1875-1501-8609",
+    "referring_doctor_name": "Sunita Tai (ASHA)",
+    "referring_role": "fhw",
+    "referring_facility_type": "Sub-Centre",
+    "referring_facility_name": "Sub-Centre Borvihir",
+    "destination_doctor_id": "doc-david-ross",
+    "destination_doctor_name": "Dr. David Ross",
+    "destination_role": "doctor",
+    "destination_facility_type": "Primary Health Centre (PHC)",
+    "destination_facility_name": "PHC Nandurbar Rural",
+    "specialty": "General Medicine",
+    "urgency": "URGENT",
+    "clinical_reason": "Severe exertional chest pain",
+    "provisional_diagnosis": "Unstable Angina",
+    "vitals_summary": "BP 130/84, HR 78, SpO2 98%",
+    "status": "ACCEPTED",
+    "created_at": "2026-08-26T09:33:46.366635+00:00",
+    "updated_at": "2026-08-26T09:33:47.450633+00:00",
+    "timeline": [
+      {
+        "status": "CREATED",
+        "timestamp": "2026-08-26T09:33:46.366635+00:00",
+        "actor": "Sunita Tai (ASHA) (FHW)",
+        "notes": "Referral created for Rameshwar Patel (Dr Ross Patient) -> Transferred to Dr. David Ross at PHC Nandurbar Rural. Urgency: URGENT."
+      },
+      {
+        "status": "ACCEPTED",
+        "timestamp": "2026-08-26T09:33:47.450633+00:00",
+        "actor": "Receiving Officer",
+        "notes": "Accepted into Nandurbar PHC OPD queue"
+      }
+    ],
+    "accepted_at": "2026-08-26T09:33:47.450633+00:00"
+  },
+  {
+    "id": "REF-8098",
+    "referral_token": "REF-8098",
+    "patient_id": "p-101",
+    "patient_name": "Rameshwar Patel",
+    "patient_age": 54,
+    "patient_gender": "Male",
+    "abha_id": "91-7184-9295-4812",
+    "referring_doctor_name": "Dr. David Ross",
+    "referring_role": "doctor",
+    "referring_facility_type": "Primary Health Centre (PHC)",
+    "referring_facility_name": "PHC Nandurbar Rural",
+    "destination_doctor_id": "doc-vk-deshmukh",
+    "destination_doctor_name": "Dr. V. K. Deshmukh",
+    "destination_role": "doctor",
+    "destination_facility_type": "District Hospital",
+    "destination_facility_name": "Nandurbar District Civil Hospital",
+    "specialty": "Cardiology",
+    "urgency": "URGENT",
+    "clinical_reason": "Ischemic ECG changes with persistent angina",
+    "provisional_diagnosis": "Coronary Artery Disease",
+    "vitals_summary": "BP 130/84, HR 78, SpO2 98%",
+    "status": "CREATED",
+    "created_at": "2026-08-26T09:33:46.170538+00:00",
+    "updated_at": "2026-08-26T09:33:46.170538+00:00",
+    "timeline": [
+      {
+        "status": "CREATED",
+        "timestamp": "2026-08-26T09:33:46.170538+00:00",
+        "actor": "Dr. David Ross (DOCTOR)",
+        "notes": "Referral created for Rameshwar Patel -> Transferred to Dr. V. K. Deshmukh at Nandurbar District Civil Hospital. Urgency: URGENT."
+      }
+    ]
+  },
+  {
+    "id": "REF-8187",
+    "referral_token": "REF-8187",
+    "patient_id": "p-204",
+    "patient_name": "Sunita Devi",
+    "patient_age": 27,
+    "patient_gender": "Female",
+    "abha_id": "91-6594-1541-2974",
+    "referring_doctor_name": "Sunita Tai (ASHA)",
+    "referring_role": "fhw",
+    "referring_facility_type": "Ayushman Arogya Mandir (Sub-Centre)",
+    "referring_facility_name": "Sub-Centre Borvihir",
+    "destination_doctor_id": "doc-ananya-sharma",
+    "destination_doctor_name": "Dr. Ananya Sharma (MO)",
+    "destination_role": "doctor",
+    "destination_facility_type": "Primary Health Centre (PHC)",
+    "destination_facility_name": "PHC Nandurbar Rural",
+    "specialty": "Obstetrics & Maternal Care",
+    "urgency": "EMERGENCY",
+    "clinical_reason": "Gestational hypertension with pedal edema",
+    "provisional_diagnosis": "Preeclampsia risk",
+    "vitals_summary": "BP 130/84, HR 78, SpO2 98%",
+    "status": "CREATED",
+    "created_at": "2026-08-26T09:33:45.994591+00:00",
+    "updated_at": "2026-08-26T09:33:45.994591+00:00",
+    "timeline": [
+      {
+        "status": "CREATED",
+        "timestamp": "2026-08-26T09:33:45.994591+00:00",
+        "actor": "Sunita Tai (ASHA) (FHW)",
+        "notes": "Referral created for Sunita Devi -> Transferred to Dr. Ananya Sharma (MO) at PHC Nandurbar Rural. Urgency: EMERGENCY."
+      }
+    ]
+  },
+  {
+    "id": "REF-7563",
+    "referral_token": "REF-7563",
+    "patient_id": "test-lifecycle-patient",
+    "patient_name": "Meena Kumari",
+    "patient_age": 28,
+    "patient_gender": "Female",
+    "abha_id": "91-5514-1475-9718",
+    "referring_doctor_name": "Dr. Primary Doctor",
+    "referring_role": "doctor",
+    "referring_facility_type": "PHC",
+    "referring_facility_name": "PHC North",
+    "destination_doctor_id": null,
+    "destination_doctor_name": "Receiving Medical Officer",
+    "destination_role": "doctor",
+    "destination_facility_type": "District Hospital",
+    "destination_facility_name": "District Hospital Central",
+    "specialty": "OBGYN",
+    "urgency": "EMERGENCY",
+    "clinical_reason": "High-risk pregnancy delivery evaluation",
+    "provisional_diagnosis": "Preeclampsia",
+    "vitals_summary": "BP 130/84, HR 78, SpO2 98%",
+    "status": "COMPLETED",
+    "created_at": "2026-08-26T09:33:43.847258+00:00",
+    "updated_at": "2026-08-26T09:33:44.773877+00:00",
+    "timeline": [
+      {
+        "status": "CREATED",
+        "timestamp": "2026-08-26T09:33:43.847258+00:00",
+        "actor": "Dr. Primary Doctor (DOCTOR)",
+        "notes": "Referral created for Meena Kumari -> Transferred to Receiving Medical Officer at District Hospital Central. Urgency: EMERGENCY."
+      },
+      {
+        "status": "ACCEPTED",
+        "timestamp": "2026-08-26T09:33:44.030992+00:00",
+        "actor": "Receiving Officer",
+        "notes": "Bed reserved"
+      },
+      {
+        "status": "IN_TRANSIT",
+        "timestamp": "2026-08-26T09:33:44.397463+00:00",
+        "actor": "Receiving Officer",
+        "notes": "108 ambulance dispatched"
+      },
+      {
+        "status": "COMPLETED",
+        "timestamp": "2026-08-26T09:33:44.773877+00:00",
+        "actor": "Receiving Officer",
+        "notes": "Consultation done"
+      }
+    ],
+    "accepted_at": "2026-08-26T09:33:44.030992+00:00",
+    "in_transit_at": "2026-08-26T09:33:44.397463+00:00",
+    "completed_at": "2026-08-26T09:33:44.773877+00:00"
+  },
+  {
+    "id": "REF-4233",
+    "referral_token": "REF-4233",
+    "patient_id": "test-patient-ref",
+    "patient_name": "Kailash Chand",
+    "patient_age": 52,
+    "patient_gender": "Male",
+    "abha_id": "91-6940-2711-3917",
+    "referring_doctor_name": "Dr. Medical Officer",
+    "referring_role": "doctor",
+    "referring_facility_type": "Primary Health Centre (PHC)",
+    "referring_facility_name": "PHC Nandurbar Rural",
+    "destination_doctor_id": null,
+    "destination_doctor_name": "Receiving Medical Officer",
+    "destination_role": "doctor",
+    "destination_facility_type": "District Hospital",
+    "destination_facility_name": "Nandurbar Civil Hospital",
+    "specialty": "Cardiology",
+    "urgency": "URGENT",
+    "clinical_reason": "Borderline ischemic ECG changes on exertion",
+    "provisional_diagnosis": "Suspected Angina",
+    "vitals_summary": "BP: 140/90, HR: 80, SpO2: 97%",
+    "status": "CREATED",
+    "created_at": "2026-08-26T09:33:42.255105+00:00",
+    "updated_at": "2026-08-26T09:33:42.255105+00:00",
+    "timeline": [
+      {
+        "status": "CREATED",
+        "timestamp": "2026-08-26T09:33:42.255105+00:00",
+        "actor": "Dr. Medical Officer (DOCTOR)",
+        "notes": "Referral created for Kailash Chand -> Transferred to Receiving Medical Officer at Nandurbar Civil Hospital. Urgency: URGENT."
+      }
+    ]
+  },
+  {
+    "id": "REF-8841",
+    "referral_token": "REF-8841",
+    "patient_id": "p-101",
+    "patient_name": "Rameshwar Patel",
+    "patient_age": 54,
+    "patient_gender": "Male",
+    "abha_id": "91-4402-8812-9901",
+    "referring_doctor_name": "Dr. Ananya Sharma (MO)",
+    "referring_role": "doctor",
+    "referring_facility_type": "Primary Health Centre (PHC)",
+    "referring_facility_name": "PHC Nandurbar Rural",
+    "destination_doctor_id": "doc-vk-deshmukh",
+    "destination_doctor_name": "Dr. V. K. Deshmukh",
+    "destination_role": "doctor",
+    "destination_facility_type": "District Hospital",
+    "destination_facility_name": "Nandurbar District Civil Hospital",
+    "specialty": "Cardiology",
+    "urgency": "URGENT",
+    "clinical_reason": "Persistent retrosternal discomfort on exertion with borderline ST depression on 12-lead ECG.",
+    "provisional_diagnosis": "Suspected Unstable Angina / Ischemic Heart Disease",
+    "vitals_summary": "BP: 148/92 mmHg, HR: 86 bpm, SpO2: 96%, Fasting Glucose: 164 mg/dL",
+    "status": "ACCEPTED",
+    "created_at": "2026-08-21T09:30:00Z",
+    "timeline": [
+      {
+        "status": "CREATED",
+        "timestamp": "2026-08-21T09:30:00Z",
+        "actor": "Dr. Ananya Sharma (PHC Nandurbar)",
+        "notes": "Referral created after primary ECG evaluation."
+      },
+      {
+        "status": "ACCEPTED",
+        "timestamp": "2026-08-21T11:15:00Z",
+        "actor": "Dr. V. K. Deshmukh (Civil Hospital)",
+        "notes": "Referral accepted. Cardiology OPD slot reserved."
+      }
+    ]
+  },
+  {
+    "id": "REF-7204",
+    "referral_token": "REF-7204",
+    "patient_id": "p-204",
+    "patient_name": "Sunita Devi",
+    "patient_age": 27,
+    "patient_gender": "Female",
+    "abha_id": "91-1029-4471-3382",
+    "referring_doctor_name": "Sunita Tai (ASHA)",
+    "referring_role": "fhw",
+    "referring_facility_type": "Ayushman Arogya Mandir (Sub-Centre)",
+    "referring_facility_name": "Sub-Centre Borvihir",
+    "destination_doctor_id": "doc-priya-nair",
+    "destination_doctor_name": "Dr. Priya Nair",
+    "destination_role": "doctor",
+    "destination_facility_type": "Community Health Centre (CHC)",
+    "destination_facility_name": "CHC Shahada Block",
+    "specialty": "Obstetrics & Gynecology",
+    "urgency": "EMERGENCY",
+    "clinical_reason": "High-Risk Pregnancy (34 weeks) with severe gestational hypertension (160/105 mmHg) and pedal edema.",
+    "provisional_diagnosis": "Severe Preeclampsia / High Risk ANC",
+    "vitals_summary": "BP: 160/105 mmHg, Urine Albumin: 2+, FHR: 142 bpm",
+    "status": "IN_TRANSIT",
+    "created_at": "2026-08-23T06:45:00Z",
+    "timeline": [
+      {
+        "status": "CREATED",
+        "timestamp": "2026-08-23T06:45:00Z",
+        "actor": "Sunita Tai (ASHA)",
+        "notes": "Danger signs detected during ANC-3 visit. Escalated to Medical Officer."
+      },
+      {
+        "status": "ACCEPTED",
+        "timestamp": "2026-08-23T07:05:00Z",
+        "actor": "Dr. Priya Nair (CHC Shahada)",
+        "notes": "Emergency bed allocated in Maternity Ward."
+      },
+      {
+        "status": "IN_TRANSIT",
+        "timestamp": "2026-08-23T07:30:00Z",
+        "actor": "108 Ambulance Dispatch #MH-18-402",
+        "notes": "Patient picked up with ASHA escort."
+      }
+    ]
+  },
+  {
+    "id": "REF-5190",
+    "referral_token": "REF-5190",
+    "patient_id": "p-309",
+    "patient_name": "Bhikaji Shinde",
+    "patient_age": 62,
+    "patient_gender": "Male",
+    "abha_id": "91-7782-9012-4411",
+    "referring_doctor_name": "Dr. Pradeep Roy (MO)",
+    "referring_role": "doctor",
+    "referring_facility_type": "Community Health Centre (CHC)",
+    "referring_facility_name": "CHC Shahada Block",
+    "destination_doctor_id": "doc-elena-rostova",
+    "destination_doctor_name": "Dr. Elena Rostova",
+    "destination_role": "doctor",
+    "destination_facility_type": "Medical College & Tertiary Hospital",
+    "destination_facility_name": "Dhule Government Medical College & Hospital",
+    "specialty": "Pulmonology & Infectious Diseases",
+    "urgency": "URGENT",
+    "clinical_reason": "Chronic productive cough > 4 weeks with hemoptysis and unresolving consolidative opacities on chest X-ray.",
+    "provisional_diagnosis": "Multi-Drug Resistant Tuberculosis (MDR-TB) Evaluation",
+    "vitals_summary": "BP: 110/72 mmHg, Temp: 38.4°C, SpO2: 93%",
+    "status": "CREATED",
+    "created_at": "2026-08-24T14:10:00Z",
+    "timeline": [
+      {
+        "status": "CREATED",
+        "timestamp": "2026-08-24T14:10:00Z",
+        "actor": "Dr. Pradeep Roy (CHC Shahada)",
+        "notes": "Referred for CBNAAT GeneXpert and Pulmonology review."
+      }
+    ]
+  },
+  {
+    "id": "REF-4001",
+    "referral_token": "REF-4001",
+    "patient_id": "p-101",
+    "patient_name": "Ramesh Chandra",
+    "patient_age": 45,
+    "patient_gender": "Male",
+    "abha_id": "91-3321-7788-9900",
+    "referring_doctor_name": "Dr. Ananya Sharma (MO)",
+    "referring_role": "doctor",
+    "referring_facility_type": "Primary Health Centre (PHC)",
+    "referring_facility_name": "PHC Nandurbar Rural",
+    "destination_doctor_id": "doc-david-ross",
+    "destination_doctor_name": "Dr. David Ross",
+    "destination_role": "doctor",
+    "destination_facility_type": "District Hospital",
+    "destination_facility_name": "Nandurbar District Civil Hospital",
+    "specialty": "General Medicine",
+    "urgency": "ROUTINE",
+    "clinical_reason": "Post-discharge evaluation and hypertension checkup completed.",
+    "provisional_diagnosis": "Controlled Hypertension",
+    "vitals_summary": "BP: 120/80 mmHg, HR: 72 bpm, SpO2: 99%",
+    "status": "COMPLETED",
+    "created_at": "2026-08-15T10:00:00Z",
+    "timeline": [
+      {
+        "status": "CREATED",
+        "timestamp": "2026-08-15T10:00:00Z",
+        "actor": "Dr. Ananya Sharma",
+        "notes": "Referral created."
+      },
+      {
+        "status": "COMPLETED",
+        "timestamp": "2026-08-18T14:00:00Z",
+        "actor": "Dr. David Ross",
+        "notes": "Consultation and lab tests completed."
+      }
+    ]
+  }
+]
