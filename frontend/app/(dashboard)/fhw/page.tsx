@@ -9,11 +9,16 @@ import { useI18n } from '@/lib/i18n';
 
 export default function FrontlineHealthWorkerPage() {
     const { t } = useI18n();
+    const [mounted, setMounted] = useState<boolean>(false);
     const [beneficiaries, setBeneficiaries] = useState<any[]>([]);
     const [loading, setLoading] = useState<boolean>(true);
     const [searchQuery, setSearchQuery] = useState<string>('');
     const [filterCategory, setFilterCategory] = useState<string>('ALL');
     const [filterRisk, setFilterRisk] = useState<string>('ALL');
+
+    useEffect(() => {
+        setMounted(true);
+    }, []);
 
     // Registration Modal
     const [isRegisterOpen, setIsRegisterOpen] = useState<boolean>(false);
@@ -315,7 +320,7 @@ export default function FrontlineHealthWorkerPage() {
     ];
 
     return (
-        <div className="space-y-6 max-w-7xl mx-auto pb-16">
+        <div className="space-y-6 max-w-7xl mx-auto pb-16" suppressHydrationWarning>
             {/* Clean Header Banner */}
             <div className="bg-gradient-to-r from-primary via-[#004d40] to-teal-900 rounded-3xl p-6 sm:p-8 text-white shadow-xl relative overflow-hidden">
                 <div className="flex flex-col md:flex-row md:items-center justify-between gap-5 relative z-10">
