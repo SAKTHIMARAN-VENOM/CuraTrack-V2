@@ -22,13 +22,13 @@ describe('Mobile App: Profile, Medical Records, and Notifications', () => {
     expect(screen.getAllByText(/Blood Group/i).length).toBeGreaterThan(0);
   });
 
-  it('renders Medical Records archive with category filter chips', () => {
+  it('renders Health Records archive with category filter chips', () => {
     render(
       <AppProvider>
         <MedicalRecordsPage />
       </AppProvider>
     );
-    expect(screen.getByText(/Medical Records/i)).toBeInTheDocument();
+    expect(screen.getAllByText(/Health Records/i).length).toBeGreaterThan(0);
     expect(screen.getAllByText(/Lab Report/i).length).toBeGreaterThan(0);
     expect(screen.getAllByText(/Prescription/i).length).toBeGreaterThan(0);
   });

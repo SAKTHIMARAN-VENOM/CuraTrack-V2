@@ -330,29 +330,20 @@ export default function DoctorReferralsPage() {
 
     return (
         <div className="space-y-8 max-w-7xl mx-auto pb-16">
-            {/* Doctor Header Banner */}
-            <div className="bg-gradient-to-r from-blue-900 via-indigo-950 to-slate-900 rounded-3xl p-6 sm:p-8 text-white shadow-xl relative overflow-hidden">
-                <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-6 relative z-10">
-                    <div>
-                        <div className="inline-flex items-center gap-2 px-3 py-1 bg-white/10 backdrop-blur rounded-full text-xs font-semibold tracking-wide text-blue-200 mb-3">
-                            <span className="material-symbols-outlined text-sm">stethoscope</span>
-                            <span>Doctor & Specialist Referral Command Center</span>
-                        </div>
-                        <h1 className="text-2xl sm:text-3xl font-extrabold tracking-tight">Clinical Referral Pipeline</h1>
-                        <p className="text-blue-100/80 text-xs mt-1">
-                            Practitioner: <strong className="text-white">{doctorProfile.name}</strong> • Facility: <strong className="text-white">{doctorProfile.facility}</strong> ({doctorProfile.specialty})
-                        </p>
-                    </div>
+            {/* Clean Header */}
+            <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-6 pb-2">
+                <div>
+                    <h1 className="text-2xl sm:text-3xl font-extrabold tracking-tight text-on-surface">Clinical Referral Pipeline</h1>
+                </div>
 
-                    <div className="flex items-center gap-3">
-                        <button
-                            onClick={() => setIsCreateModalOpen(true)}
-                            className="bg-blue-400 hover:bg-blue-300 text-blue-950 font-bold text-xs px-5 py-3 rounded-2xl flex items-center gap-2 shadow-md transition-all active:scale-95 cursor-pointer"
-                        >
-                            <span className="material-symbols-outlined text-lg">add_circle</span>
-                            <span>Escalate to Specialist</span>
-                        </button>
-                    </div>
+                <div className="flex items-center gap-3">
+                    <button
+                        onClick={() => setIsCreateModalOpen(true)}
+                        className="bg-primary hover:bg-primary/90 text-white font-bold text-xs px-5 py-2.5 rounded-xl flex items-center gap-2 shadow-sm transition-all active:scale-95 cursor-pointer"
+                    >
+                        <span className="material-symbols-outlined text-lg">add_circle</span>
+                        <span>Escalate to Specialist</span>
+                    </button>
                 </div>
             </div>
 

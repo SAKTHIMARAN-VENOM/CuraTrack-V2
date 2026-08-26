@@ -291,29 +291,20 @@ export default function FhwReferralsPage() {
 
     return (
         <div className="space-y-8 max-w-7xl mx-auto pb-16">
-            {/* ASHA Header Banner */}
-            <div className="bg-gradient-to-r from-emerald-800 via-teal-900 to-teal-950 rounded-3xl p-6 sm:p-8 text-white shadow-xl relative overflow-hidden">
-                <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-6 relative z-10">
-                    <div>
-                        <div className="inline-flex items-center gap-2 px-3 py-1 bg-white/10 backdrop-blur rounded-full text-xs font-semibold tracking-wide text-emerald-200 mb-3">
-                            <span className="material-symbols-outlined text-sm">volunteer_activism</span>
-                            <span>ASHA / Frontline Worker Portal • Upward Escalation</span>
-                        </div>
-                        <h1 className="text-2xl sm:text-3xl font-extrabold tracking-tight">Village Referral Network</h1>
-                        <p className="text-emerald-100/80 text-xs mt-1">
-                            Catchment: <strong className="text-white">{ashaProfile.facility}</strong> ({ashaProfile.village}) • Logged in as: <strong className="text-white">{ashaProfile.name}</strong>
-                        </p>
-                    </div>
+            {/* Clean Header */}
+            <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-6 pb-2">
+                <div>
+                    <h1 className="text-2xl sm:text-3xl font-extrabold tracking-tight text-on-surface">Village Referral Network</h1>
+                </div>
 
-                    <div className="flex items-center gap-3">
-                        <button
-                            onClick={() => setIsCreateModalOpen(true)}
-                            className="bg-emerald-400 hover:bg-emerald-300 text-emerald-950 font-bold text-xs px-5 py-3 rounded-2xl flex items-center gap-2 shadow-md transition-all active:scale-95 cursor-pointer"
-                        >
-                            <span className="material-symbols-outlined text-lg">add_circle</span>
-                            <span>Refer Village Patient to Doctor</span>
-                        </button>
-                    </div>
+                <div className="flex items-center gap-3">
+                    <button
+                        onClick={() => setIsCreateModalOpen(true)}
+                        className="bg-primary hover:bg-primary/90 text-white font-bold text-xs px-5 py-2.5 rounded-xl flex items-center gap-2 shadow-sm transition-all active:scale-95 cursor-pointer"
+                    >
+                        <span className="material-symbols-outlined text-lg">add_circle</span>
+                        <span>Refer Village Patient to Doctor</span>
+                    </button>
                 </div>
             </div>
 

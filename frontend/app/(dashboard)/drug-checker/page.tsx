@@ -139,20 +139,16 @@ export default function DrugCheckerPage() {
 
   return (
     <div className="flex-1 p-6 lg:p-10 max-w-7xl mx-auto w-full space-y-8">
-      {/* Header Banner */}
-      <div className="bg-gradient-to-r from-teal-900 via-primary to-cyan-900 rounded-3xl p-8 text-white shadow-xl flex flex-col md:flex-row md:items-center justify-between gap-6">
+      {/* Clean Header */}
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 pb-2">
         <div>
-          <div className="inline-flex items-center gap-2 px-3 py-1 bg-white/10 backdrop-blur rounded-full text-xs font-semibold tracking-wide text-teal-200 mb-3">
-            <span className="material-symbols-outlined text-sm">pill</span>
-            <span>{t('drugChecker.badge', 'Clinical Pharmacology & Multidrug Safety Suite')}</span>
-          </div>
-          <h1 className="text-3xl lg:text-4xl font-extrabold tracking-tight">{t('drugChecker.title', 'Drug Interaction & EDL Safety Checker')}</h1>
+          <h1 className="text-3xl font-extrabold tracking-tight text-on-surface">{t('drugChecker.title', 'Drug Interaction & EDL Safety Checker')}</h1>
         </div>
 
         <div className="flex items-center gap-3 flex-wrap">
           <Link
             href="/doctor"
-            className="px-4 py-3 bg-white/10 hover:bg-white/20 text-white font-bold text-xs rounded-2xl flex items-center gap-2 backdrop-blur transition-all cursor-pointer"
+            className="px-4 py-2.5 bg-surface-container hover:bg-surface-container-high text-on-surface font-bold text-xs rounded-xl flex items-center gap-2 border border-surface-container-high transition-all cursor-pointer"
           >
             <span className="material-symbols-outlined text-lg">arrow_back</span>
             <span>{t('drugChecker.backToOpd', 'Back to OPD Queue')}</span>
@@ -160,7 +156,7 @@ export default function DrugCheckerPage() {
           <button
             onClick={checkInteractions}
             disabled={drugs.length < 2 || loading}
-            className="px-6 py-3 bg-teal-400 hover:bg-teal-300 text-teal-950 font-extrabold text-xs rounded-2xl flex items-center gap-2 shadow-lg transition-all active:scale-95 disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer"
+            className="px-5 py-2.5 bg-primary hover:bg-primary/90 text-white font-extrabold text-xs rounded-xl flex items-center gap-2 shadow-sm transition-all active:scale-95 disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer"
           >
             <span className={`material-symbols-outlined text-lg ${loading ? 'animate-spin' : ''}`}>
               {loading ? 'progress_activity' : 'verified_user'}

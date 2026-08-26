@@ -1314,14 +1314,10 @@ function HealthRecordsContent() {
 
     return (
       <div className="flex-1 p-6 lg:p-10 max-w-7xl mx-auto w-full space-y-8">
-        {/* Header Banner */}
-        <div className="bg-gradient-to-r from-blue-900 via-primary to-teal-900 rounded-3xl p-8 text-white shadow-xl flex flex-col sm:flex-row sm:items-center justify-between gap-6">
+        {/* Clean Header */}
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-6 pb-2">
           <div>
-            <div className="inline-flex items-center gap-2 px-3 py-1 bg-white/10 backdrop-blur rounded-full text-xs font-semibold tracking-wide text-blue-200 mb-2">
-              <span className="material-symbols-outlined text-sm">folder_shared</span>
-              <span>Facility Operations & Pharmacy Audit</span>
-            </div>
-            <h1 className="text-3xl font-extrabold tracking-tight">Facility & Pharmacy Archive</h1>
+            <h1 className="text-3xl font-extrabold tracking-tight text-on-surface">Facility &amp; Pharmacy Archive</h1>
           </div>
 
           <div className="flex items-center gap-3 shrink-0">
@@ -1329,7 +1325,7 @@ function HealthRecordsContent() {
               onClick={() => {
                 alert('Facility Archive Audit Log exported to CSV.');
               }}
-              className="px-4 py-3 bg-white/15 hover:bg-white/25 text-white font-bold text-xs rounded-2xl flex items-center gap-2 backdrop-blur transition-all"
+              className="px-4 py-2.5 bg-surface-container hover:bg-surface-container-high text-on-surface font-bold text-xs rounded-xl flex items-center gap-2 border border-surface-container-high transition-all"
             >
               <span className="material-symbols-outlined text-lg">download</span>
               <span>Export Audit CSV</span>
@@ -1589,12 +1585,9 @@ function HealthRecordsContent() {
       )}
 
       {/* Page Header */}
-      <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4">
+      <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4 pb-2">
         <div>
-          <span suppressHydrationWarning className="inline-block px-3 py-1 bg-secondary-container text-on-secondary-container text-[11px] font-bold rounded-full uppercase tracking-widest mb-3">
-            {currentRole === 'doctor' ? t('roles.doctor', 'Clinical Directory & EHR') : t('records.title', 'Medical History')}
-          </span>
-          <h2 suppressHydrationWarning className="font-headline text-4xl lg:text-5xl font-extrabold tracking-tight text-on-surface leading-none">
+          <h2 suppressHydrationWarning className="font-headline text-3xl lg:text-4xl font-extrabold tracking-tight text-on-surface leading-none">
             {currentRole === 'doctor' ? t('navigation.patientRecords', 'Patient Health Records') : t('records.title', 'Health Records')}
           </h2>
         </div>

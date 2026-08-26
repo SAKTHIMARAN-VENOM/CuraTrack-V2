@@ -1652,25 +1652,18 @@ export default function DoctorOPDPage() {
       )}
 
 
-      {/* Hero Banner from drawing with + Telecon */}
-      <div className="bg-gradient-to-r from-slate-900 via-teal-950 to-slate-900 rounded-3xl p-6 sm:p-7 text-white shadow-xl flex flex-col md:flex-row md:items-center justify-between gap-6 relative overflow-hidden">
-        <div className="space-y-2 relative z-10">
-          <div className="inline-flex items-center gap-2 px-3 py-1 bg-white/10 backdrop-blur rounded-full text-xs font-semibold text-teal-200">
-            <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
-            <span>Live Clinical OPD Session • Room 101</span>
-          </div>
-          <h2 className="text-2xl sm:text-3xl font-black tracking-tight">{doctorInfo.facility}</h2>
-          <p className="text-xs text-teal-100/80 max-w-xl">
-            Certified OPD Station • License: <span className="font-mono text-white font-bold">{doctorInfo.license}</span> • Connected to District Health Network
-          </p>
+      {/* Clean Header with + Telecon */}
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 pb-2">
+        <div>
+          <h2 className="text-2xl sm:text-3xl font-black tracking-tight text-on-surface">{doctorInfo.facility}</h2>
         </div>
 
-        <div className="flex flex-wrap items-center gap-3 relative z-10">
+        <div className="flex flex-wrap items-center gap-3">
           <button
             onClick={handleStartTeleconsult}
-            className="px-6 py-3 bg-white text-slate-950 hover:bg-teal-50 font-black text-xs rounded-2xl flex items-center gap-2 shadow-lg transition-all active:scale-95 cursor-pointer border border-white/20"
+            className="px-5 py-2.5 bg-primary text-white hover:bg-primary/90 font-black text-xs rounded-2xl flex items-center gap-2 shadow-sm transition-all active:scale-95 cursor-pointer"
           >
-            <span className="material-symbols-outlined text-lg text-teal-700">video_call</span>
+            <span className="material-symbols-outlined text-lg">video_call</span>
             <span>+ Telecon</span>
           </button>
         </div>

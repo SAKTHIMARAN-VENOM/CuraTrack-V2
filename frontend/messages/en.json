@@ -274,7 +274,7 @@
     "abhaId": "ABHA ID",
     "complaint": "Chief Complaint",
     "noPatientSelected": "No Patient Selected",
-    "selectFromQueue": "Please select a patient from the OPD queue to review their longitudinal EHR and document clinical findings.",
+    "selectFromQueue": "Please select a patient from the OPD queue to review their health records and document clinical findings.",
     "addPrescription": "Add Medication",
     "drugName": "Drug Name",
     "dosage": "Dosage",
@@ -411,7 +411,7 @@
     "referralPass": "Inter-Facility Referral Pass"
   },
   "records": {
-    "title": "Longitudinal Patient Health Records (EHR)",
+    "title": "Health Records (EHR)",
     "subtitle": "Secure electronic medical records, diagnoses & diagnostic tests",
     "searchRecords": "Search records by patient name, ABHA ID or diagnosis...",
     "prescriptions": "Prescriptions & Medications",
@@ -480,7 +480,7 @@
   },
   "dashboard": {
     "title": "Personal Health Portal",
-    "subtitle": "Longitudinal health passport, vitals monitoring & scheme benefits",
+    "subtitle": "Health passport, vitals monitoring & scheme benefits",
     "welcomeBack": "Welcome back, {name}",
     "healthOverviewToday": "Your health overview for today",
     "emergencySelfTriage": "Emergency Self-Triage",

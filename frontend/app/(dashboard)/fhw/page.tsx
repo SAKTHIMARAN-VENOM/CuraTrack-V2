@@ -325,52 +325,32 @@ export default function FrontlineHealthWorkerPage() {
 
     return (
         <div className="space-y-6 max-w-7xl mx-auto pb-16">
-            {/* Clean Header Banner */}
-            <div className="bg-gradient-to-r from-primary via-[#004d40] to-teal-900 rounded-3xl p-6 sm:p-8 text-white shadow-xl relative overflow-hidden">
-                <div className="flex flex-col md:flex-row md:items-center justify-between gap-5 relative z-10">
-                    <div>
-                        <div className="inline-flex items-center gap-2 px-3 py-1 bg-white/10 backdrop-blur rounded-full text-xs font-semibold tracking-wide text-teal-200 mb-2">
-                            <span className="material-symbols-outlined text-sm">volunteer_activism</span>
-                            <span>{t('fhw.catchmentTitle', 'Frontline Health Worker (ASHA / ANM) Catchment Center')}</span>
-                        </div>
-                        <h1 className="text-2xl sm:text-3xl font-extrabold tracking-tight">
-                            Village Patient Health Records
-                        </h1>
-                        <p className="text-xs text-teal-100 mt-1">
-                            Access health history, clinical vitals, and medical profiles for enrolled residents
-                        </p>
-                    </div>
-
-                    <div className="flex items-center gap-3 flex-wrap">
-                        {offlineSyncPending > 0 && (
-                            <button
-                                onClick={handleSyncOfflineData}
-                                className="px-4 py-2.5 bg-amber-500/20 hover:bg-amber-500/30 text-amber-200 font-bold text-xs rounded-xl flex items-center gap-2 border border-amber-500/40 cursor-pointer"
-                            >
-                                <span className="material-symbols-outlined text-sm">cloud_sync</span>
-                                <span>Sync ({offlineSyncPending})</span>
-                            </button>
-                        )}
-
-                        <button
-                            onClick={() => setIsRegisterOpen(true)}
-                            className="px-5 py-2.5 bg-white text-primary hover:bg-slate-50 font-black text-xs rounded-xl shadow-md flex items-center gap-2 transition-transform active:scale-95 cursor-pointer"
-                        >
-                            <span className="material-symbols-outlined text-base">person_add</span>
-                            <span>{t('fhw.registerBeneficiary', 'Enroll Beneficiary')}</span>
-                        </button>
-                    </div>
+            {/* Clean Header */}
+            <div className="flex flex-col md:flex-row md:items-center justify-between gap-5 pb-2">
+                <div>
+                    <h1 className="text-2xl sm:text-3xl font-extrabold tracking-tight text-on-surface">
+                        Village Patient Health Records
+                    </h1>
                 </div>
 
-                {/* Status Bar */}
-                <div className="mt-4 pt-3 border-t border-white/10 flex items-center justify-between text-xs">
-                    <div className="flex items-center gap-2">
-                        <span className={`w-2.5 h-2.5 rounded-full ${isOnline ? 'bg-emerald-400 animate-pulse' : 'bg-amber-400'}`}></span>
-                        <span className="font-medium text-teal-100 text-[11px]">
-                            {isOnline ? 'District Health Cloud Connected' : 'Offline Storage Active'}
-                        </span>
-                    </div>
-                    <span className="text-[11px] text-teal-200 font-mono">ASHA Catchment #402</span>
+                <div className="flex items-center gap-3 flex-wrap">
+                    {offlineSyncPending > 0 && (
+                        <button
+                            onClick={handleSyncOfflineData}
+                            className="px-4 py-2.5 bg-amber-500/10 hover:bg-amber-500/20 text-amber-900 font-bold text-xs rounded-xl flex items-center gap-2 border border-amber-500/30 cursor-pointer"
+                        >
+                            <span className="material-symbols-outlined text-sm">cloud_sync</span>
+                            <span>Sync ({offlineSyncPending})</span>
+                        </button>
+                    )}
+
+                    <button
+                        onClick={() => setIsRegisterOpen(true)}
+                        className="px-5 py-2.5 bg-primary text-white hover:bg-primary/90 font-black text-xs rounded-xl shadow-sm flex items-center gap-2 transition-transform active:scale-95 cursor-pointer"
+                    >
+                        <span className="material-symbols-outlined text-base">person_add</span>
+                        <span>{t('fhw.registerBeneficiary', 'Enroll Beneficiary')}</span>
+                    </button>
                 </div>
             </div>
 

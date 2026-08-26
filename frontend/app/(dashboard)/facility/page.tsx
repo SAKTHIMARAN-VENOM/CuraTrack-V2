@@ -354,34 +354,27 @@ export default function FacilityOperationsPage() {
 
     return (
         <div className="space-y-8 max-w-7xl mx-auto pb-16">
-            {/* Header Banner */}
-            <div className="bg-gradient-to-r from-teal-900 via-primary to-slate-900 rounded-3xl p-8 text-white shadow-xl relative overflow-hidden">
-                <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 relative z-10">
-                    <div>
-                        <div className="inline-flex items-center gap-2 px-3 py-1 bg-white/10 backdrop-blur rounded-full text-xs font-semibold tracking-wide text-teal-200 mb-3">
-                            <span className="material-symbols-outlined text-sm">local_hospital</span>
-                            <span>{t('facility.subtitle', 'Facility Operations & Supply Chain')}</span>
-                        </div>
-                        <h1 className="text-3xl font-extrabold tracking-tight">{t('facility.title', 'Nandurbar Sub-District Hospital & CHC')}</h1>
-                        <p className="text-xs text-teal-100/80 mt-1">{t('facility.bannerDesc', 'Real-time inventory management, EDL supply monitoring, and bed occupancy.')}</p>
-                    </div>
+            {/* Clean Header */}
+            <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 pb-2">
+                <div>
+                    <h1 className="text-3xl font-extrabold tracking-tight text-on-surface">{t('facility.title', 'Nandurbar Sub-District Hospital & CHC')}</h1>
+                </div>
 
-                    <div className="flex items-center gap-3">
-                        <Link
-                            href="/facility/clinical-schedule"
-                            className="bg-white/15 hover:bg-white/25 text-white font-bold text-xs px-5 py-3 rounded-2xl flex items-center gap-2 backdrop-blur transition-all"
-                        >
-                            <span className="material-symbols-outlined text-lg">calendar_month</span>
-                            <span>{t('navigation.consultationServices', 'Consultation Services')}</span>
-                        </Link>
-                        <button
-                            onClick={() => fetchData()}
-                            className="bg-teal-400 hover:bg-teal-300 text-teal-950 font-bold text-xs px-5 py-3 rounded-2xl flex items-center gap-2 shadow-md transition-all active:scale-95 cursor-pointer"
-                        >
-                            <span className="material-symbols-outlined text-lg">refresh</span>
-                            <span>{t('actions.refresh', 'Refresh All Data')}</span>
-                        </button>
-                    </div>
+                <div className="flex items-center gap-3">
+                    <Link
+                        href="/facility/clinical-schedule"
+                        className="bg-surface-container hover:bg-surface-container-high text-on-surface font-bold text-xs px-4 py-2.5 rounded-xl flex items-center gap-2 border border-surface-container-high transition-all"
+                    >
+                        <span className="material-symbols-outlined text-lg">calendar_month</span>
+                        <span>{t('navigation.consultationServices', 'Consultation Services')}</span>
+                    </Link>
+                    <button
+                        onClick={() => fetchData()}
+                        className="bg-primary hover:bg-primary/90 text-white font-bold text-xs px-4 py-2.5 rounded-xl flex items-center gap-2 shadow-sm transition-all active:scale-95 cursor-pointer"
+                    >
+                        <span className="material-symbols-outlined text-lg">refresh</span>
+                        <span>{t('actions.refresh', 'Refresh All Data')}</span>
+                    </button>
                 </div>
             </div>
 

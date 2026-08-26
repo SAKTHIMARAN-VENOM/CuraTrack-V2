@@ -204,37 +204,27 @@ export default function DoctorTriageDashboardPage() {
 
   return (
     <div className="max-w-7xl mx-auto space-y-8 pb-20">
-      {/* Top Banner */}
-      <div className="bg-gradient-to-r from-slate-900 via-teal-950 to-slate-900 rounded-3xl p-8 text-white shadow-xl relative overflow-hidden">
-        <div className="absolute right-0 top-0 w-96 h-96 bg-teal-500/10 rounded-full blur-3xl pointer-events-none"></div>
-        <div className="relative z-10 flex flex-col md:flex-row md:items-center justify-between gap-6">
-          <div className="space-y-2">
-            <div className="inline-flex items-center gap-2 px-3 py-1 bg-white/10 backdrop-blur rounded-full text-xs font-semibold tracking-wide text-teal-200 border border-white/15">
-              <span className="material-symbols-outlined text-sm">assignment_late</span>
-              <span>{t('doctorTriage.badge', 'Clinical Triage Dispatch & Patient Routing')}</span>
-            </div>
-            <h1 className="text-3xl font-extrabold tracking-tight">{t('doctorTriage.title', 'Doctor Triage Priority & Consult Queue')}</h1>
-            <p className="text-sm text-slate-300 max-w-2xl leading-relaxed">
-              {t('doctorTriage.description', 'Live intake of incoming patient emergency self-assessments and village danger reports. Classify immediate hospital visits vs. digital teleconsultations in real time.')}
-            </p>
-          </div>
+      {/* Clean Header */}
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 pb-2">
+        <div>
+          <h1 className="text-3xl font-extrabold tracking-tight text-on-surface">{t('doctorTriage.title', 'Doctor Triage Priority & Consult Queue')}</h1>
+        </div>
 
-          <div className="flex gap-3">
-            <button
-              onClick={fetchTriageAlerts}
-              className="px-4 py-3 bg-white/10 hover:bg-white/20 text-white font-bold text-xs rounded-2xl flex items-center gap-2 backdrop-blur transition-all border border-white/15 cursor-pointer"
-            >
-              <span className="material-symbols-outlined text-sm">sync</span>
-              <span>{t('doctorTriage.refreshFeed', 'Refresh Feed')}</span>
-            </button>
-            <Link
-              href="/telemedicine"
-              className="px-5 py-3 bg-teal-600 hover:bg-teal-700 text-white font-extrabold text-xs rounded-2xl shadow-lg flex items-center gap-2 transition-transform active:scale-95"
-            >
-              <span className="material-symbols-outlined text-sm">video_chat</span>
-              <span>{t('doctorTriage.telemedPortal', 'Telemed Portal')}</span>
-            </Link>
-          </div>
+        <div className="flex gap-3">
+          <button
+            onClick={fetchTriageAlerts}
+            className="px-4 py-2.5 bg-surface-container hover:bg-surface-container-high text-on-surface font-bold text-xs rounded-xl flex items-center gap-2 border border-surface-container-high transition-all cursor-pointer"
+          >
+            <span className="material-symbols-outlined text-sm">sync</span>
+            <span>{t('doctorTriage.refreshFeed', 'Refresh Feed')}</span>
+          </button>
+          <Link
+            href="/telemedicine"
+            className="px-5 py-2.5 bg-primary hover:bg-primary/90 text-white font-extrabold text-xs rounded-xl shadow-sm flex items-center gap-2 transition-transform active:scale-95"
+          >
+            <span className="material-symbols-outlined text-sm">video_chat</span>
+            <span>{t('doctorTriage.telemedPortal', 'Telemed Portal')}</span>
+          </Link>
         </div>
       </div>
 

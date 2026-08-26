@@ -690,11 +690,7 @@ export default function TelemedicinePage() {
         <div className="relative grid grid-cols-1 xl:grid-cols-[1.5fr_0.9fr] gap-8 items-start">
           <div className="space-y-6">
             <div>
-              <span className="inline-flex items-center gap-2 px-3 py-1 bg-secondary-container text-on-secondary-container text-[11px] font-bold rounded-full uppercase tracking-[0.22em]">
-                <span className="material-symbols-outlined text-sm">video_chat</span>
-                Telemedicine
-              </span>
-              <h1 className="mt-4 font-headline text-4xl lg:text-5xl font-extrabold tracking-tight text-on-surface leading-none">
+              <h1 className="font-headline text-3xl lg:text-4xl font-extrabold tracking-tight text-on-surface leading-none">
                 {heroName} Center
               </h1>
             </div>

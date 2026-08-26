@@ -122,7 +122,7 @@ describe('Frontend Website: Clinical Drug Safety & ASHA Frontline Portals', () =
 
   it('renders Frontline Health Worker ASHA dashboard and beneficiary roster', async () => {
     render(<FrontlineHealthWorkerPage />);
-    expect(screen.getAllByText(/Frontline Health Worker/i).length).toBeGreaterThan(0);
+    expect(screen.getAllByText(/Village Patient Health Records/i).length).toBeGreaterThan(0);
 
     await waitFor(() => {
       expect(screen.getByText(/Number of Patients/i)).toBeInTheDocument();

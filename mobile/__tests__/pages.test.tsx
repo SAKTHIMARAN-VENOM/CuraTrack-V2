@@ -57,12 +57,12 @@ describe('Mobile Screen Rendering & UI Components', () => {
       </AppProvider>
     );
 
-    expect(screen.getByRole('heading', { level: 1, name: /Create Account/i })).toBeInTheDocument();
+    expect(screen.getByRole('heading', { level: 1, name: /Patient Registration|Create Account/i })).toBeInTheDocument();
     expect(screen.getByLabelText(/Full Name/i)).toBeInTheDocument();
     expect(screen.getByLabelText(/Email Address/i)).toBeInTheDocument();
     expect(screen.getByText('Sign Up with Google')).toBeInTheDocument();
-    expect(screen.getByText('A+')).toBeInTheDocument();
-    expect(screen.getByText('O+')).toBeInTheDocument();
+    expect(screen.getAllByText('A+').length).toBeGreaterThan(0);
+    expect(screen.getAllByText('O+').length).toBeGreaterThan(0);
   });
 
   it('VitalsPage renders telemetry panels, Sync button, and health indicators', () => {

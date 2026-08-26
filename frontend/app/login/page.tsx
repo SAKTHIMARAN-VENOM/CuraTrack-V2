@@ -138,11 +138,11 @@ export default function LoginPage() {
 
             if (mode === 'signup' && verifiedRole === 'patient') {
                 sessionStorage.setItem('curatrack_new_patient_signup', 'true');
+                router.push('/onboarding/patient');
             } else {
                 sessionStorage.removeItem('curatrack_new_patient_signup');
+                routeByRole(verifiedRole);
             }
-
-            routeByRole(verifiedRole);
         } catch (err) {
             setError('Network error. Please try again.');
         } finally {

@@ -560,16 +560,9 @@ function DigitalTriageContent() {
       {/* ========================================================================= */}
       {!selectedPatient ? (
         <div className="space-y-6 animate-in fade-in duration-300">
-          {/* Header banner */}
-          <div className="bg-gradient-to-r from-[#006666] via-[#007575] to-[#008080] rounded-3xl p-8 text-white shadow-xl relative overflow-hidden">
-            <div className="absolute right-0 top-0 w-96 h-96 bg-[#E6F2F2]/10 rounded-full blur-3xl pointer-events-none"></div>
-            <div className="relative z-10 space-y-2">
-              <div className="inline-flex items-center gap-2 px-3 py-1 bg-[#E6F2F2]/15 backdrop-blur rounded-full text-xs font-semibold tracking-wide text-[#E6F2F2] border border-[#E6F2F2]/20">
-                <span className="material-symbols-outlined text-sm">clinical_notes</span>
-                <span>{t('triage.subtitle', 'Clinical Protocol • Primary Healthcare Hierarchy')}</span>
-              </div>
-              <h1 className="text-3xl font-extrabold tracking-tight text-white">{t('triage.title', 'Smart Clinical Triage & Facility Routing')}</h1>
-            </div>
+          {/* Clean Header */}
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-2">
+            <h1 className="text-3xl font-extrabold tracking-tight text-on-surface">{t('triage.title', 'Smart Clinical Triage & Facility Routing')}</h1>
           </div>
           {/* Search bar - Centered & Shortened */}
           <div className="flex justify-center w-full">

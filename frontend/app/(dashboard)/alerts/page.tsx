@@ -149,16 +149,7 @@ export default function AlertsPage() {
             {/* Page Header */}
             <div className="flex flex-col md:flex-row md:items-end justify-between gap-4">
                 <div>
-                    <div className="flex items-center gap-3 mb-2">
-                        <span className="px-3 py-1 bg-amber-100 text-amber-900 text-xs font-bold rounded-full uppercase tracking-wider flex items-center gap-1.5">
-                            <span className="material-symbols-outlined text-sm text-amber-700">calendar_month</span>
-                            {currentMonthName} Seasonal Alerts ({seasonInfo.season || 'Active Season'})
-                        </span>
-                        <span className="px-2.5 py-0.5 rounded-full bg-error-container text-on-error-container text-xs font-bold">
-                            {activeAlertsCount} Active {activeAlertsCount === 1 ? 'Alert' : 'Alerts'}
-                        </span>
-                    </div>
-                    <h2 className="text-4xl font-extrabold font-headline tracking-tight text-on-surface">Seasonal Health Alerts</h2>
+                    <h2 className="text-3xl md:text-4xl font-extrabold font-headline tracking-tight text-on-surface">Seasonal Health Alerts</h2>
                 </div>
             </div>
 

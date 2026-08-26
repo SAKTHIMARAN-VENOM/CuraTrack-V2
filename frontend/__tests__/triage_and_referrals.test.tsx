@@ -30,6 +30,6 @@ describe('Frontend Website: Emergency Self-Triage & Referral Intake', () => {
   it('renders Emergency Self-Triage assessment page with symptom inputs', () => {
     render(<SelfTriagePage />);
     expect(screen.getByText(/Health Self-Triage & Emergency Routing/i)).toBeInTheDocument();
-    expect(screen.getByText(/Patient Emergency Portal • Self-Assessment Engine/i)).toBeInTheDocument();
+    expect(screen.getByText(/Select Your Presenting Symptoms/i)).toBeInTheDocument();
   });
 });

@@ -208,23 +208,16 @@ export default function FacilityClinicalSchedulePage() {
 
   return (
     <div className="space-y-8 max-w-7xl mx-auto p-4 sm:p-6 lg:p-8 pb-16 font-sans">
-      {/* Header Banner */}
-      <div className="bg-gradient-to-r from-teal-900 via-primary to-slate-900 rounded-3xl p-8 text-white shadow-xl flex flex-col md:flex-row md:items-center justify-between gap-6">
+      {/* Clean Header */}
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 pb-2">
         <div>
-          <div className="inline-flex items-center gap-2 px-3 py-1 bg-white/10 backdrop-blur rounded-full text-xs font-semibold tracking-wide text-teal-200 mb-3">
-            <span className="material-symbols-outlined text-sm">calendar_month</span>
-            <span>{t('facility.doctorDutyRosterSubtitle', 'Facility Management & Clinical Staffing')}</span>
-          </div>
-          <h1 className="text-3xl font-extrabold tracking-tight">Facility Consultation Services & Doctor Duty Schedule</h1>
-          <p className="text-teal-100 text-sm mt-2 max-w-2xl leading-relaxed">
-            Real-time OPD consultation services, on-duty medical officers, room allocations, shift rotations, and emergency on-call staffing roster.
-          </p>
+          <h1 className="text-3xl font-extrabold tracking-tight text-on-surface">Facility Consultation Services &amp; Doctor Duty Schedule</h1>
         </div>
 
         <div className="flex items-center gap-3 flex-wrap">
           <Link
             href="/facility"
-            className="px-4 py-3 bg-white/15 hover:bg-white/25 text-white font-bold text-xs rounded-2xl flex items-center gap-2 backdrop-blur transition-all"
+            className="px-4 py-2.5 bg-surface-container hover:bg-surface-container-high text-on-surface font-bold text-xs rounded-xl flex items-center gap-2 border border-surface-container-high transition-all"
           >
             <span className="material-symbols-outlined text-lg">local_hospital</span>
             <span>{t('facility.facilityOpsBtn', 'Facility Operations')}</span>
@@ -232,7 +225,7 @@ export default function FacilityClinicalSchedulePage() {
 
           <button
             onClick={() => setIsAddModalOpen(true)}
-            className="bg-teal-400 hover:bg-teal-300 text-teal-950 font-bold text-xs px-5 py-3 rounded-2xl flex items-center gap-2 shadow-md transition-all active:scale-95 cursor-pointer"
+            className="bg-primary hover:bg-primary/90 text-white font-bold text-xs px-5 py-2.5 rounded-xl flex items-center gap-2 shadow-sm transition-all active:scale-95 cursor-pointer"
           >
             <span className="material-symbols-outlined text-lg">add_circle</span>
             <span>{t('facility.assignDoctorShift', 'Assign Doctor Shift')}</span>

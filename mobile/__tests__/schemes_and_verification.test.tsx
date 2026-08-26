@@ -50,7 +50,7 @@ describe('Mobile App: Schemes Browsing & Claim Pre-Auth', () => {
         <SchemesPage />
       </AppProvider>
     );
-    expect(screen.getByText(/Government & Care Subsidies/i)).toBeInTheDocument();
+    expect(screen.getByText(/Healthcare Schemes & Grants/i)).toBeInTheDocument();
     expect(screen.getByText(/Ayushman Bharat PM-JAY/i)).toBeInTheDocument();
   });
 });

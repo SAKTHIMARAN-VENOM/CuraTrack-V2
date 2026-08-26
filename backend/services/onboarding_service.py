@@ -53,7 +53,9 @@ def save_patient_onboarding(user_id: str, payload: dict) -> dict:
                 "name": payload.get("personal_info", {}).get("name", ""),
                 "role": "patient",
                 "gender": payload.get("personal_info", {}).get("gender", ""),
+                "age": payload.get("personal_info", {}).get("age", None) or payload.get("personal_info", {}).get("dob", ""),
                 "blood_group": payload.get("medical_info", {}).get("blood_group", ""),
+                "allergies": payload.get("medical_info", {}).get("allergies", ""),
                 "chronic_diseases": payload.get("medical_info", {}).get("chronic_diseases", ""),
                 "profile_completed": True,
             }).execute()

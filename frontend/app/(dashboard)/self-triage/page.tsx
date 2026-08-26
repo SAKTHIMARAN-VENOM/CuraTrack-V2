@@ -390,40 +390,26 @@ export default function PatientSelfTriagePage() {
 
   return (
     <div className="max-w-6xl mx-auto space-y-8 pb-20">
-      {/* Top Banner */}
-      <div className="bg-gradient-to-r from-teal-800 via-teal-700 to-cyan-800 rounded-3xl p-8 text-white shadow-xl relative overflow-hidden">
-        <div className="absolute right-0 top-0 w-96 h-96 bg-white/10 rounded-full blur-3xl pointer-events-none"></div>
-        <div className="relative z-10 flex flex-col md:flex-row md:items-center justify-between gap-6">
-          <div className="space-y-2">
-            <div className="inline-flex items-center gap-2 px-3 py-1 bg-white/15 backdrop-blur rounded-full text-xs font-semibold tracking-wide text-teal-100 border border-white/20">
-              <span className="material-symbols-outlined text-sm">emergency</span>
-              <span>Patient Emergency Portal • Self-Assessment Engine</span>
-            </div>
-            <h1 className="text-3xl font-extrabold tracking-tight">Health Self-Triage &amp; Emergency Routing</h1>
-            <p className="text-sm text-teal-100/90 max-w-2xl leading-relaxed">
-              Evaluate your current symptoms in case of acute distress or illness. CuraTrack will classify your urgency level and immediately notify your assigned Frontline ASHA Worker or Medical Officer.
-            </p>
-          </div>
+      {/* Clean Header */}
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 pb-2">
+        <div>
+          <h1 className="text-3xl font-extrabold tracking-tight text-on-surface">Health Self-Triage &amp; Emergency Routing</h1>
+        </div>
 
-          {/* Locked Identity Card */}
-          <div className="bg-white/10 backdrop-blur-md p-4 rounded-2xl border border-white/20 text-xs shrink-0 space-y-2">
-            <div className="flex items-center gap-2 text-teal-200">
-              <span className="material-symbols-outlined text-base">lock</span>
-              <span className="font-bold uppercase tracking-wider text-[10px]">Patient Identity Locked</span>
-            </div>
-            <div>
-              <p className="text-white font-extrabold text-sm">{patientInfo.name}</p>
-              <p className="text-teal-200 text-[11px] font-mono">ABHA: {patientInfo.abhaId}</p>
-              <p className="text-teal-100 text-[11px]">{patientInfo.age} yrs • {patientInfo.gender}</p>
-            </div>
-            <button
-              onClick={() => setShowHistoryModal(true)}
-              className="w-full mt-1 py-1.5 px-3 bg-white/20 hover:bg-white/30 text-white rounded-xl font-bold text-[11px] flex items-center justify-center gap-1.5 transition-all"
-            >
-              <span className="material-symbols-outlined text-xs">history</span>
-              <span>Past Assessments ({history.length})</span>
-            </button>
+        {/* Patient Identity Badge & Past Assessments */}
+        <div className="flex items-center gap-3 shrink-0">
+          <div className="bg-surface-container-low px-4 py-2 rounded-2xl border border-surface-container-high text-xs flex items-center gap-2">
+            <span className="material-symbols-outlined text-primary text-sm">person</span>
+            <span className="font-bold text-on-surface">{patientInfo.name}</span>
+            <span className="text-tertiary font-mono text-[11px]">({patientInfo.age}y, {patientInfo.gender})</span>
           </div>
+          <button
+            onClick={() => setShowHistoryModal(true)}
+            className="py-2 px-3.5 bg-surface-container hover:bg-surface-container-high text-on-surface rounded-xl font-bold text-xs flex items-center gap-1.5 border border-surface-container-high transition-all"
+          >
+            <span className="material-symbols-outlined text-sm">history</span>
+            <span>Past Assessments ({history.length})</span>
+          </button>
         </div>
       </div>
 

@@ -129,16 +129,13 @@ export default function MedicalRecordsPage() {
 
   return (
     <div className="flex-1 flex flex-col pb-24">
-      <TopAppBar title="Medical Records" />
+      <TopAppBar title="Health Records" />
 
       <main className="flex-1 max-w-6xl mx-auto w-full px-4 md:px-8 py-5 flex flex-col gap-6">
         {/* Header & Search */}
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
           <div>
-            <h1 className="text-2xl md:text-3xl font-extrabold text-on-surface">Medical Records</h1>
-            <p className="text-xs sm:text-sm text-on-surface-variant mt-0.5">
-              Securely view lab test results, imaging, and prescriptions
-            </p>
+            <h1 className="text-2xl md:text-3xl font-extrabold text-on-surface">Health Records</h1>
           </div>
 
           <div className="flex items-center gap-3">

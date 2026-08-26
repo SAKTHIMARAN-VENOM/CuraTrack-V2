@@ -167,32 +167,12 @@ export default function SchemesPage() {
       <TopAppBar title="Health Schemes & Benefits" />
 
       <main className="flex-1 max-w-lg mx-auto w-full px-4 py-4 flex flex-col gap-4">
-        {/* Header Hero Banner */}
-        <div className="bg-gradient-to-br from-teal-700 via-teal-800 to-teal-950 rounded-3xl p-5 text-white shadow-lg relative overflow-hidden">
-          <div className="absolute -right-6 -bottom-6 w-32 h-32 bg-white/10 rounded-full blur-2xl pointer-events-none" />
-          
-          <div className="flex items-center justify-between mb-2">
-            <span className="bg-white/20 backdrop-blur-md text-teal-100 text-[10px] font-extrabold uppercase px-2.5 py-1 rounded-full flex items-center gap-1">
-              <Sparkles className="w-3 h-3 text-amber-300" />
-              <span>Government & Care Subsidies</span>
-            </span>
-            <span className="text-xs text-teal-200 font-mono">ABHA Synced</span>
-          </div>
-
-          <h1 className="text-xl font-extrabold leading-tight mt-1">
-            Healthcare Schemes & Grants
+        {/* Clean Header */}
+        <div className="flex items-center justify-between gap-4 pt-1">
+          <h1 className="text-xl font-extrabold text-on-surface">
+            Healthcare Schemes &amp; Grants
           </h1>
-          <p className="text-xs text-teal-100/90 mt-1 max-w-xs leading-relaxed">
-            Verify your eligibility, claim universal medical coverage, and access state-backed medication subsidies.
-          </p>
-
-          <div className="mt-4 pt-3 border-t border-white/15 flex items-center justify-between text-xs">
-            <div className="flex items-center gap-1.5">
-              <CheckCircle2 className="w-4 h-4 text-emerald-300" />
-              <span className="font-semibold text-teal-50">{schemesData.filter(s => s.status === 'Eligible').length + backendSchemes.length} Schemes Eligible</span>
-            </div>
-            <span className="text-[11px] text-teal-200 font-medium">Patient: {user.name}</span>
-          </div>
+          <span className="text-xs text-primary font-mono font-bold">ABHA Synced</span>
         </div>
 
         {/* Search Bar */}

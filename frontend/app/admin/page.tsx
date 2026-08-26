@@ -128,7 +128,6 @@ export default function AdminPortalPage() {
                 <div className="flex justify-between items-center">
                     <div>
                         <h2 className="font-headline text-xl font-bold text-on-surface">{t('admin.verificationQueue', 'Doctor Verification Queue')}</h2>
-                        <p className="text-xs text-tertiary">{t('admin.verificationSubtitle', 'Practitioners awaiting registration approval for full clinical access.')}</p>
                     </div>
                     <span className={`px-3 py-1 rounded-full text-xs font-bold ${
                         pendingCount > 0 ? 'bg-amber-100 text-amber-800' : 'bg-emerald-100 text-emerald-800'

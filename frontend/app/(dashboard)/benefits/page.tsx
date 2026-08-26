@@ -281,25 +281,13 @@ export default function BenefitsPage() {
 
     return (
         <div className="p-4 md:p-8 max-w-7xl mx-auto w-full font-sans antialiased text-on-surface">
-            {/* Header with National Scheme Branding */}
+            {/* Clean Header */}
             <section className="mb-8">
                 <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
                     <div>
-                        <div className="flex items-center gap-2 mb-2">
-                            <span className="px-3 py-1 bg-emerald-100 text-emerald-800 text-xs font-extrabold uppercase rounded-full border border-emerald-300 flex items-center gap-1.5 shadow-sm">
-                                <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
-                                Live National Health Registry &amp; OGD API
-                            </span>
-                            <span className="hidden sm:inline-block px-3 py-1 bg-surface-container-high text-tertiary text-xs font-bold rounded-full">
-                                PM-JAY · CGHS · State Schemes
-                            </span>
-                        </div>
                         <h1 className="text-3xl md:text-4xl font-extrabold tracking-tight text-on-surface">
                             {t('benefits.title', 'Government Schemes & Empanelled Hospitals')}
                         </h1>
-                        <p className="text-on-surface-variant text-sm md:text-base mt-1.5 max-w-3xl">
-                            {t('benefits.subtitle', 'Check whether your hospital or diagnostic centre is empanelled under Government Healthcare Schemes for 100% cashless treatment, surgeries, and free laboratory tests.')}
-                        </p>
                     </div>
                 </div>
 

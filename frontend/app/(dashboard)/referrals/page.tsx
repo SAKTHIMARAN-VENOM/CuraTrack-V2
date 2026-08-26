@@ -393,83 +393,77 @@ export default function ReferralPipelinePage() {
 
     return (
         <div className="space-y-8 max-w-7xl mx-auto pb-16">
-            {/* Header Banner */}
-            <div className="bg-gradient-to-r from-primary via-[#004d40] to-teal-900 rounded-3xl p-6 sm:p-8 text-white shadow-xl relative overflow-hidden">
-                <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-6 relative z-10">
-                    <div>
-                        <div className="inline-flex items-center gap-2 px-3 py-1 bg-white/10 backdrop-blur rounded-full text-xs font-semibold tracking-wide text-teal-200 mb-3">
-                            <span className="material-symbols-outlined text-sm">alt_route</span>
-                            <span>{t('referrals.subtitle', 'Public Health Referral Network • End-to-End Tracking')}</span>
+            {/* Clean Header */}
+            <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-6 pb-2">
+                <div>
+                    <h1 className="text-2xl sm:text-3xl font-extrabold tracking-tight text-on-surface">{t('referrals.title', 'Clinical Referral Pipeline')}</h1>
+                </div>
+
+                {/* Verified User Persona & Action CTA */}
+                <div className="flex flex-wrap items-center gap-3">
+                    <div className="flex items-center gap-2 bg-surface-container-low px-3.5 py-2 rounded-xl border border-surface-container-high">
+                        <span className="material-symbols-outlined text-primary text-base">account_circle</span>
+                        <div className="text-left">
+                            <span className="text-[10px] text-tertiary block font-medium">Logged in as</span>
+                            <span className="text-xs font-extrabold text-on-surface">{activeUser.name}</span>
                         </div>
-                        <h1 className="text-2xl sm:text-3xl font-extrabold tracking-tight">{t('referrals.title', 'Clinical Referral Pipeline')}</h1>
+                        <span className="text-[10px] font-black uppercase px-2 py-0.5 rounded-full bg-primary/10 text-primary ml-1">
+                            {activeRole === 'fhw' || activeRole === 'asha' ? 'ASHA Worker' : activeRole === 'doctor' ? 'Doctor (MO)' : activeRole.replace('_', ' ')}
+                        </span>
                     </div>
 
-                    {/* Verified User Persona & Action CTA */}
-                    <div className="flex flex-wrap items-center gap-3">
-                        <div className="flex items-center gap-2 bg-white/10 backdrop-blur px-3.5 py-2 rounded-2xl border border-white/20">
-                            <span className="material-symbols-outlined text-teal-200 text-base">account_circle</span>
-                            <div className="text-left">
-                                <span className="text-[10px] text-teal-200 block font-medium">Logged in as</span>
-                                <span className="text-xs font-extrabold text-white">{activeUser.name}</span>
-                            </div>
-                            <span className="text-[10px] font-black uppercase px-2 py-0.5 rounded-full bg-teal-400 text-teal-950 ml-1">
-                                {activeRole === 'fhw' || activeRole === 'asha' ? 'ASHA Worker' : activeRole === 'doctor' ? 'Doctor (MO)' : activeRole.replace('_', ' ')}
-                            </span>
+                    {activeRole === 'fhw' || activeRole === 'asha' ? (
+                        <div className="flex items-center gap-2">
+                            <Link
+                                href="/fhw/referrals"
+                                className="px-4 py-2.5 bg-teal-600 hover:bg-teal-700 text-white font-extrabold text-xs rounded-xl transition-all flex items-center gap-2 shadow-sm"
+                            >
+                                <span className="material-symbols-outlined text-base">volunteer_activism</span>
+                                <span>ASHA Village Referral Portal</span>
+                            </Link>
+                            <button
+                                onClick={() => setIsCreateModalOpen(true)}
+                                className="bg-primary hover:bg-primary/90 text-white font-bold text-xs px-4 py-2.5 rounded-xl flex items-center gap-1.5 transition-all cursor-pointer"
+                            >
+                                <span className="material-symbols-outlined text-base">add_circle</span>
+                                <span>New Pass</span>
+                            </button>
                         </div>
-
-                        {activeRole === 'fhw' || activeRole === 'asha' ? (
-                            <div className="flex items-center gap-2">
-                                <Link
-                                    href="/fhw/referrals"
-                                    className="px-4 py-2.5 bg-teal-400 hover:bg-teal-300 text-teal-950 font-extrabold text-xs rounded-2xl transition-all flex items-center gap-2 shadow-md"
-                                >
-                                    <span className="material-symbols-outlined text-base">volunteer_activism</span>
-                                    <span>ASHA Village Referral Portal</span>
-                                </Link>
-                                <button
-                                    onClick={() => setIsCreateModalOpen(true)}
-                                    className="bg-white/10 hover:bg-white/20 text-white font-bold text-xs px-4 py-2.5 rounded-2xl flex items-center gap-1.5 border border-white/20 transition-all cursor-pointer"
-                                >
-                                    <span className="material-symbols-outlined text-base">add_circle</span>
-                                    <span>New Pass</span>
-                                </button>
-                            </div>
-                        ) : activeRole === 'doctor' ? (
-                            <div className="flex items-center gap-2">
-                                <Link
-                                    href="/doctor/referrals"
-                                    className="px-4 py-2.5 bg-teal-400 hover:bg-teal-300 text-teal-950 font-extrabold text-xs rounded-2xl transition-all flex items-center gap-2 shadow-md"
-                                >
-                                    <span className="material-symbols-outlined text-base">stethoscope</span>
-                                    <span>Doctor Referral Command</span>
-                                </Link>
-                                <button
-                                    onClick={() => setIsCreateModalOpen(true)}
-                                    className="bg-white/10 hover:bg-white/20 text-white font-bold text-xs px-4 py-2.5 rounded-2xl flex items-center gap-1.5 border border-white/20 transition-all cursor-pointer"
-                                >
-                                    <span className="material-symbols-outlined text-base">add_circle</span>
-                                    <span>Escalate</span>
-                                </button>
-                            </div>
-                        ) : (
-                            <div className="flex items-center gap-2">
-                                <Link
-                                    href="/fhw/referrals"
-                                    className="px-3.5 py-2 bg-white/10 hover:bg-white/20 text-teal-100 font-bold text-xs rounded-xl border border-white/20 flex items-center gap-1.5"
-                                >
-                                    <span className="material-symbols-outlined text-sm">volunteer_activism</span>
-                                    <span>ASHA Portal</span>
-                                </Link>
-                                <Link
-                                    href="/doctor/referrals"
-                                    className="px-3.5 py-2 bg-white/10 hover:bg-white/20 text-teal-100 font-bold text-xs rounded-xl border border-white/20 flex items-center gap-1.5"
-                                >
-                                    <span className="material-symbols-outlined text-sm">stethoscope</span>
-                                    <span>Doctor Portal</span>
-                                </Link>
-                            </div>
-                        )}
-                    </div>
+                    ) : activeRole === 'doctor' ? (
+                        <div className="flex items-center gap-2">
+                            <Link
+                                href="/doctor/referrals"
+                                className="px-4 py-2.5 bg-primary hover:bg-primary/90 text-white font-extrabold text-xs rounded-xl transition-all flex items-center gap-2 shadow-sm"
+                            >
+                                <span className="material-symbols-outlined text-base">stethoscope</span>
+                                <span>Doctor Referral Command</span>
+                            </Link>
+                            <button
+                                onClick={() => setIsCreateModalOpen(true)}
+                                className="bg-surface-container hover:bg-surface-container-high text-on-surface font-bold text-xs px-4 py-2.5 rounded-xl flex items-center gap-1.5 border border-surface-container-high transition-all cursor-pointer"
+                            >
+                                <span className="material-symbols-outlined text-base">add_circle</span>
+                                <span>Escalate</span>
+                            </button>
+                        </div>
+                    ) : (
+                        <div className="flex items-center gap-2">
+                            <Link
+                                href="/fhw/referrals"
+                                className="px-3.5 py-2 bg-surface-container hover:bg-surface-container-high text-on-surface font-bold text-xs rounded-xl border border-surface-container-high flex items-center gap-1.5"
+                            >
+                                <span className="material-symbols-outlined text-sm">volunteer_activism</span>
+                                <span>ASHA Portal</span>
+                            </Link>
+                            <Link
+                                href="/doctor/referrals"
+                                className="px-3.5 py-2 bg-surface-container hover:bg-surface-container-high text-on-surface font-bold text-xs rounded-xl border border-surface-container-high flex items-center gap-1.5"
+                            >
+                                <span className="material-symbols-outlined text-sm">stethoscope</span>
+                                <span>Doctor Portal</span>
+                            </Link>
+                        </div>
+                    )}
                 </div>
             </div>
 

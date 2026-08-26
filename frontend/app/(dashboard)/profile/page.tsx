@@ -239,19 +239,15 @@ export default function ProfilePage() {
     if (currentRole === 'facility_manager') {
         return (
             <div className="flex-1 p-6 lg:p-10 bg-surface max-w-7xl mx-auto w-full space-y-8">
-                {/* Header */}
-                <div className="bg-gradient-to-r from-blue-900 via-primary to-teal-900 rounded-3xl p-8 text-white shadow-xl flex flex-col sm:flex-row sm:items-center justify-between gap-6">
+                {/* Clean Header */}
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-6 pb-2">
                     <div>
-                        <div className="inline-flex items-center gap-2 px-3 py-1 bg-white/10 backdrop-blur rounded-full text-xs font-semibold tracking-wide text-blue-200 mb-2">
-                            <span className="material-symbols-outlined text-sm">local_hospital</span>
-                            <span>{t('facility.subtitle', 'Hospital Administration & Operational Authority')}</span>
-                        </div>
-                        <h1 className="text-3xl font-extrabold tracking-tight">{t('navigation.managerProfile', 'Facility Manager Profile')}</h1>
+                        <h1 className="text-3xl font-extrabold tracking-tight text-on-surface">{t('navigation.managerProfile', 'Facility Manager Profile')}</h1>
                     </div>
 
-                    <div className="p-4 bg-white/10 backdrop-blur rounded-2xl border border-white/20 text-center shrink-0">
-                        <span className="text-[10px] uppercase font-bold tracking-widest text-blue-200 block">Facility ID</span>
-                        <span className="text-lg font-mono font-black text-white">{facilityCode}</span>
+                    <div className="p-3 bg-surface-container-low rounded-2xl border border-surface-container-high text-center shrink-0">
+                        <span className="text-[10px] uppercase font-bold tracking-widest text-tertiary block">Facility ID</span>
+                        <span className="text-base font-mono font-black text-on-surface">{facilityCode}</span>
                     </div>
                 </div>
 
@@ -408,9 +404,8 @@ export default function ProfilePage() {
             <div className="grid grid-cols-1 lg:grid-cols-12 gap-12 items-start">
                 {/* Left Column: Branding & Info */}
                 <div className="lg:col-span-5 space-y-8">
-                    <div className="space-y-2">
-                        <span className="inline-block px-3 py-1 bg-secondary-container text-on-secondary-container text-xs font-bold rounded-full">ENCRYPTED ACCESS</span>
-                        <h2 className="text-4xl lg:text-5xl font-headline font-extrabold tracking-tight text-on-surface">Your Secure Health ID</h2>
+                    <div>
+                        <h2 className="text-3xl lg:text-4xl font-headline font-extrabold tracking-tight text-on-surface">Your Secure Health ID</h2>
                     </div>
 
                     {/* Data List: Profile Fields */}
