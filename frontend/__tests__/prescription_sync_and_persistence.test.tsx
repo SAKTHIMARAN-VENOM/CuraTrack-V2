@@ -382,11 +382,17 @@ describe('Medication & Prescription Synchronization Across Doctor & Patient Port
 
     const doctorRender = render(<DoctorDashboardPage />);
 
+    await waitFor(() => {
+      expect(screen.getAllByText(/Kavita Bai/i).length).toBeGreaterThan(0);
+    });
+
+    const viewBtn = (await screen.findAllByRole('button', { name: /VIEW/i }))[0];
+    fireEvent.click(viewBtn);
+
     await waitFor(
       () => {
-        expect(screen.getAllByText(/Kavita Bai/i).length).toBeGreaterThan(0);
         expect(screen.getByText(/Paracetamol 500mg/i)).toBeInTheDocument();
-        expect(screen.getByTitle(/Remove medication/i)).toBeInTheDocument();
+        expect(screen.getByTitle(/Remove/i)).toBeInTheDocument();
         expect(screen.queryByRole('button', { name: /^Give$/i })).not.toBeInTheDocument();
       },
       { timeout: 4000 }
@@ -478,10 +484,19 @@ describe('Medication & Prescription Synchronization Across Doctor & Patient Port
 
     const { unmount } = render(<DoctorDashboardPage />);
 
-    // Doctor sees patient and existing prescription A with Taken status
+    // Doctor sees patient and clicks VIEW to open consultation popup
     await waitFor(
       () => {
         expect(screen.getAllByText(/Kavita Bai/i).length).toBeGreaterThan(0);
+      },
+      { timeout: 4000 }
+    );
+
+    const viewBtn = (await screen.findAllByRole('button', { name: /VIEW/i }))[0];
+    fireEvent.click(viewBtn);
+
+    await waitFor(
+      () => {
         expect(screen.getByText(/Paracetamol 500mg/i)).toBeInTheDocument();
         expect(screen.getByText(/✓ Taken/i)).toBeInTheDocument();
       },
@@ -573,6 +588,15 @@ describe('Medication & Prescription Synchronization Across Doctor & Patient Port
     await waitFor(
       () => {
         expect(screen.getAllByText(/Kavita Bai/i).length).toBeGreaterThan(0);
+      },
+      { timeout: 4000 }
+    );
+
+    const viewBtn = (await screen.findAllByRole('button', { name: /VIEW/i }))[0];
+    fireEvent.click(viewBtn);
+
+    await waitFor(
+      () => {
         expect(screen.getByText(/Amoxicillin 500mg/i)).toBeInTheDocument();
         expect(screen.getByRole('button', { name: /Submit Encounter/i })).toBeInTheDocument();
       },
@@ -753,6 +777,13 @@ describe('Medication & Prescription Synchronization Across Doctor & Patient Port
     const docRender1 = render(<DoctorDashboardPage />);
 
     await waitFor(() => {
+      expect(screen.getAllByText(/Kavita Bai/i).length).toBeGreaterThan(0);
+    });
+
+    const viewBtn1 = (await screen.findAllByRole('button', { name: /VIEW/i }))[0];
+    fireEvent.click(viewBtn1);
+
+    await waitFor(() => {
       expect(screen.getByText(/Paracetamol 500mg/i)).toBeInTheDocument();
       expect(screen.getByText(/✓ Taken/i)).toBeInTheDocument();
     });
@@ -815,6 +846,13 @@ describe('Medication & Prescription Synchronization Across Doctor & Patient Port
       })
     );
     const docRender2 = render(<DoctorDashboardPage />);
+
+    await waitFor(() => {
+      expect(screen.getAllByText(/Kavita Bai/i).length).toBeGreaterThan(0);
+    });
+
+    const viewBtn2 = (await screen.findAllByRole('button', { name: /VIEW/i }))[0];
+    fireEvent.click(viewBtn2);
 
     await waitFor(() => {
       expect(screen.getAllByText(/Paracetamol 500mg/i).length).toBeGreaterThan(0);
@@ -920,6 +958,13 @@ describe('Medication & Prescription Synchronization Across Doctor & Patient Port
     ];
 
     const { unmount } = render(<DoctorDashboardPage />);
+
+    await waitFor(() => {
+      expect(screen.getAllByText(/Kavita Bai/i).length).toBeGreaterThan(0);
+    });
+
+    const viewBtn = (await screen.findAllByRole('button', { name: /VIEW/i }))[0];
+    fireEvent.click(viewBtn);
 
     await waitFor(() => {
       expect(screen.getAllByText(/Paracetamol 500mg/i).length).toBeGreaterThan(0);
@@ -1044,6 +1089,13 @@ describe('Medication & Prescription Synchronization Across Doctor & Patient Port
     ];
 
     const { unmount } = render(<DoctorDashboardPage />);
+
+    await waitFor(() => {
+      expect(screen.getAllByText(/Kavita Bai/i).length).toBeGreaterThan(0);
+    });
+
+    const viewBtn = (await screen.findAllByRole('button', { name: /VIEW/i }))[0];
+    fireEvent.click(viewBtn);
 
     await waitFor(() => {
       expect(screen.getAllByText(/Paracetamol 500mg/i).length).toBeGreaterThan(0);
