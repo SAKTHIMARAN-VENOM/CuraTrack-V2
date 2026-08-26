@@ -5,6 +5,7 @@ from services.government_schemes import (
     get_empanelled_facilities,
     verify_hospital_empanelment,
     get_filter_metadata,
+    check_datagov_api_health,
     GovSchemeRequest,
     GovSchemeResponse,
     HospitalSearchResponse,
@@ -14,6 +15,17 @@ from services.government_schemes import (
 
 router = APIRouter()
 
+@router.get("/government-schemes/api-status")
+def get_gov_api_status():
+    """
+    Checks and returns live connectivity status of the Data.gov.in / OGD API key
+    and the status of the CGHS Empaneled Hospitals dataset.
+    """
+    try:
+        return check_datagov_api_health()
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
 @router.post("/government-schemes/eligibility", response_model=GovSchemeResponse)
 def check_gov_eligibility(request: GovSchemeRequest):
     """
@@ -22,6 +34,26 @@ def check_gov_eligibility(request: GovSchemeRequest):
     """
     try:
         return evaluate_government_schemes(request)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@router.post("/patient/{patient_id}/government-schemes")
+@router.get("/patient/{patient_id}/government-schemes")
+def get_patient_gov_schemes(patient_id: str):
+    """
+    Evaluate and return eligible government schemes for a patient profile.
+    Compatible with frontend and mobile dashboards.
+    """
+    try:
+        req = GovSchemeRequest(patientId=patient_id)
+        result = evaluate_government_schemes(req)
+        schemes_list = [s.model_dump() for s in result.eligibleSchemes]
+        return {
+            "schemes": schemes_list,
+            "eligibleSchemes": schemes_list,
+            "availableSchemes": schemes_list,
+            "message": result.message
+        }
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 

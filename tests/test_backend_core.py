@@ -160,5 +160,54 @@ def test_government_schemes_filters_metadata(client):
     assert "districts" in data
     assert "schemes" in data
     assert "facility_types" in data
-    assert len(data["states"]) > 0
+    assert len(data["states"]) >= 10
     assert len(data["facility_types"]) > 0
+
+
+def test_cghs_dataset_integration_and_search(client):
+    """Verify full CGHS dataset of 2,500+ facilities is loaded, searchable, and verifiable."""
+    # 1. Check total count includes full CGHS dataset
+    res = client.get("/api/government-schemes/hospitals?limit=10")
+    assert res.status_code == 200
+    data = res.json()
+    assert data["total"] >= 2500
+
+    # 2. Search for a specific CGHS empaneled hospital from the dataset
+    search_res = client.get("/api/government-schemes/hospitals?q=Arunodaya")
+    assert search_res.status_code == 200
+    sdata = search_res.json()
+    assert sdata["total"] >= 1
+    assert "Arunodaya" in sdata["facilities"][0]["name"]
+
+    # 3. Verify specific CGHS hospital empanelment
+    verify_res = client.post(
+        "/api/government-schemes/verify-hospital",
+        json={"hospital_name": "Puru Eye Hospital", "patient_id": "PAT-123"}
+    )
+    assert verify_res.status_code == 200
+    vdata = verify_res.json()
+    assert vdata["is_empanelled"] is True
+    assert vdata["empanelment_status"] == "EMPANELLED_ACTIVE"
+    assert "Central Government Health Scheme (CGHS)" in vdata["matched_schemes"]
+
+
+def test_government_schemes_api_status(client):
+    """Verify health and connectivity check for Data.gov.in API."""
+    response = client.get("/api/government-schemes/api-status")
+    assert response.status_code == 200
+    data = response.json()
+    assert "status" in data
+    assert "resource_id" in data
+    assert data["resource_id"] == "de59e770-2333-4eaf-9088-a3643de040c8"
+    assert data["local_dataset_records"] >= 2500
+
+
+def test_patient_government_schemes_compatibility_route(client):
+    """Verify patient profile government schemes evaluation endpoint."""
+    response = client.post("/api/patient/PAT-123/government-schemes")
+    assert response.status_code == 200
+    data = response.json()
+    assert "schemes" in data
+    assert "eligibleSchemes" in data
+    assert len(data["schemes"]) > 0
+
