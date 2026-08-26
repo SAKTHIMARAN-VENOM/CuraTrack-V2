@@ -290,7 +290,7 @@ export default function DoctorOPDPage() {
       }
 
       // Fetch profiles for client names individually to avoid RLS collection errors
-      const clientIds = Array.from(new Set(dbAppts.map((a: any) => a.client_id).filter(Boolean)));
+      const clientIds = Array.from(new Set(dbAppts.map((a: any) => a.client_id || a.patient_id || a.user_id).filter(Boolean)));
       const profilesMap: Record<string, any> = {};
 
       if (clientIds.length > 0) {
@@ -313,7 +313,8 @@ export default function DoctorOPDPage() {
       }
 
       const formattedQueue: OPDQueuePatient[] = dbAppts.map((a: any, idx: number) => {
-        const clientProf = profilesMap[a.client_id];
+        const resolvedClientId = a.client_id || a.patient_id || a.user_id || a.id;
+        const clientProf = profilesMap[resolvedClientId] || profilesMap[a.client_id] || profilesMap[a.patient_id];
         let pName = a.patient_name;
         if (!pName && clientProf) {
           if (clientProf.name && clientProf.name.trim().length > 0) {
@@ -350,7 +351,7 @@ export default function DoctorOPDPage() {
 
         return {
           id: a.id,
-          clientId: a.client_id || a.id,
+          clientId: resolvedClientId,
           token: a.token || `TKN-${String(idx + 1).padStart(3, '0')}`,
           name: pName,
           age: clientProf?.age || (a.age ? Number(a.age) : 32),
@@ -1050,12 +1051,15 @@ export default function DoctorOPDPage() {
         const newlyAddedInventoryItems: DoctorPrescriptionItem[] = [];
 
         for (const p of prescriptions) {
-          const isPersistedRx = existingRxIdSet.has(p.id) || existingRxNameSet.has(p.drug.toLowerCase().trim());
-          const existingMed = existingMedMap.get(p.id) || existingMedMap.get(p.drug.toLowerCase().trim());
+          const isPersistedRx = p.id ? existingRxIdSet.has(p.id) : false;
+          const existingMed = p.id ? existingMedMap.get(p.id) : null;
+          const validRxId = (p.id && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(p.id))
+            ? p.id
+            : crypto.randomUUID();
 
           if (!isPersistedRx) {
             newRxInserts.push({
-              id: p.id,
+              id: validRxId,
               patient_id: patientClientId,
               medication: p.drug,
               dosage: p.dosage,
@@ -1092,7 +1096,7 @@ export default function DoctorOPDPage() {
 
           if (!existingMed) {
             newMedInserts.push({
-              id: p.id,
+              id: validRxId,
               patient_id: patientClientId,
               name: p.drug,
               dosage: p.dosage,
@@ -1109,11 +1113,48 @@ export default function DoctorOPDPage() {
         }
 
         if (newRxInserts.length > 0) {
-          await supabase.from('prescriptions').insert(newRxInserts);
+          const { error: rxInsertErr } = await supabase.from('prescriptions').insert(newRxInserts);
+          if (rxInsertErr) {
+            console.warn('Rich prescription insert failed, trying core fields fallback:', rxInsertErr);
+            const coreRxInserts = newRxInserts.map(r => ({
+              id: r.id,
+              patient_id: r.patient_id,
+              medication: r.medication,
+              dosage: r.dosage,
+              frequency: r.frequency,
+              doctor_name: r.doctor_name,
+              date: r.date,
+              instructions: r.instructions
+            }));
+            const { error: coreRxErr } = await supabase.from('prescriptions').insert(coreRxInserts);
+            if (coreRxErr) {
+              console.error('Failed to persist prescriptions:', coreRxErr);
+              throw new Error(`Failed to persist prescriptions: ${coreRxErr.message || 'Database error'}`);
+            }
+          }
         }
 
         if (newMedInserts.length > 0) {
-          await supabase.from('medications').insert(newMedInserts);
+          const { error: medInsertErr } = await supabase.from('medications').insert(newMedInserts);
+          if (medInsertErr) {
+            console.warn('Rich medication insert failed, trying core fields fallback:', medInsertErr);
+            const coreMedInserts = newMedInserts.map(m => ({
+              id: m.id,
+              patient_id: m.patient_id,
+              name: m.name,
+              dosage: m.dosage,
+              frequency: m.frequency,
+              instructions: m.instructions,
+              doctor: m.doctor,
+              status: m.status,
+              active: m.active
+            }));
+            const { error: coreMedErr } = await supabase.from('medications').insert(coreMedInserts);
+            if (coreMedErr) {
+              console.error('Failed to persist medications:', coreMedErr);
+              throw new Error(`Failed to persist medications: ${coreMedErr.message || 'Database error'}`);
+            }
+          }
         }
 
         // 4. Atomically deduct EDL medicines stock from facility inventory for newly added items

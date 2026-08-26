@@ -685,4 +685,175 @@ describe('Medication & Prescription Synchronization Across Doctor & Patient Port
 
     unmount();
   });
+
+  it('TEST 9: Multi-stage prescription: Doctor adds B to existing A (Taken) -> Submits -> Doctor adds C -> Submits -> A, B, C all persist in DB and Patient Records without dropping any previous medicine', async () => {
+    localStorage.setItem('curatrack_active_role', 'doctor');
+    localStorage.setItem(
+      'curatrack_auth_user',
+      JSON.stringify({
+        id: 'doc-1',
+        name: 'Dr. David Ross',
+        email: 'doctor@curatrack.in',
+        role: 'doctor',
+      })
+    );
+
+    // Initial state: Medicine A (Taken)
+    mockPrescriptionsData = [
+      {
+        id: 'rx-med-a',
+        patient_id: 'patient-test-user-1',
+        medication: 'Paracetamol 500mg',
+        dosage: '500mg',
+        frequency: 'BD',
+        status: 'TAKEN',
+        prescription_type: 'INVENTORY',
+        is_inventory: true,
+      },
+    ];
+    mockMedicationsData = [
+      {
+        id: 'rx-med-a',
+        patient_id: 'patient-test-user-1',
+        name: 'Paracetamol 500mg',
+        dosage: '500mg',
+        frequency: 'BD',
+        status: 'TAKEN',
+        prescription_type: 'INVENTORY',
+        is_inventory: true,
+      },
+    ];
+    mockAppointmentsData = [
+      {
+        id: 'apt-1',
+        doctor_id: 'doc-1',
+        patient_id: 'patient-test-user-1',
+        client_id: 'patient-test-user-1',
+        patient_name: 'Kavita Bai',
+        priority: 'ROUTINE',
+        status: 'in-consultation',
+        time: '10:00 AM',
+        date: '2026-08-26',
+      },
+    ];
+
+    // Stage 1: Doctor adds Medicine B (Cetirizine 10mg)
+    const docRender1 = render(<DoctorDashboardPage />);
+
+    await waitFor(() => {
+      expect(screen.getByText(/Paracetamol 500mg/i)).toBeInTheDocument();
+      expect(screen.getByText(/✓ Taken/i)).toBeInTheDocument();
+    });
+
+    const nonInvToggle1 = screen.getByText(/\+ Prescribe Non-Inventory Medicine/i);
+    fireEvent.click(nonInvToggle1);
+
+    const drugInput1 = screen.getByPlaceholderText(/Enter medicine name/i);
+    fireEvent.change(drugInput1, { target: { value: 'Cetirizine 10mg' } });
+
+    const addBtn1 = screen.getByText(/Add Medication/i);
+    fireEvent.click(addBtn1);
+
+    await waitFor(() => {
+      expect(screen.getByText(/Cetirizine 10mg/i)).toBeInTheDocument();
+    });
+
+    const submitBtn1 = screen.getByRole('button', { name: /Submit Encounter/i });
+    fireEvent.click(submitBtn1);
+
+    await waitFor(() => {
+      expect(screen.getByText(/Encounter and 2 medication order/i)).toBeInTheDocument();
+    });
+
+    docRender1.unmount();
+
+    // Verify DB after stage 1
+    expect(mockPrescriptionsData.some((r) => r.medication.includes('Paracetamol'))).toBe(true);
+    expect(mockPrescriptionsData.some((r) => r.medication.includes('Cetirizine'))).toBe(true);
+
+    // Stage 2: Patient Portal checks
+    localStorage.setItem('curatrack_active_role', 'patient');
+    localStorage.setItem(
+      'curatrack_auth_user',
+      JSON.stringify({
+        id: 'patient-test-user-1',
+        name: 'Kavita Bai',
+        email: 'patient@curatrack.in',
+        role: 'patient',
+      })
+    );
+    const patRender1 = render(<HealthRecordsPage />);
+
+    await waitFor(() => {
+      expect(screen.getAllByText(/Paracetamol 500mg/i).length).toBeGreaterThan(0);
+      expect(screen.getAllByText(/Cetirizine 10mg/i).length).toBeGreaterThan(0);
+      expect(screen.getAllByText(/✓ Taken/i).length).toBeGreaterThan(0);
+    });
+    patRender1.unmount();
+
+    // Stage 3: Doctor opens patient again and adds Medicine C (Metformin 500mg)
+    localStorage.setItem('curatrack_active_role', 'doctor');
+    localStorage.setItem(
+      'curatrack_auth_user',
+      JSON.stringify({
+        id: 'doc-1',
+        name: 'Dr. David Ross',
+        email: 'doctor@curatrack.in',
+        role: 'doctor',
+      })
+    );
+    const docRender2 = render(<DoctorDashboardPage />);
+
+    await waitFor(() => {
+      expect(screen.getAllByText(/Paracetamol 500mg/i).length).toBeGreaterThan(0);
+      expect(screen.getAllByText(/Cetirizine 10mg/i).length).toBeGreaterThan(0);
+    });
+
+    const nonInvToggle2 = screen.getByText(/\+ Prescribe Non-Inventory Medicine/i);
+    fireEvent.click(nonInvToggle2);
+
+    const drugInput2 = screen.getByPlaceholderText(/Enter medicine name/i);
+    fireEvent.change(drugInput2, { target: { value: 'Metformin 500mg' } });
+
+    const addBtn2 = screen.getByText(/Add Medication/i);
+    fireEvent.click(addBtn2);
+
+    await waitFor(() => {
+      expect(screen.getAllByText(/Metformin 500mg/i).length).toBeGreaterThan(0);
+    });
+
+    const submitBtn2 = screen.getByRole('button', { name: /Submit Encounter/i });
+    fireEvent.click(submitBtn2);
+
+    await waitFor(() => {
+      expect(screen.getByText(/Encounter and 3 medication order/i)).toBeInTheDocument();
+    });
+
+    docRender2.unmount();
+
+    // Verification: Database contains ALL 3 (A, B, C)
+    expect(mockPrescriptionsData.some((r) => r.medication.includes('Paracetamol'))).toBe(true);
+    expect(mockPrescriptionsData.some((r) => r.medication.includes('Cetirizine'))).toBe(true);
+    expect(mockPrescriptionsData.some((r) => r.medication.includes('Metformin'))).toBe(true);
+
+    // Patient Portal reloads and sees all 3
+    localStorage.setItem('curatrack_active_role', 'patient');
+    localStorage.setItem(
+      'curatrack_auth_user',
+      JSON.stringify({
+        id: 'patient-test-user-1',
+        name: 'Kavita Bai',
+        email: 'patient@curatrack.in',
+        role: 'patient',
+      })
+    );
+    const patRender2 = render(<HealthRecordsPage />);
+
+    await waitFor(() => {
+      expect(screen.getAllByText(/Paracetamol 500mg/i).length).toBeGreaterThan(0);
+      expect(screen.getAllByText(/Cetirizine 10mg/i).length).toBeGreaterThan(0);
+      expect(screen.getAllByText(/Metformin 500mg/i).length).toBeGreaterThan(0);
+    });
+    patRender2.unmount();
+  });
 });
