@@ -5,7 +5,7 @@ import { createAdminClient } from '@/lib/supabase/admin';
 export async function POST(req: NextRequest) {
     try {
         const body = await req.json();
-        const { userId, blood_group, gender, age, phone, name } = body;
+        const { userId, blood_group, gender, age, phone, name, chronic_diseases, allergies } = body;
 
         const supabase = await createClient();
         const adminClient = createAdminClient();
@@ -30,6 +30,8 @@ export async function POST(req: NextRequest) {
 
         if (blood_group !== undefined) updateData.blood_group = blood_group;
         if (gender !== undefined) updateData.gender = gender;
+        if (allergies !== undefined) updateData.allergies = allergies;
+        if (chronic_diseases !== undefined) updateData.chronic_diseases = chronic_diseases;
         if (age !== undefined && age !== '') updateData.age = parseInt(String(age), 10) || null;
         if (phone !== undefined) updateData.phone = phone;
         if (name !== undefined && name.trim() !== '') updateData.name = name.trim();
@@ -55,6 +57,8 @@ export async function POST(req: NextRequest) {
                     ...(name ? { name: name.trim() } : {}),
                     ...(gender ? { gender } : {}),
                     ...(blood_group ? { blood_group } : {}),
+                    ...(allergies ? { allergies } : {}),
+                    ...(chronic_diseases ? { chronic_diseases } : {}),
                 },
             });
         } catch (metaErr) {
@@ -79,6 +83,8 @@ export async function POST(req: NextRequest) {
             email: finalProfile.email || cookieUser.email,
             blood_group: finalProfile.blood_group,
             gender: finalProfile.gender,
+            allergies: finalProfile.allergies,
+            chronic_diseases: finalProfile.chronic_diseases,
             age: finalProfile.age,
             phone: finalProfile.phone,
         };

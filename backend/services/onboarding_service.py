@@ -11,6 +11,7 @@ logger = logging.getLogger("curatrack.onboarding")
 
 _supabase = None
 try:
+    # pyrefly: ignore [missing-import]
     from supabase import create_client
     SUPABASE_URL = os.getenv("SUPABASE_URL", "")
     SUPABASE_KEY = os.getenv("SUPABASE_SERVICE_ROLE_KEY", "")
@@ -53,6 +54,7 @@ def save_patient_onboarding(user_id: str, payload: dict) -> dict:
                 "role": "patient",
                 "gender": payload.get("personal_info", {}).get("gender", ""),
                 "blood_group": payload.get("medical_info", {}).get("blood_group", ""),
+                "chronic_diseases": payload.get("medical_info", {}).get("chronic_diseases", ""),
                 "profile_completed": True,
             }).execute()
 

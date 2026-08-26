@@ -562,5 +562,27 @@
     "completed": "पूर्ण",
     "rejected": "अस्वीकृत",
     "overdueEscalated": "समय सीमा पार"
+  },
+  "healthModal": {
+    "actionRequired": "आवश्यक कार्रवाई: कृपया सटीक आपातकालीन ट्राइएज और नुस्खों के लिए अपना रक्त समूह, लिंग और Existing Diseases & Allergies दर्ज करें।",
+    "setUpNow": "अभी सेट करें",
+    "newTitle": "अपना स्वास्थ्य प्रोफ़ाइल पूरा करें",
+    "editTitle": "स्वास्थ्य और वाइटल्स पहचान संपादित करें",
+    "newSubtitle": "CuraTrack में आपका स्वागत है! कृपया आपातकालीन ट्राइएज के लिए रक्त समूह, लिंग और Existing Diseases & Allergies चुनें।",
+    "editSubtitle": "अपनी नैदानिक जनसांख्यिकी, Existing Diseases & Allergies और आपातकालीन पहचान डेटा अपडेट करें।",
+    "requiredError": "आगे बढ़ने से पहले कृपया रक्त समूह और लिंग दोनों चुनें।",
+    "saveError": "प्रोफ़ाइल सहेजने में असमर्थ। कृपया पुनः प्रयास करें।",
+    "savedSuccess": "स्वास्थ्य प्रोफ़ाइल सफलतापूर्वक सहेजी गई!",
+    "selectBlood": "रक्त समूह चुनें",
+    "selectGender": "लिंग चुनें",
+    "existingDiseasesAllergies": "Existing Diseases & Allergies",
+    "existingDiseasesAllergiesSubtitle": "अपनी बीमारियां या एलर्जी चुनें या नीचे दर्ज करें (वैकल्पिक)",
+    "noConditionsOrAllergies": "None",
+    "otherDiseasesAllergiesPlaceholder": "अन्य बीमारियां / एलर्जी दर्ज करें (उदा. Diabetes, Penicillin)...",
+    "ageYears": "आयु (वर्ष)",
+    "emergencyPhone": "आपातकालीन संपर्क फोन",
+    "remindLater": "बाद में याद दिलाएं",
+    "savingProfile": "प्रोफ़ाइल सहेजी जा रही है...",
+    "saveComplete": "सहेजें और प्रोफ़ाइल पूर्ण करें"
   }
 }

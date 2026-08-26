@@ -31,6 +31,8 @@ export async function GET(req: NextRequest) {
             role: profile?.role || user?.user_metadata?.role || parsedCookieUser?.role || 'patient',
             blood_group: profile?.blood_group || user?.user_metadata?.blood_group || parsedCookieUser?.blood_group || null,
             gender: profile?.gender || user?.user_metadata?.gender || parsedCookieUser?.gender || null,
+            allergies: profile?.allergies || user?.user_metadata?.allergies || parsedCookieUser?.allergies || null,
+            chronic_diseases: profile?.chronic_diseases || user?.user_metadata?.chronic_diseases || parsedCookieUser?.chronic_diseases || null,
             age: profile?.age || user?.user_metadata?.age || parsedCookieUser?.age || null,
             phone: profile?.phone || user?.user_metadata?.phone || parsedCookieUser?.phone || null,
             picture: user?.user_metadata?.avatar_url || parsedCookieUser?.picture || null,

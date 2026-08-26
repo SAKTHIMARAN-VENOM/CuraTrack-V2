@@ -99,16 +99,16 @@ export default function Dashboard() {
         // Fetch AI health insights
         const fetchInsights = async () => {
             try {
-                const res = await fetch(`${API_BASE}/api/health-insights`);
+                const res = await fetch('/api/health-insights');
                 if (res.ok) {
                     const result = await res.json();
-                    if (result.insights) {
+                    if (result.insights && Array.isArray(result.insights)) {
                         setInsights(result.insights);
                         offlineStorage.saveInsights(result.insights);
                     }
                 }
             } catch (err) {
-                console.error('Insights fetch error:', err);
+                console.warn('Insights fetch notice (using offline cache):', err);
                 const cached = offlineStorage.getInsights();
                 if (cached.length > 0) setInsights(cached);
             } finally {
@@ -179,12 +179,18 @@ export default function Dashboard() {
                             <button
                                 onClick={() => window.dispatchEvent(new CustomEvent('open-health-profile-modal', { detail: user }))}
                                 className="inline-flex items-center gap-1.5 px-3 py-1 bg-red-50 hover:bg-red-100 border border-red-200 text-red-700 rounded-full text-xs font-bold transition-all cursor-pointer shadow-2xs"
-                                title="Click to edit Blood Group & Gender"
+                                title="Click to edit Blood Group, Gender & Existing Diseases & Allergies"
                             >
                                 <span className="material-symbols-outlined text-xs">bloodtype</span>
                                 <span>{user?.blood_group ? `Blood: ${user.blood_group}` : 'Set Blood Group'}</span>
                                 <span className="text-red-300">•</span>
                                 <span>{user?.gender ? user.gender : 'Set Gender'}</span>
+                                {(user?.allergies || user?.chronic_diseases) && (user?.allergies !== 'None' && user?.chronic_diseases !== 'None') && (
+                                    <>
+                                        <span className="text-red-300">•</span>
+                                        <span className="max-w-[160px] truncate">{user.allergies || user.chronic_diseases}</span>
+                                    </>
+                                )}
                                 <span className="material-symbols-outlined text-xs text-red-500">edit</span>
                             </button>
                             <span className="w-1 h-1 bg-tertiary/40 rounded-full"></span>

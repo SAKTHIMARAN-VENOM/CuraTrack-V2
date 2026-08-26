@@ -23,6 +23,7 @@ export default function ProfilePage() {
     const [userAge, setUserAge] = useState<string>('');
     const [userGender, setUserGender] = useState<string>('');
     const [userBlood, setUserBlood] = useState<string>('');
+    const [userAllergies, setUserAllergies] = useState<string>('');
 
     // Manager Profile States
     const [facilityName, setFacilityName] = useState<string>('Nandurbar Sub-District Hospital');
@@ -47,6 +48,7 @@ export default function ProfilePage() {
             const offlineProf = offlineStorage.getProfile();
             const initialBlood = savedAuthUser?.blood_group || offlineProf?.blood_group || '';
             const initialGender = savedAuthUser?.gender || offlineProf?.gender || '';
+            const initialAllergies = savedAuthUser?.allergies || offlineProf?.allergies || savedAuthUser?.chronic_diseases || offlineProf?.chronic_diseases || '';
             const initialAge = savedAuthUser?.age ? String(savedAuthUser.age) : (offlineProf?.age ? String(offlineProf.age) : '');
             const initialPhone = savedAuthUser?.phone || offlineProf?.phone || '';
             const initialName = savedAuthUser?.name || offlineProf?.name || '';
@@ -54,6 +56,7 @@ export default function ProfilePage() {
 
             if (initialBlood) setUserBlood(initialBlood);
             if (initialGender) setUserGender(initialGender);
+            if (initialAllergies) setUserAllergies(initialAllergies);
             if (initialAge) setUserAge(initialAge);
             if (initialPhone) setUserPhone(initialPhone);
             if (initialName) setUserName(initialName);
@@ -75,6 +78,7 @@ export default function ProfilePage() {
                         if (u.age) setUserAge(String(u.age));
                         if (u.gender) setUserGender(u.gender);
                         if (u.blood_group) setUserBlood(u.blood_group);
+                        if (u.allergies || u.chronic_diseases) setUserAllergies(u.allergies || u.chronic_diseases);
 
                         const merged = {
                             ...(savedAuthUser || {}),
@@ -102,6 +106,7 @@ export default function ProfilePage() {
                         if (prof.age) setUserAge(String(prof.age));
                         if (prof.gender) setUserGender(prof.gender);
                         if (prof.blood_group) setUserBlood(prof.blood_group);
+                        if (prof.allergies || prof.chronic_diseases) setUserAllergies(prof.allergies || prof.chronic_diseases);
 
                         const merged = {
                             ...(savedAuthUser || {}),
@@ -137,6 +142,8 @@ export default function ProfilePage() {
         const handleProfileUpdated = (e: any) => {
             if (e.detail?.blood_group) setUserBlood(e.detail.blood_group);
             if (e.detail?.gender) setUserGender(e.detail.gender);
+            if (e.detail?.allergies !== undefined) setUserAllergies(e.detail.allergies);
+            else if (e.detail?.chronic_diseases !== undefined) setUserAllergies(e.detail.chronic_diseases);
             if (e.detail?.age) setUserAge(String(e.detail.age));
             if (e.detail?.phone) setUserPhone(e.detail.phone);
         };
@@ -402,47 +409,60 @@ export default function ProfilePage() {
                                 {userEmail && <p className="text-xs text-tertiary mt-0.5">{userEmail}</p>}
                             </div>
                             <button
-                                onClick={() => window.dispatchEvent(new CustomEvent('open-health-profile-modal', { detail: { blood_group: userBlood, gender: userGender, age: userAge, phone: userPhone } }))}
+                                onClick={() => window.dispatchEvent(new CustomEvent('open-health-profile-modal', { detail: { blood_group: userBlood, gender: userGender, age: userAge, phone: userPhone, allergies: userAllergies } }))}
                                 className="px-4 py-2 bg-primary/10 hover:bg-primary text-primary hover:text-white rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer shadow-sm"
-                                title="Edit Blood Group, Gender & Health Details"
+                                title="Edit Blood Group, Gender & Allergies"
                             >
                                 <span className="material-symbols-outlined text-sm">edit</span>
                                 <span>Edit Profile</span>
                             </button>
                         </div>
-                        <div className="grid grid-cols-1 sm:grid-cols-3 gap-1 mt-1">
+                        <div className="grid grid-cols-1 sm:grid-cols-4 gap-1 mt-1">
                             <div 
-                                onClick={() => window.dispatchEvent(new CustomEvent('open-health-profile-modal', { detail: { blood_group: userBlood, gender: userGender, age: userAge, phone: userPhone } }))}
-                                className="p-6 bg-surface-container-low rounded-xl group transition-all hover:bg-surface-container shadow-sm border border-surface-container cursor-pointer hover:border-primary/40"
+                                onClick={() => window.dispatchEvent(new CustomEvent('open-health-profile-modal', { detail: { blood_group: userBlood, gender: userGender, age: userAge, phone: userPhone, allergies: userAllergies } }))}
+                                className="p-5 bg-surface-container-low rounded-xl group transition-all hover:bg-surface-container shadow-sm border border-surface-container cursor-pointer hover:border-primary/40"
                                 title="Click to edit Age"
                             >
                                 <p className="text-xs font-bold text-tertiary uppercase tracking-widest mb-1 flex items-center justify-between">
                                     <span>Age</span>
                                     <span className="material-symbols-outlined text-xs opacity-0 group-hover:opacity-100 text-primary transition-opacity">edit</span>
                                 </p>
-                                <p className="text-xl font-headline font-bold text-on-surface">{userAge || '-'}</p>
+                                <p className="text-lg font-headline font-bold text-on-surface">{userAge || '-'}</p>
                             </div>
                             <div 
-                                onClick={() => window.dispatchEvent(new CustomEvent('open-health-profile-modal', { detail: { blood_group: userBlood, gender: userGender, age: userAge, phone: userPhone } }))}
-                                className="p-6 bg-surface-container-low rounded-xl group transition-all hover:bg-surface-container shadow-sm border border-surface-container cursor-pointer hover:border-primary/40"
+                                onClick={() => window.dispatchEvent(new CustomEvent('open-health-profile-modal', { detail: { blood_group: userBlood, gender: userGender, age: userAge, phone: userPhone, allergies: userAllergies } }))}
+                                className="p-5 bg-surface-container-low rounded-xl group transition-all hover:bg-surface-container shadow-sm border border-surface-container cursor-pointer hover:border-primary/40"
                                 title="Click to edit Gender"
                             >
                                 <p className="text-xs font-bold text-tertiary uppercase tracking-widest mb-1 flex items-center justify-between">
                                     <span>Gender</span>
                                     <span className="material-symbols-outlined text-xs opacity-0 group-hover:opacity-100 text-primary transition-opacity">edit</span>
                                 </p>
-                                <p className="text-xl font-headline font-bold text-on-surface">{userGender || '-'}</p>
+                                <p className="text-lg font-headline font-bold text-on-surface">{userGender || '-'}</p>
                             </div>
                             <div 
-                                onClick={() => window.dispatchEvent(new CustomEvent('open-health-profile-modal', { detail: { blood_group: userBlood, gender: userGender, age: userAge, phone: userPhone } }))}
-                                className="p-6 bg-surface-container-low rounded-xl group transition-all hover:bg-surface-container shadow-sm border border-surface-container cursor-pointer hover:border-red-400 bg-red-50/20"
+                                onClick={() => window.dispatchEvent(new CustomEvent('open-health-profile-modal', { detail: { blood_group: userBlood, gender: userGender, age: userAge, phone: userPhone, allergies: userAllergies } }))}
+                                className="p-5 bg-surface-container-low rounded-xl group transition-all hover:bg-surface-container shadow-sm border border-surface-container cursor-pointer hover:border-red-400 bg-red-50/20"
                                 title="Click to edit Blood Group"
                             >
                                 <p className="text-xs font-bold text-red-600 uppercase tracking-widest mb-1 flex items-center justify-between">
-                                    <span>Blood Group</span>
+                                    <span>Blood</span>
                                     <span className="material-symbols-outlined text-xs opacity-0 group-hover:opacity-100 text-red-600 transition-opacity">edit</span>
                                 </p>
-                                <p className="text-xl font-headline font-bold text-red-700">{userBlood || 'Set Now'}</p>
+                                <p className="text-lg font-headline font-bold text-red-700">{userBlood || 'Set Now'}</p>
+                            </div>
+                            <div 
+                                onClick={() => window.dispatchEvent(new CustomEvent('open-health-profile-modal', { detail: { blood_group: userBlood, gender: userGender, age: userAge, phone: userPhone, diseases_and_allergies: userAllergies } }))}
+                                className="p-5 bg-surface-container-low rounded-xl group transition-all hover:bg-surface-container shadow-sm border border-surface-container cursor-pointer hover:border-amber-400 bg-amber-50/20"
+                                title="Click to edit Existing Diseases & Allergies"
+                            >
+                                <p className="text-xs font-bold text-amber-700 uppercase tracking-widest mb-1 flex items-center justify-between">
+                                    <span>Diseases & Allergies</span>
+                                    <span className="material-symbols-outlined text-xs opacity-0 group-hover:opacity-100 text-amber-700 transition-opacity">edit</span>
+                                </p>
+                                <p className="text-xs font-headline font-bold text-amber-900 truncate" title={userAllergies || 'None reported'}>
+                                    {userAllergies || 'None'}
+                                </p>
                             </div>
                         </div>
                     </div>

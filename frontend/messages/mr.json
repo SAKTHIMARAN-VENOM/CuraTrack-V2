@@ -562,5 +562,27 @@
     "completed": "पूर्ण झाले",
     "rejected": "नाकारले",
     "overdueEscalated": "मुदत संपली"
+  },
+  "healthModal": {
+    "actionRequired": "आवश्यक कृती: अचूक आपत्कालीन ट्रायज आणि प्रिस्क्रिप्शनसाठी कृपया तुमचा रक्तगट, लिंग आणि Existing Diseases & Allergies नोंदवा.",
+    "setUpNow": "आता सेट करा",
+    "newTitle": "तुमचे आरोग्य प्रोफाईल पूर्ण करा",
+    "editTitle": "आरोग्य ओळख संपादित करा",
+    "newSubtitle": "CuraTrack मध्ये आपले स्वागत आहे! आपत्कालीन ट्रायजसाठी कृपया रक्तगट, लिंग आणि Existing Diseases & Allergies निवडा.",
+    "editSubtitle": "तुमचे वैद्यकीय तपशील, Existing Diseases & Allergies आणि आपत्कालीन ओळख डेटा अपडेट करा.",
+    "requiredError": "पुढे जाण्यापूर्वी कृपया रक्तगट आणि लिंग दोन्ही निवडा.",
+    "saveError": "प्रोफाईल जतन करण्यात अक्षम. कृपया पुन्हा प्रयत्न करा.",
+    "savedSuccess": "आरोग्य प्रोफाईल यशस्वीरित्या जतन झाले!",
+    "selectBlood": "रक्तगट निवडा",
+    "selectGender": "लिंग निवडा",
+    "existingDiseasesAllergies": "Existing Diseases & Allergies",
+    "existingDiseasesAllergiesSubtitle": "तुमचे आजार किंवा ॲलर्जी निवडा किंवा खाली प्रविष्ट करा (पर्यायी)",
+    "noConditionsOrAllergies": "None",
+    "otherDiseasesAllergiesPlaceholder": "इतर आजार / ॲलर्जी प्रविष्ट करा (उदा. Diabetes, Penicillin)...",
+    "ageYears": "वय (वर्षे)",
+    "emergencyPhone": "आपत्कालीन संपर्क फोन",
+    "remindLater": "नंतर आठवण करा",
+    "savingProfile": "प्रोफाईल जतन करत आहे...",
+    "saveComplete": "जतन करा आणि प्रोफाईल पूर्ण करा"
   }
 }

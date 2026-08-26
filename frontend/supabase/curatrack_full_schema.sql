@@ -38,6 +38,8 @@ create table public.profiles (
   role text default 'patient',
   gender text,
   blood_group text,
+  allergies text,
+  chronic_diseases text,
   profile_completed boolean default false,
   updated_at timestamp with time zone default now()
 );

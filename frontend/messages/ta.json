@@ -562,5 +562,27 @@
     "completed": "முடிந்தது",
     "rejected": "நிராகரிக்கப்பட்டது",
     "overdueEscalated": "காலக்கெடு முடிந்தது"
+  },
+  "healthModal": {
+    "actionRequired": "தேவையான நடவடிக்கை: அவசர சிகிச்சை மற்றும் மருந்து சீட்டுகளுக்கு உங்கள் இரத்த வகை, பாலினம் மற்றும் Existing Diseases & Allergies உள்ளிடவும்.",
+    "setUpNow": "இப்போது அமைக்கவும்",
+    "newTitle": "உங்கள் சுகாதார சுயவிவரத்தை முடிக்கவும்",
+    "editTitle": "சுகாதார அடையாளத்தைத் திருத்தவும்",
+    "newSubtitle": "CuraTrack-க்கு வரவேற்கிறோம்! அவசர சிகிச்சைக்காக இரத்த வகை, பாலினம் மற்றும் Existing Diseases & Allergies தேர்ந்தெடுக்கவும்.",
+    "editSubtitle": "உங்கள் மருத்துவ விவரங்கள், Existing Diseases & Allergies மற்றும் அவசர அடையாளத் தரவைப் புதுப்பிக்கவும்.",
+    "requiredError": "தொடர்வதற்கு முன் இரத்த வகை மற்றும் பாலினம் இரண்டையும் தேர்ந்தெடுக்கவும்.",
+    "saveError": "சுயவிவரத்தைச் சேமிக்க முடியவில்லை. மீண்டும் முயற்சிக்கவும்.",
+    "savedSuccess": "சுகாதார சுயவிவரம் வெற்றிகரமாக சேமிக்கப்பட்டது!",
+    "selectBlood": "இரத்த வகையைத் தேர்ந்தெடுக்கவும்",
+    "selectGender": "பாலினத்தைத் தேர்ந்தெடுக்கவும்",
+    "existingDiseasesAllergies": "Existing Diseases & Allergies",
+    "existingDiseasesAllergiesSubtitle": "நோய்கள் அல்லது ஒவ்வாமைகளைத் தேர்ந்தெடுக்கவும் அல்லது கீழே உள்ளிடவும் (விருப்பத்தேர்வு)",
+    "noConditionsOrAllergies": "None",
+    "otherDiseasesAllergiesPlaceholder": "பிற நோய்கள் / ஒவ்வாமைகளைத் தட்டச்சு செய்யவும் (எ.கா. Diabetes, Penicillin)...",
+    "ageYears": "வயது (ஆண்டுகள்)",
+    "emergencyPhone": "அவசர தொடர்பு தொலைபேசி",
+    "remindLater": "பிறகு நினைவூட்டு",
+    "savingProfile": "சுயவிவரம் சேமிக்கப்படுகிறது...",
+    "saveComplete": "சேமித்து சுயவிவரத்தை முடிக்கவும்"
   }
 }
