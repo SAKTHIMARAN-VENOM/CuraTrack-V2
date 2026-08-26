@@ -250,11 +250,13 @@ export default function DoctorOPDPage() {
     }
   };
 
-  // Fetch Inbound Referrals from Backend/Supabase (Phase 3)
+  // Fetch Inbound Referrals from Backend/Supabase (Phase 3 with Doctor Privacy RBAC)
   const fetchInboundReferrals = useCallback(async () => {
     setLoadingReferrals(true);
     try {
-      const res = await apiFetch('/api/referrals');
+      const docName = encodeURIComponent(doctorInfo.name || 'Dr. David Ross');
+      const docId = activeDoctorId || doctorInfo.id || 'doc-david-ross';
+      const res = await apiFetch(`/api/referrals?doctor_id=${docId}&doctor_name=${docName}`);
       if (res?.referrals) {
         setInboundReferrals(res.referrals);
       }
@@ -263,7 +265,7 @@ export default function DoctorOPDPage() {
     } finally {
       setLoadingReferrals(false);
     }
-  }, []);
+  }, [activeDoctorId, doctorInfo.name, doctorInfo.id]);
 
   // Fetch Live Queue from Supabase Database
   const fetchLiveQueue = useCallback(async (docId: string) => {
@@ -2462,7 +2464,7 @@ export default function DoctorOPDPage() {
 
                 <div className="flex items-center gap-2">
                   <Link
-                    href={`/referrals`}
+                    href={`/doctor/referrals`}
                     className="px-3.5 py-2.5 bg-teal-50 hover:bg-teal-100 text-teal-900 border border-teal-200 font-bold text-xs rounded-xl transition-all flex items-center gap-1.5"
                   >
                     <span className="material-symbols-outlined text-base text-teal-700">alt_route</span>

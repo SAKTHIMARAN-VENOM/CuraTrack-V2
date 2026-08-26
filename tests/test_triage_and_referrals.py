@@ -218,3 +218,213 @@ def test_referral_history_filter_completed_exclusion(client):
     history_data = history_res.json()
     assert history_data["count"] > 0
     assert all(r["status"] == "COMPLETED" for r in history_data["referrals"])
+
+
+def test_referral_patients_and_doctors_directory(client):
+    """Verify patients and verified doctors directory endpoints for referral creation."""
+    patients_res = client.get("/api/referrals/patients")
+    assert patients_res.status_code == 200
+    pdata = patients_res.json()
+    assert "patients" in pdata
+    assert pdata["count"] > 0
+    assert any(p["name"] == "Sunita Devi" for p in pdata["patients"])
+
+    doctors_res = client.get("/api/referrals/doctors")
+    assert doctors_res.status_code == 200
+    ddata = doctors_res.json()
+    assert "doctors" in ddata
+    assert ddata["count"] > 0
+    assert any(d["role"] == "doctor" for d in ddata["doctors"])
+
+
+def test_referral_role_based_access_rules(client):
+    """Verify role-based referral creation: ASHA -> Doctor (allowed), Doctor -> Doctor (allowed), Patient -> Rejected (403), ASHA -> ASHA (400)."""
+    # 1. ASHA Worker refers patient to Medical Officer (Allowed)
+    asha_payload = {
+        "patient_id": "p-204",
+        "patient_name": "Sunita Devi",
+        "patient_age": 27,
+        "patient_gender": "Female",
+        "referring_doctor_name": "Sunita Tai (ASHA)",
+        "referring_role": "fhw",
+        "referring_facility_type": "Ayushman Arogya Mandir (Sub-Centre)",
+        "referring_facility_name": "Sub-Centre Borvihir",
+        "destination_doctor_id": "doc-ananya-sharma",
+        "destination_doctor_name": "Dr. Ananya Sharma (MO)",
+        "destination_role": "doctor",
+        "destination_facility_type": "Primary Health Centre (PHC)",
+        "destination_facility_name": "PHC Nandurbar Rural",
+        "specialty": "Obstetrics & Maternal Care",
+        "urgency": "EMERGENCY",
+        "clinical_reason": "Gestational hypertension with pedal edema",
+        "provisional_diagnosis": "Preeclampsia risk",
+        "created_by_role": "fhw"
+    }
+    asha_res = client.post("/api/referrals/create", json=asha_payload)
+    assert asha_res.status_code == 200
+    assert asha_res.json()["success"] is True
+    assert asha_res.json()["referral"]["referring_role"] == "fhw"
+    assert asha_res.json()["referral"]["destination_role"] == "doctor"
+
+    # 2. Doctor refers patient to Super-specialist / Tertiary Hospital (Allowed)
+    doc_payload = {
+        "patient_id": "p-101",
+        "patient_name": "Rameshwar Patel",
+        "patient_age": 54,
+        "patient_gender": "Male",
+        "referring_doctor_name": "Dr. David Ross",
+        "referring_role": "doctor",
+        "referring_facility_type": "Primary Health Centre (PHC)",
+        "referring_facility_name": "PHC Nandurbar Rural",
+        "destination_doctor_id": "doc-vk-deshmukh",
+        "destination_doctor_name": "Dr. V. K. Deshmukh",
+        "destination_role": "doctor",
+        "destination_facility_type": "District Hospital",
+        "destination_facility_name": "Nandurbar District Civil Hospital",
+        "specialty": "Cardiology",
+        "urgency": "URGENT",
+        "clinical_reason": "Ischemic ECG changes with persistent angina",
+        "provisional_diagnosis": "Coronary Artery Disease",
+        "created_by_role": "doctor"
+    }
+    doc_res = client.post("/api/referrals/create", json=doc_payload)
+    assert doc_res.status_code == 200
+    assert doc_res.json()["success"] is True
+
+    # 3. Patient attempts to generate clinical referral pass (Forbidden 403)
+    patient_payload = {
+        "patient_id": "p-101",
+        "patient_name": "Rameshwar Patel",
+        "patient_age": 54,
+        "patient_gender": "Male",
+        "referring_facility_type": "Home",
+        "referring_facility_name": "Home Self-Referral",
+        "destination_facility_type": "District Hospital",
+        "destination_facility_name": "Nandurbar District Civil Hospital",
+        "specialty": "Cardiology",
+        "urgency": "ROUTINE",
+        "clinical_reason": "Self-referral request",
+        "provisional_diagnosis": "Chest discomfort",
+        "created_by_role": "patient"
+    }
+    patient_res = client.post("/api/referrals/create", json=patient_payload)
+    assert patient_res.status_code == 403
+    assert "not authorized" in patient_res.json()["detail"].lower()
+
+    # 4. ASHA worker attempts to refer to another ASHA / non-doctor (Rejected 400)
+    invalid_asha_payload = {
+        "patient_id": "p-204",
+        "patient_name": "Sunita Devi",
+        "patient_age": 27,
+        "patient_gender": "Female",
+        "referring_facility_name": "Sub-Centre Borvihir",
+        "destination_facility_name": "Sub-Centre Dongargaon",
+        "destination_role": "fhw",
+        "specialty": "Maternal Care",
+        "clinical_reason": "Transfer to another ASHA",
+        "provisional_diagnosis": "ANC visit",
+        "created_by_role": "fhw"
+    }
+    invalid_res = client.post("/api/referrals/create", json=invalid_asha_payload)
+    assert invalid_res.status_code == 400
+    assert "role hierarchy violation" in invalid_res.json()["detail"].lower()
+
+
+def test_doctor_referral_privacy_and_access_control(client):
+    """
+    Verify doctor privacy and access control:
+    1. A doctor only sees patient referrals specifically addressed to them.
+    2. No other doctor can view another doctor's incoming patient details.
+    3. Only the assigned destination doctor can accept and manage the referral.
+    """
+    # 1. Create Referral A for Dr. David Ross
+    ref_a_payload = {
+        "patient_id": "p-101",
+        "patient_name": "Rameshwar Patel (Dr Ross Patient)",
+        "patient_age": 54,
+        "patient_gender": "Male",
+        "referring_doctor_name": "Sunita Tai (ASHA)",
+        "referring_role": "fhw",
+        "referring_facility_type": "Sub-Centre",
+        "referring_facility_name": "Sub-Centre Borvihir",
+        "destination_doctor_id": "doc-david-ross",
+        "destination_doctor_name": "Dr. David Ross",
+        "destination_role": "doctor",
+        "destination_facility_type": "Primary Health Centre (PHC)",
+        "destination_facility_name": "PHC Nandurbar Rural",
+        "specialty": "General Medicine",
+        "urgency": "URGENT",
+        "clinical_reason": "Severe exertional chest pain",
+        "provisional_diagnosis": "Unstable Angina",
+        "created_by_role": "fhw"
+    }
+    res_a = client.post("/api/referrals/create", json=ref_a_payload)
+    assert res_a.status_code == 200
+    ref_a_id = res_a.json()["referral"]["id"]
+
+    # 2. Create Referral B for Dr. Priya Nair
+    ref_b_payload = {
+        "patient_id": "p-204",
+        "patient_name": "Sunita Devi (Dr Priya Patient)",
+        "patient_age": 27,
+        "patient_gender": "Female",
+        "referring_doctor_name": "Rekha ANM",
+        "referring_role": "fhw",
+        "referring_facility_type": "Sub-Centre",
+        "referring_facility_name": "Sub-Centre Dhanora",
+        "destination_doctor_id": "doc-priya-nair",
+        "destination_doctor_name": "Dr. Priya Nair",
+        "destination_role": "doctor",
+        "destination_facility_type": "Community Health Centre (CHC)",
+        "destination_facility_name": "CHC Shahada Block",
+        "specialty": "Obstetrics & Gynecology",
+        "urgency": "EMERGENCY",
+        "clinical_reason": "Eclampsia risk",
+        "provisional_diagnosis": "Severe Preeclampsia",
+        "created_by_role": "fhw"
+    }
+    res_b = client.post("/api/referrals/create", json=ref_b_payload)
+    assert res_b.status_code == 200
+    ref_b_id = res_b.json()["referral"]["id"]
+
+    # 3. Query as Dr. David Ross -> Must see Ref A, but NOT Ref B
+    ross_res = client.get("/api/referrals?doctor_id=doc-david-ross&doctor_name=Dr.+David+Ross")
+    assert ross_res.status_code == 200
+    ross_ids = [r["id"] for r in ross_res.json()["referrals"]]
+    assert ref_a_id in ross_ids
+    assert ref_b_id not in ross_ids
+
+    # 4. Query as Dr. Priya Nair -> Must see Ref B, but NOT Ref A
+    priya_res = client.get("/api/referrals?doctor_id=doc-priya-nair&doctor_name=Dr.+Priya+Nair")
+    assert priya_res.status_code == 200
+    priya_ids = [r["id"] for r in priya_res.json()["referrals"]]
+    assert ref_b_id in priya_ids
+    assert ref_a_id not in priya_ids
+
+    # 5. Unauthorized Doctor (Dr. Sarah Jenkins) attempts to access Dr. David Ross's patient details (403 Forbidden)
+    unauth_detail = client.get(f"/api/referrals/{ref_a_id}?doctor_id=doc-sarah-jenkins&doctor_name=Dr.+Sarah+Jenkins")
+    assert unauth_detail.status_code == 403
+    assert "access denied" in unauth_detail.json()["detail"].lower()
+
+    # 6. Unauthorized Doctor (Dr. Sarah Jenkins) attempts to accept Dr. David Ross's referral (403 Forbidden)
+    unauth_accept = client.post(f"/api/referrals/{ref_a_id}/status", json={
+        "status": "ACCEPTED",
+        "actor_role": "doctor",
+        "doctor_id": "doc-sarah-jenkins",
+        "doctor_name": "Dr. Sarah Jenkins",
+        "notes": "Unauthorized attempt to accept Dr Ross referral"
+    })
+    assert unauth_accept.status_code == 403
+    assert "access denied" in unauth_accept.json()["detail"].lower()
+
+    # 7. Assigned Doctor (Dr. David Ross) accepts his own referral -> Succeeded 200 OK
+    auth_accept = client.post(f"/api/referrals/{ref_a_id}/status", json={
+        "status": "ACCEPTED",
+        "actor_role": "doctor",
+        "doctor_id": "doc-david-ross",
+        "doctor_name": "Dr. David Ross",
+        "notes": "Accepted into Nandurbar PHC OPD queue"
+    })
+    assert auth_accept.status_code == 200
+    assert auth_accept.json()["referral"]["status"] == "ACCEPTED"
+

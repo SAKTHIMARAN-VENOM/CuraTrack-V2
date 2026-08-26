@@ -23,7 +23,7 @@ const PATIENT_NAV_ITEMS = [
 const DOCTOR_NAV_ITEMS = [
     { href: '/doctor', icon: 'dashboard', i18nKey: 'navigation.doctorQueue', label: 'Clinical OPD Queue' },
     { href: '/doctor/triage', icon: 'assignment_late', i18nKey: 'navigation.doctorTriage', label: 'Triage Alerts' },
-    { href: '/referrals', icon: 'alt_route', i18nKey: 'navigation.referrals', label: 'Referral Pipeline' },
+    { href: '/doctor/referrals', icon: 'alt_route', i18nKey: 'navigation.referrals', label: 'Referral Pipeline' },
     { href: '/drug-checker', icon: 'pill', i18nKey: 'navigation.drugChecker', label: 'Drug Safety' },
     { href: '/records', icon: 'folder_shared', i18nKey: 'navigation.patientRecords', label: 'Patient Records' },
     { href: '/profile', icon: 'person', i18nKey: 'navigation.doctorProfile', label: 'Doctor Profile' }
@@ -32,7 +32,7 @@ const DOCTOR_NAV_ITEMS = [
 const FHW_NAV_ITEMS = [
     { href: '/fhw', icon: 'volunteer_activism', i18nKey: 'navigation.fhwCatchment', label: 'ASHA Catchment Center' },
     { href: '/triage', icon: 'medical_information', i18nKey: 'navigation.communityTriage', label: 'Community Triage' },
-    { href: '/referrals', icon: 'alt_route', i18nKey: 'navigation.villageReferrals', label: 'Village Referrals' },
+    { href: '/fhw/referrals', icon: 'alt_route', i18nKey: 'navigation.villageReferrals', label: 'Village Referrals' },
     { href: '/telemedicine', icon: 'video_chat', i18nKey: 'navigation.assistedTeleconsult', label: 'Assisted Teleconsult' },
     { href: '/alerts', icon: 'notifications_active', i18nKey: 'navigation.outbreakAlerts', label: 'Outbreak Alerts' },
     { href: '/profile', icon: 'person', i18nKey: 'navigation.ashaProfile', label: 'ASHA Profile' }

@@ -8,6 +8,8 @@ const OFFICIAL_ROLE_ACCOUNTS: Record<string, { role: string; name: string }> = {
     'doctor@curatrack.com': { role: 'doctor', name: 'Dr. David Ross' },
     'dr.david@curatrack.com': { role: 'doctor', name: 'Dr. David Ross' },
     'dr.thorne@curatrack.com': { role: 'doctor', name: 'Dr. David Ross' },
+    'dr.priya@curatrack.com': { role: 'doctor', name: 'Dr. Priya Nair' },
+    'dr.deshmukh@curatrack.com': { role: 'doctor', name: 'Dr. V. K. Deshmukh' },
     'asha@curatrack.com': { role: 'fhw', name: 'Sunita Tai (ASHA)' },
     'fhw@curatrack.com': { role: 'fhw', name: 'Sunita Tai (ASHA)' },
     'admin@curatrack.com': { role: 'admin', name: 'District Health Administrator' },
