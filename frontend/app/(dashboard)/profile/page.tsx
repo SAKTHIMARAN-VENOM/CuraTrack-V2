@@ -210,8 +210,8 @@ export default function ProfilePage() {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
-                    userId: user?.id || 'demo-patient',
-                    userName: userName || user?.user_metadata?.full_name || 'Patient'
+                    userId: userEmail || userName || 'demo-patient',
+                    userName: userName || 'Patient'
                 })
             });
             if (!res.ok) {
@@ -233,7 +233,7 @@ export default function ProfilePage() {
         } finally {
             setQrLoading(false);
         }
-    }, [user, userName]);
+    }, [userEmail, userName]);
 
     // FACILITY MANAGER PROFILE VIEW
     if (currentRole === 'facility_manager') {
