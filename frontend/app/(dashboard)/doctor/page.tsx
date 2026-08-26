@@ -118,10 +118,10 @@ export default function DoctorOPDPage() {
 
   // Live Database States
   const [doctorInfo, setDoctorInfo] = useState<DoctorProfileInfo>({
-    id: 'doc-david-ross',
-    name: 'Dr. David Ross, MD',
-    email: 'dr.david.ross@curatrack.com',
-    facility: 'Nandurbar Sub-District Hospital',
+    id: '',
+    name: 'Medical Officer, MD',
+    email: 'doctor@curatrack.in',
+    facility: 'Sub-District Hospital',
     license: 'MMC/2026/04481',
     department: 'General Medicine & OPD Room 101',
   });
@@ -399,8 +399,8 @@ export default function DoctorOPDPage() {
     async function initializeDoctorSessionAndRealtime() {
       try {
         let docId: string | null = null;
-        let docName = 'Dr. David Ross';
-        let docEmail = 'dr.david.ross@curatrack.com';
+        let docName = 'Medical Officer';
+        let docEmail = 'doctor@curatrack.in';
 
         try {
           const { data: { user } } = await supabase.auth.getUser();
@@ -424,7 +424,7 @@ export default function DoctorOPDPage() {
           } catch { }
         }
 
-        const finalDocId = docId || 'doc-david-ross';
+        const finalDocId = docId || '';
         const finalDocName = docName.startsWith('Dr.') ? docName : `Dr. ${docName}`;
 
         if (isMounted) {
@@ -755,16 +755,11 @@ export default function DoctorOPDPage() {
         setSoapDiagnosis('');
       }
 
-      // Set Clinical Findings / SOAP Notes
-      if (notesData && notesData.length > 0 && (notesData[0].observations || notesData[0].plan || notesData[0].complaint)) {
-        const obs = [
-          notesData[0].complaint ? `Complaint: ${notesData[0].complaint}` : '',
-          notesData[0].observations ? `Observations: ${notesData[0].observations}` : '',
-          notesData[0].plan ? `Plan: ${notesData[0].plan}` : '',
-        ].filter(Boolean).join('\n');
-        setSoapNotes(obs);
+      // Set Clinical Findings / SOAP Notes - keep clear for new encounter editing unless custom observations exist
+      if (notesData && notesData.length > 0 && notesData[0].observations && !notesData[0].observations.includes('Clinical evaluation performed') && !notesData[0].observations.includes('Chief Complaint:')) {
+        setSoapNotes(notesData[0].observations);
       } else {
-        setSoapNotes(currentPat?.complaint && currentPat.complaint !== 'General clinical consultation' ? `Chief Complaint: ${currentPat.complaint}` : '');
+        setSoapNotes('');
       }
 
       // Build map of medication statuses (e.g. TAKEN, COMPLETED, UPCOMING)
@@ -854,11 +849,13 @@ export default function DoctorOPDPage() {
     } finally {
       setLoadingClinicalRecords(false);
     }
-  }, [supabase, queue]);
+  }, [supabase]);
+
+  const selectedPatientKey = selectedPatient ? (selectedPatient.clientId || selectedPatient.id) : '';
 
   // Load patient clinical records on selected patient change
   useEffect(() => {
-    if (!selectedPatient) {
+    if (!selectedPatientKey) {
       setSoapDiagnosis('');
       setSoapNotes('');
       setPrescriptions([]);
@@ -867,11 +864,9 @@ export default function DoctorOPDPage() {
       return;
     }
 
-    const patientClientId = selectedPatient.clientId || selectedPatient.id;
-    setSubmitSuccessMessage('');
     setSubmitErrorMessage('');
-    loadPatientClinicalRecords(patientClientId);
-  }, [selectedPatient?.clientId, selectedPatient?.id, loadPatientClinicalRecords]);
+    loadPatientClinicalRecords(selectedPatientKey);
+  }, [selectedPatientKey, loadPatientClinicalRecords]);
 
   // Fetch facility bed availability from live database
   const fetchBedsData = useCallback(async () => {
@@ -1013,39 +1008,95 @@ export default function DoctorOPDPage() {
         }]);
       }
 
-      // 2. Persist Clinical Notes to clinical_notes table (clean sync)
-      await supabase.from('clinical_notes').delete().eq('patient_id', patientClientId);
-      if (soapNotes.trim() || soapDiagnosis.trim()) {
-        await supabase.from('clinical_notes').insert([{
+      // 2. Persist Doctor Notes to doctor_notes & clinical_notes tables
+      if (soapNotes.trim() || soapDiagnosis.trim() || prescriptions.length > 0) {
+        const chiefComplaint = (patientTriage?.complaint && typeof patientTriage.complaint === 'string' && patientTriage.complaint.trim()) ||
+          (Array.isArray(patientTriage?.symptoms) && patientTriage.symptoms.length > 0 ? patientTriage.symptoms.join(', ') : '') ||
+          (selectedPatient.complaint && typeof selectedPatient.complaint === 'string' && selectedPatient.complaint.trim()) ||
+          'Clinical OPD Consultation';
+
+        const prescribedMedsSummary = prescriptions.length > 0
+          ? prescriptions.map(p => `${p.drug} (${p.dosage}, ${p.frequency})`).join(', ')
+          : 'No active medications';
+
+        const clinicalObs = soapNotes.trim() || `Patient: ${selectedPatient.name} (${selectedPatient.age}y/${selectedPatient.gender}) | Chief Complaint: ${chiefComplaint} | Prescribed: ${prescribedMedsSummary}`;
+        const clinicalPlan = `Prescribed ${prescriptions.length} item(s): ${prescribedMedsSummary}.${selectedLabs.length > 0 ? ` Ordered labs: ${selectedLabs.join(', ')}.` : ''}`;
+
+        const notePayload = {
           patient_id: patientClientId,
-          doctor_name: docName,
+          doctor: docName,
+          specialty: doctorInfo.specialty || 'General Medicine',
           date: todayStr,
-          summary: soapDiagnosis.trim() || 'Clinical OPD Encounter',
-          observations: soapNotes.trim(),
-          plan: `Prescribed ${prescriptions.length} medication(s). Ordered ${selectedLabs.length} diagnostic test(s).`,
-        }]);
+          visit_type: 'OPD Encounter',
+          complaint: chiefComplaint,
+          observations: clinicalObs,
+          plan: clinicalPlan,
+          summary: soapDiagnosis.trim() || (prescriptions.length > 0 ? `Prescribed: ${prescribedMedsSummary}` : 'Clinical OPD Encounter'),
+          source: 'manual'
+        };
+        try {
+          const { error: noteErr } = await supabase.from('doctor_notes').insert([notePayload]);
+          if (noteErr) console.warn('Note insert warning in doctor_notes:', noteErr);
+        } catch (ne) {}
+
+        try {
+          await supabase.from('clinical_notes').delete().eq('patient_id', patientClientId);
+          await supabase.from('clinical_notes').insert([{
+            patient_id: patientClientId,
+            doctor_name: docName,
+            date: todayStr,
+            summary: soapDiagnosis.trim() || (prescriptions.length > 0 ? `Prescribed: ${prescribedMedsSummary}` : 'Clinical OPD Encounter'),
+            observations: clinicalObs,
+            plan: clinicalPlan,
+          }]);
+        } catch (ce) {}
       }
 
-      // 3. Persist Prescriptions & Medications (Incremental Upsert/Merge without deleting history)
+      // 3. Persist Prescriptions & Medications (Active Upsert vs New Insert vs Historical Preservation)
       if (prescriptions.length > 0) {
-        // Query existing records to prevent duplicates and keep taken/completed status
-        const { data: existingRx } = await supabase
+        // Query existing records to prevent duplicates and differentiate active vs historical records
+        const { data: existingRx, error: fetchRxErr } = await supabase
           .from('prescriptions')
           .select('*')
           .eq('patient_id', patientClientId);
+        if (fetchRxErr) console.warn('Error fetching existing prescriptions:', fetchRxErr);
 
-        const { data: existingMeds } = await supabase
+        const { data: existingMeds, error: fetchMedErr } = await supabase
           .from('medications')
           .select('*')
           .eq('patient_id', patientClientId);
+        if (fetchMedErr) console.warn('Error fetching existing medications:', fetchMedErr);
 
         const existingRxIdSet = new Set((existingRx || []).map((r: any) => r.id));
-        const existingRxNameSet = new Set((existingRx || []).map((r: any) => (r.medication || r.drug || '').toLowerCase().trim()));
+        const existingMedIdSet = new Set((existingMeds || []).map((m: any) => m.id));
 
-        const existingMedMap = new Map<string, any>();
+        const normalizeBaseDrug = (name: string) => {
+          return (name || '')
+            .toLowerCase()
+            .replace(/\b\d+(\.\d+)?\s*(mg|g|mcg|ml|iu|tablets?|caps?|sachets?)\b/gi, '')
+            .replace(/[()]/g, '')
+            .trim();
+        };
+
+        // Index active (not taken/completed) existing records by ID and base drug name
+        const activeExistingRxMap = new Map<string, any>();
+        (existingRx || []).forEach((r: any) => {
+          const isFinished = r.status === 'TAKEN' || r.status === 'COMPLETED' || r.status === 'GIVEN';
+          if (!isFinished) {
+            if (r.id) activeExistingRxMap.set(r.id, r);
+            const base = normalizeBaseDrug(r.medication || r.name);
+            if (base) activeExistingRxMap.set(`base:${base}`, r);
+          }
+        });
+
+        const activeExistingMedMap = new Map<string, any>();
         (existingMeds || []).forEach((m: any) => {
-          if (m.id) existingMedMap.set(m.id, m);
-          if (m.name) existingMedMap.set(m.name.toLowerCase().trim(), m);
+          const isFinished = m.status === 'TAKEN' || m.status === 'COMPLETED' || m.status === 'GIVEN';
+          if (!isFinished) {
+            if (m.id) activeExistingMedMap.set(m.id, m);
+            const base = normalizeBaseDrug(m.name);
+            if (base) activeExistingMedMap.set(`base:${base}`, m);
+          }
         });
 
         const newRxInserts: any[] = [];
@@ -1053,13 +1104,63 @@ export default function DoctorOPDPage() {
         const newlyAddedInventoryItems: DoctorPrescriptionItem[] = [];
 
         for (const p of prescriptions) {
-          const isPersistedRx = p.id ? existingRxIdSet.has(p.id) : false;
-          const existingMed = p.id ? existingMedMap.get(p.id) : null;
-          const validRxId = (p.id && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(p.id))
-            ? p.id
-            : crypto.randomUUID();
+          const isAlreadyInDB = p.id && existingRxIdSet.has(p.id);
+          const baseKey = `base:${normalizeBaseDrug(p.drug)}`;
+          const activeMatchedRx = (p.id && activeExistingRxMap.get(p.id)) || activeExistingRxMap.get(baseKey);
+          const activeMatchedMed = (p.id && activeExistingMedMap.get(p.id)) || activeExistingMedMap.get(baseKey);
 
-          if (!isPersistedRx) {
+          if (isAlreadyInDB && !activeMatchedRx) {
+            // Already in database as a finished/historical prescription -> leave untouched
+            continue;
+          }
+
+          if (activeMatchedRx) {
+            // Existing ACTIVE medicine being edited / re-prescribed with changed dosage -> UPDATE existing record
+            const rxUpdate: any = {
+              medication: p.drug,
+              dosage: p.dosage,
+              frequency: p.frequency,
+              date: p.duration || todayStr,
+              duration: p.duration || '5 Days',
+              instructions: p.instructions,
+              quantity: p.quantity,
+              prescription_type: p.is_inventory ? 'INVENTORY' : 'NON-INVENTORY',
+              is_inventory: p.is_inventory,
+              inventory_id: p.inventory_id || null,
+            };
+            if (p.status) rxUpdate.status = p.status;
+
+            const { error: updateRxErr } = await supabase
+              .from('prescriptions')
+              .update(rxUpdate)
+              .eq('id', activeMatchedRx.id);
+            if (updateRxErr) console.warn('Error updating existing active prescription:', updateRxErr);
+
+            if (activeMatchedMed) {
+              const medUpdate: any = {
+                name: p.drug,
+                dosage: p.dosage,
+                frequency: p.frequency,
+                instructions: p.instructions,
+                prescription_type: p.is_inventory ? 'INVENTORY' : 'NON-INVENTORY',
+                is_inventory: p.is_inventory,
+                inventory_id: p.inventory_id || null,
+                date_action: todayStr,
+              };
+              if (p.status) medUpdate.status = p.status;
+
+              const { error: updateMedErr } = await supabase
+                .from('medications')
+                .update(medUpdate)
+                .eq('id', activeMatchedMed.id);
+              if (updateMedErr) console.warn('Error updating existing active medication:', updateMedErr);
+            }
+          } else {
+            // Genuinely NEW prescription (or previous ones were TAKEN/COMPLETED and preserved as historical)
+            const validRxId = (p.id && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(p.id))
+              ? p.id
+              : crypto.randomUUID();
+
             newRxInserts.push({
               id: validRxId,
               patient_id: patientClientId,
@@ -1068,6 +1169,7 @@ export default function DoctorOPDPage() {
               frequency: p.frequency,
               doctor_name: docName,
               date: p.duration || todayStr,
+              duration: p.duration || '5 Days',
               instructions: p.instructions,
               inventory_id: p.inventory_id || null,
               quantity: p.quantity,
@@ -1076,41 +1178,26 @@ export default function DoctorOPDPage() {
               status: p.status || 'PRESCRIBED'
             });
 
+            if (!p.id || !existingMedIdSet.has(p.id)) {
+              newMedInserts.push({
+                id: validRxId,
+                patient_id: patientClientId,
+                name: p.drug,
+                dosage: p.dosage,
+                frequency: p.frequency,
+                instructions: p.instructions,
+                doctor: docName,
+                status: p.status || 'UPCOMING',
+                active: true,
+                inventory_id: p.inventory_id || null,
+                is_inventory: p.is_inventory,
+                prescription_type: p.is_inventory ? 'INVENTORY' : 'NON-INVENTORY'
+              });
+            }
+
             if (p.is_inventory && p.inventory_id) {
               newlyAddedInventoryItems.push(p);
             }
-          } else if (p.status) {
-            // Update status of existing persisted prescription & medication
-            const { error: syncRxErr } = await supabase
-              .from('prescriptions')
-              .update({ status: p.status })
-              .eq('patient_id', patientClientId)
-              .eq('medication', p.drug);
-            if (syncRxErr) console.warn('Error syncing existing prescription status:', syncRxErr);
-
-            const { error: syncMedErr } = await supabase
-              .from('medications')
-              .update({ status: p.status, date_action: todayStr })
-              .eq('patient_id', patientClientId)
-              .eq('name', p.drug);
-            if (syncMedErr) console.warn('Error syncing existing medication status:', syncMedErr);
-          }
-
-          if (!existingMed) {
-            newMedInserts.push({
-              id: validRxId,
-              patient_id: patientClientId,
-              name: p.drug,
-              dosage: p.dosage,
-              frequency: p.frequency,
-              instructions: p.instructions,
-              doctor: docName,
-              status: p.status || 'UPCOMING',
-              active: true,
-              inventory_id: p.inventory_id || null,
-              is_inventory: p.is_inventory,
-              prescription_type: p.is_inventory ? 'INVENTORY' : 'NON-INVENTORY'
-            });
           }
         }
 
@@ -1210,6 +1297,11 @@ export default function DoctorOPDPage() {
       handleStatusChange(selectedPatient.id, 'COMPLETED');
       setSubmitSuccessMessage(`Encounter and ${prescriptions.length} medication order(s) successfully saved to database for ${selectedPatient.name}.`);
 
+      if (typeof window !== 'undefined') {
+        window.dispatchEvent(new Event('curatrack-prescription-issued'));
+        localStorage.setItem('curatrack_rx_updated', Date.now().toString());
+      }
+
       // 7. Refetch directly from database to confirm persisted state
       await loadPatientClinicalRecords(patientClientId);
     } catch (err: any) {
@@ -1278,61 +1370,6 @@ export default function DoctorOPDPage() {
       await supabase.from('medications').delete().eq('id', prescriptionId);
     } catch (err) {
       console.warn('Error deleting prescription from database:', err);
-    }
-  };
-
-  const handleTogglePrescriptionStatus = async (prescriptionId: string) => {
-    const targetPrescription = prescriptions.find(p => p.id === prescriptionId);
-    if (!targetPrescription) return;
-
-    const nextStatus = (targetPrescription.status === 'TAKEN' || targetPrescription.status === 'COMPLETED') ? 'PRESCRIBED' : 'TAKEN';
-    const updatedDate = new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
-
-    // 1. Update React local state immediately
-    setPrescriptions(prev =>
-      prev.map(item =>
-        item.id === prescriptionId
-          ? { ...item, status: nextStatus }
-          : item
-      )
-    );
-
-    // 2. Persist status update to Supabase
-    if (selectedPatient) {
-      const patientClientId = selectedPatient.clientId || selectedPatient.id;
-      try {
-        if (prescriptionId && !prescriptionId.startsWith('rx-')) {
-          const { error: rxErr1 } = await supabase
-            .from('prescriptions')
-            .update({ status: nextStatus })
-            .eq('id', prescriptionId);
-          if (rxErr1) console.warn('Error updating prescription status by id:', rxErr1);
-
-          const { error: medErr1 } = await supabase
-            .from('medications')
-            .update({ status: nextStatus, date_action: updatedDate })
-            .eq('id', prescriptionId);
-          if (medErr1) console.warn('Error updating medication status by id:', medErr1);
-        }
-
-        if (patientClientId && targetPrescription.drug) {
-          const { error: rxErr2 } = await supabase
-            .from('prescriptions')
-            .update({ status: nextStatus })
-            .eq('patient_id', patientClientId)
-            .eq('medication', targetPrescription.drug);
-          if (rxErr2) console.warn('Error updating prescription status by medication name:', rxErr2);
-
-          const { error: medErr2 } = await supabase
-            .from('medications')
-            .update({ status: nextStatus, date_action: updatedDate })
-            .eq('patient_id', patientClientId)
-            .eq('name', targetPrescription.drug);
-          if (medErr2) console.warn('Error updating medication status by name:', medErr2);
-        }
-      } catch (err) {
-        console.error('Failed to persist medication status update:', err);
-      }
     }
   };
 
@@ -1526,7 +1563,7 @@ export default function DoctorOPDPage() {
       {/* Main Two-Column Layout */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
         {/* Left Column: OPD Queue List (5 cols) */}
-        <div className="lg:col-span-5 space-y-4">
+        <div className="lg:col-span-5 space-y-4 lg:sticky lg:top-24 max-h-[calc(100vh-140px)] overflow-y-auto pr-1">
           <div className="bg-white border border-surface-container-high p-5 rounded-3xl shadow-card space-y-4">
             <div className="flex items-center justify-between">
               <div>
@@ -2031,24 +2068,24 @@ export default function DoctorOPDPage() {
                 </div>
 
                 <div>
-                  <label className="text-[11px] font-bold text-tertiary block mb-1">Provisional Diagnosis</label>
+                  <label className="text-[11px] font-bold text-slate-700 block mb-1">Provisional Diagnosis</label>
                   <input
                     type="text"
-                    placeholder="Enter provisional diagnosis or clinical impression..."
+                    placeholder="Enter provisional diagnosis or clinical impression (e.g. Acute Bronchitis, Essential Hypertension)..."
                     value={soapDiagnosis}
                     onChange={e => setSoapDiagnosis(e.target.value)}
-                    className="w-full px-3.5 py-2 bg-surface-container-low rounded-xl text-xs font-semibold border border-surface-container-high outline-none focus:border-primary"
+                    className="w-full h-10 px-3.5 bg-white rounded-xl text-xs font-semibold border border-surface-container-high outline-none focus:border-primary transition-all shadow-2xs text-on-surface"
                   />
                 </div>
 
                 <div>
-                  <label className="text-[11px] font-bold text-tertiary block mb-1">Subjective & Objective Clinical Findings</label>
+                  <label className="text-[11px] font-bold text-slate-700 block mb-1">Subjective & Objective Clinical Findings</label>
                   <textarea
                     rows={3}
-                    placeholder="Record subjective complaints, objective vitals assessment, and clinical review..."
+                    placeholder="Record subjective complaints, objective vitals assessment, and clinical review notes..."
                     value={soapNotes}
                     onChange={e => setSoapNotes(e.target.value)}
-                    className="w-full px-3.5 py-2 bg-surface-container-low rounded-xl text-xs font-semibold border border-surface-container-high outline-none focus:border-primary"
+                    className="w-full p-3 bg-white rounded-xl text-xs font-medium border border-surface-container-high outline-none focus:border-primary transition-all shadow-2xs text-on-surface"
                   />
                 </div>
               </div>
@@ -2177,82 +2214,93 @@ export default function DoctorOPDPage() {
                   )}
 
                   {/* Inputs Grid */}
-                  <div className="grid grid-cols-1 sm:grid-cols-12 gap-2 pt-1">
-                    <div className="sm:col-span-3">
-                      <label className="text-[10px] font-bold text-tertiary block mb-1">Dosage / Strength</label>
-                      <input
-                        type="text"
-                        value={draftDosage}
-                        onChange={(e) => setDraftDosage(e.target.value)}
-                        placeholder="500mg (1 tablet)"
-                        className="w-full px-3 py-1.5 bg-white rounded-xl text-xs font-semibold border border-surface-container-high outline-none focus:border-primary"
-                      />
+                  <div className="space-y-3 pt-1">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+                      <div>
+                        <label className="text-[11px] font-bold text-slate-700 block mb-1">
+                          {t('doctor.dosage', 'Dosage / Strength')}
+                        </label>
+                        <input
+                          type="text"
+                          value={draftDosage}
+                          onChange={(e) => setDraftDosage(e.target.value)}
+                          placeholder="500mg (1 tablet)"
+                          className="w-full h-10 px-3.5 bg-white rounded-xl text-xs font-semibold border border-surface-container-high outline-none focus:border-primary transition-all shadow-2xs"
+                        />
+                      </div>
+
+                      <div>
+                        <label className="text-[11px] font-bold text-slate-700 block mb-1">
+                          {t('doctor.frequency', 'Frequency')}
+                        </label>
+                        <select
+                          value={draftFrequency}
+                          onChange={(e) => handleFrequencyChange(e.target.value)}
+                          className="w-full h-10 px-3 bg-white rounded-xl text-xs font-semibold border border-surface-container-high outline-none focus:border-primary transition-all shadow-2xs cursor-pointer"
+                        >
+                          <option value="OD (Once daily)">OD (Once daily)</option>
+                          <option value="BD (Twice daily)">BD (Twice daily)</option>
+                          <option value="TDS (3 times daily)">TDS (3 times daily)</option>
+                          <option value="QDS (4 times daily)">QDS (4 times daily)</option>
+                          <option value="SOS (As needed)">SOS (As needed)</option>
+                        </select>
+                      </div>
+
+                      <div>
+                        <label className="text-[11px] font-bold text-slate-700 block mb-1">
+                          {t('doctor.duration', 'Duration')}
+                        </label>
+                        <input
+                          type="text"
+                          value={draftDuration}
+                          onChange={(e) => handleDurationChange(e.target.value)}
+                          placeholder="5 Days"
+                          className="w-full h-10 px-3.5 bg-white rounded-xl text-xs font-semibold border border-surface-container-high outline-none focus:border-primary transition-all shadow-2xs"
+                        />
+                      </div>
+
+                      <div>
+                        <label className="text-[11px] font-bold text-slate-700 block mb-1">
+                          {t('doctor.quantity', 'Quantity')} ({selectedInventoryMed?.unit || 'units'})
+                        </label>
+                        <input
+                          type="number"
+                          min="1"
+                          value={draftQuantity}
+                          onChange={(e) => handleQuantityChange(parseInt(e.target.value, 10) || 1)}
+                          className="w-full h-10 px-3.5 bg-white rounded-xl text-xs font-bold border border-surface-container-high outline-none focus:border-primary transition-all shadow-2xs"
+                        />
+                      </div>
                     </div>
 
-                    <div className="sm:col-span-3">
-                      <label className="text-[10px] font-bold text-tertiary block mb-1">Frequency</label>
-                      <select
-                        value={draftFrequency}
-                        onChange={(e) => handleFrequencyChange(e.target.value)}
-                        className="w-full px-3 py-1.5 bg-white rounded-xl text-xs font-semibold border border-surface-container-high outline-none focus:border-primary"
-                      >
-                        <option value="OD (Once daily)">OD (Once daily)</option>
-                        <option value="BD (Twice daily)">BD (Twice daily)</option>
-                        <option value="TDS (3 times daily)">TDS (3 times daily)</option>
-                        <option value="QDS (4 times daily)">QDS (4 times daily)</option>
-                        <option value="SOS (As needed)">SOS (As needed)</option>
-                      </select>
-                    </div>
-
-                    <div className="sm:col-span-2">
-                      <label className="text-[10px] font-bold text-tertiary block mb-1">Duration</label>
-                      <input
-                        type="text"
-                        value={draftDuration}
-                        onChange={(e) => handleDurationChange(e.target.value)}
-                        placeholder="5 Days"
-                        className="w-full px-3 py-1.5 bg-white rounded-xl text-xs font-semibold border border-surface-container-high outline-none focus:border-primary"
-                      />
-                    </div>
-
-                    <div className="sm:col-span-2">
-                      <label className="text-[10px] font-bold text-tertiary block mb-1">
-                        {t('doctor.quantity', 'Quantity')} ({selectedInventoryMed?.unit || 'units'})
+                    <div>
+                      <label className="text-[11px] font-bold text-slate-700 block mb-1">
+                        {t('doctor.instructions', 'Instructions & Precautions')}
                       </label>
-                      <input
-                        type="number"
-                        min="1"
-                        value={draftQuantity}
-                        onChange={(e) => handleQuantityChange(parseInt(e.target.value, 10))}
-                        className="w-full px-3 py-1.5 bg-white rounded-xl text-xs font-bold border border-surface-container-high outline-none focus:border-primary"
-                      />
-                    </div>
-
-                    <div className="sm:col-span-2 flex items-end">
-                      <button
-                        type="submit"
-                        disabled={!draftDrugName.trim()}
-                        className={`w-full py-1.5 px-3 font-bold rounded-xl text-xs flex items-center justify-center gap-1 shadow-sm transition-all cursor-pointer ${
-                          !draftDrugName.trim()
-                            ? 'bg-surface-container text-tertiary cursor-not-allowed'
-                            : isNonInventoryMode
-                            ? 'bg-purple-700 hover:bg-purple-800 text-white'
-                            : 'bg-primary hover:bg-primary/90 text-white'
-                        }`}
-                      >
-                        <span className="material-symbols-outlined text-base">add</span>
-                        <span>{t('doctor.addMedication', 'Add Medication')}</span>
-                      </button>
-                    </div>
-
-                    <div className="sm:col-span-12">
                       <input
                         type="text"
                         value={draftInstructions}
                         onChange={(e) => setDraftInstructions(e.target.value)}
-                        placeholder="Special instructions (e.g. Take with warm water after meals)"
-                        className="w-full px-3 py-1 bg-white rounded-xl text-[11px] border border-surface-container-high outline-none focus:border-primary"
+                        placeholder="Special instructions (e.g. Take with warm water after meals, avoid dairy)..."
+                        className="w-full h-10 px-3.5 bg-white rounded-xl text-xs font-medium border border-surface-container-high outline-none focus:border-primary transition-all shadow-2xs"
                       />
+                    </div>
+
+                    <div className="flex justify-end pt-1">
+                      <button
+                        type="submit"
+                        disabled={!draftDrugName.trim()}
+                        className={`py-2 px-5 font-bold rounded-xl text-xs flex items-center justify-center gap-2 shadow-xs transition-all cursor-pointer ${
+                          !draftDrugName.trim()
+                            ? 'bg-surface-container text-tertiary cursor-not-allowed opacity-60'
+                            : isNonInventoryMode
+                            ? 'bg-purple-700 hover:bg-purple-800 text-white active:scale-95'
+                            : 'bg-primary hover:bg-primary/90 text-white active:scale-95'
+                        }`}
+                      >
+                        <span className="material-symbols-outlined text-base">add_circle</span>
+                        <span>{t('doctor.addMedication', 'Add Medication')}</span>
+                      </button>
                     </div>
                   </div>
 
@@ -2370,31 +2418,14 @@ export default function DoctorOPDPage() {
                                   </td>
                                   <td className="p-2.5 text-tertiary text-[11px] max-w-xs truncate">{p.instructions}</td>
                                   <td className="p-2.5 text-right">
-                                    <div className="flex items-center justify-end gap-1.5">
-                                      <button
-                                        type="button"
-                                        onClick={() => handleTogglePrescriptionStatus(p.id)}
-                                        className={`px-2.5 py-1 rounded-xl text-[10px] font-bold transition-all cursor-pointer flex items-center gap-1 shadow-2xs ${
-                                          p.status === 'TAKEN' || p.status === 'COMPLETED'
-                                            ? 'bg-emerald-100 text-emerald-900 border border-emerald-300 hover:bg-emerald-200'
-                                            : 'bg-teal-600 text-white hover:bg-teal-700 shadow-xs'
-                                        }`}
-                                        title={p.status === 'TAKEN' ? t('doctor.markedGiven', 'Marked as Given / Taken') : t('doctor.giveMedicine', 'Give / Administer Medicine')}
-                                      >
-                                        <span className="material-symbols-outlined text-xs">
-                                          {p.status === 'TAKEN' || p.status === 'COMPLETED' ? 'check_circle' : 'medication'}
-                                        </span>
-                                        <span>{p.status === 'TAKEN' || p.status === 'COMPLETED' ? t('doctor.given', 'Given') : t('doctor.give', 'Give')}</span>
-                                      </button>
-                                      <button
-                                        type="button"
-                                        onClick={() => handleDeletePrescription(p.id)}
-                                        className="p-1.5 text-red-600 hover:bg-red-50 rounded-xl transition-all cursor-pointer"
-                                        title="Remove medication"
-                                      >
-                                        <span className="material-symbols-outlined text-sm">delete</span>
-                                      </button>
-                                    </div>
+                                    <button
+                                      type="button"
+                                      onClick={() => handleDeletePrescription(p.id)}
+                                      className="p-1.5 text-red-600 hover:bg-red-50 rounded-xl transition-all cursor-pointer inline-flex items-center justify-center"
+                                      title="Remove medication"
+                                    >
+                                      <span className="material-symbols-outlined text-sm">delete</span>
+                                    </button>
                                   </td>
                                 </tr>
                               );
@@ -2409,8 +2440,15 @@ export default function DoctorOPDPage() {
 
               {/* Diagnostic Lab Ordering */}
               <div className="space-y-3 pt-4 border-t border-surface-container-high">
-                <span className="text-xs font-bold text-slate-800 uppercase tracking-wider block">Diagnostic Lab Investigations Order</span>
-                <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-bold text-slate-800 uppercase tracking-wider block">
+                    Diagnostic Lab Investigations Order
+                  </span>
+                  <span className="text-[10px] font-semibold text-tertiary">
+                    {selectedLabs.length} Selected
+                  </span>
+                </div>
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2.5">
                   {[
                     'Complete Blood Count (CBC)',
                     'Rapid Malarial Antigen (Pf/Pv)',
@@ -2423,13 +2461,15 @@ export default function DoctorOPDPage() {
                     return (
                       <button
                         key={lab}
+                        type="button"
                         onClick={() => toggleLab(lab)}
-                        className={`p-2.5 rounded-xl border text-left text-xs font-bold transition-all flex items-center gap-2 ${isSelected
-                            ? 'bg-teal-50 border-teal-500 text-teal-900 shadow-sm'
-                            : 'bg-white border-surface-container-high text-tertiary hover:bg-surface-container-low'
-                          }`}
+                        className={`p-3 rounded-2xl border text-left text-xs font-bold transition-all flex items-center gap-2.5 cursor-pointer ${
+                          isSelected
+                            ? 'bg-teal-50 border-teal-500 text-teal-900 shadow-2xs ring-1 ring-teal-500/30'
+                            : 'bg-white border-surface-container-high text-slate-700 hover:bg-surface-container-low hover:border-slate-300'
+                        }`}
                       >
-                        <span className="material-symbols-outlined text-sm text-teal-600">
+                        <span className={`material-symbols-outlined text-base ${isSelected ? 'text-teal-700' : 'text-slate-400'}`}>
                           {isSelected ? 'check_box' : 'check_box_outline_blank'}
                         </span>
                         <span className="truncate">{lab}</span>
@@ -2440,13 +2480,14 @@ export default function DoctorOPDPage() {
               </div>
 
               {/* Action Buttons Footer */}
-              <div className="flex flex-wrap items-center justify-between gap-3 pt-4 border-t border-surface-container-high">
-                <div className="flex items-center gap-2">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pt-5 border-t border-surface-container-high">
+                <div className="flex flex-wrap items-center gap-2.5">
                   <button
                     disabled={submittingEncounter}
                     onClick={handleSubmitEncounter}
-                    className={`px-5 py-2.5 bg-primary hover:bg-primary/90 text-white font-bold text-xs rounded-xl shadow-md transition-all flex items-center gap-2 cursor-pointer ${submittingEncounter ? 'opacity-70 cursor-not-allowed' : 'active:scale-95'
-                      }`}
+                    className={`px-5 py-2.5 bg-primary hover:bg-primary/90 text-white font-bold text-xs rounded-xl shadow-md transition-all flex items-center gap-2 cursor-pointer ${
+                      submittingEncounter ? 'opacity-70 cursor-not-allowed' : 'active:scale-95'
+                    }`}
                   >
                     <span className={`material-symbols-outlined text-base ${submittingEncounter ? 'animate-spin' : ''}`}>
                       {submittingEncounter ? 'sync' : 'send'}
@@ -2454,15 +2495,16 @@ export default function DoctorOPDPage() {
                     <span>{submittingEncounter ? t('actions.loading', 'Persisting...') : t('doctor.submitEncounter', 'Submit Encounter & Order EDL Drugs')}</span>
                   </button>
                   <button
+                    type="button"
                     onClick={() => setShowAshaModal(true)}
-                    className="px-4 py-2.5 bg-amber-50 hover:bg-amber-100 text-amber-900 border border-amber-300 font-bold text-xs rounded-xl transition-all flex items-center gap-1.5 shadow-sm active:scale-95 cursor-pointer"
+                    className="px-4 py-2.5 bg-amber-50 hover:bg-amber-100 text-amber-900 border border-amber-300 font-bold text-xs rounded-xl transition-all flex items-center gap-1.5 shadow-2xs active:scale-95 cursor-pointer"
                   >
                     <span className="material-symbols-outlined text-base text-amber-700">home_health</span>
                     <span>{t('doctor.assignAshaFollowup', 'Assign ASHA Follow-up')}</span>
                   </button>
                 </div>
 
-                <div className="flex items-center gap-2">
+                <div className="flex flex-wrap items-center gap-2">
                   <Link
                     href={`/doctor/referrals`}
                     className="px-3.5 py-2.5 bg-teal-50 hover:bg-teal-100 text-teal-900 border border-teal-200 font-bold text-xs rounded-xl transition-all flex items-center gap-1.5"
@@ -2472,7 +2514,7 @@ export default function DoctorOPDPage() {
                   </Link>
                   <Link
                     href={`/records?patientId=${selectedPatient.clientId || selectedPatient.id}`}
-                    className="px-3.5 py-2.5 bg-surface-container-low hover:bg-surface-container text-tertiary font-bold text-xs rounded-xl transition-all flex items-center gap-1.5"
+                    className="px-3.5 py-2.5 bg-surface-container-low hover:bg-surface-container text-tertiary hover:text-on-surface font-bold text-xs rounded-xl transition-all flex items-center gap-1.5"
                   >
                     <span className="material-symbols-outlined text-base">folder_shared</span>
                     <span>{t('doctor.patientRecord', 'Patient Record')}</span>

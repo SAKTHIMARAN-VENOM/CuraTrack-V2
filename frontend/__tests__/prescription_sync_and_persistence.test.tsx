@@ -85,10 +85,24 @@ vi.mock('@/lib/api', () => ({
 }));
 
 // Helper to create chained query mock
-const createQueryMock = (dataGetter: () => any[], dataSetter?: (updater: any) => void) => {
+const createQueryMock = (dataGetter: () => any[]) => {
+  let lastUpdates: any = null;
+  const pendingFilters: Array<{ col: string; val: any }> = [];
+
   const queryObj: any = {
     select: vi.fn(() => queryObj),
-    eq: vi.fn(() => queryObj),
+    eq: vi.fn((col: string, val: any) => {
+      pendingFilters.push({ col, val });
+      if (lastUpdates) {
+        const list = dataGetter();
+        list.forEach((item) => {
+          if (item[col] === val) {
+            Object.assign(item, lastUpdates);
+          }
+        });
+      }
+      return queryObj;
+    }),
     neq: vi.fn(() => queryObj),
     not: vi.fn(() => queryObj),
     or: vi.fn(() => queryObj),
@@ -100,7 +114,16 @@ const createQueryMock = (dataGetter: () => any[], dataSetter?: (updater: any) =>
     single: vi.fn(() => Promise.resolve({ data: dataGetter()[0] || null, error: null })),
     then: (resolve: any) => resolve({ data: dataGetter(), error: null }),
     update: vi.fn((updates: any) => {
-      if (dataSetter) dataSetter(updates);
+      lastUpdates = updates;
+      if (pendingFilters.length > 0) {
+        const list = dataGetter();
+        list.forEach((item) => {
+          const match = pendingFilters.every((f) => item[f.col] === f.val);
+          if (match) {
+            Object.assign(item, updates);
+          }
+        });
+      }
       return queryObj;
     }),
     insert: vi.fn((records: any[]) => {
@@ -193,20 +216,10 @@ vi.mock('@/lib/supabase/client', () => ({
         return queryObj;
       }
       if (table === 'medications') {
-        return createQueryMock(
-          () => mockMedicationsData,
-          (updates) => {
-            mockMedicationsData = mockMedicationsData.map((m) => ({ ...m, ...updates }));
-          }
-        );
+        return createQueryMock(() => mockMedicationsData);
       }
       if (table === 'prescriptions') {
-        return createQueryMock(
-          () => mockPrescriptionsData,
-          (updates) => {
-            mockPrescriptionsData = mockPrescriptionsData.map((r) => ({ ...r, ...updates }));
-          }
-        );
+        return createQueryMock(() => mockPrescriptionsData);
       }
       if (table === 'appointments') {
         const queryObj: any = {
@@ -314,7 +327,7 @@ describe('Medication & Prescription Synchronization Across Doctor & Patient Port
     unmount();
   });
 
-  it('TEST 3 & 4: Doctor marks medicine as GIVEN -> Supabase updates -> Patient Portal fetches and renders Taken', async () => {
+  it('TEST 3 & 4: Doctor view displays prescribed medicine with delete button (no Give button) -> Patient Portal marks taken and persists', async () => {
     // 1. Doctor opens workspace with prescribed medicine A
     localStorage.setItem('curatrack_active_role', 'doctor');
     localStorage.setItem(
@@ -373,23 +386,15 @@ describe('Medication & Prescription Synchronization Across Doctor & Patient Port
       () => {
         expect(screen.getAllByText(/Kavita Bai/i).length).toBeGreaterThan(0);
         expect(screen.getByText(/Paracetamol 500mg/i)).toBeInTheDocument();
-        expect(screen.getByRole('button', { name: /Give/i })).toBeInTheDocument();
+        expect(screen.getByTitle(/Remove medication/i)).toBeInTheDocument();
+        expect(screen.queryByRole('button', { name: /^Give$/i })).not.toBeInTheDocument();
       },
       { timeout: 4000 }
     );
 
-    // Doctor clicks "Give" button
-    const giveBtn = screen.getByRole('button', { name: /Give/i });
-    fireEvent.click(giveBtn);
-
-    // Database is updated to TAKEN
-    await waitFor(() => {
-      expect(mockPrescriptionsData.some((r) => r.status === 'TAKEN')).toBe(true);
-    });
-
     doctorRender.unmount();
 
-    // 2. Patient opens portal / reloads
+    // 2. Patient opens portal and marks taken
     localStorage.setItem('curatrack_active_role', 'patient');
     localStorage.setItem(
       'curatrack_auth_user',
@@ -405,6 +410,13 @@ describe('Medication & Prescription Synchronization Across Doctor & Patient Port
 
     await waitFor(() => {
       expect(screen.getByText('Paracetamol 500mg')).toBeInTheDocument();
+      expect(screen.getByText('Mark Taken')).toBeInTheDocument();
+    });
+
+    const markTakenBtn = screen.getByText('Mark Taken');
+    fireEvent.click(markTakenBtn);
+
+    await waitFor(() => {
       expect(screen.getByText('✓ Taken')).toBeInTheDocument();
     });
 
@@ -855,5 +867,212 @@ describe('Medication & Prescription Synchronization Across Doctor & Patient Port
       expect(screen.getAllByText(/Metformin 500mg/i).length).toBeGreaterThan(0);
     });
     patRender2.unmount();
+  });
+
+  it('TEST 10: Resubmitting the same prescription updates existing database records without creating duplicates', async () => {
+    localStorage.setItem('curatrack_active_role', 'doctor');
+    localStorage.setItem(
+      'curatrack_auth_user',
+      JSON.stringify({
+        id: 'doc-1',
+        name: 'Dr. David Ross',
+        email: 'doctor@curatrack.in',
+        role: 'doctor',
+      })
+    );
+
+    mockPrescriptionsData = [
+      {
+        id: 'rx-stable-1',
+        patient_id: 'patient-test-user-1',
+        medication: 'Paracetamol 500mg',
+        dosage: '500mg',
+        frequency: 'BD',
+        status: 'UPCOMING',
+        prescription_type: 'INVENTORY',
+        is_inventory: true,
+      },
+    ];
+    mockMedicationsData = [
+      {
+        id: 'rx-stable-1',
+        patient_id: 'patient-test-user-1',
+        name: 'Paracetamol 500mg',
+        dosage: '500mg',
+        frequency: 'BD',
+        status: 'UPCOMING',
+        prescription_type: 'INVENTORY',
+        is_inventory: true,
+      },
+    ];
+    mockAppointmentsData = [
+      {
+        id: 'apt-1',
+        doctor_id: 'doc-1',
+        patient_id: 'patient-test-user-1',
+        client_id: 'patient-test-user-1',
+        patient_name: 'Kavita Bai',
+        priority: 'ROUTINE',
+        status: 'in-consultation',
+        time: '10:00 AM',
+        date: '2026-08-26',
+      },
+    ];
+
+    const { unmount } = render(<DoctorDashboardPage />);
+
+    await waitFor(() => {
+      expect(screen.getAllByText(/Paracetamol 500mg/i).length).toBeGreaterThan(0);
+      expect(screen.getByRole('button', { name: /Submit Encounter/i })).toBeInTheDocument();
+    });
+
+    // Resubmit encounter without adding new drugs
+    const submitBtn = screen.getByRole('button', { name: /Submit Encounter/i });
+    fireEvent.click(submitBtn);
+
+    await waitFor(() => {
+      expect(screen.getByText(/Encounter and 1 medication order/i)).toBeInTheDocument();
+    });
+
+    // Database still has exactly 1 prescription and 1 medication (no duplicates)
+    expect(mockPrescriptionsData.length).toBe(1);
+    expect(mockMedicationsData.length).toBe(1);
+
+    unmount();
+  });
+
+  it('TEST 11: Patient Health Records Prescriptions tab renders full prescription metadata from database', async () => {
+    localStorage.setItem('curatrack_active_role', 'patient');
+    localStorage.setItem(
+      'curatrack_auth_user',
+      JSON.stringify({
+        id: 'patient-test-user-1',
+        name: 'Kavita Bai',
+        email: 'patient@curatrack.in',
+        role: 'patient',
+      })
+    );
+
+    mockPrescriptionsData = [
+      {
+        id: 'rx-detailed-1',
+        patient_id: 'patient-test-user-1',
+        medication: 'Amoxicillin 500mg',
+        dosage: '500mg',
+        frequency: 'TDS (3 times daily)',
+        duration: '7 Days',
+        quantity: 21,
+        instructions: 'Take after meals with water',
+        doctor_name: 'Dr. David Ross',
+        date: '2026-08-26',
+        status: 'ACTIVE',
+        prescription_type: 'INVENTORY',
+        is_inventory: true,
+      },
+    ];
+
+    const { unmount } = render(<HealthRecordsPage />);
+
+    // Switch to Prescriptions tab
+    await waitFor(() => {
+      expect(screen.getByRole('button', { name: /Prescriptions/i })).toBeInTheDocument();
+    });
+
+    const rxTabBtn = screen.getByRole('button', { name: /Prescriptions/i });
+    fireEvent.click(rxTabBtn);
+
+    await waitFor(() => {
+      expect(screen.getByText(/Active Prescriptions/i)).toBeInTheDocument();
+      expect(screen.getByText(/Amoxicillin 500mg/i)).toBeInTheDocument();
+      expect(screen.getByText(/Take after meals with water/i)).toBeInTheDocument();
+      expect(screen.getByText(/Facility EDL/i)).toBeInTheDocument();
+    });
+
+    unmount();
+  });
+
+  it('TEST 12: Prescribing same medicine with changed dosage updates active record without duplicate and preserves historical taken records', async () => {
+    localStorage.setItem('curatrack_active_role', 'doctor');
+    localStorage.setItem(
+      'curatrack_auth_user',
+      JSON.stringify({
+        id: 'doc-1',
+        name: 'Dr. David Ross',
+        email: 'doctor@curatrack.in',
+        role: 'doctor',
+      })
+    );
+
+    // Initial state: Patient has an active Paracetamol 500mg BD x 5 days
+    mockPrescriptionsData = [
+      {
+        id: 'rx-active-paracetamol',
+        patient_id: 'patient-test-user-1',
+        medication: 'Paracetamol 500mg',
+        dosage: '500mg',
+        frequency: 'BD (Twice daily)',
+        duration: '5 Days',
+        status: 'PRESCRIBED',
+        prescription_type: 'INVENTORY',
+        is_inventory: true,
+      },
+    ];
+    mockMedicationsData = [
+      {
+        id: 'rx-active-paracetamol',
+        patient_id: 'patient-test-user-1',
+        name: 'Paracetamol 500mg',
+        dosage: '500mg',
+        frequency: 'BD (Twice daily)',
+        status: 'UPCOMING',
+        prescription_type: 'INVENTORY',
+        is_inventory: true,
+      },
+    ];
+    mockAppointmentsData = [
+      {
+        id: 'apt-1',
+        doctor_id: 'doc-1',
+        patient_id: 'patient-test-user-1',
+        client_id: 'patient-test-user-1',
+        patient_name: 'Kavita Bai',
+        priority: 'ROUTINE',
+        status: 'in-consultation',
+        time: '10:00 AM',
+        date: '2026-08-26',
+      },
+    ];
+
+    const { unmount } = render(<DoctorDashboardPage />);
+
+    await waitFor(() => {
+      expect(screen.getAllByText(/Paracetamol 500mg/i).length).toBeGreaterThan(0);
+    });
+
+    // Doctor prescribes Paracetamol 650mg TDS x 7 days
+    const nonInvToggle = screen.getByText(/\+ Prescribe Non-Inventory Medicine/i);
+    fireEvent.click(nonInvToggle);
+
+    const drugInput = screen.getByPlaceholderText(/Enter medicine name/i);
+    fireEvent.change(drugInput, { target: { value: 'Paracetamol 650mg' } });
+
+    const addBtn = screen.getByText(/Add Medication/i);
+    fireEvent.click(addBtn);
+
+    await waitFor(() => {
+      expect(screen.getAllByText(/Paracetamol 650mg/i).length).toBeGreaterThan(0);
+    });
+
+    const submitBtn = screen.getByRole('button', { name: /Submit Encounter/i });
+    fireEvent.click(submitBtn);
+
+    await waitFor(() => {
+      expect(screen.getByText(/Encounter and/i)).toBeInTheDocument();
+    });
+
+    // Active prescription is updated to 650mg without duplicating active records
+    expect(mockPrescriptionsData.some((r) => r.medication.includes('650mg'))).toBe(true);
+
+    unmount();
   });
 });

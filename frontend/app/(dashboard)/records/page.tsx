@@ -182,6 +182,7 @@ function HealthRecordsContent() {
   const [userId, setUserId] = useState<string>('');
   const [patientProfile, setPatientProfile] = useState<RealPatientInfo | null>(null);
   const [isOffline, setIsOffline] = useState<boolean>(false);
+  const [mounted, setMounted] = useState<boolean>(false);
   const [currentRole, setCurrentRole] = useState<string>('doctor');
   const [facilityArchiveTab, setFacilityArchiveTab] = useState<'dispenses' | 'edl_receipts' | 'labs' | 'waste_logs'>('dispenses');
   const [facilitySearchQuery, setFacilitySearchQuery] = useState<string>('');
@@ -300,13 +301,13 @@ function HealthRecordsContent() {
           if (raw) savedAuthUser = JSON.parse(raw);
         } catch {}
 
-        const pName = prof?.name || (savedAuthUser?.id === targetId ? savedAuthUser?.name : null) || 'Kavita Bai';
-        const pEmail = prof?.email || (savedAuthUser?.id === targetId ? savedAuthUser?.email : null) || 'patient@curatrack.in';
-        const pAge = prof?.age || 28;
-        const pGender = prof?.gender || 'Female';
-        const pBlood = prof?.blood_group || 'O+';
-        const pAbha = prof?.abha_id || `91-4502-8819-${targetId.slice(0, 4)}`;
-        const pAllergies = prof?.allergies || 'No Known Drug Allergies (NKDA)';
+        const pName = prof?.name || (savedAuthUser?.id === targetId ? savedAuthUser?.name : null) || selectedPatient?.name || 'Patient';
+        const pEmail = prof?.email || (savedAuthUser?.id === targetId ? savedAuthUser?.email : null) || selectedPatient?.email || 'N/A';
+        const pAge = prof?.age || selectedPatient?.age || 0;
+        const pGender = prof?.gender || selectedPatient?.gender || 'Unspecified';
+        const pBlood = prof?.blood_group || selectedPatient?.bloodGroup || 'Unspecified';
+        const pAbha = prof?.abha_id || selectedPatient?.abhaId || (targetId ? `ABHA-${targetId.slice(0, 8).toUpperCase()}` : 'N/A');
+        const pAllergies = prof?.allergies || selectedPatient?.allergies || 'No Known Drug Allergies (NKDA)';
 
         const loadedProf: RealPatientInfo = {
           id: targetId,
@@ -344,25 +345,54 @@ function HealthRecordsContent() {
 
       const todayStr = new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
       
-      const rxStatusMap = new Map<string, string>();
+      const normalizeBase = (name: string) => {
+        return (name || '')
+          .toLowerCase()
+          .replace(/\b\d+(\.\d+)?\s*(mg|g|mcg|ml|iu|tablets?|caps?|sachets?)\b/gi, '')
+          .replace(/[()]/g, '')
+          .trim();
+      };
+
+      const rxMap = new Map<string, any>();
       (dbRx || []).forEach((r: any) => {
         const rName = (r.medication || r.name || '').toLowerCase().trim();
-        if (rName && r.status) rxStatusMap.set(rName, r.status);
-        if (r.id && r.status) rxStatusMap.set(r.id, r.status);
+        if (rName) rxMap.set(rName, r);
+        if (r.id) rxMap.set(r.id, r);
+        const base = normalizeBase(r.medication || r.name);
+        if (base) rxMap.set('base:' + base, r);
       });
 
-      const mappedMeds = (dbMeds || []).map((m: any) => {
+      // Deduplicate mappedMeds by unique ID and normalized medicine name
+      const seenMedKeys = new Set<string>();
+      const mappedMeds: any[] = [];
+      
+      (dbMeds || []).forEach((m: any) => {
         const medKey = (m.name || '').toLowerCase().trim();
-        const persistedStatus = m.status || rxStatusMap.get(m.id) || rxStatusMap.get(medKey) || 'UPCOMING';
+        const idKey = m.id ? String(m.id).toLowerCase().trim() : '';
+        const baseKey = 'base:' + normalizeBase(m.name);
+        
+        if ((idKey && seenMedKeys.has(idKey)) || (medKey && seenMedKeys.has(medKey)) || (baseKey && seenMedKeys.has(baseKey))) {
+          return; // Skip duplicate medication record
+        }
+        if (idKey) seenMedKeys.add(idKey);
+        if (medKey) seenMedKeys.add(medKey);
+        if (baseKey) seenMedKeys.add(baseKey);
+
+        const authRx = (idKey && rxMap.get(idKey)) || (medKey && rxMap.get(medKey)) || rxMap.get(baseKey);
+
+        const activeName = authRx?.medication || authRx?.name || m.name;
+        const activeDosage = authRx?.dosage || m.dosage || 'Standard';
+        const activeFrequency = authRx?.frequency || m.frequency || 'Once daily';
+        const persistedStatus = authRx?.status || m.status || 'UPCOMING';
         const actionDate = m.date_action || todayStr;
         const isTaken = persistedStatus === 'TAKEN' || persistedStatus === 'COMPLETED' || persistedStatus === 'GIVEN';
         const activeStatus = isTaken ? 'TAKEN' : (persistedStatus === 'MISSED' ? 'MISSED' : 'UPCOMING');
 
-        return {
-          id: m.id,
-          name: m.name,
-          dosage: m.dosage,
-          frequency: m.frequency || 'Once daily',
+        mappedMeds.push({
+          id: m.id || authRx?.id,
+          name: activeName,
+          dosage: activeDosage,
+          frequency: activeFrequency,
           time: m.time || 'Morning',
           status: activeStatus,
           date_action: actionDate,
@@ -370,41 +400,48 @@ function HealthRecordsContent() {
           color: '#d4f0fa',
           icon: 'pill',
           isError: activeStatus === 'MISSED',
-          prescription_type: m.prescription_type || (m.is_inventory === false ? 'NON-INVENTORY' : (m.is_inventory === true || m.inventory_id ? 'INVENTORY' : 'INVENTORY')),
-          is_inventory: m.is_inventory ?? (m.prescription_type === 'INVENTORY' || !!m.inventory_id),
-          inventory_id: m.inventory_id || null,
-        };
+          prescription_type: authRx?.prescription_type || m.prescription_type || (m.is_inventory === false ? 'NON-INVENTORY' : (m.is_inventory === true || m.inventory_id ? 'INVENTORY' : 'INVENTORY')),
+          is_inventory: authRx?.is_inventory ?? m.is_inventory ?? (m.prescription_type === 'INVENTORY' || !!m.inventory_id),
+          inventory_id: authRx?.inventory_id || m.inventory_id || null,
+        });
       });
 
-      // Supplementary merge from prescriptions table so no prescribed drug is omitted
-      const existingNames = new Set(mappedMeds.map(m => (m.name || '').toLowerCase().trim()));
+      // Supplementary merge from prescriptions table so no prescribed drug is omitted, deduplicated against seen keys
       const supplementaryMeds: any[] = [];
       if (dbRx && dbRx.length > 0) {
         for (const rx of dbRx) {
           const rxName = (rx.medication || rx.name || '').trim();
-          if (rxName && !existingNames.has(rxName.toLowerCase())) {
-            existingNames.add(rxName.toLowerCase());
-            const rxStatus = rx.status || 'UPCOMING';
-            const isTaken = rxStatus === 'TAKEN' || rxStatus === 'COMPLETED' || rxStatus === 'GIVEN';
-            const activeStatus = isTaken ? 'TAKEN' : (rxStatus === 'MISSED' ? 'MISSED' : 'UPCOMING');
+          const rxKey = rxName.toLowerCase();
+          const rxIdKey = rx.id ? String(rx.id).toLowerCase().trim() : '';
+          const rxBaseKey = 'base:' + normalizeBase(rxName);
 
-            supplementaryMeds.push({
-              id: rx.id || `rx-${rxName}`,
-              name: rxName,
-              dosage: rx.dosage || 'Standard',
-              frequency: rx.frequency || 'Once daily',
-              time: 'Morning',
-              status: activeStatus,
-              date_action: todayStr,
-              historical_status: rxStatus,
-              color: '#d4f0fa',
-              icon: 'pill',
-              isError: rxStatus === 'MISSED',
-              prescription_type: rx.prescription_type || (rx.is_inventory === false ? 'NON-INVENTORY' : 'INVENTORY'),
-              is_inventory: rx.is_inventory ?? (rx.prescription_type === 'INVENTORY' || !!rx.inventory_id),
-              inventory_id: rx.inventory_id || null,
-            });
+          if ((rxIdKey && seenMedKeys.has(rxIdKey)) || (rxKey && seenMedKeys.has(rxKey)) || (rxBaseKey && seenMedKeys.has(rxBaseKey))) {
+            continue; // Already included from dbMeds
           }
+          if (rxIdKey) seenMedKeys.add(rxIdKey);
+          if (rxKey) seenMedKeys.add(rxKey);
+          if (rxBaseKey) seenMedKeys.add(rxBaseKey);
+
+          const rxStatus = rx.status || 'UPCOMING';
+          const isTaken = rxStatus === 'TAKEN' || rxStatus === 'COMPLETED' || rxStatus === 'GIVEN';
+          const activeStatus = isTaken ? 'TAKEN' : (rxStatus === 'MISSED' ? 'MISSED' : 'UPCOMING');
+
+          supplementaryMeds.push({
+            id: rx.id || `rx-${rxName}`,
+            name: rxName,
+            dosage: rx.dosage || 'Standard',
+            frequency: rx.frequency || 'Once daily',
+            time: 'Morning',
+            status: activeStatus,
+            date_action: todayStr,
+            historical_status: rxStatus,
+            color: '#d4f0fa',
+            icon: 'pill',
+            isError: rxStatus === 'MISSED',
+            prescription_type: rx.prescription_type || (rx.is_inventory === false ? 'NON-INVENTORY' : 'INVENTORY'),
+            is_inventory: rx.is_inventory ?? (rx.prescription_type === 'INVENTORY' || !!rx.inventory_id),
+            inventory_id: rx.inventory_id || null,
+          });
         }
       }
 
@@ -469,10 +506,12 @@ function HealthRecordsContent() {
     setUserPrescriptions([]);
     setUserNotes([]);
     setUserLabReports([]);
+    setPlacedOrdersMap({});
     loadPatientData(patient.id);
   };
 
   useEffect(() => {
+    setMounted(true);
     const initPage = async () => {
       let savedAuthUser: any = null;
       try {
@@ -532,10 +571,14 @@ function HealthRecordsContent() {
     };
     const handleOffline = () => setIsOffline(true);
     const handleStorageChange = () => {
-      const supabase = createClient();
-      supabase.auth.getUser().then(({ data: { user } }) => {
-        if (user) loadPatientData(user.id);
-      });
+      if (userId) {
+        loadPatientData(userId);
+      } else {
+        const supabase = createClient();
+        supabase.auth.getUser().then(({ data: { user } }) => {
+          if (user) loadPatientData(user.id);
+        });
+      }
     };
 
     window.addEventListener('online', handleOnline);
@@ -1537,7 +1580,7 @@ function HealthRecordsContent() {
   }
 
   return (
-    <div className="flex-1 p-8 lg:p-10 max-w-7xl mx-auto w-full space-y-8">
+    <div suppressHydrationWarning className="flex-1 p-8 lg:p-10 max-w-7xl mx-auto w-full space-y-8">
       {isOffline && (
         <div className="bg-amber-500/10 border border-amber-500/30 text-amber-900 px-4 py-3 rounded-2xl flex items-center gap-3 text-xs font-bold shadow-sm">
           <span className="material-symbols-outlined text-amber-600">wifi_off</span>
@@ -1548,18 +1591,18 @@ function HealthRecordsContent() {
       {/* Page Header */}
       <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4">
         <div>
-          <span className="inline-block px-3 py-1 bg-secondary-container text-on-secondary-container text-[11px] font-bold rounded-full uppercase tracking-widest mb-3">
+          <span suppressHydrationWarning className="inline-block px-3 py-1 bg-secondary-container text-on-secondary-container text-[11px] font-bold rounded-full uppercase tracking-widest mb-3">
             {currentRole === 'doctor' ? t('roles.doctor', 'Clinical Directory & EHR') : t('records.title', 'Medical History')}
           </span>
-          <h2 className="font-headline text-4xl lg:text-5xl font-extrabold tracking-tight text-on-surface leading-none">
+          <h2 suppressHydrationWarning className="font-headline text-4xl lg:text-5xl font-extrabold tracking-tight text-on-surface leading-none">
             {currentRole === 'doctor' ? t('navigation.patientRecords', 'Patient Health Records') : t('records.title', 'Health Records')}
           </h2>
         </div>
         <div className="flex items-center gap-3 shrink-0">
-          <button onClick={handleExportPDF} className="flex items-center gap-2 px-4 py-2.5 bg-surface-container rounded-xl text-sm font-bold text-on-surface-variant hover:bg-surface-container-high transition-colors">
+          <button suppressHydrationWarning onClick={handleExportPDF} className="flex items-center gap-2 px-4 py-2.5 bg-surface-container rounded-xl text-sm font-bold text-on-surface-variant hover:bg-surface-container-high transition-colors">
             <span className="material-symbols-outlined text-xl">download</span> {t('records.downloadPdf', 'Export PDF')}
           </button>
-          <button onClick={() => setIsAddRecordModalOpen(true)} className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-bold text-white transition-all" style={{ background: 'linear-gradient(135deg, #00647e, #2c7d99)' }}>
+          <button suppressHydrationWarning onClick={() => setIsAddRecordModalOpen(true)} className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-bold text-white transition-all" style={{ background: 'linear-gradient(135deg, #00647e, #2c7d99)' }}>
             <span className="material-symbols-outlined text-xl fill-icon">add_circle</span> {t('common.add', 'Add Record')}
           </button>
         </div>
@@ -1572,6 +1615,7 @@ function HealthRecordsContent() {
             <div className="flex items-center gap-3 flex-1">
               <span className="material-symbols-outlined text-tertiary">search</span>
               <input
+                suppressHydrationWarning
                 type="text"
                 placeholder="Search real patients by Name, ABHA ID, or UUID..."
                 value={patientSearch}
@@ -1581,6 +1625,7 @@ function HealthRecordsContent() {
             </div>
             {selectedPatient && (
               <button
+                suppressHydrationWarning
                 onClick={() => setSelectedPatient(null)}
                 className="px-3.5 py-1.5 bg-surface-container hover:bg-surface-container-high text-slate-700 text-xs font-bold rounded-xl transition-all flex items-center gap-1 shrink-0"
               >
@@ -2201,59 +2246,88 @@ function HealthRecordsContent() {
                 </div>
               ) : (
                 <>
-                  {userPrescriptions.map((rx, idx) => (
-                    <div key={`user-rx-${idx}`} className="p-6 bg-primary-container/20 border border-primary/20 rounded-2xl hover:bg-primary-container/30 transition-colors">
-                      <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-4">
-                        <div className="flex items-start gap-4">
-                          <div className="w-14 h-14 rounded-2xl flex items-center justify-center shrink-0" style={{ background: 'linear-gradient(135deg,#00647e,#2c7d99)' }}>
-                            <span className="material-symbols-outlined fill-icon text-white text-2xl">medication</span>
-                          </div>
-                          <div>
-                            <div className="flex items-center gap-2 mb-1">
-                              <h4 className="font-headline font-bold text-on-surface text-lg">{rx.name || rx.medication || 'Prescription'}</h4>
-                              <span className="px-2 py-0.5 rounded-full text-[10px] font-bold status-badge-stable">ACTIVE</span>
-                              <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-primary/10 text-primary">NEW</span>
+                  {userPrescriptions.map((rx, idx) => {
+                    const rxName = rx.medication || rx.name || 'Prescription';
+                    const rxType = rx.prescription_type || (rx.is_inventory ? 'INVENTORY' : (rx.inventory_id ? 'INVENTORY' : 'NON-INVENTORY'));
+                    const isInv = rxType === 'INVENTORY' || rx.is_inventory === true || !!rx.inventory_id;
+                    const rxDate = rx.date || (rx.created_at ? new Date(rx.created_at).toLocaleDateString() : 'Today');
+                    const rxStatus = rx.status || 'ACTIVE';
+
+                    return (
+                      <div key={`user-rx-${rx.id || idx}`} className="p-6 bg-primary-container/20 border border-primary/20 rounded-2xl hover:bg-primary-container/30 transition-colors">
+                        <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-4">
+                          <div className="flex items-start gap-4">
+                            <div className="w-14 h-14 rounded-2xl flex items-center justify-center shrink-0" style={{ background: 'linear-gradient(135deg,#00647e,#2c7d99)' }}>
+                              <span className="material-symbols-outlined fill-icon text-white text-2xl">medication</span>
                             </div>
-                            <p className="text-sm text-tertiary mb-3">{rx.dosage} · {rx.frequency || 'As directed'} · {rx.date || 'Today'}</p>
-                            {rx.notes && (
-                              <p className="text-xs text-on-surface-variant bg-surface-container-low p-2.5 rounded-xl mb-3 border border-outline-variant/10">
-                                💡 <span className="font-semibold">Doctor Note:</span> {rx.notes}
+                            <div>
+                              <div className="flex flex-wrap items-center gap-2 mb-1">
+                                <h4 className="font-headline font-bold text-on-surface text-lg">{rxName}</h4>
+                                <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${
+                                  rxStatus === 'TAKEN' || rxStatus === 'COMPLETED' ? 'bg-emerald-100 text-emerald-900 border border-emerald-300' :
+                                  rxStatus === 'MISSED' ? 'bg-error-container text-on-error-container' :
+                                  'status-badge-stable'
+                                }`}>{rxStatus}</span>
+                                {isInv ? (
+                                  <span className="px-2 py-0.5 rounded-full text-[10px] font-black bg-emerald-50 text-emerald-800 border border-emerald-200 uppercase">
+                                    Facility EDL
+                                  </span>
+                                ) : (
+                                  <span className="px-2 py-0.5 rounded-full text-[10px] font-black bg-purple-50 text-purple-800 border border-purple-200 uppercase">
+                                    Non-Inventory
+                                  </span>
+                                )}
+                              </div>
+                              <p className="text-sm text-tertiary mb-2">
+                                {rx.dosage || 'Standard'} · {rx.frequency || 'As directed'} · Duration: {rx.duration || rx.date || '5 Days'}{rx.quantity ? ` · Qty: ${rx.quantity}` : ''}
                               </p>
-                            )}
-                            <div className="flex flex-wrap gap-3 text-xs">
-                              {(rx.doctor || rx.doctorName) && (
+                              {rx.instructions && (
+                                <p className="text-xs text-on-surface-variant bg-surface-container-low p-2 rounded-xl mb-2 border border-outline-variant/10">
+                                  📋 <span className="font-semibold">Instructions:</span> {rx.instructions}
+                                </p>
+                              )}
+                              {rx.notes && (
+                                <p className="text-xs text-on-surface-variant bg-surface-container-low p-2.5 rounded-xl mb-2 border border-outline-variant/10">
+                                  💡 <span className="font-semibold">Doctor Note:</span> {rx.notes}
+                                </p>
+                              )}
+                              <div className="flex flex-wrap gap-3 text-xs">
+                                {(rx.doctor || rx.doctor_name || rx.doctorName) && (
+                                  <div className="px-3 py-1.5 bg-surface-container-lowest rounded-lg">
+                                    <span className="text-tertiary">Prescribed by: </span><span className="font-bold text-on-surface">{rx.doctor || rx.doctor_name || rx.doctorName}</span>
+                                  </div>
+                                )}
                                 <div className="px-3 py-1.5 bg-surface-container-lowest rounded-lg">
-                                  <span className="text-tertiary">Prescribed by: </span><span className="font-bold text-on-surface">{rx.doctor || rx.doctorName}</span>
+                                  <span className="text-tertiary">Date: </span><span className="font-bold text-on-surface">{rxDate}</span>
                                 </div>
+                              </div>
+                            </div>
+                          </div>
+
+                          {/* Order Medicine Action Column - Patient Portal Only for Non-Inventory Prescriptions */}
+                          {currentRole === 'patient' && isNonInventoryMedicine(rx) && (
+                            <div className="flex gap-2 shrink-0 self-start sm:self-center">
+                              {placedOrdersMap[rx.id] || placedOrdersMap[(rx.name || rx.medication || '').toLowerCase().trim()] ? (
+                                <div className="px-3.5 py-2 rounded-xl text-xs font-black bg-emerald-100 text-emerald-900 border border-emerald-300 flex items-center gap-1.5 shadow-sm">
+                                  <span className="material-symbols-outlined text-sm text-emerald-700">check_circle</span>
+                                  <span>{placedOrdersMap[rx.id]?.status || placedOrdersMap[(rx.name || rx.medication || '').toLowerCase().trim()]?.status || t('records.orderedStatus', {}, 'ORDERED')}</span>
+                                </div>
+                              ) : (
+                                <button 
+                                  onClick={() => handleInitiateOrder(rx)}
+                                  className="px-4 py-2.5 rounded-xl text-xs font-bold text-white transition-all flex items-center gap-1.5 shadow-sm active:scale-95 hover:opacity-90" 
+                                  style={{ background: 'linear-gradient(135deg,#00647e,#2c7d99)' }}
+                                >
+                                  <span className="material-symbols-outlined text-base">shopping_cart_checkout</span>
+                                  <span>{t('records.orderMedicineFull', {}, 'Order Medicine')}</span>
+                                </button>
                               )}
                             </div>
-                          </div>
+                          )}
                         </div>
-
-                        {/* Order Medicine Action Column - Patient Portal Only for Non-Inventory Prescriptions */}
-                        {currentRole === 'patient' && isNonInventoryMedicine(rx) && (
-                          <div className="flex gap-2 shrink-0 self-start sm:self-center">
-                            {placedOrdersMap[rx.id] || placedOrdersMap[(rx.name || rx.medication || '').toLowerCase().trim()] ? (
-                              <div className="px-3.5 py-2 rounded-xl text-xs font-black bg-emerald-100 text-emerald-900 border border-emerald-300 flex items-center gap-1.5 shadow-sm">
-                                <span className="material-symbols-outlined text-sm text-emerald-700">check_circle</span>
-                                <span>{placedOrdersMap[rx.id]?.status || placedOrdersMap[(rx.name || rx.medication || '').toLowerCase().trim()]?.status || t('records.orderedStatus', {}, 'ORDERED')}</span>
-                              </div>
-                            ) : (
-                              <button 
-                                onClick={() => handleInitiateOrder(rx)}
-                                className="px-4 py-2.5 rounded-xl text-xs font-bold text-white transition-all flex items-center gap-1.5 shadow-sm active:scale-95 hover:opacity-90" 
-                                style={{ background: 'linear-gradient(135deg,#00647e,#2c7d99)' }}
-                              >
-                                <span className="material-symbols-outlined text-base">shopping_cart_checkout</span>
-                                <span>{t('records.orderMedicineFull', {}, 'Order Medicine')}</span>
-                              </button>
-                            )}
-                          </div>
-                        )}
-
                       </div>
-                    </div>
-                  ))}
+                    );
+                  })}
 
                   {extractedMedications.map((med, idx) => (
                     <div key={`extracted-${idx}`} className="p-6 bg-primary-container/20 border border-primary/20 rounded-2xl hover:bg-primary-container/30 transition-colors">
