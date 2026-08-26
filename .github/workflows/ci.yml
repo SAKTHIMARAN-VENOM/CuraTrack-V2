@@ -19,6 +19,7 @@ jobs:
   backend-test:
     name: Backend Pytest (Python ${{ matrix.python-version }})
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     strategy:
       fail-fast: false
       matrix:
@@ -33,11 +34,12 @@ jobs:
         with:
           python-version: ${{ matrix.python-version }}
           cache: 'pip'
+          cache-dependency-path: 'backend/requirements.txt'
 
       - name: Install System Dependencies (Tesseract & OpenCV libs)
         run: |
-          sudo apt-get update
-          sudo apt-get install -y tesseract-ocr libgl1 libglib2.0-0 poppler-utils
+          sudo apt-get update -qq
+          sudo apt-get install -y --no-install-recommends tesseract-ocr libgl1 libglib2.0-0 poppler-utils
 
       - name: Install Python Backend Dependencies
         run: |
@@ -56,6 +58,10 @@ jobs:
   frontend-website-test:
     name: Website Frontend (Vitest & Next.js Build)
     runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      NEXT_TELEMETRY_DISABLED: 1
+      NODE_OPTIONS: "--max-old-space-size=4096"
 
     steps:
       - name: Checkout Repository
@@ -70,7 +76,7 @@ jobs:
 
       - name: Install Frontend Dependencies
         working-directory: frontend
-        run: npm install
+        run: npm install --no-audit --no-fund
 
       - name: Run Frontend Vitest Component & Unit Tests
         working-directory: frontend
@@ -86,6 +92,10 @@ jobs:
   mobile-app-test:
     name: Mobile Web App (Vitest & Next.js Build)
     runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      NEXT_TELEMETRY_DISABLED: 1
+      NODE_OPTIONS: "--max-old-space-size=4096"
 
     steps:
       - name: Checkout Repository
@@ -100,7 +110,7 @@ jobs:
 
       - name: Install Mobile App Dependencies
         working-directory: mobile
-        run: npm install
+        run: npm install --no-audit --no-fund
 
       - name: Run Mobile Vitest Component & UI Tests
         working-directory: mobile
@@ -117,6 +127,7 @@ jobs:
     name: Master CI Quality Gate
     needs: [backend-test, frontend-website-test, mobile-app-test]
     runs-on: ubuntu-latest
+    timeout-minutes: 5
     steps:
       - name: All Automated Tests Passed
         run: |
