@@ -2,6 +2,7 @@ import { SideNavBar } from '@/components/layout/SideNavBar';
 import { TopNavBar } from '@/components/layout/TopNavBar';
 import { MobileNav } from '@/components/layout/MobileNav';
 import { HealthProfileModal } from '@/components/HealthProfileModal';
+import { ChatBubble } from '@/components/ChatBubble';
 
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
   return (
@@ -12,6 +13,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         <TopNavBar />
         <HealthProfileModal />
         {children}
+        <ChatBubble />
       </div>
 
       <MobileNav />

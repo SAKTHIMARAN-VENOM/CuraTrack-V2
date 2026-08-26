@@ -10,12 +10,12 @@
     "dev": "npm --prefix frontend run dev",
     "build": "npm --prefix frontend install && npm --prefix frontend run build",
     "start": "npm --prefix frontend run start",
-    "test": "python tests/run_all_tests.py",
+    "test": "python3 tests/run_all_tests.py",
     "test:backend": "pytest tests/",
     "test:frontend": "npm --prefix frontend test",
     "test:mobile": "npm --prefix mobile test",
-    "test:all": "python tests/run_all_tests.py --with-build",
-    "prepare": "python scripts/install_hooks.py"
+    "test:all": "python3 tests/run_all_tests.py --with-build",
+    "prepare": "python3 scripts/install_hooks.py"
   },
   "devDependencies": {
     "react": "19.2.4",

@@ -17,6 +17,7 @@ export default function ProfilePage() {
     const [isExpired, setIsExpired] = useState(false);
 
     // Profile States
+    const [userId, setUserId] = useState<string>('');
     const [userName, setUserName] = useState<string>('');
     const [userEmail, setUserEmail] = useState<string>('');
     const [userPhone, setUserPhone] = useState<string>('');
@@ -46,6 +47,7 @@ export default function ProfilePage() {
             } catch {}
 
             const offlineProf = offlineStorage.getProfile();
+            const initialId = savedAuthUser?.id || offlineProf?.id || '';
             const initialBlood = savedAuthUser?.blood_group || offlineProf?.blood_group || '';
             const initialGender = savedAuthUser?.gender || offlineProf?.gender || '';
             const initialAllergies = savedAuthUser?.allergies || offlineProf?.allergies || savedAuthUser?.chronic_diseases || offlineProf?.chronic_diseases || '';
@@ -54,6 +56,7 @@ export default function ProfilePage() {
             const initialName = savedAuthUser?.name || offlineProf?.name || '';
             const initialEmail = savedAuthUser?.email || offlineProf?.email || '';
 
+            if (initialId) setUserId(initialId);
             if (initialBlood) setUserBlood(initialBlood);
             if (initialGender) setUserGender(initialGender);
             if (initialAllergies) setUserAllergies(initialAllergies);
@@ -183,10 +186,11 @@ export default function ProfilePage() {
         setSaveSuccess(null);
         try {
             const supabase = createClient();
-            const { data: { user } } = await supabase.auth.getUser();
-            if (user?.id) {
+            const { data } = await supabase.auth.getUser();
+            const authUser = data?.user;
+            if (authUser?.id) {
                 await supabase.from('profiles').upsert({
-                    id: user.id,
+                    id: authUser.id,
                     name: userName,
                     email: userEmail,
                     phone: userPhone,
@@ -210,7 +214,7 @@ export default function ProfilePage() {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
-                    userId: userEmail || userName || 'demo-patient',
+                    userId: userId || userEmail || userName || 'demo-patient',
                     userName: userName || 'Patient'
                 })
             });
@@ -233,7 +237,11 @@ export default function ProfilePage() {
         } finally {
             setQrLoading(false);
         }
-    }, [userEmail, userName]);
+    }, [userId, userEmail, userName]);
+
+    useEffect(() => {
+        fetchQR();
+    }, [fetchQR]);
 
     // FACILITY MANAGER PROFILE VIEW
     if (currentRole === 'facility_manager') {

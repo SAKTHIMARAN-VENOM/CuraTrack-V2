@@ -11,6 +11,7 @@ Error handling: Real errors propagate. No mock data. No silent fallbacks.
 import os
 import re
 import json
+import base64
 import shutil
 import logging
 import platform
@@ -124,20 +125,159 @@ def is_tesseract_installed() -> bool:
     return TESSERACT_AVAILABLE
 
 
+# ─── Gemini Vision OCR ─────────────────────────────────────────────────
+
+def _extract_with_gemini_vision(file_path: str, api_key: str | None = None) -> str:
+    """
+    Extract raw text from an image using Gemini Vision API.
+    Sends the image directly to Gemini as base64 inline data.
+    Returns extracted text string, or empty string on failure.
+    """
+    if not api_key:
+        api_key = os.getenv("GEMINI_API_KEY", "").strip()
+    if not api_key:
+        logger.warning("GEMINI_API_KEY not set — cannot use Gemini Vision OCR")
+        return ""
+
+    ext = os.path.splitext(file_path)[1].lower()
+    mime_map = {
+        ".png": "image/png",
+        ".jpg": "image/jpeg",
+        ".jpeg": "image/jpeg",
+        ".tiff": "image/tiff",
+        ".bmp": "image/bmp",
+        ".webp": "image/webp",
+    }
+    mime_type = mime_map.get(ext, "image/jpeg")
+
+    try:
+        with open(file_path, "rb") as f:
+            image_bytes = f.read()
+        b64_data = base64.b64encode(image_bytes).decode("utf-8")
+    except Exception as e:
+        logger.error("Failed to read image file %s: %s", file_path, e)
+        return ""
+
+    model = os.getenv("GEMINI_MODEL", "gemini-2.0-flash").strip()
+    url = f"https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent?key={api_key}"
+
+    payload = {
+        "contents": [
+            {
+                "parts": [
+                    {
+                        "inlineData": {
+                            "mimeType": mime_type,
+                            "data": b64_data,
+                        }
+                    },
+                    {
+                        "text": (
+                            "Extract ALL text visible in this image exactly as written. "
+                            "Preserve the original layout, line breaks, and formatting as much as possible. "
+                            "Return ONLY the extracted text, nothing else. "
+                            "If no text is visible, return an empty string."
+                        )
+                    },
+                ]
+            }
+        ],
+        "generationConfig": {
+            "temperature": 0.0,
+        },
+    }
+
+    try:
+        logger.info("Calling Gemini Vision OCR (model=%s) for %s", model, os.path.basename(file_path))
+        res = requests.post(url, json=payload, timeout=45)
+
+        if res.status_code != 200:
+            logger.error("Gemini Vision API HTTP %d: %s", res.status_code, res.text[:500])
+            # Try fallback model
+            if model != "gemini-2.0-flash":
+                logger.info("Retrying Gemini Vision with fallback model gemini-2.0-flash")
+                fallback_url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key={api_key}"
+                res = requests.post(fallback_url, json=payload, timeout=45)
+                if res.status_code != 200:
+                    logger.error("Fallback Gemini Vision also failed HTTP %d", res.status_code)
+                    return ""
+            else:
+                return ""
+
+        data = res.json()
+        candidates = data.get("candidates", [])
+        if not candidates:
+            logger.warning("Gemini Vision returned no candidates")
+            return ""
+
+        text = candidates[0].get("content", {}).get("parts", [{}])[0].get("text", "").strip()
+        if text:
+            logger.info("Gemini Vision extracted %d chars from %s", len(text), os.path.basename(file_path))
+        return text
+
+    except requests.Timeout:
+        logger.error("Gemini Vision request timed out for %s", os.path.basename(file_path))
+        return ""
+    except Exception as e:
+        logger.error("Gemini Vision OCR failed for %s: %s", os.path.basename(file_path), e)
+        return ""
+
+
+def _extract_with_gemini_vision_bytes(image_bytes: bytes, api_key: str | None = None, mime_type: str = "image/png") -> str:
+    """
+    Extract raw text from in-memory image bytes using Gemini Vision API.
+    Used for scanned PDF pages rendered to images.
+    """
+    if not api_key:
+        api_key = os.getenv("GEMINI_API_KEY", "").strip()
+    if not api_key:
+        return ""
+
+    b64_data = base64.b64encode(image_bytes).decode("utf-8")
+    model = os.getenv("GEMINI_MODEL", "gemini-2.0-flash").strip()
+    url = f"https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent?key={api_key}"
+
+    payload = {
+        "contents": [
+            {
+                "parts": [
+                    {"inlineData": {"mimeType": mime_type, "data": b64_data}},
+                    {"text": "Extract ALL text visible in this image exactly as written. Return ONLY the extracted text."},
+                ]
+            }
+        ],
+        "generationConfig": {"temperature": 0.0},
+    }
+
+    try:
+        res = requests.post(url, json=payload, timeout=45)
+        if res.status_code != 200:
+            return ""
+        data = res.json()
+        candidates = data.get("candidates", [])
+        if not candidates:
+            return ""
+        return candidates[0].get("content", {}).get("parts", [{}])[0].get("text", "").strip()
+    except Exception as e:
+        logger.warning("Gemini Vision bytes extraction failed: %s", e)
+        return ""
+
+
 # ─── Raw Text Extraction ───────────────────────────────────────────────
 
 def extract_raw_text(file_path: str) -> str:
     """
-    Extract raw text from image or PDF using Tesseract OCR + PyMuPDF / pdfplumber.
+    Extract raw text from image or PDF.
+    Priority: Gemini Vision API → Tesseract OCR → RapidOCR → PyMuPDF/pdfplumber (PDF).
     Raises ValueError for unsupported file types.
     Returns empty string if extraction fails (never returns fake text).
     """
     ext = os.path.splitext(file_path)[1].lower()
 
     if ext == ".pdf":
-        return _extract_from_pdf_tesseract(file_path)
+        return _extract_from_pdf(file_path)
     elif ext in (".png", ".jpg", ".jpeg", ".tiff", ".bmp", ".webp"):
-        return _extract_from_image_tesseract(file_path)
+        return _extract_from_image(file_path)
     else:
         raise ValueError(f"Unsupported file type: {ext}")
 
@@ -146,11 +286,20 @@ def extract_raw_text(file_path: str) -> str:
 extract_text = extract_raw_text
 
 
-def _extract_from_image_tesseract(file_path: str) -> str:
-    """Extract text from image using Tesseract OCR (or RapidOCR fallback)."""
-    text = ""
+def _extract_from_image(file_path: str) -> str:
+    """
+    Extract text from image.
+    Priority: Gemini Vision API (best accuracy) → Tesseract → RapidOCR.
+    """
+    # 1. Try Gemini Vision API first (most reliable, no binary dependency)
+    api_key = os.getenv("GEMINI_API_KEY", "").strip()
+    if api_key:
+        text = _extract_with_gemini_vision(file_path, api_key)
+        if text:
+            return text
+        logger.warning("Gemini Vision returned no text for %s, trying local OCR fallbacks", os.path.basename(file_path))
 
-    # 1. Try pytesseract if binary is available
+    # 2. Try pytesseract if binary is available
     if not TESSERACT_AVAILABLE:
         configure_tesseract()
 
@@ -167,7 +316,7 @@ def _extract_from_image_tesseract(file_path: str) -> str:
         except Exception as e:
             logger.warning("Tesseract image extraction failed for %s: %s", file_path, e)
 
-    # 2. Try RapidOCR engine (pure Python/ONNX — requires no system binary)
+    # 3. Try RapidOCR engine (pure Python/ONNX — requires no system binary)
     try:
         from rapidocr_onnxruntime import RapidOCR  # type: ignore[import-not-found,import-untyped]
         engine = RapidOCR()
@@ -185,12 +334,14 @@ def _extract_from_image_tesseract(file_path: str) -> str:
     return ""
 
 
-def _extract_from_pdf_tesseract(file_path: str) -> str:
+def _extract_from_pdf(file_path: str) -> str:
     """
     Extract text from PDF using PyMuPDF (fitz) or pdfplumber.
-    If text layer is missing or scanned, renders page image for Tesseract OCR.
+    If text layer is missing or scanned, renders page image and uses
+    Gemini Vision API (preferred) or Tesseract OCR as fallback.
     """
     text_parts: list[str] = []
+    api_key = os.getenv("GEMINI_API_KEY", "").strip()
 
     # 1. Try PyMuPDF (fitz)
     try:
@@ -201,17 +352,30 @@ def _extract_from_pdf_tesseract(file_path: str) -> str:
             t = page.get_text().strip()
             if t:
                 text_parts.append(t)
-            elif TESSERACT_AVAILABLE:
-                # Scanned PDF page: render image for Tesseract OCR
+            else:
+                # Scanned PDF page: render image and use Gemini Vision or Tesseract
                 pix = page.get_pixmap(dpi=150)
                 img_bytes = pix.tobytes("png")
-                import io
-                from PIL import Image
-                import pytesseract
-                img = Image.open(io.BytesIO(img_bytes))
-                ocr_text = pytesseract.image_to_string(img).strip()
-                if ocr_text:
-                    text_parts.append(ocr_text)
+
+                # Try Gemini Vision first
+                if api_key:
+                    ocr_text = _extract_with_gemini_vision_bytes(img_bytes, api_key, "image/png")
+                    if ocr_text:
+                        text_parts.append(ocr_text)
+                        continue
+
+                # Fallback to Tesseract
+                if TESSERACT_AVAILABLE:
+                    try:
+                        import io
+                        from PIL import Image
+                        import pytesseract
+                        img = Image.open(io.BytesIO(img_bytes))
+                        ocr_text = pytesseract.image_to_string(img).strip()
+                        if ocr_text:
+                            text_parts.append(ocr_text)
+                    except Exception as e:
+                        logger.warning("Tesseract PDF page %d OCR failed: %s", page_num, e)
         if text_parts:
             result = "\n\n".join(text_parts).strip()
             logger.info("PyMuPDF extracted %d chars from PDF %s", len(result), os.path.basename(file_path))
@@ -366,7 +530,7 @@ def _parse_text_with_gemini(doc_type: str, raw_text: str, api_key: str) -> dict 
         logger.warning("Unknown doc_type '%s', using govt_id prompt", doc_type)
         prompt = prompts["govt_id"]
 
-    model = os.getenv("GEMINI_MODEL", "gemini-flash-latest").strip()
+    model = os.getenv("GEMINI_MODEL", "gemini-2.0-flash").strip()
     url = f"https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent?key={api_key}"
 
     payload = {

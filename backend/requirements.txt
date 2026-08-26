@@ -16,3 +16,4 @@ python-multipart>=0.0.9
 gunicorn>=21.2.0
 rapidocr-onnxruntime>=1.2.0
 onnxruntime>=1.17.0
+groq>=0.11.0
