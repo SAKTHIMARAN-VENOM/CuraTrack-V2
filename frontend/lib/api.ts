@@ -37,10 +37,20 @@ export async function apiFetch<T = any>(
     ? endpoint
     : `${API_BASE}${endpoint.startsWith('/') ? endpoint : `/${endpoint}`}`;
 
-  const res = await fetch(targetUrl, {
-    ...options,
-    headers,
-  });
+  let res: Response;
+  try {
+    res = await fetch(targetUrl, {
+      ...options,
+      headers,
+    });
+  } catch (err: any) {
+    const isNetworkErr = err?.name === 'TypeError' || err?.message?.includes('Failed to fetch') || err?.message?.includes('fetch failed');
+    const msg = isNetworkErr
+      ? `Backend API server unavailable at ${API_BASE}. Please verify that the FastAPI backend is running.`
+      : `Network error reaching ${targetUrl}: ${err?.message || 'Unknown network error'}`;
+    console.warn(`[apiFetch Connection Warning]`, msg);
+    throw new Error(msg);
+  }
 
   if (!res.ok) {
     const errorBody = await res.text().catch(() => '');
