@@ -272,10 +272,7 @@ _DEFAULT_DOCTORS = [
 ]
 
 
-# ─── Fallback Seed Data & Durable Storage ─────────────────────────────────────
-REFERRALS_DATA_DIR = os.path.join(os.path.dirname(__file__), "..", "data")
-REFERRALS_STORAGE_FILE = os.path.join(REFERRALS_DATA_DIR, "referrals_storage.json")
-
+# ─── Fallback Seed Data & Supabase PostgreSQL Storage Helpers ───────────────
 _FALLBACK_REFERRALS = [
     {
         "id": "REF-8841",
@@ -396,36 +393,135 @@ _FALLBACK_REFERRALS = [
 ]
 
 
-def _load_stored_referrals() -> list[dict]:
-    """Loads all referrals from persistent disk storage, initializing with seed data if not yet created."""
-    os.makedirs(REFERRALS_DATA_DIR, exist_ok=True)
-    if os.path.exists(REFERRALS_STORAGE_FILE):
-        try:
-            with open(REFERRALS_STORAGE_FILE, "r", encoding="utf-8") as f:
-                data = json.load(f)
-                if isinstance(data, list) and len(data) > 0:
-                    return data
-        except Exception as e:
-            logger.error(f"Error reading referrals storage file: {e}")
+def _fetch_all_referrals_from_supabase() -> list[dict]:
+    """
+    Fetches all confidential referral records from Supabase PostgreSQL database storage.
+    Checks public.referrals first, and falls back to Supabase PostgreSQL doctor_notes (source='referral_pipeline').
+    """
+    sb = get_supabase_client()
+    if not sb:
+        return list(_FALLBACK_REFERRALS)
 
-    # Initialize with default seed referrals
-    _save_stored_referrals(_FALLBACK_REFERRALS)
+    # 1. Try public.referrals table
+    try:
+        res = sb.table("referrals").select("*").order("created_at", desc=True).execute()
+        if res.data is not None and len(res.data) > 0:
+            return res.data
+    except Exception:
+        pass
+
+    # 2. Try public.doctor_notes with source='referral_pipeline' in Supabase PostgreSQL
+    try:
+        res = sb.table("doctor_notes").select("*").eq("source", "referral_pipeline").order("created_at", desc=True).execute()
+        if res.data is not None and len(res.data) > 0:
+            parsed = []
+            for row in res.data:
+                try:
+                    ref_obj = json.loads(row.get("summary") or "{}")
+                    if isinstance(ref_obj, dict) and ref_obj.get("id"):
+                        parsed.append(ref_obj)
+                except Exception:
+                    pass
+            if len(parsed) > 0:
+                return parsed
+    except Exception as e:
+        logger.warning(f"Failed to fetch referrals from Supabase PostgreSQL: {e}")
+
     return list(_FALLBACK_REFERRALS)
 
 
-def _save_stored_referrals(referrals: list[dict]):
-    """Saves referrals atomically to disk to ensure permanence across sessions and server restarts."""
-    os.makedirs(REFERRALS_DATA_DIR, exist_ok=True)
+def _fetch_single_referral_from_supabase(referral_id: str) -> Optional[dict]:
+    """
+    Fetches a single confidential referral by ID or referral_token from Supabase PostgreSQL.
+    """
+    sb = get_supabase_client()
+    if not sb:
+        for r in _FALLBACK_REFERRALS:
+            if r.get("id") == referral_id or r.get("referral_token") == referral_id:
+                return dict(r)
+        return None
+
+    # 1. Try public.referrals
     try:
-        tmp_file = REFERRALS_STORAGE_FILE + ".tmp"
-        with open(tmp_file, "w", encoding="utf-8") as f:
-            json.dump(referrals, f, indent=2, ensure_ascii=False)
-        if os.path.exists(REFERRALS_STORAGE_FILE):
-            os.replace(tmp_file, REFERRALS_STORAGE_FILE)
+        res = sb.table("referrals").select("*").or_(f"id.eq.{referral_id},referral_token.eq.{referral_id}").maybe_single().execute()
+        if res and res.data:
+            return res.data
+    except Exception:
+        pass
+
+    # 2. Try doctor_notes with source='referral_pipeline'
+    try:
+        res = sb.table("doctor_notes").select("*").eq("source", "referral_pipeline").execute()
+        for row in (res.data or []):
+            try:
+                ref_obj = json.loads(row.get("summary") or "{}")
+                if ref_obj.get("id") == referral_id or ref_obj.get("referral_token") == referral_id:
+                    return ref_obj
+            except Exception:
+                pass
+    except Exception as ex:
+        logger.warning(f"Error fetching referral {referral_id} from Supabase: {ex}")
+
+    for r in _FALLBACK_REFERRALS:
+        if r.get("id") == referral_id or r.get("referral_token") == referral_id:
+            return dict(r)
+    return None
+
+
+def _persist_referral_to_supabase(record: dict) -> None:
+    """
+    Persists or updates a confidential referral record in Supabase PostgreSQL database storage.
+    """
+    global _FALLBACK_REFERRALS
+    ref_id = record.get("id") or record.get("referral_token")
+    _FALLBACK_REFERRALS = [r for r in _FALLBACK_REFERRALS if r.get("id") != ref_id and r.get("referral_token") != ref_id]
+    _FALLBACK_REFERRALS.insert(0, record)
+
+    sb = get_supabase_client()
+    if not sb:
+        return
+
+    # 1. Try public.referrals table
+    try:
+        sb.table("referrals").upsert(record).execute()
+        logger.info(f"Referral {ref_id} successfully persisted in Supabase referrals table.")
+        return
+    except Exception:
+        pass
+
+    # 2. Persist to Supabase PostgreSQL doctor_notes table (source='referral_pipeline')
+    try:
+        existing = sb.table("doctor_notes").select("id, summary").eq("source", "referral_pipeline").execute()
+        match_db_id = None
+        for row in (existing.data or []):
+            try:
+                s_data = json.loads(row.get("summary") or "{}")
+                if s_data.get("id") == ref_id or s_data.get("referral_token") == ref_id:
+                    match_db_id = row["id"]
+                    break
+            except Exception:
+                pass
+
+        note_payload = {
+            "patient_id": record.get("patient_id", "p-101"),
+            "doctor": record.get("destination_doctor_name") or record.get("referring_doctor_name") or "Medical Officer",
+            "specialty": record.get("specialty", "General Medicine"),
+            "visit_type": "REFERRAL",
+            "complaint": record.get("clinical_reason", ""),
+            "observations": record.get("provisional_diagnosis", ""),
+            "plan": f"Refer to {record.get('destination_facility_name', '')}",
+            "follow_up": record.get("status", "CREATED"),
+            "summary": json.dumps(record, ensure_ascii=False),
+            "source": "referral_pipeline"
+        }
+
+        if match_db_id:
+            sb.table("doctor_notes").update(note_payload).eq("id", match_db_id).execute()
         else:
-            os.rename(tmp_file, REFERRALS_STORAGE_FILE)
-    except Exception as e:
-        logger.error(f"Error persisting referrals storage file: {e}")
+            sb.table("doctor_notes").insert(note_payload).execute()
+        logger.info(f"Referral {ref_id} successfully persisted in Supabase PostgreSQL doctor_notes table.")
+    except Exception as ex:
+        logger.error(f"Failed to persist referral to Supabase PostgreSQL: {ex}")
 
 
 def _auto_check_and_escalate_overdue(referrals: list) -> list:
@@ -436,7 +532,6 @@ def _auto_check_and_escalate_overdue(referrals: list) -> list:
     """
     now = datetime.now(timezone.utc)
     updated = []
-    sb = get_supabase_client()
 
     for ref in referrals:
         if ref.get("urgency") == "EMERGENCY" and ref.get("status") == "CREATED":
@@ -464,18 +559,8 @@ def _auto_check_and_escalate_overdue(referrals: list) -> list:
                             "notes": ref["escalation_reason"]
                         })
                         ref["timeline"] = timeline
-
-                        if sb:
-                            try:
-                                sb.table("referrals").update({
-                                    "status": "OVERDUE_ESCALATED",
-                                    "escalated_at": escalated_time,
-                                    "escalation_reason": ref["escalation_reason"],
-                                    "timeline": timeline,
-                                    "updated_at": escalated_time
-                                }).eq("id", ref["id"]).execute()
-                            except Exception as ex:
-                                logger.error(f"Failed to update escalation in Supabase for {ref['id']}: {ex}")
+                        ref["updated_at"] = escalated_time
+                        _persist_referral_to_supabase(ref)
                 except Exception as parse_err:
                     logger.warning(f"Date parse error in SLA monitor: {parse_err}")
 
@@ -497,37 +582,13 @@ def get_referrals(
     doctor_name: Optional[str] = Query(None)
 ):
     """
-    Fetch referrals with doctor privacy enforcement:
+    Fetch referrals from Supabase PostgreSQL with doctor privacy enforcement:
     When a doctor queries the pipeline, they ONLY receive:
     1. Incoming referrals specifically addressed to them (destination_doctor_id == doctor_id).
     2. Outgoing referrals created/referred by them (referring_doctor_id == doctor_id).
     Referrals addressed to other doctors are strictly withheld for patient confidentiality.
     """
-    sb = get_supabase_client()
-    referrals_data = []
-
-    if sb:
-        try:
-            query = sb.table("referrals").select("*")
-            if status:
-                query = query.eq("status", status)
-            if urgency:
-                query = query.eq("urgency", urgency)
-            if patient_id:
-                query = query.eq("patient_id", patient_id)
-            if specialty:
-                query = query.ilike("specialty", f"%{specialty}%")
-            
-            res = query.order("created_at", desc=True).execute()
-            if res.data and len(res.data) > 0:
-                referrals_data = res.data
-            else:
-                referrals_data = _load_stored_referrals()
-        except Exception as e:
-            logger.warning(f"Supabase query failed ({e}), loading from permanent storage.")
-            referrals_data = _load_stored_referrals()
-    else:
-        referrals_data = _load_stored_referrals()
+    referrals_data = _fetch_all_referrals_from_supabase()
 
     # Run automated SLA check on active emergency referrals
     referrals_data = _auto_check_and_escalate_overdue(referrals_data)
@@ -557,6 +618,15 @@ def get_referrals(
     elif not status:
         # Default active pipeline excludes COMPLETED records
         referrals_data = [r for r in referrals_data if r.get("status") != "COMPLETED"]
+
+    if urgency and urgency != "ALL":
+        referrals_data = [r for r in referrals_data if r.get("urgency") == urgency]
+
+    if patient_id:
+        referrals_data = [r for r in referrals_data if r.get("patient_id") == patient_id]
+
+    if specialty and specialty != "ALL":
+        referrals_data = [r for r in referrals_data if specialty.lower() in r.get("specialty", "").lower()]
 
     if facility_name:
         term = facility_name.lower()
@@ -608,34 +678,23 @@ def get_referral_patients(search: Optional[str] = Query(None), category: Optiona
                     patients_map[p_id] = {
                         "id": p_id,
                         "name": name,
-                        "age": p.get("age") or (25 + (idx * 7) % 45),
+                        "age": 30 + (idx * 5) % 40,
                         "gender": p.get("gender") or ("Female" if idx % 2 == 0 else "Male"),
-                        "abha_id": p.get("abha_id") or f"91-{4500 + idx}-8819-{str(p_id)[:4]}",
-                        "blood_group": p.get("blood_group") or "O+",
-                        "category": p.get("category") or ("Maternal ANC" if idx % 2 == 0 else "NCD Chronic"),
-                        "risk_level": p.get("risk_level") or ("HIGH" if idx % 3 == 0 else "MODERATE"),
-                        "village_name": p.get("village_name") or "Borvihir Pada",
-                        "contact_phone": p.get("phone") or f"+91 9822{idx} 1000{idx}",
-                        "vitals_summary": p.get("vitals_summary") or "BP: 128/82 mmHg, HR: 76 bpm, SpO2: 98%",
-                        "medical_history": p.get("medical_history") or "Follow-up evaluation requested",
-                        "assigned_asha": "Sunita Tai (ASHA)",
-                        "primary_facility": "PHC Nandurbar Rural"
+                        "abha_id": f"91-{3000 + idx*100}-{4000 + idx*50}-{1000 + idx}",
+                        "blood_group": p.get("blood_group") or "B+",
+                        "category": "Maternal & Child Health" if idx % 2 == 0 else "NCD Chronic",
+                        "risk_level": "HIGH" if idx % 3 == 0 else "MODERATE",
+                        "village_name": "Nandurbar Rural",
+                        "contact_phone": "+91 98220 " + str(10000 + idx)
                     }
         except Exception as e:
-            logger.warning(f"Could not load profiles from Supabase: {e}")
+            logger.error(f"Error fetching Supabase profiles for referrals: {e}")
 
     patients = list(patients_map.values())
 
-    # Filter by search
     if search:
         s = search.lower()
-        patients = [
-            p for p in patients
-            if s in p.get("name", "").lower()
-            or s in p.get("abha_id", "").lower()
-            or s in p.get("village_name", "").lower()
-            or s in p.get("category", "").lower()
-        ]
+        patients = [p for p in patients if s in p["name"].lower() or s in p.get("abha_id", "").lower() or s in p["id"].lower()]
 
     if category and category != "ALL":
         patients = [p for p in patients if category.lower() in p.get("category", "").lower()]
@@ -646,14 +705,27 @@ def get_referral_patients(search: Optional[str] = Query(None), category: Optiona
     }
 
 
+@router.get("/referrals/facilities")
+def get_referral_facilities(level: Optional[str] = Query(None)):
+    """
+    Get registered healthcare facilities in the district network with live bed/ICU capability.
+    """
+    facilities = list(_REFERRAL_FACILITIES)
+    if level and level != "ALL":
+        facilities = [f for f in facilities if f.get("type") == level]
+    return {
+        "count": len(facilities),
+        "facilities": facilities
+    }
+
+
 @router.get("/referrals/doctors")
 def get_referral_doctors(
-    role: Optional[str] = Query(None),
-    facility_type: Optional[str] = Query(None),
+    facility_name: Optional[str] = Query(None),
     specialty: Optional[str] = Query(None)
 ):
     """
-    Get directory of verified doctors & specialists for role-based referral dispatch.
+    Get certified doctors available across district network facilities for inbound referral assignment.
     """
     sb = get_supabase_client()
     doctors_map = {d["id"]: dict(d) for d in _DEFAULT_DOCTORS}
@@ -668,15 +740,15 @@ def get_referral_doctors(
                         "id": d_id,
                         "name": d.get("name") or "Medical Officer",
                         "role": "doctor",
-                        "tier": d.get("facility_type") or "Primary Health Centre (PHC)",
-                        "specialty": d.get("specialty") or "General Medicine",
-                        "facility_name": d.get("facility_name") or "PHC Nandurbar Rural",
-                        "facility_type": d.get("facility_type") or "Primary Health Centre (PHC)",
-                        "department": d.get("department") or "Clinical OPD",
-                        "experience": d.get("experience") or "10 yrs",
-                        "qualification": d.get("qualification") or "MBBS, MD",
+                        "tier": "District Hospital",
+                        "specialty": "General Medicine",
+                        "facility_name": "Nandurbar District Civil Hospital",
+                        "facility_type": "District Hospital",
+                        "department": "Clinical OPD",
+                        "experience": "10 yrs",
+                        "qualification": "MBBS, MD",
                         "opd_status": "AVAILABLE",
-                        "phone": d.get("phone") or "+91 98210 00000",
+                        "phone": "+91 98210 00000",
                         "email": d.get("email") or "doctor@curatrack.in"
                     }
         except Exception as e:
@@ -684,8 +756,8 @@ def get_referral_doctors(
 
     doctors = list(doctors_map.values())
 
-    if facility_type and facility_type != "ALL":
-        doctors = [d for d in doctors if facility_type.lower() in d.get("facility_type", "").lower()]
+    if facility_name and facility_name != "ALL":
+        doctors = [d for d in doctors if facility_name.lower() in d.get("facility_name", "").lower()]
 
     if specialty and specialty != "ALL":
         doctors = [d for d in doctors if specialty.lower() in d.get("specialty", "").lower()]
@@ -703,24 +775,9 @@ def get_referral_by_id(
     doctor_name: Optional[str] = Query(None)
 ):
     """
-    Fetch single referral by ID or referral_token with doctor confidentiality enforcement.
+    Fetch single referral by ID or referral_token with doctor confidentiality enforcement from Supabase PostgreSQL.
     """
-    sb = get_supabase_client()
-    target_ref = None
-    if sb:
-        try:
-            res = sb.table("referrals").select("*").or_(f"id.eq.{referral_id},referral_token.eq.{referral_id}").maybe_single().execute()
-            if res and res.data:
-                target_ref = res.data
-        except Exception as e:
-            logger.warning(f"Supabase lookup warning for {referral_id}: {e}")
-
-    if not target_ref:
-        stored = _load_stored_referrals()
-        for r in stored:
-            if r["id"] == referral_id or r.get("referral_token") == referral_id:
-                target_ref = r
-                break
+    target_ref = _fetch_single_referral_from_supabase(referral_id)
 
     if not target_ref:
         raise HTTPException(status_code=404, detail=f"Referral {referral_id} not found.")
@@ -754,7 +811,7 @@ def get_referral_by_id(
 @router.post("/referrals/create")
 def create_referral(req: ReferralCreateRequest):
     """
-    Create a new inter-facility referral pass and persist to Supabase & disk with RBAC enforcement:
+    Create a new inter-facility referral pass and persist directly to Supabase PostgreSQL database storage with RBAC enforcement:
     - Patients cannot create clinical referrals (403 Forbidden).
     - ASHA frontline health workers ('fhw', 'asha') can ONLY refer patients upwards to Medical Officers / Doctors.
     - Doctors ('doctor') can refer patients to peer Doctors / Specialists across secondary/tertiary facilities.
@@ -827,20 +884,8 @@ def create_referral(req: ReferralCreateRequest):
         ]
     }
 
-    # 1. Persist permanently to durable disk storage
-    stored = _load_stored_referrals()
-    stored = [r for r in stored if r.get("id") != referral_id]
-    stored.insert(0, new_record)
-    _save_stored_referrals(stored)
-
-    # 2. Attempt Supabase Table Insert
-    sb = get_supabase_client()
-    if sb:
-        try:
-            sb.table("referrals").insert(new_record).execute()
-            logger.info(f"Referral {referral_id} persisted to Supabase successfully.")
-        except Exception as e:
-            logger.info(f"Referral {referral_id} saved to permanent disk storage (Supabase table not active): {e}")
+    # Persist directly into Supabase PostgreSQL database storage
+    _persist_referral_to_supabase(new_record)
 
     return {
         "status": "success",
@@ -867,25 +912,8 @@ def update_referral_status(referral_id: str, req: ReferralStatusUpdateRequest):
     if req.status not in valid_statuses:
         raise HTTPException(status_code=400, detail=f"Invalid status. Must be one of {valid_statuses}")
 
-    sb = get_supabase_client()
     now_iso = datetime.now(timezone.utc).isoformat()
-    
-    stored = _load_stored_referrals()
-    existing = None
-    existing_idx = -1
-    for idx, r in enumerate(stored):
-        if r.get("id") == referral_id or r.get("referral_token") == referral_id:
-            existing = r
-            existing_idx = idx
-            break
-
-    if sb:
-        try:
-            res = sb.table("referrals").select("*").or_(f"id.eq.{referral_id},referral_token.eq.{referral_id}").maybe_single().execute()
-            if res and res.data:
-                existing = res.data
-        except Exception as ex:
-            logger.info(f"Supabase referral lookup: {ex}")
+    existing = _fetch_single_referral_from_supabase(referral_id)
 
     if not existing:
         raise HTTPException(status_code=404, detail=f"Referral {referral_id} not found.")
@@ -945,20 +973,7 @@ def update_referral_status(referral_id: str, req: ReferralStatusUpdateRequest):
         update_payload["escalation_reason"] = req.notes or "Escalated due to SLA breach"
 
     existing.update(update_payload)
-
-    # Persist updated referral to disk storage
-    if existing_idx >= 0:
-        stored[existing_idx] = existing
-    else:
-        stored.insert(0, existing)
-    _save_stored_referrals(stored)
-
-    # Attempt Supabase update
-    if sb:
-        try:
-            sb.table("referrals").update(update_payload).or_(f"id.eq.{referral_id},referral_token.eq.{referral_id}").execute()
-        except Exception as e:
-            logger.info(f"Supabase update: {e}")
+    _persist_referral_to_supabase(existing)
 
     return {
         "status": "success",
