@@ -242,7 +242,14 @@ def list_essential_medicines(
 
         # Dynamically ensure days_of_supply and status are consistent with current stock_units
         all_meds_res = db.table("facility_medicines").select("*").execute()
-        all_meds = all_meds_res.data if (all_meds_res and all_meds_res.data) else _DEFAULT_FACILITY_MEDICINES
+        if not all_meds_res or not all_meds_res.data or len(all_meds_res.data) == 0:
+            try:
+                db.table("facility_medicines").insert(_DEFAULT_FACILITY_MEDICINES).execute()
+                all_meds_res = db.table("facility_medicines").select("*").execute()
+            except Exception as seed_err:
+                logger.warning(f"Could not auto-seed facility_medicines: {seed_err}")
+
+        all_meds = [dict(m) for m in (all_meds_res.data if (all_meds_res and all_meds_res.data and len(all_meds_res.data) > 0) else _DEFAULT_FACILITY_MEDICINES)]
         
         for m in all_meds:
             stock = int(m.get("stock_units", 0))
