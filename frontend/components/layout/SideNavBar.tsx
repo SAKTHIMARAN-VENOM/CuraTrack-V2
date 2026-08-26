@@ -156,7 +156,7 @@ export function SideNavBar() {
     const roleMeta = getRoleDetails();
 
     return (
-        <aside className="hidden md:flex w-72 flex-col p-6 rounded-[2rem] my-4 ml-4 h-[calc(100vh-2rem)] bg-white border border-surface-container-high shadow-card font-headline antialiased tracking-tight shrink-0 sticky top-4">
+        <aside suppressHydrationWarning className="hidden md:flex w-72 flex-col p-6 rounded-[2rem] my-4 ml-4 h-[calc(100vh-2rem)] bg-white border border-surface-container-high shadow-card font-headline antialiased tracking-tight shrink-0 sticky top-4">
             {/* Header / Brand */}
             <div className="flex flex-col gap-1.5 mb-6">
                 <div className="flex items-center gap-2.5">
@@ -208,6 +208,7 @@ export function SideNavBar() {
             {/* Footer / User Profile & Logout */}
             <div className="mt-auto space-y-3 pt-4 border-t border-surface-container-high">
                 <button
+                    suppressHydrationWarning
                     onClick={async () => {
                         localStorage.removeItem('curatrack_active_role');
                         await fetch('/api/logout', { method: 'POST' });

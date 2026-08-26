@@ -30,6 +30,7 @@ export function TopNavBar() {
             <LanguageToggle />
             <div className="flex items-center gap-4">
                 <button 
+                  suppressHydrationWarning
                   onClick={() => router.push('/alerts')}
                   title={t('topNav.notifications', 'Notifications')}
                   className="relative p-2.5 text-tertiary hover:text-primary hover:bg-primary/5 rounded-xl transition-all cursor-pointer"
@@ -38,6 +39,7 @@ export function TopNavBar() {
                     <span className="absolute top-2.5 right-2.5 w-2 h-2 bg-error rounded-full border-2 border-white"></span>
                 </button>
                 <button 
+                  suppressHydrationWarning
                   onClick={() => router.push('/profile')}
                   title={t('topNav.profile', 'Profile')}
                   className="h-11 w-11 rounded-2xl overflow-hidden ring-2 ring-surface-container/50 ring-offset-2 bg-surface-container flex items-center justify-center text-tertiary hover:ring-primary/40 hover:bg-primary/5 transition-all cursor-pointer"

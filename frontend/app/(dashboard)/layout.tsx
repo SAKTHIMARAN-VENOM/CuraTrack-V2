@@ -5,10 +5,10 @@ import { HealthProfileModal } from '@/components/HealthProfileModal';
 
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
   return (
-    <div className="flex min-h-screen text-on-background bg-surface">
+    <div suppressHydrationWarning className="flex min-h-screen text-on-background bg-surface">
       <SideNavBar />
       
-      <div className="flex-grow flex flex-col min-w-0">
+      <div suppressHydrationWarning className="flex-grow flex flex-col min-w-0">
         <TopNavBar />
         <HealthProfileModal />
         {children}

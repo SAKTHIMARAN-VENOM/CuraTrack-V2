@@ -166,7 +166,8 @@ def get_facility_stats():
 @router.get("/facility/medicines")
 def list_essential_medicines(
     category: Optional[str] = Query(None, description="Filter by medicine category"),
-    status: Optional[str] = Query(None, description="Filter by stock status")
+    status: Optional[str] = Query(None, description="Filter by stock status"),
+    search: Optional[str] = Query(None, description="Search by medicine name or category")
 ):
     """Returns Essential Drug List (EDL) inventory levels and stockout alerts."""
     try:
@@ -176,6 +177,8 @@ def list_essential_medicines(
             query = query.ilike("category", f"%{category}%")
         if status and status != "ALL":
             query = query.eq("status", status)
+        if search:
+            query = query.or_(f"name.ilike.%{search}%,category.ilike.%{search}%")
             
         res = query.execute()
         results = res.data or []
@@ -184,6 +187,8 @@ def list_essential_medicines(
             results = [m for m in _DEFAULT_FACILITY_MEDICINES]
             if category and category != "ALL":
                 results = [m for m in results if category.lower() in m.get("category", "").lower()]
+            if search:
+                results = [m for m in results if search.lower() in m.get("name", "").lower() or search.lower() in m.get("category", "").lower()]
 
         # Dynamically ensure days_of_supply and status are consistent with current stock_units
         all_meds_res = db.table("facility_medicines").select("*").execute()
@@ -202,16 +207,50 @@ def list_essential_medicines(
             else:
                 m["status"] = "CRITICAL_STOCKOUT_RISK"
 
+        filtered_meds = all_meds
         if status and status != "ALL":
-            filtered_meds = [m for m in all_meds if m.get("status") == status]
-            if category and category != "ALL":
-                filtered_meds = [m for m in filtered_meds if category.lower() in m.get("category", "").lower()]
-            results = filtered_meds
-        else:
-            results = all_meds
-
+            filtered_meds = [m for m in filtered_meds if m.get("status") == status]
+        if category and category != "ALL":
+            filtered_meds = [m for m in filtered_meds if category.lower() in m.get("category", "").lower()]
+        if search:
+            s_lower = search.lower().strip()
+            filtered_meds = [m for m in filtered_meds if s_lower in m.get("name", "").lower() or s_lower in m.get("category", "").lower()]
+            
+        results = filtered_meds
         critical_count = len([m for m in all_meds if m.get("status") in ("LOW_STOCK", "CRITICAL_STOCKOUT_RISK")])
 
+        return {
+            "count": len(results),
+            "total_count": len(all_meds),
+            "critical_alerts_count": critical_count,
+            "medicines": results
+        }
+    except Exception as e:
+        logger.error(f"Error listing medicines from Supabase: {e}")
+        all_meds = [dict(m) for m in _DEFAULT_FACILITY_MEDICINES]
+        for m in all_meds:
+            stock = int(m.get("stock_units", 0))
+            monthly = max(1, int(m.get("monthly_consumption", 300)))
+            daily_rate = max(monthly / 30.0, 0.1)
+            dos = int(stock / daily_rate)
+            m["days_of_supply"] = dos
+            if dos > 20:
+                m["status"] = "ADEQUATE"
+            elif dos > 7:
+                m["status"] = "LOW_STOCK"
+            else:
+                m["status"] = "CRITICAL_STOCKOUT_RISK"
+
+        results = all_meds
+        if category and category != "ALL":
+            results = [m for m in results if category.lower() in m.get("category", "").lower()]
+        if status and status != "ALL":
+            results = [m for m in results if m.get("status") == status]
+        if search:
+            s_lower = search.lower().strip()
+            results = [m for m in results if s_lower in m.get("name", "").lower() or s_lower in m.get("category", "").lower()]
+
+        critical_count = len([m for m in all_meds if m.get("status") in ("LOW_STOCK", "CRITICAL_STOCKOUT_RISK")])
         return {
             "count": len(results),
             "total_count": len(all_meds),
@@ -622,6 +661,7 @@ def create_medicine_order(order: MedicineOrderRequest):
 _processed_prescription_deductions = set()
 
 class StockDeductItem(BaseModel):
+    medicine_id: Optional[str] = None
     medicine_name: str
     quantity: int = 1
 
@@ -645,49 +685,86 @@ def deduct_medicine_stock(req: StockDeductRequest):
         }
 
     deductions = []
-    db = get_db()
+    db = None
+    try:
+        db = get_db()
+    except Exception as e:
+        logger.warning(f"Could not connect to Supabase for deduct_medicine_stock: {e}")
 
     for item in req.items:
+        med_id_req = (item.medicine_id or "").strip()
         med_name = item.medicine_name.strip()
         qty = max(1, item.quantity)
         
-        try:
-            # Query existing stock
-            res = db.table("facility_medicines").select("*").ilike("name", f"%{med_name}%").execute()
-            if res.data and len(res.data) > 0:
-                row = res.data[0]
-                med_id = row["id"]
-                current_stock = int(row.get("stock_units", 0))
-                monthly_cons = max(int(row.get("monthly_consumption", 30)), 1)
-                
-                new_stock = max(0, current_stock - qty)
-                daily_rate = max(monthly_cons / 30.0, 0.1)
-                new_days = int(new_stock / daily_rate)
-                
-                new_status = "ADEQUATE"
-                if new_days <= 3:
-                    new_status = "CRITICAL_STOCKOUT_RISK"
-                elif new_days <= 10:
-                    new_status = "LOW_STOCK"
+        row = None
+        # 1. Try Supabase lookup
+        if db:
+            try:
+                if med_id_req:
+                    res = db.table("facility_medicines").select("*").eq("id", med_id_req).execute()
+                    if res.data and len(res.data) > 0:
+                        row = res.data[0]
+                if not row and med_name:
+                    res = db.table("facility_medicines").select("*").ilike("name", f"%{med_name}%").execute()
+                    if res.data and len(res.data) > 0:
+                        row = res.data[0]
+            except Exception as err:
+                logger.error(f"Supabase lookup error during deduct_medicine_stock: {err}")
 
-                # Update in Supabase
-                db.table("facility_medicines").update({
-                    "stock_units": new_stock,
-                    "days_of_supply": new_days,
-                    "status": new_status,
-                    "updated_at": datetime.now().isoformat() + "Z"
-                }).eq("id", med_id).execute()
+        # 2. Fallback in-memory lookup
+        fallback_med = None
+        for m in _DEFAULT_FACILITY_MEDICINES:
+            if med_id_req and m["id"] == med_id_req:
+                fallback_med = m
+                break
+            elif not med_id_req and med_name.lower() in m["name"].lower():
+                fallback_med = m
+                break
 
-                deductions.append({
-                    "medicine_id": med_id,
-                    "medicine_name": row["name"],
-                    "deducted": qty,
-                    "remaining_stock": new_stock,
-                    "days_of_supply": new_days,
-                    "status": new_status
-                })
-        except Exception as err:
-            logger.error(f"Failed to deduct stock for {med_name}: {err}")
+        if not row and fallback_med:
+            row = fallback_med
+
+        if row:
+            med_id = row["id"]
+            current_stock = int(row.get("stock_units", 0))
+            monthly_cons = max(int(row.get("monthly_consumption", 30)), 1)
+            
+            new_stock = max(0, current_stock - qty)
+            daily_rate = max(monthly_cons / 30.0, 0.1)
+            new_days = int(new_stock / daily_rate)
+            
+            new_status = "ADEQUATE"
+            if new_days <= 7:
+                new_status = "CRITICAL_STOCKOUT_RISK"
+            elif new_days <= 20:
+                new_status = "LOW_STOCK"
+
+            # Sync in-memory fallback
+            if fallback_med:
+                fallback_med["stock_units"] = new_stock
+                fallback_med["days_of_supply"] = new_days
+                fallback_med["status"] = new_status
+
+            # Update in Supabase
+            if db:
+                try:
+                    db.table("facility_medicines").update({
+                        "stock_units": new_stock,
+                        "days_of_supply": new_days,
+                        "status": new_status,
+                        "updated_at": datetime.now().isoformat() + "Z"
+                    }).eq("id", med_id).execute()
+                except Exception as err:
+                    logger.error(f"Failed to update Supabase stock for {med_id}: {err}")
+
+            deductions.append({
+                "medicine_id": med_id,
+                "medicine_name": row["name"],
+                "deducted": qty,
+                "remaining_stock": new_stock,
+                "days_of_supply": new_days,
+                "status": new_status
+            })
 
     _processed_prescription_deductions.add(req.prescription_id)
 

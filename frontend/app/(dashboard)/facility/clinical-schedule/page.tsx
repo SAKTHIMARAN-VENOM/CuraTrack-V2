@@ -108,14 +108,14 @@ export default function FacilityClinicalSchedulePage() {
       if (saved) {
         setRoster(JSON.parse(saved));
       }
-    } catch {}
+    } catch { }
   }, []);
 
   const saveRoster = (updated: DoctorRosterEntry[]) => {
     setRoster(updated);
     try {
       localStorage.setItem('curatrack_doctor_roster', JSON.stringify(updated));
-    } catch {}
+    } catch { }
   };
 
   const handleToggleStatus = (id: string) => {
@@ -301,11 +301,10 @@ export default function FacilityClinicalSchedulePage() {
             <button
               key={dept}
               onClick={() => setFilterDept(dept)}
-              className={`px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${
-                filterDept === dept
+              className={`px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${filterDept === dept
                   ? 'bg-primary text-white shadow-sm'
                   : 'bg-surface-container-low text-tertiary hover:bg-surface-container'
-              }`}
+                }`}
             >
               {departmentLabelMap[dept] || dept}
             </button>
@@ -318,11 +317,10 @@ export default function FacilityClinicalSchedulePage() {
             <button
               key={s}
               onClick={() => setFilterShift(s)}
-              className={`px-3 py-1 rounded-lg text-xs font-bold cursor-pointer ${
-                filterShift === s
+              className={`px-3 py-1 rounded-lg text-xs font-bold cursor-pointer ${filterShift === s
                   ? 'bg-on-surface text-white'
                   : 'bg-surface-container-low text-tertiary hover:bg-surface-container'
-              }`}
+                }`}
             >
               {shiftLabelMap[s] || s}
             </button>
@@ -333,11 +331,11 @@ export default function FacilityClinicalSchedulePage() {
       {/* Doctor Roster Cards Grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
         {filteredRoster.map((doc) => {
-          const statusBadge = 
+          const statusBadge =
             doc.status === 'IN-CONSULT' ? 'bg-purple-100 text-purple-800 border-purple-200' :
-            doc.status === 'ON-DUTY' ? 'bg-teal-100 text-teal-800 border-teal-200' :
-            doc.status === 'ON-CALL' ? 'bg-amber-100 text-amber-800 border-amber-200' :
-            'bg-slate-100 text-slate-700 border-slate-200';
+              doc.status === 'ON-DUTY' ? 'bg-teal-100 text-teal-800 border-teal-200' :
+                doc.status === 'ON-CALL' ? 'bg-amber-100 text-amber-800 border-amber-200' :
+                  'bg-slate-100 text-slate-700 border-slate-200';
 
           return (
             <div key={doc.id} className="bg-white rounded-3xl border border-surface-container-high p-6 shadow-card hover:shadow-lg transition-all flex flex-col justify-between space-y-4">

@@ -16,7 +16,7 @@ export function LanguageToggle() {
   const setLanguage = i18n?.setLanguage || (() => {});
 
   return (
-    <div className="inline-flex items-center p-1 bg-surface-container rounded-2xl border border-surface-container-high text-xs font-bold shadow-xs">
+    <div suppressHydrationWarning className="inline-flex items-center p-1 bg-surface-container rounded-2xl border border-surface-container-high text-xs font-bold shadow-xs">
       <span className="material-symbols-outlined text-tertiary text-base ml-1.5 mr-1" aria-hidden="true">
         translate
       </span>
@@ -25,6 +25,7 @@ export function LanguageToggle() {
           const isActive = language === lang.code;
           return (
             <button
+              suppressHydrationWarning
               key={lang.code}
               type="button"
               onClick={() => setLanguage(lang.code)}

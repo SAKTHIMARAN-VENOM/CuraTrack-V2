@@ -6,6 +6,23 @@ import { useRouter } from 'next/navigation';
 import { createClient } from '@/lib/supabase/client';
 import { apiFetch } from '@/lib/api';
 import { useI18n } from '@/lib/i18n';
+import { MedicineSearchDropdown, FacilityMedicineItem } from '@/components/MedicineSearchDropdown';
+
+export interface DoctorPrescriptionItem {
+  id: string;
+  inventory_id?: string;
+  is_inventory: boolean;
+  drug: string;
+  category?: string;
+  dosage: string;
+  frequency: string;
+  duration: string;
+  quantity: number;
+  unit: string;
+  available_stock?: number;
+  stock_status?: 'ADEQUATE' | 'LOW_STOCK' | 'CRITICAL_STOCKOUT_RISK';
+  instructions: string;
+}
 
 interface OPDQueuePatient {
   id: string;
@@ -91,6 +108,11 @@ export default function DoctorOPDPage() {
   const router = useRouter();
   const { t } = useI18n();
   const supabase = useMemo(() => createClient(), []);
+  const [mounted, setMounted] = useState<boolean>(false);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
   // Live Database States
   const [doctorInfo, setDoctorInfo] = useState<DoctorProfileInfo>({
@@ -141,12 +163,90 @@ export default function DoctorOPDPage() {
   // Clinical Encounter State - dynamically loaded per selected patient
   const [soapDiagnosis, setSoapDiagnosis] = useState<string>('');
   const [soapNotes, setSoapNotes] = useState<string>('');
-  const [prescriptions, setPrescriptions] = useState<Array<{ id: string; drug: string; dosage: string; frequency: string; duration: string; instructions: string }>>([]);
+  const [prescriptions, setPrescriptions] = useState<DoctorPrescriptionItem[]>([]);
   const [selectedLabs, setSelectedLabs] = useState<string[]>([]);
   const [loadingClinicalRecords, setLoadingClinicalRecords] = useState<boolean>(false);
   const [submittingEncounter, setSubmittingEncounter] = useState<boolean>(false);
   const [submitSuccessMessage, setSubmitSuccessMessage] = useState<string>('');
   const [submitErrorMessage, setSubmitErrorMessage] = useState<string>('');
+
+  // Prescription Form Draft State (Facility Inventory & Non-Inventory Integration)
+  const [selectedInventoryMed, setSelectedInventoryMed] = useState<FacilityMedicineItem | null>(null);
+  const [isNonInventoryMode, setIsNonInventoryMode] = useState<boolean>(false);
+  const [draftDrugName, setDraftDrugName] = useState<string>('');
+  const [draftDosage, setDraftDosage] = useState<string>('500mg');
+  const [draftFrequency, setDraftFrequency] = useState<string>('BD (Twice daily)');
+  const [draftDuration, setDraftDuration] = useState<string>('5 Days');
+  const [draftQuantity, setDraftQuantity] = useState<number>(10);
+  const [draftInstructions, setDraftInstructions] = useState<string>('Take after meals');
+  const [stockWarning, setStockWarning] = useState<string | null>(null);
+
+  // Helper to auto-calculate quantity from frequency and duration
+  const calculateQuantity = useCallback((freq: string, dur: string): number => {
+    let perDay = 1;
+    if (freq.startsWith('BD') || freq.includes('Twice') || freq.includes('2')) perDay = 2;
+    else if (freq.startsWith('TDS') || freq.includes('3')) perDay = 3;
+    else if (freq.startsWith('QDS') || freq.includes('4')) perDay = 4;
+    else if (freq.startsWith('OD') || freq.includes('Once') || freq.includes('1')) perDay = 1;
+
+    const daysMatch = dur.match(/\d+/);
+    const days = daysMatch ? parseInt(daysMatch[0], 10) : 5;
+    return Math.max(1, perDay * days);
+  }, []);
+
+  const handleSelectInventoryMed = useCallback((med: FacilityMedicineItem) => {
+    setSelectedInventoryMed(med);
+    setIsNonInventoryMode(false);
+    setDraftDrugName(med.name);
+    const calculatedQty = calculateQuantity(draftFrequency, draftDuration);
+    setDraftQuantity(calculatedQty);
+    if (calculatedQty > med.stock_units) {
+      setStockWarning(t('doctor.insufficientStock', { available: med.stock_units }, `Insufficient facility stock. Available: ${med.stock_units}`));
+    } else {
+      setStockWarning(null);
+    }
+  }, [calculateQuantity, draftFrequency, draftDuration, t]);
+
+  const handleSelectNonInventoryMed = useCallback((name: string) => {
+    setSelectedInventoryMed(null);
+    setIsNonInventoryMode(true);
+    setDraftDrugName(name || 'Custom Medication');
+    const calculatedQty = calculateQuantity(draftFrequency, draftDuration);
+    setDraftQuantity(calculatedQty);
+    setStockWarning(null);
+  }, [calculateQuantity, draftFrequency, draftDuration]);
+
+  const handleFrequencyChange = (freq: string) => {
+    setDraftFrequency(freq);
+    const calculatedQty = calculateQuantity(freq, draftDuration);
+    setDraftQuantity(calculatedQty);
+    if (!isNonInventoryMode && selectedInventoryMed && calculatedQty > selectedInventoryMed.stock_units) {
+      setStockWarning(t('doctor.insufficientStock', { available: selectedInventoryMed.stock_units }, `Insufficient facility stock. Available: ${selectedInventoryMed.stock_units}`));
+    } else {
+      setStockWarning(null);
+    }
+  };
+
+  const handleDurationChange = (dur: string) => {
+    setDraftDuration(dur);
+    const calculatedQty = calculateQuantity(draftFrequency, dur);
+    setDraftQuantity(calculatedQty);
+    if (!isNonInventoryMode && selectedInventoryMed && calculatedQty > selectedInventoryMed.stock_units) {
+      setStockWarning(t('doctor.insufficientStock', { available: selectedInventoryMed.stock_units }, `Insufficient facility stock. Available: ${selectedInventoryMed.stock_units}`));
+    } else {
+      setStockWarning(null);
+    }
+  };
+
+  const handleQuantityChange = (qty: number) => {
+    const validQty = Math.max(1, qty || 1);
+    setDraftQuantity(validQty);
+    if (!isNonInventoryMode && selectedInventoryMed && validQty > selectedInventoryMed.stock_units) {
+      setStockWarning(t('doctor.insufficientStock', { available: selectedInventoryMed.stock_units }, `Insufficient facility stock. Available: ${selectedInventoryMed.stock_units}`));
+    } else {
+      setStockWarning(null);
+    }
+  };
 
   // Fetch Inbound Referrals from Backend/Supabase (Phase 3)
   const fetchInboundReferrals = useCallback(async () => {
@@ -232,7 +332,7 @@ export default function DoctorOPDPage() {
         const isTele = Boolean(a.room_id || a.status === 'ringing' || a.type === 'video');
         const isAssisted = a.consult_type === 'assisted_teleconsult' || Boolean(a.asha_name || a.beneficiary_id);
         const isEmergency = a.priority === 'EMERGENCY' || a.status === 'ringing';
-        
+
         let uiStatus: 'WAITING' | 'IN-CONSULT' | 'COMPLETED' = 'WAITING';
         if (a.status === 'in-consult' || a.status === 'in_progress') {
           uiStatus = 'IN-CONSULT';
@@ -242,7 +342,7 @@ export default function DoctorOPDPage() {
           uiStatus = 'WAITING';
         }
 
-        const formattedTime = a.scheduled_time 
+        const formattedTime = a.scheduled_time
           ? new Date(a.scheduled_time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
           : a.time || 'Just now';
 
@@ -305,7 +405,7 @@ export default function DoctorOPDPage() {
             const { data: prof } = await supabase.from('profiles').select('*').eq('id', user.id).maybeSingle();
             if (prof?.name) docName = prof.name;
           }
-        } catch {}
+        } catch { }
 
         if (typeof window !== 'undefined') {
           try {
@@ -316,7 +416,7 @@ export default function DoctorOPDPage() {
               if (parsed.name) docName = parsed.name;
               if (parsed.email) docEmail = parsed.email;
             }
-          } catch {}
+          } catch { }
         }
 
         const finalDocId = docId || 'doc-david-ross';
@@ -363,7 +463,7 @@ export default function DoctorOPDPage() {
               } else if (prof?.email) {
                 patientName = prof.email.split('@')[0].replace(/[._-]/g, ' ');
               }
-            } catch {}
+            } catch { }
           }
           setIncomingCall({ ...appt, patient_name: patientName });
         }
@@ -401,7 +501,7 @@ export default function DoctorOPDPage() {
                 } else if (prof?.email) {
                   patientName = prof.email.split('@')[0].replace(/[._-]/g, ' ');
                 }
-              } catch {}
+              } catch { }
             }
 
             if (isMounted) {
@@ -447,7 +547,43 @@ export default function DoctorOPDPage() {
     };
   }, [supabase, fetchLiveQueue, fetchInboundReferrals, activeDoctorId]);
 
-  const selectedPatient = queue.find(p => p.id === selectedPatientId) || queue[0];
+  // Filtered Queue
+  const filteredQueue = useMemo(() => {
+    return queue.filter(patient => {
+      if (filterType === 'WAITING' && patient.status !== 'WAITING') return false;
+      if (filterType === 'EMERGENCY' && patient.priority !== 'EMERGENCY') return false;
+      if (filterType === 'TELECONSULT' && patient.type !== 'Teleconsult') return false;
+      if (filterType === 'COMPLETED' && patient.status !== 'COMPLETED') return false;
+
+      if (searchQuery) {
+        const q = searchQuery.toLowerCase();
+        return (
+          patient.name.toLowerCase().includes(q) ||
+          patient.token.toLowerCase().includes(q) ||
+          patient.complaint.toLowerCase().includes(q)
+        );
+      }
+      return true;
+    });
+  }, [queue, filterType, searchQuery]);
+
+  // Selected Patient Object
+  const selectedPatient = useMemo(() => {
+    return queue.find(p => p.id === selectedPatientId) || queue[0] || null;
+  }, [queue, selectedPatientId]);
+
+  // Patient Status Change Action Handler
+  const handleStatusChange = async (patientId: string, newStatus: 'WAITING' | 'IN-CONSULT' | 'COMPLETED') => {
+    setQueue(prev => prev.map(p => (p.id === patientId ? { ...p, status: newStatus } : p)));
+    try {
+      await supabase
+        .from('appointments')
+        .update({ status: newStatus.toLowerCase() })
+        .eq('id', patientId);
+    } catch (err) {
+      console.warn('Error updating status in database:', err);
+    }
+  };
 
   // Dynamic Clinical Records Loader: Loads real records when selected patient changes
   const loadPatientClinicalRecords = useCallback(async (patientClientId: string) => {
@@ -508,8 +644,8 @@ export default function DoctorOPDPage() {
       }
 
       // Check if ASHA / Community Triage Screening note exists
-      const triageNote = allNotes?.find(n => 
-        n.visit_type === 'Triage Assessment' || 
+      const triageNote = allNotes?.find(n =>
+        n.visit_type === 'Triage Assessment' ||
         n.visit_type === 'Community Triage' ||
         (n.observations && n.observations.includes('[Urgency:'))
       );
@@ -623,17 +759,22 @@ export default function DoctorOPDPage() {
       // Set Prescriptions (avoid duplicates by medication name)
       if (rxData && rxData.length > 0) {
         const seenDrugs = new Set<string>();
-        const uniqueRxList: typeof prescriptions = [];
+        const uniqueRxList: DoctorPrescriptionItem[] = [];
         for (const r of rxData) {
           const drugName = (r.medication || '').trim();
           if (drugName && !seenDrugs.has(drugName.toLowerCase())) {
             seenDrugs.add(drugName.toLowerCase());
             uniqueRxList.push({
               id: r.id,
+              inventory_id: r.inventory_id || undefined,
+              is_inventory: !!r.inventory_id,
               drug: drugName,
+              category: r.category || 'Prescribed Drug',
               dosage: r.dosage || 'Standard',
-              frequency: r.frequency || 'OD',
+              frequency: r.frequency || 'OD (Once daily)',
               duration: r.date || '5 Days',
+              quantity: r.quantity || 10,
+              unit: r.unit || 'tablets',
               instructions: r.instructions || 'Take as directed',
             });
           }
@@ -701,22 +842,14 @@ export default function DoctorOPDPage() {
     }
     fetchAlerts();
 
-    // Dedicated Supabase Realtime subscription specifically for facility_beds
     const channel = supabase
-      .channel('doctor_portal_facility_beds_realtime')
-      .on(
-        'postgres_changes',
-        {
-          event: '*',
-          schema: 'public',
-          table: 'facility_beds',
-        },
-        () => {
-          if (isMounted) {
-            fetchBedsData();
-          }
-        }
-      )
+      .channel('facility_bed_live_channel')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'facility_beds' }, () => {
+        fetchBedsData();
+      })
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'facility_medicines' }, () => {
+        fetchAlerts();
+      })
       .subscribe();
 
     return () => {
@@ -724,30 +857,6 @@ export default function DoctorOPDPage() {
       supabase.removeChannel(channel);
     };
   }, [supabase, fetchBedsData]);
-
-  const filteredQueue = queue.filter(item => {
-    const matchesSearch = !searchQuery || 
-      item.name.toLowerCase().includes(searchQuery.toLowerCase()) || 
-      item.token.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      item.complaint.toLowerCase().includes(searchQuery.toLowerCase());
-    
-    if (!matchesSearch) return false;
-    if (filterType === 'WAITING') return item.status === 'WAITING' || item.status === 'IN-CONSULT';
-    if (filterType === 'EMERGENCY') return item.priority === 'EMERGENCY';
-    if (filterType === 'TELECONSULT') return item.type === 'Teleconsult';
-    if (filterType === 'COMPLETED') return item.status === 'COMPLETED';
-    return true;
-  });
-
-  const handleStatusChange = async (patientId: string, nextStatus: 'WAITING' | 'IN-CONSULT' | 'COMPLETED') => {
-    const dbStatus = nextStatus === 'IN-CONSULT' ? 'in-consult' : nextStatus === 'COMPLETED' ? 'completed' : 'waiting';
-    setQueue(prev => prev.map(p => p.id === patientId ? { ...p, status: nextStatus } : p));
-    try {
-      await supabase.from('appointments').update({ status: dbStatus }).eq('id', patientId);
-    } catch (err) {
-      console.warn('Error updating appointment status:', err);
-    }
-  };
 
   const handleAcceptCall = useCallback((targetRoomId?: string) => {
     const roomIdToJoin = targetRoomId || incomingCall?.room_id;
@@ -797,7 +906,7 @@ export default function DoctorOPDPage() {
         router.push(`/call/${activeAppts[0].room_id}?role=doctor`);
         return;
       }
-    } catch (e) {}
+    } catch (e) { }
 
     // 4. Fallback: Generate room_id AND register in Supabase so patient and doctor share the SAME room!
     const newRoomId = crypto.randomUUID();
@@ -815,48 +924,49 @@ export default function DoctorOPDPage() {
           date: new Date().toISOString().split('T')[0],
           time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
         });
-      } catch (e) {}
+      } catch (e) { }
     }
 
     router.push(`/call/${newRoomId}?role=doctor`);
   };
 
-  // Submit Clinical Encounter & EDL Drug Orders to Supabase Database
+  // Comprehensive Clinical Encounter Submission Handler
   const handleSubmitEncounter = async () => {
     if (!selectedPatient) return;
     setSubmittingEncounter(true);
     setSubmitSuccessMessage('');
     setSubmitErrorMessage('');
 
-    const patientClientId = selectedPatient.clientId || selectedPatient.id;
-    const docName = doctorInfo.name;
-    const todayStr = new Date().toISOString().split('T')[0];
-
     try {
-      // 1. Save Diagnosis if present
+      const patientClientId = selectedPatient.clientId || selectedPatient.id;
+      const todayStr = new Date().toISOString().split('T')[0];
+      const docName = doctorInfo.name || 'Dr. David Ross';
+
+      // 1. Persist Diagnosis to diagnoses table (clean sync)
+      await supabase.from('diagnoses').delete().eq('patient_id', patientClientId);
       if (soapDiagnosis.trim()) {
-        await supabase.from('diagnoses').delete().eq('patient_id', patientClientId);
-        await supabase.from('diagnoses').insert({
+        await supabase.from('diagnoses').insert([{
           patient_id: patientClientId,
           name: soapDiagnosis.trim(),
+          category: 'Clinical OPD',
+          status: 'ACTIVE',
+          doctor: docName,
           date: todayStr,
-          status: 'Active',
-        });
+        }]);
       }
 
-      // 2. Save Doctor Notes / SOAP Encounter
-      await supabase.from('doctor_notes').delete().eq('patient_id', patientClientId);
-      await supabase.from('doctor_notes').insert({
-        patient_id: patientClientId,
-        doctor: docName,
-        specialty: doctorInfo.department,
-        date: todayStr,
-        visit_type: selectedPatient.type,
-        complaint: selectedPatient.complaint,
-        observations: soapNotes.trim() || 'Clinical review completed.',
-        summary: soapDiagnosis.trim() || 'Encounter evaluated',
-        plan: `EDL Medications: ${prescriptions.map(p => p.drug).join(', ') || 'None'}; Labs: ${selectedLabs.join(', ') || 'None'}`,
-      });
+      // 2. Persist Clinical Notes to clinical_notes table (clean sync)
+      await supabase.from('clinical_notes').delete().eq('patient_id', patientClientId);
+      if (soapNotes.trim() || soapDiagnosis.trim()) {
+        await supabase.from('clinical_notes').insert([{
+          patient_id: patientClientId,
+          doctor_name: docName,
+          date: todayStr,
+          summary: soapDiagnosis.trim() || 'Clinical OPD Encounter',
+          observations: soapNotes.trim(),
+          plan: `Prescribed ${prescriptions.length} medication(s). Ordered ${selectedLabs.length} diagnostic test(s).`,
+        }]);
+      }
 
       // 3. Persist Prescriptions to prescriptions & medications tables (clean sync)
       await supabase.from('prescriptions').delete().eq('patient_id', patientClientId);
@@ -871,6 +981,8 @@ export default function DoctorOPDPage() {
           doctor_name: docName,
           date: p.duration || todayStr,
           instructions: p.instructions,
+          inventory_id: p.inventory_id,
+          quantity: p.quantity
         }));
         await supabase.from('prescriptions').insert(rxInserts);
 
@@ -913,16 +1025,21 @@ export default function DoctorOPDPage() {
       }
 
       // 6. Atomically deduct EDL medicines stock from facility inventory (Phase 8)
-      if (prescriptions.length > 0) {
+      // Only inventory medicines with valid inventory_id trigger inventory deduction
+      const inventoryItems = prescriptions.filter(p => p.is_inventory && p.inventory_id);
+      if (inventoryItems.length > 0) {
         try {
           const rxId = `rx-${patientClientId}-${Date.now()}`;
-          await fetch('/api/facility/medicines/deduct-stock', {
+          await apiFetch('/api/facility/medicines/deduct-stock', {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
               prescription_id: rxId,
               patient_id: patientClientId,
-              items: prescriptions.map(p => ({ medicine_name: p.drug, quantity: 1 })),
+              items: inventoryItems.map(p => ({
+                medicine_id: p.inventory_id,
+                medicine_name: p.drug,
+                quantity: p.quantity || 1
+              })),
               dispensed_by: docName
             })
           });
@@ -932,7 +1049,7 @@ export default function DoctorOPDPage() {
       }
 
       handleStatusChange(selectedPatient.id, 'COMPLETED');
-      setSubmitSuccessMessage(`Encounter and ${prescriptions.length} EDL medication order(s) successfully saved to database for ${selectedPatient.name}.`);
+      setSubmitSuccessMessage(`Encounter and ${prescriptions.length} medication order(s) successfully saved to database for ${selectedPatient.name}.`);
 
       // 7. Refetch directly from database to confirm persisted state
       await loadPatientClinicalRecords(patientClientId);
@@ -1005,34 +1122,71 @@ export default function DoctorOPDPage() {
     }
   };
 
-  const handleAddDrug = (e: React.FormEvent<HTMLFormElement>) => {
-    e.preventDefault();
-    const form = e.currentTarget;
-    const drug = (form.elements.namedItem('drug') as HTMLInputElement).value;
-    const dosage = (form.elements.namedItem('dosage') as HTMLInputElement).value;
-    const frequency = (form.elements.namedItem('frequency') as HTMLSelectElement).value;
-    const duration = (form.elements.namedItem('duration') as HTMLInputElement).value;
-    const instructions = (form.elements.namedItem('instructions') as HTMLInputElement).value;
-
-    if (drug) {
-      setPrescriptions(prev => [...prev, {
-        id: crypto.randomUUID(),
-        drug,
-        dosage: dosage || 'Standard',
-        frequency: frequency || 'BD (Twice daily)',
-        duration: duration || '5 Days',
-        instructions: instructions || 'Take after meals'
-      }]);
-      form.reset();
+  const handleAddDrug = (e?: React.FormEvent) => {
+    if (e) e.preventDefault();
+    const drugName = isNonInventoryMode ? draftDrugName.trim() : (selectedInventoryMed?.name || draftDrugName.trim());
+    if (!drugName) {
+      alert('Please search and select a facility medicine or enter a non-inventory medicine name.');
+      return;
     }
+
+    const qty = Math.max(1, draftQuantity || 1);
+
+    if (!isNonInventoryMode && selectedInventoryMed) {
+      if (qty > selectedInventoryMed.stock_units) {
+        setStockWarning(t('doctor.insufficientStock', { available: selectedInventoryMed.stock_units }, `Insufficient facility stock. Available: ${selectedInventoryMed.stock_units}`));
+      }
+    }
+
+    const newItem: DoctorPrescriptionItem = {
+      id: crypto.randomUUID(),
+      inventory_id: (!isNonInventoryMode && selectedInventoryMed) ? selectedInventoryMed.id : undefined,
+      is_inventory: !isNonInventoryMode && !!selectedInventoryMed,
+      drug: drugName,
+      category: selectedInventoryMed?.category || (isNonInventoryMode ? 'Non-Inventory' : 'General EDL'),
+      dosage: draftDosage.trim() || '500mg',
+      frequency: draftFrequency || 'BD (Twice daily)',
+      duration: draftDuration.trim() || '5 Days',
+      quantity: qty,
+      unit: selectedInventoryMed?.unit || 'tablets',
+      available_stock: selectedInventoryMed?.stock_units,
+      stock_status: selectedInventoryMed?.status,
+      instructions: draftInstructions.trim() || 'Take after meals'
+    };
+
+    setPrescriptions(prev => [...prev, newItem]);
+
+    // Reset draft form
+    setSelectedInventoryMed(null);
+    setIsNonInventoryMode(false);
+    setDraftDrugName('');
+    setDraftDosage('500mg');
+    setDraftQuantity(10);
+    setDraftInstructions('Take after meals');
+    setStockWarning(null);
   };
 
   const toggleLab = (lab: string) => {
     setSelectedLabs(prev => prev.includes(lab) ? prev.filter(l => l !== lab) : [...prev, lab]);
   };
 
+  if (!mounted) {
+    return (
+      <div className="flex-1 p-6 lg:p-10 max-w-7xl mx-auto w-full space-y-8 animate-pulse">
+        <div className="h-44 bg-surface-container rounded-3xl" />
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+          <div className="h-24 bg-surface-container rounded-3xl" />
+          <div className="h-24 bg-surface-container rounded-3xl" />
+          <div className="h-24 bg-surface-container rounded-3xl" />
+          <div className="h-24 bg-surface-container rounded-3xl" />
+        </div>
+        <div className="h-96 bg-surface-container rounded-3xl" />
+      </div>
+    );
+  }
+
   return (
-    <div className="flex-1 p-6 lg:p-10 max-w-7xl mx-auto w-full space-y-8 relative">
+    <div suppressHydrationWarning className="flex-1 p-6 lg:p-10 max-w-7xl mx-auto w-full space-y-8 relative">
       {/* Floating Incoming Teleconsultation Banner/Modal */}
       {incomingCall && (
         <div className="fixed top-6 right-6 z-50 max-w-md w-full bg-slate-900/95 backdrop-blur-xl border border-teal-500/40 p-6 rounded-3xl shadow-2xl text-white animate-bounce-short">
@@ -1110,13 +1264,6 @@ export default function DoctorOPDPage() {
         </div>
 
         <div className="flex flex-wrap items-center gap-3 shrink-0">
-          <Link
-            href="/doctor/clinical-schedule"
-            className="px-4 py-3 bg-white/10 hover:bg-white/20 text-white font-bold text-xs rounded-2xl flex items-center gap-2 backdrop-blur transition-all"
-          >
-            <span className="material-symbols-outlined text-lg">calendar_month</span>
-            <span>{t('doctor.dutyRoster', 'Duty Roster')}</span>
-          </Link>
           <button
             onClick={handleStartTeleconsult}
             className="px-5 py-3 bg-white text-primary hover:bg-teal-50 font-extrabold text-xs rounded-2xl flex items-center gap-2 shadow-lg transition-all active:scale-95 cursor-pointer"
@@ -1157,101 +1304,6 @@ export default function DoctorOPDPage() {
           <span className="text-[11px] font-bold uppercase tracking-wider text-tertiary block">{t('doctor.labOrdersPending', 'Lab Orders Pending')}</span>
           <span className="text-3xl font-black text-on-surface mt-1 block">{selectedLabs.length}</span>
           <span className="text-[10px] text-purple-600 font-semibold">Diagnostic Pipeline Active</span>
-        </div>
-      </div>
-
-      {/* Bed Availability & Medicine Alerts */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-        {/* Bed Availability Widget */}
-        <div className="bg-white border border-surface-container-high rounded-3xl shadow-card overflow-hidden">
-          <button
-            onClick={() => setShowBedPanel(!showBedPanel)}
-            className="w-full p-5 flex items-center justify-between hover:bg-surface-container-low transition-all cursor-pointer"
-          >
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-2xl bg-primary/10 text-primary flex items-center justify-center">
-                <span className="material-symbols-outlined">hotel</span>
-              </div>
-              <div className="text-left">
-                <span className="text-xs font-bold text-on-surface block">{t('doctor.inpatientBeds', 'Inpatient Bed Availability')}</span>
-                <span className="text-[10px] text-tertiary">
-                  {loadingBeds
-                    ? 'Loading live bed matrix...'
-                    : `${bedsData?.available ?? 0} of ${bedsData?.total ?? 0} beds available • Occupancy: ${bedsData?.occupancy_rate ?? '0%'}`}
-                </span>
-              </div>
-            </div>
-            <span className="material-symbols-outlined text-tertiary text-sm">
-              {showBedPanel ? 'expand_less' : 'expand_more'}
-            </span>
-          </button>
-
-          {showBedPanel && bedsData?.wards && (
-            <div className="p-4 pt-0 border-t border-surface-container-high grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs">
-              {bedsData.wards.map((w: any) => {
-                const avail = w.available_beds ?? (w.total_beds - w.occupied_beds);
-                const isFull = avail <= 0;
-                return (
-                  <div
-                    key={w.ward_id}
-                    className={`p-3 rounded-2xl border flex items-center justify-between ${
-                      isFull ? 'bg-red-50/60 border-red-200' : 'bg-surface-container-low border-surface-container-high'
-                    }`}
-                  >
-                    <div>
-                      <span className="font-bold text-on-surface block text-[11px]">{w.ward_name}</span>
-                      <span className="text-[10px] text-tertiary">{w.ward_type}</span>
-                    </div>
-                    <div className="text-right">
-                      <span className={`text-xs font-extrabold ${isFull ? 'text-red-700' : 'text-primary'}`}>
-                        {avail} / {w.total_beds}
-                      </span>
-                      <span className="text-[9px] text-tertiary block">beds free</span>
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          )}
-        </div>
-
-        {/* Medicine Stock Alerts */}
-        <div className={`border rounded-3xl shadow-card p-5 space-y-3 ${
-          medAlerts.length > 0 ? 'bg-amber-50 border-amber-200' : 'bg-white border-surface-container-high'
-        }`}>
-          <div className="flex items-center gap-3">
-            <div className={`w-10 h-10 rounded-2xl flex items-center justify-center ${
-              medAlerts.length > 0 ? 'bg-amber-200/80 text-amber-700' : 'bg-teal-50 text-teal-700'
-            }`}>
-              <span className="material-symbols-outlined">{medAlerts.length > 0 ? 'warning' : 'pill'}</span>
-            </div>
-            <div>
-              <span className="text-xs font-bold text-on-surface block">{t('doctor.medicineStockAlerts', 'EDL Medicine Stock Alerts')}</span>
-              <span className="text-[10px] text-tertiary">
-                {medAlerts.length > 0
-                  ? `${medAlerts.length} medicine(s) at low or critical stock level`
-                  : 'All essential medicines adequately stocked'}
-              </span>
-            </div>
-          </div>
-
-          {medAlerts.length > 0 && (
-            <div className="space-y-2">
-              {medAlerts.map((med: any) => (
-                <div key={med.id} className="flex items-center justify-between p-3 bg-white rounded-2xl border border-amber-200 text-xs">
-                  <div>
-                    <span className="font-bold text-on-surface block">{med.name}</span>
-                    <span className="text-tertiary">{med.category} • {med.stock_units.toLocaleString()} {med.unit} remaining</span>
-                  </div>
-                  <span className={`text-[10px] font-extrabold uppercase px-2 py-0.5 rounded-full ${
-                    med.status === 'CRITICAL_STOCKOUT_RISK' ? 'bg-red-100 text-red-800 animate-pulse' : 'bg-amber-100 text-amber-800'
-                  }`}>
-                    {med.days_of_supply}d supply
-                  </span>
-                </div>
-              ))}
-            </div>
-          )}
         </div>
       </div>
 
@@ -1299,9 +1351,8 @@ export default function DoctorOPDPage() {
                   <button
                     key={tab}
                     onClick={() => setFilterType(tab)}
-                    className={`px-3 py-1 rounded-xl text-[11px] font-bold transition-all relative cursor-pointer ${
-                      filterType === tab ? 'bg-primary text-white shadow-sm' : 'bg-surface-container-low text-tertiary hover:bg-surface-container'
-                    }`}
+                    className={`px-3 py-1 rounded-xl text-[11px] font-bold transition-all relative cursor-pointer ${filterType === tab ? 'bg-primary text-white shadow-sm' : 'bg-surface-container-low text-tertiary hover:bg-surface-container'
+                      }`}
                   >
                     {tab === 'REFERRALS' ? (
                       <span className="flex items-center gap-1">
@@ -1334,26 +1385,24 @@ export default function DoctorOPDPage() {
                   </div>
                 ) : (
                   inboundReferrals.map(ref => (
-                    <div key={ref.id} className={`p-4 rounded-2xl border transition-all text-xs space-y-2.5 ${
-                      ref.status === 'OVERDUE_ESCALATED'
+                    <div key={ref.id} className={`p-4 rounded-2xl border transition-all text-xs space-y-2.5 ${ref.status === 'OVERDUE_ESCALATED'
                         ? 'bg-red-50 border-red-300 ring-1 ring-red-400'
                         : ref.urgency === 'EMERGENCY'
-                        ? 'bg-amber-50/70 border-amber-200'
-                        : 'bg-white border-surface-container-high'
-                    }`}>
+                          ? 'bg-amber-50/70 border-amber-200'
+                          : 'bg-white border-surface-container-high'
+                      }`}>
                       <div className="flex items-center justify-between">
                         <span className="px-2 py-0.5 rounded-lg bg-surface-container text-slate-800 font-mono font-black text-[10px]">
                           {ref.referral_token || ref.id}
                         </span>
-                        <span className={`px-2 py-0.5 rounded-full text-[9px] font-black uppercase tracking-wider ${
-                          ref.status === 'OVERDUE_ESCALATED'
+                        <span className={`px-2 py-0.5 rounded-full text-[9px] font-black uppercase tracking-wider ${ref.status === 'OVERDUE_ESCALATED'
                             ? 'bg-red-600 text-white animate-pulse'
                             : ref.urgency === 'EMERGENCY'
-                            ? 'bg-red-100 text-red-800'
-                            : ref.urgency === 'URGENT'
-                            ? 'bg-amber-100 text-amber-800'
-                            : 'bg-emerald-100 text-emerald-800'
-                        }`}>
+                              ? 'bg-red-100 text-red-800'
+                              : ref.urgency === 'URGENT'
+                                ? 'bg-amber-100 text-amber-800'
+                                : 'bg-emerald-100 text-emerald-800'
+                          }`}>
                           {ref.status === 'OVERDUE_ESCALATED' ? '🔴 SLA OVERDUE' : ref.urgency}
                         </span>
                       </div>
@@ -1419,76 +1468,74 @@ export default function DoctorOPDPage() {
                 )}
               </div>
             ) : (
-            /* Patient Cards List */
-            <div className="space-y-2.5 pt-2 max-h-[600px] overflow-y-auto pr-1">
-              {loadingQueue ? (
-                <div className="p-8 text-center bg-surface-container-low/40 rounded-2xl border border-surface-container-high space-y-2">
-                  <span className="material-symbols-outlined text-2xl text-teal-600 animate-spin">sync</span>
-                  <p className="text-xs font-bold text-tertiary">Loading live patient queue from database...</p>
-                </div>
-              ) : filteredQueue.length === 0 ? (
-                <div className="p-8 text-center bg-surface-container-low/40 rounded-2xl border border-dashed border-surface-container-high space-y-2">
-                  <span className="material-symbols-outlined text-3xl text-tertiary">assignment_turned_in</span>
-                  <h4 className="text-sm font-bold text-on-surface">No Patients in OPD Queue</h4>
-                  <p className="text-xs text-tertiary">
-                    Active consultations and live appointment requests will appear here automatically in real time.
-                  </p>
-                </div>
-              ) : (
-                filteredQueue.map(patient => {
-                  const isSelected = patient.id === selectedPatientId;
-                  return (
-                    <div
-                      key={patient.id}
-                      onClick={() => setSelectedPatientId(patient.id)}
-                      className={`p-4 rounded-2xl border transition-all cursor-pointer text-xs ${
-                        isSelected
-                          ? 'bg-primary/5 border-primary shadow-sm ring-1 ring-primary'
-                          : 'bg-white border-surface-container-high hover:border-primary/40 hover:bg-surface-container-low/40'
-                      }`}
-                    >
-                      <div className="flex items-center justify-between gap-2 mb-1.5">
-	                      <div className="flex items-center gap-2">
-	                          <span className="px-2 py-0.5 rounded-lg bg-surface-container text-slate-800 font-mono font-black text-[10px]">
-	                            {patient.token}
-	                          </span>
-	                          <h3 className="font-bold text-sm text-on-surface">{patient.name}</h3>
+              /* Patient Cards List */
+              <div className="space-y-2.5 pt-2 max-h-[600px] overflow-y-auto pr-1">
+                {loadingQueue ? (
+                  <div className="p-8 text-center bg-surface-container-low/40 rounded-2xl border border-surface-container-high space-y-2">
+                    <span className="material-symbols-outlined text-2xl text-teal-600 animate-spin">sync</span>
+                    <p className="text-xs font-bold text-tertiary">Loading live patient queue from database...</p>
+                  </div>
+                ) : filteredQueue.length === 0 ? (
+                  <div className="p-8 text-center bg-surface-container-low/40 rounded-2xl border border-dashed border-surface-container-high space-y-2">
+                    <span className="material-symbols-outlined text-3xl text-tertiary">assignment_turned_in</span>
+                    <h4 className="text-sm font-bold text-on-surface">No Patients in OPD Queue</h4>
+                    <p className="text-xs text-tertiary">
+                      Active consultations and live appointment requests will appear here automatically in real time.
+                    </p>
+                  </div>
+                ) : (
+                  filteredQueue.map(patient => {
+                    const isSelected = patient.id === selectedPatientId;
+                    return (
+                      <div
+                        key={patient.id}
+                        onClick={() => setSelectedPatientId(patient.id)}
+                        className={`p-4 rounded-2xl border transition-all cursor-pointer text-xs ${isSelected
+                            ? 'bg-primary/5 border-primary shadow-sm ring-1 ring-primary'
+                            : 'bg-white border-surface-container-high hover:border-primary/40 hover:bg-surface-container-low/40'
+                          }`}
+                      >
+                        <div className="flex items-center justify-between gap-2 mb-1.5">
+                          <div className="flex items-center gap-2">
+                            <span className="px-2 py-0.5 rounded-lg bg-surface-container text-slate-800 font-mono font-black text-[10px]">
+                              {patient.token}
+                            </span>
+                            <h3 className="font-bold text-sm text-on-surface">{patient.name}</h3>
                             {patient.consultType === 'assisted_teleconsult' && (
                               <span className="px-2 py-0.5 rounded-lg bg-teal-100 text-teal-800 font-black text-[9px] uppercase">
                                 ASHA
                               </span>
                             )}
-	                        </div>
-                        <span
-                          className={`px-2 py-0.5 rounded-full text-[9px] font-black uppercase tracking-wider ${
-                            patient.priority === 'EMERGENCY'
-                              ? 'bg-red-100 text-red-800 border border-red-200 animate-pulse'
-                              : patient.priority === 'PRIORITY'
-                              ? 'bg-amber-100 text-amber-800 border border-amber-200'
-                              : 'bg-emerald-100 text-emerald-800'
-                          }`}
-                        >
-                          {patient.priority}
-                        </span>
-                      </div>
+                          </div>
+                          <span
+                            className={`px-2 py-0.5 rounded-full text-[9px] font-black uppercase tracking-wider ${patient.priority === 'EMERGENCY'
+                                ? 'bg-red-100 text-red-800 border border-red-200 animate-pulse'
+                                : patient.priority === 'PRIORITY'
+                                  ? 'bg-amber-100 text-amber-800 border border-amber-200'
+                                  : 'bg-emerald-100 text-emerald-800'
+                              }`}
+                          >
+                            {patient.priority}
+                          </span>
+                        </div>
 
-	                      <div className="flex items-center gap-2 text-tertiary text-[11px] mb-2">
-	                        <span>{patient.age}y / {patient.gender}</span>
-	                        <span>•</span>
-	                        <span className="font-mono">{patient.type}</span>
+                        <div className="flex items-center gap-2 text-tertiary text-[11px] mb-2">
+                          <span>{patient.age}y / {patient.gender}</span>
+                          <span>•</span>
+                          <span className="font-mono">{patient.type}</span>
                           {patient.ashaName && (
                             <>
                               <span>•</span>
                               <span>{patient.ashaName}</span>
                             </>
                           )}
-	                        <span>•</span>
-	                        <span>{patient.waitTime}</span>
-	                      </div>
+                          <span>•</span>
+                          <span>{patient.waitTime}</span>
+                        </div>
 
-	                      <p className="text-slate-700 text-xs line-clamp-2 bg-surface-container-low/60 p-2 rounded-xl border border-surface-container">
-	                        {patient.complaint}
-	                      </p>
+                        <p className="text-slate-700 text-xs line-clamp-2 bg-surface-container-low/60 p-2 rounded-xl border border-surface-container">
+                          {patient.complaint}
+                        </p>
                         {patient.villageName && (
                           <p className="text-[11px] text-teal-800 font-bold mt-2 flex items-center gap-1">
                             <span className="material-symbols-outlined text-sm">home_health</span>
@@ -1496,25 +1543,24 @@ export default function DoctorOPDPage() {
                           </p>
                         )}
 
-                      <div className="flex items-center justify-between mt-3 pt-2 border-t border-surface-container-high text-[11px]">
-                        <div className="flex items-center gap-3 font-semibold text-slate-600">
-                          <span>BP: <strong>{patient.vitals.bp}</strong></span>
-                          <span>HR: <strong>{patient.vitals.hr}</strong></span>
-                          <span>SpO2: <strong>{patient.vitals.spo2}</strong></span>
+                        <div className="flex items-center justify-between mt-3 pt-2 border-t border-surface-container-high text-[11px]">
+                          <div className="flex items-center gap-3 font-semibold text-slate-600">
+                            <span>BP: <strong>{patient.vitals.bp}</strong></span>
+                            <span>HR: <strong>{patient.vitals.hr}</strong></span>
+                            <span>SpO2: <strong>{patient.vitals.spo2}</strong></span>
+                          </div>
+                          <span
+                            className={`font-bold uppercase text-[10px] ${patient.status === 'IN-CONSULT' ? 'text-teal-600 font-black' : patient.status === 'COMPLETED' ? 'text-slate-400' : 'text-amber-600'
+                              }`}
+                          >
+                            {patient.status}
+                          </span>
                         </div>
-                        <span
-                          className={`font-bold uppercase text-[10px] ${
-                            patient.status === 'IN-CONSULT' ? 'text-teal-600 font-black' : patient.status === 'COMPLETED' ? 'text-slate-400' : 'text-amber-600'
-                          }`}
-                        >
-                          {patient.status}
-                        </span>
                       </div>
-                    </div>
-                  );
-                })
-              )}
-            </div>
+                    );
+                  })
+                )}
+              </div>
             )}
           </div>
         </div>
@@ -1531,55 +1577,55 @@ export default function DoctorOPDPage() {
             </div>
           ) : (
             <div className="bg-white border border-surface-container-high p-6 rounded-3xl shadow-card space-y-5">
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-surface-container-high pb-4">
-              <div>
-                <div className="flex items-center gap-2 mb-1">
-                  <span className="px-2.5 py-0.5 rounded-lg bg-primary text-white font-mono font-black text-xs">
-                    {selectedPatient.token}
-                  </span>
-                  <h2 className="text-2xl font-extrabold text-on-surface">{selectedPatient.name}</h2>
-                </div>
-                <div className="flex flex-wrap items-center gap-2 text-xs text-tertiary">
-                  <span>ABHA: <strong className="font-mono text-slate-800">{selectedPatient.abhaId}</strong></span>
-                  <span>•</span>
-                  <span>{selectedPatient.age} Years, {selectedPatient.gender}</span>
-                  <span>•</span>
-	                  <span>Blood: <strong className="text-red-700 font-bold">{selectedPatient.bloodGroup}</strong></span>
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-surface-container-high pb-4">
+                <div>
+                  <div className="flex items-center gap-2 mb-1">
+                    <span className="px-2.5 py-0.5 rounded-lg bg-primary text-white font-mono font-black text-xs">
+                      {selectedPatient.token}
+                    </span>
+                    <h2 className="text-2xl font-extrabold text-on-surface">{selectedPatient.name}</h2>
+                  </div>
+                  <div className="flex flex-wrap items-center gap-2 text-xs text-tertiary">
+                    <span>ABHA: <strong className="font-mono text-slate-800">{selectedPatient.abhaId}</strong></span>
+                    <span>•</span>
+                    <span>{selectedPatient.age} Years, {selectedPatient.gender}</span>
+                    <span>•</span>
+                    <span>Blood: <strong className="text-red-700 font-bold">{selectedPatient.bloodGroup}</strong></span>
                     {selectedPatient.ashaName && (
                       <>
                         <span>•</span>
                         <span>Assisted by: <strong className="text-teal-700 font-bold">{selectedPatient.ashaName}</strong></span>
                       </>
                     )}
-	                </div>
-	              </div>
+                  </div>
+                </div>
 
-              <div className="flex items-center gap-2">
-                <Link
-                  href={`/records?patientId=${selectedPatient.clientId || selectedPatient.id}`}
-                  className="px-3.5 py-2 bg-purple-50 hover:bg-purple-100 text-purple-900 border border-purple-200 font-bold text-xs rounded-xl shadow-sm transition-all flex items-center gap-1.5"
-                >
-                  <span className="material-symbols-outlined text-sm text-purple-700">folder_shared</span>
-                  <span>{t('doctor.patientRecord', 'Patient Record')}</span>
-                </Link>
-                {selectedPatient.status !== 'IN-CONSULT' && (
-                  <button
-                    onClick={() => handleStatusChange(selectedPatient.id, 'IN-CONSULT')}
-                    className="px-3.5 py-2 bg-teal-600 hover:bg-teal-700 text-white font-bold text-xs rounded-xl shadow-sm transition-all"
+                <div className="flex items-center gap-2">
+                  <Link
+                    href={`/records?patientId=${selectedPatient.clientId || selectedPatient.id}`}
+                    className="px-3.5 py-2 bg-purple-50 hover:bg-purple-100 text-purple-900 border border-purple-200 font-bold text-xs rounded-xl shadow-sm transition-all flex items-center gap-1.5"
                   >
-                    {t('doctor.callIntoRoom', 'Call into Room')}
-                  </button>
-                )}
-                {selectedPatient.status !== 'COMPLETED' && (
-                  <button
-                    onClick={() => handleStatusChange(selectedPatient.id, 'COMPLETED')}
-                    className="px-3.5 py-2 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs rounded-xl shadow-sm transition-all"
-                  >
-                    {t('doctor.complete', 'Mark Encounter Done')}
-                  </button>
-                )}
+                    <span className="material-symbols-outlined text-sm text-purple-700">folder_shared</span>
+                    <span>{t('doctor.patientRecord', 'Patient Record')}</span>
+                  </Link>
+                  {selectedPatient.status !== 'IN-CONSULT' && (
+                    <button
+                      onClick={() => handleStatusChange(selectedPatient.id, 'IN-CONSULT')}
+                      className="px-3.5 py-2 bg-teal-600 hover:bg-teal-700 text-white font-bold text-xs rounded-xl shadow-sm transition-all"
+                    >
+                      {t('doctor.callIntoRoom', 'Call into Room')}
+                    </button>
+                  )}
+                  {selectedPatient.status !== 'COMPLETED' && (
+                    <button
+                      onClick={() => handleStatusChange(selectedPatient.id, 'COMPLETED')}
+                      className="px-3.5 py-2 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs rounded-xl shadow-sm transition-all"
+                    >
+                      {t('doctor.complete', 'Mark Encounter Done')}
+                    </button>
+                  )}
+                </div>
               </div>
-	            </div>
 
               {selectedPatient.consultType === 'assisted_teleconsult' && (
                 <div className="bg-teal-50 border border-teal-200 p-3.5 rounded-2xl flex items-start gap-3 text-xs text-teal-950">
@@ -1595,13 +1641,12 @@ export default function DoctorOPDPage() {
               )}
 
               {/* Patient-Specific Clinical Triage & Urgency Assessment */}
-              <div className={`p-4 rounded-2xl border transition-all ${
-                selectedPatient.priority === 'EMERGENCY'
+              <div className={`p-4 rounded-2xl border transition-all ${selectedPatient.priority === 'EMERGENCY'
                   ? 'bg-red-50/70 border-red-200 text-red-950 shadow-sm'
                   : selectedPatient.priority === 'PRIORITY'
-                  ? 'bg-amber-50/70 border-amber-200 text-amber-950 shadow-sm'
-                  : 'bg-emerald-50/50 border-emerald-200 text-emerald-950 shadow-sm'
-              }`}>
+                    ? 'bg-amber-50/70 border-amber-200 text-amber-950 shadow-sm'
+                    : 'bg-emerald-50/50 border-emerald-200 text-emerald-950 shadow-sm'
+                }`}>
                 <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mb-2 pb-2 border-b border-black/5">
                   <div className="flex items-center gap-2">
                     <span className="material-symbols-outlined text-lg">
@@ -1611,13 +1656,12 @@ export default function DoctorOPDPage() {
                       Patient Clinical Triage Assessment
                     </span>
                   </div>
-                  <span className={`px-2.5 py-1 rounded-full text-xs font-black uppercase tracking-wider ${
-                    selectedPatient.priority === 'EMERGENCY'
+                  <span className={`px-2.5 py-1 rounded-full text-xs font-black uppercase tracking-wider ${selectedPatient.priority === 'EMERGENCY'
                       ? 'bg-red-600 text-white'
                       : selectedPatient.priority === 'PRIORITY'
-                      ? 'bg-amber-500 text-white'
-                      : 'bg-emerald-600 text-white'
-                  }`}>
+                        ? 'bg-amber-500 text-white'
+                        : 'bg-emerald-600 text-white'
+                    }`}>
                     {patientTriage?.urgencyLabel || (selectedPatient.priority === 'EMERGENCY' ? '🔴 RED — Emergency' : selectedPatient.priority === 'PRIORITY' ? '🟡 YELLOW — Priority' : '🟢 GREEN — Routine')}
                   </span>
                 </div>
@@ -1661,7 +1705,7 @@ export default function DoctorOPDPage() {
                 )}
               </div>
 
-	            {/* Allergy Warning & Medical Safety Alerts Section */}
+              {/* Allergy Warning & Medical Safety Alerts Section */}
               <div className="space-y-2">
                 {selectedPatient.allergies && selectedPatient.allergies !== 'None' && selectedPatient.allergies !== 'No Known Drug Allergies (NKDA)' ? (
                   <div className="bg-red-50 border border-red-300 p-3.5 rounded-2xl flex items-start gap-3 text-xs text-red-950 shadow-sm">
@@ -1692,13 +1736,12 @@ export default function DoctorOPDPage() {
                       {patientTriage.medicalAlerts.map((alert, idx) => (
                         <span
                           key={idx}
-                          className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-xl text-[11px] font-bold border ${
-                            alert.type === 'danger'
+                          className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-xl text-[11px] font-bold border ${alert.type === 'danger'
                               ? 'bg-red-100 text-red-900 border-red-300'
                               : alert.type === 'warning'
-                              ? 'bg-amber-100 text-amber-900 border-amber-300'
-                              : 'bg-blue-100 text-blue-900 border-blue-300'
-                          }`}
+                                ? 'bg-amber-100 text-amber-900 border-amber-300'
+                                : 'bg-blue-100 text-blue-900 border-blue-300'
+                            }`}
                         >
                           <span className="material-symbols-outlined text-xs">{alert.icon}</span>
                           <span>{alert.text}</span>
@@ -1709,283 +1752,488 @@ export default function DoctorOPDPage() {
                 )}
               </div>
 
-            {/* Vitals Ribbon */}
-            <div>
-              <span className="text-[10px] uppercase font-bold tracking-wider text-tertiary block mb-2">Recorded Triage Vitals</span>
-              <div className="grid grid-cols-2 sm:grid-cols-5 gap-2 text-center text-xs">
-                <div className="bg-surface-container-low p-2.5 rounded-2xl border border-surface-container">
-                  <span className="text-[10px] text-tertiary block">Blood Pressure</span>
-                  <span className="font-black text-sm text-slate-900">{selectedPatient.vitals.bp}</span>
-                  <span className="text-[9px] text-emerald-600 font-semibold block">Triage</span>
-                </div>
-                <div className="bg-surface-container-low p-2.5 rounded-2xl border border-surface-container">
-                  <span className="text-[10px] text-tertiary block">Heart Rate</span>
-                  <span className="font-black text-sm text-slate-900">{selectedPatient.vitals.hr !== 'N/A' ? `${selectedPatient.vitals.hr} bpm` : 'N/A'}</span>
-                  <span className="text-[9px] text-teal-600 font-semibold block">Pulse</span>
-                </div>
-                <div className="bg-surface-container-low p-2.5 rounded-2xl border border-surface-container">
-                  <span className="text-[10px] text-tertiary block">Oxygen (SpO2)</span>
-                  <span className="font-black text-sm text-slate-900">{selectedPatient.vitals.spo2}</span>
-                  <span className="text-[9px] text-blue-600 font-semibold block">O2 Saturation</span>
-                </div>
-                <div className="bg-surface-container-low p-2.5 rounded-2xl border border-surface-container">
-                  <span className="text-[10px] text-tertiary block">Body Temp</span>
-                  <span className="font-black text-sm text-amber-700">{selectedPatient.vitals.temp}</span>
-                  <span className="text-[9px] text-amber-700 font-semibold block">Thermometry</span>
-                </div>
-                <div className="bg-surface-container-low p-2.5 rounded-2xl border border-surface-container">
-                  <span className="text-[10px] text-tertiary block">BMI Index</span>
-                  <span className="font-black text-sm text-slate-900">{selectedPatient.vitals.bmi}</span>
-                  <span className="text-[9px] text-slate-600 font-semibold block">Anthropometry</span>
+              {/* Vitals Ribbon */}
+              <div>
+                <span className="text-[10px] uppercase font-bold tracking-wider text-tertiary block mb-2">Recorded Triage Vitals</span>
+                <div className="grid grid-cols-2 sm:grid-cols-5 gap-2 text-center text-xs">
+                  <div className="bg-surface-container-low p-2.5 rounded-2xl border border-surface-container">
+                    <span className="text-[10px] text-tertiary block">Blood Pressure</span>
+                    <span className="font-black text-sm text-slate-900">{selectedPatient.vitals.bp}</span>
+                    <span className="text-[9px] text-emerald-600 font-semibold block">Triage</span>
+                  </div>
+                  <div className="bg-surface-container-low p-2.5 rounded-2xl border border-surface-container">
+                    <span className="text-[10px] text-tertiary block">Heart Rate</span>
+                    <span className="font-black text-sm text-slate-900">{selectedPatient.vitals.hr !== 'N/A' ? `${selectedPatient.vitals.hr} bpm` : 'N/A'}</span>
+                    <span className="text-[9px] text-teal-600 font-semibold block">Pulse</span>
+                  </div>
+                  <div className="bg-surface-container-low p-2.5 rounded-2xl border border-surface-container">
+                    <span className="text-[10px] text-tertiary block">Oxygen (SpO2)</span>
+                    <span className="font-black text-sm text-slate-900">{selectedPatient.vitals.spo2}</span>
+                    <span className="text-[9px] text-blue-600 font-semibold block">O2 Saturation</span>
+                  </div>
+                  <div className="bg-surface-container-low p-2.5 rounded-2xl border border-surface-container">
+                    <span className="text-[10px] text-tertiary block">Body Temp</span>
+                    <span className="font-black text-sm text-amber-700">{selectedPatient.vitals.temp}</span>
+                    <span className="text-[9px] text-amber-700 font-semibold block">Thermometry</span>
+                  </div>
+                  <div className="bg-surface-container-low p-2.5 rounded-2xl border border-surface-container">
+                    <span className="text-[10px] text-tertiary block">BMI Index</span>
+                    <span className="font-black text-sm text-slate-900">{selectedPatient.vitals.bmi}</span>
+                    <span className="text-[9px] text-slate-600 font-semibold block">Anthropometry</span>
+                  </div>
                 </div>
               </div>
-            </div>
 
-            {/* Success & Error Banners */}
-            {submitSuccessMessage && (
-              <div className="p-3.5 bg-emerald-50 border border-emerald-300 rounded-2xl flex items-center gap-3 text-xs text-emerald-900 animate-fadeIn">
-                <span className="material-symbols-outlined text-emerald-600 text-lg">check_circle</span>
-                <span className="font-bold">{submitSuccessMessage}</span>
+              {/* Success & Error Banners */}
+              {submitSuccessMessage && (
+                <div className="p-3.5 bg-emerald-50 border border-emerald-300 rounded-2xl flex items-center gap-3 text-xs text-emerald-900 animate-fadeIn">
+                  <span className="material-symbols-outlined text-emerald-600 text-lg">check_circle</span>
+                  <span className="font-bold">{submitSuccessMessage}</span>
+                </div>
+              )}
+
+              {submitErrorMessage && (
+                <div className="p-3.5 bg-red-50 border border-red-300 rounded-2xl flex items-center gap-3 text-xs text-red-900 animate-fadeIn">
+                  <span className="material-symbols-outlined text-red-600 text-lg">error</span>
+                  <span className="font-bold">{submitErrorMessage}</span>
+                </div>
+              )}
+
+              {/* SOAP Clinical Encounter Notes */}
+              <div className="space-y-3 pt-2">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <span className="text-xs font-bold text-slate-800 uppercase tracking-wider">Clinical SOAP Notes & Assessment</span>
+                    {loadingClinicalRecords && (
+                      <span className="text-[10px] text-teal-600 font-semibold flex items-center gap-1">
+                        <span className="material-symbols-outlined text-xs animate-spin">sync</span>
+                        Syncing...
+                      </span>
+                    )}
+                  </div>
+                  <span className="text-[10px] text-tertiary font-semibold">ICD-10 Categorized</span>
+                </div>
+
+                <div>
+                  <label className="text-[11px] font-bold text-tertiary block mb-1">Provisional Diagnosis</label>
+                  <input
+                    type="text"
+                    placeholder="Enter provisional diagnosis or clinical impression..."
+                    value={soapDiagnosis}
+                    onChange={e => setSoapDiagnosis(e.target.value)}
+                    className="w-full px-3.5 py-2 bg-surface-container-low rounded-xl text-xs font-semibold border border-surface-container-high outline-none focus:border-primary"
+                  />
+                </div>
+
+                <div>
+                  <label className="text-[11px] font-bold text-tertiary block mb-1">Subjective & Objective Clinical Findings</label>
+                  <textarea
+                    rows={3}
+                    placeholder="Record subjective complaints, objective vitals assessment, and clinical review..."
+                    value={soapNotes}
+                    onChange={e => setSoapNotes(e.target.value)}
+                    className="w-full px-3.5 py-2 bg-surface-container-low rounded-xl text-xs font-semibold border border-surface-container-high outline-none focus:border-primary"
+                  />
+                </div>
               </div>
-            )}
 
-            {submitErrorMessage && (
-              <div className="p-3.5 bg-red-50 border border-red-300 rounded-2xl flex items-center gap-3 text-xs text-red-900 animate-fadeIn">
-                <span className="material-symbols-outlined text-red-600 text-lg">error</span>
-                <span className="font-bold">{submitErrorMessage}</span>
-              </div>
-            )}
-
-            {/* SOAP Clinical Encounter Notes */}
-            <div className="space-y-3 pt-2">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <span className="text-xs font-bold text-slate-800 uppercase tracking-wider">Clinical SOAP Notes & Assessment</span>
-                  {loadingClinicalRecords && (
-                    <span className="text-[10px] text-teal-600 font-semibold flex items-center gap-1">
-                      <span className="material-symbols-outlined text-xs animate-spin">sync</span>
-                      Syncing...
+              {/* Digital E-Prescriptions & Facility Inventory Integration */}
+              <div className="space-y-4 pt-4 border-t border-surface-container-high">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                  <div>
+                    <h3 className="text-xs font-bold text-slate-800 uppercase tracking-wider">
+                      {t('doctor.prescribeMedicineTitle', 'E-Prescription & Facility EDL Dispensing')}
+                    </h3>
+                    <p className="text-[10px] text-tertiary">
+                      {t('doctor.prescribeMedicineSubtitle', 'Real-time formulary search and automated stock deduction')}
+                    </p>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <span className="px-2.5 py-1 rounded-full text-[10px] font-black bg-teal-100 text-teal-800 border border-teal-200">
+                      Interaction Safe (NKDA Checked)
                     </span>
+                    {isNonInventoryMode && (
+                      <span className="px-2.5 py-1 rounded-full text-[10px] font-black bg-purple-100 text-purple-800 border border-purple-200">
+                        {t('doctor.nonInventoryMedicine', 'Non-Inventory Mode')}
+                      </span>
+                    )}
+                  </div>
+                </div>
+
+                {/* Medicine Search & Form Component */}
+                <form onSubmit={handleAddDrug} className="space-y-3 bg-surface-container-low p-4 rounded-3xl border border-surface-container">
+                  {/* Medicine Search Bar / Mode Selector */}
+                  <div>
+                    <div className="flex items-center justify-between mb-1.5">
+                      <label className="text-[11px] font-bold text-on-surface flex items-center gap-1.5">
+                        <span className="material-symbols-outlined text-sm text-primary">
+                          {isNonInventoryMode ? 'edit_note' : 'inventory'}
+                        </span>
+                        <span>
+                          {isNonInventoryMode
+                            ? t('doctor.nonInventoryMedicine', 'Non-Inventory Medicine Name')
+                            : t('doctor.searchMedicinePlaceholder', 'Search Facility Medicine Inventory')}
+                        </span>
+                      </label>
+
+                      {isNonInventoryMode ? (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setIsNonInventoryMode(false);
+                            setSelectedInventoryMed(null);
+                            setDraftDrugName('');
+                            setStockWarning(null);
+                          }}
+                          className="text-[11px] text-primary hover:underline font-bold flex items-center gap-1"
+                        >
+                          <span className="material-symbols-outlined text-xs">arrow_back</span>
+                          <span>{t('doctor.switchBackToInventory', 'Switch to Facility Inventory Search')}</span>
+                        </button>
+                      ) : (
+                        <button
+                          type="button"
+                          onClick={() => handleSelectNonInventoryMed('')}
+                          className="text-[11px] text-purple-700 hover:text-purple-900 font-bold hover:underline"
+                        >
+                          {t('doctor.prescribeNonInventory', '+ Prescribe Non-Inventory Medicine')}
+                        </button>
+                      )}
+                    </div>
+
+                    {isNonInventoryMode ? (
+                      <div className="relative">
+                        <input
+                          type="text"
+                          required
+                          value={draftDrugName}
+                          onChange={(e) => setDraftDrugName(e.target.value)}
+                          placeholder="Enter medicine name (e.g. Azithromycin 500mg)..."
+                          className="w-full px-3.5 py-2 bg-white rounded-xl text-xs font-bold border border-purple-300 focus:border-purple-600 outline-none text-purple-950"
+                        />
+                      </div>
+                    ) : (
+                      <MedicineSearchDropdown
+                        onSelectInventoryMedicine={handleSelectInventoryMed}
+                        onSelectNonInventoryMedicine={handleSelectNonInventoryMed}
+                        selectedInventoryId={selectedInventoryMed?.id}
+                        selectedName={draftDrugName}
+                        isNonInventory={isNonInventoryMode}
+                      />
+                    )}
+                  </div>
+
+                  {/* Selected Inventory Medicine Stock Status Badge */}
+                  {!isNonInventoryMode && selectedInventoryMed && (
+                    <div className="p-3 bg-white rounded-2xl border border-teal-200 flex flex-wrap items-center justify-between gap-2 text-xs">
+                      <div className="flex items-center gap-2.5">
+                        <div className="w-8 h-8 rounded-xl bg-teal-50 text-teal-700 flex items-center justify-center font-mono font-black text-[10px]">
+                          {selectedInventoryMed.id}
+                        </div>
+                        <div>
+                          <span className="font-bold text-on-surface block text-xs">{selectedInventoryMed.name}</span>
+                          <span className="text-[10px] text-tertiary">
+                            {selectedInventoryMed.category} • Storage: {selectedInventoryMed.storage_location || 'Main Pharmacy'}
+                          </span>
+                        </div>
+                      </div>
+
+                      <div className="flex items-center gap-3">
+                        <div className="text-right">
+                          <span className="text-[10px] text-tertiary block">{t('doctor.availableStock', 'Available Stock')}</span>
+                          <span className="font-black text-xs text-primary">
+                            {selectedInventoryMed.stock_units.toLocaleString()} {selectedInventoryMed.unit}
+                          </span>
+                        </div>
+                        <span
+                          className={`text-[9px] font-extrabold uppercase px-2.5 py-1 rounded-full border ${
+                            selectedInventoryMed.status === 'ADEQUATE'
+                              ? 'bg-emerald-50 text-emerald-800 border-emerald-200'
+                              : selectedInventoryMed.status === 'LOW_STOCK'
+                              ? 'bg-amber-50 text-amber-800 border-amber-200'
+                              : 'bg-red-50 text-red-800 border-red-200'
+                          }`}
+                        >
+                          {selectedInventoryMed.status.replace(/_/g, ' ')}
+                        </span>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Inputs Grid */}
+                  <div className="grid grid-cols-1 sm:grid-cols-12 gap-2 pt-1">
+                    <div className="sm:col-span-3">
+                      <label className="text-[10px] font-bold text-tertiary block mb-1">Dosage / Strength</label>
+                      <input
+                        type="text"
+                        value={draftDosage}
+                        onChange={(e) => setDraftDosage(e.target.value)}
+                        placeholder="500mg (1 tablet)"
+                        className="w-full px-3 py-1.5 bg-white rounded-xl text-xs font-semibold border border-surface-container-high outline-none focus:border-primary"
+                      />
+                    </div>
+
+                    <div className="sm:col-span-3">
+                      <label className="text-[10px] font-bold text-tertiary block mb-1">Frequency</label>
+                      <select
+                        value={draftFrequency}
+                        onChange={(e) => handleFrequencyChange(e.target.value)}
+                        className="w-full px-3 py-1.5 bg-white rounded-xl text-xs font-semibold border border-surface-container-high outline-none focus:border-primary"
+                      >
+                        <option value="OD (Once daily)">OD (Once daily)</option>
+                        <option value="BD (Twice daily)">BD (Twice daily)</option>
+                        <option value="TDS (3 times daily)">TDS (3 times daily)</option>
+                        <option value="QDS (4 times daily)">QDS (4 times daily)</option>
+                        <option value="SOS (As needed)">SOS (As needed)</option>
+                      </select>
+                    </div>
+
+                    <div className="sm:col-span-2">
+                      <label className="text-[10px] font-bold text-tertiary block mb-1">Duration</label>
+                      <input
+                        type="text"
+                        value={draftDuration}
+                        onChange={(e) => handleDurationChange(e.target.value)}
+                        placeholder="5 Days"
+                        className="w-full px-3 py-1.5 bg-white rounded-xl text-xs font-semibold border border-surface-container-high outline-none focus:border-primary"
+                      />
+                    </div>
+
+                    <div className="sm:col-span-2">
+                      <label className="text-[10px] font-bold text-tertiary block mb-1">
+                        {t('doctor.quantity', 'Quantity')} ({selectedInventoryMed?.unit || 'units'})
+                      </label>
+                      <input
+                        type="number"
+                        min="1"
+                        value={draftQuantity}
+                        onChange={(e) => handleQuantityChange(parseInt(e.target.value, 10))}
+                        className="w-full px-3 py-1.5 bg-white rounded-xl text-xs font-bold border border-surface-container-high outline-none focus:border-primary"
+                      />
+                    </div>
+
+                    <div className="sm:col-span-2 flex items-end">
+                      <button
+                        type="submit"
+                        disabled={!draftDrugName.trim()}
+                        className={`w-full py-1.5 px-3 font-bold rounded-xl text-xs flex items-center justify-center gap-1 shadow-sm transition-all cursor-pointer ${
+                          !draftDrugName.trim()
+                            ? 'bg-surface-container text-tertiary cursor-not-allowed'
+                            : isNonInventoryMode
+                            ? 'bg-purple-700 hover:bg-purple-800 text-white'
+                            : 'bg-primary hover:bg-primary/90 text-white'
+                        }`}
+                      >
+                        <span className="material-symbols-outlined text-base">add</span>
+                        <span>{t('doctor.addMedication', 'Add Medication')}</span>
+                      </button>
+                    </div>
+
+                    <div className="sm:col-span-12">
+                      <input
+                        type="text"
+                        value={draftInstructions}
+                        onChange={(e) => setDraftInstructions(e.target.value)}
+                        placeholder="Special instructions (e.g. Take with warm water after meals)"
+                        className="w-full px-3 py-1 bg-white rounded-xl text-[11px] border border-surface-container-high outline-none focus:border-primary"
+                      />
+                    </div>
+                  </div>
+
+                  {/* Stock Level Warning Notice */}
+                  {stockWarning && (
+                    <div className="p-2.5 bg-amber-50 border border-amber-300 rounded-xl text-amber-900 text-xs font-bold flex items-center gap-2 animate-in fade-in">
+                      <span className="material-symbols-outlined text-amber-600 text-base">warning</span>
+                      <span>{stockWarning}</span>
+                    </div>
+                  )}
+                </form>
+
+                {/* Active Prescriptions Table & Summary */}
+                <div className="overflow-hidden rounded-3xl border border-surface-container-high bg-white shadow-xs">
+                  {prescriptions.length === 0 ? (
+                    <div className="p-6 text-center bg-surface-container-low/40 text-tertiary text-xs space-y-1">
+                      <span className="material-symbols-outlined text-2xl text-slate-400 block">medication</span>
+                      <span className="font-bold text-on-surface block">No medications added yet</span>
+                      <span className="text-[11px]">Search the facility inventory above or prescribe non-inventory medicines.</span>
+                    </div>
+                  ) : (
+                    <div className="divide-y divide-surface-container-high">
+                      <div className="p-3 bg-surface-container-low/70 flex items-center justify-between">
+                        <span className="text-[11px] font-black uppercase tracking-wider text-slate-700">
+                          {t('doctor.prescriptionSummary', 'Prescription Summary')} ({prescriptions.length} items)
+                        </span>
+                        <div className="flex items-center gap-3 text-[10px]">
+                          <span className="flex items-center gap-1 font-bold text-emerald-800">
+                            <span className="w-2 h-2 rounded-full bg-emerald-500"></span>
+                            {prescriptions.filter((p) => p.is_inventory).length} Facility EDL
+                          </span>
+                          <span className="flex items-center gap-1 font-bold text-purple-800">
+                            <span className="w-2 h-2 rounded-full bg-purple-500"></span>
+                            {prescriptions.filter((p) => !p.is_inventory).length} Non-Inventory
+                          </span>
+                        </div>
+                      </div>
+
+                      <div className="overflow-x-auto">
+                        <table className="w-full text-left text-xs">
+                          <thead className="bg-surface-container-low/40 text-tertiary uppercase font-black text-[9px] tracking-wider border-b border-surface-container-high">
+                            <tr>
+                              <th className="p-2.5">Type</th>
+                              <th className="p-2.5">Medicine</th>
+                              <th className="p-2.5">Dosage</th>
+                              <th className="p-2.5">Frequency & Duration</th>
+                              <th className="p-2.5">Quantity</th>
+                              <th className="p-2.5">Stock After Rx</th>
+                              <th className="p-2.5">Instructions</th>
+                              <th className="p-2.5 text-right">Action</th>
+                            </tr>
+                          </thead>
+                          <tbody className="divide-y divide-surface-container-high">
+                            {prescriptions.map((p) => {
+                              const remainingStock =
+                                p.is_inventory && p.available_stock !== undefined
+                                  ? Math.max(0, p.available_stock - p.quantity)
+                                  : null;
+
+                              return (
+                                <tr key={p.id} className="hover:bg-surface-container-low/40 transition-colors">
+                                  <td className="p-2.5">
+                                    {p.is_inventory ? (
+                                      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[9px] font-black uppercase bg-emerald-50 text-emerald-800 border border-emerald-200">
+                                        <span className="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
+                                        Formulary
+                                      </span>
+                                    ) : (
+                                      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[9px] font-black uppercase bg-purple-50 text-purple-800 border border-purple-200">
+                                        <span className="w-1.5 h-1.5 rounded-full bg-purple-500"></span>
+                                        External
+                                      </span>
+                                    )}
+                                  </td>
+                                  <td className="p-2.5">
+                                    <span className="font-bold text-on-surface block">{p.drug}</span>
+                                    <span className="text-[10px] text-tertiary">
+                                      {p.category || (p.is_inventory ? 'EDL' : 'Non-Inventory')}
+                                      {p.inventory_id && ` • ID: ${p.inventory_id}`}
+                                    </span>
+                                  </td>
+                                  <td className="p-2.5 text-slate-800 font-semibold">{p.dosage}</td>
+                                  <td className="p-2.5 text-slate-800">
+                                    <span className="font-semibold block">{p.frequency}</span>
+                                    <span className="text-[10px] text-tertiary">{p.duration}</span>
+                                  </td>
+                                  <td className="p-2.5 font-black text-slate-900">
+                                    {p.quantity} {p.unit}
+                                  </td>
+                                  <td className="p-2.5">
+                                    {p.is_inventory && remainingStock !== null ? (
+                                      <span
+                                        className={`text-[11px] font-black ${
+                                          remainingStock < 10 ? 'text-amber-600' : 'text-primary'
+                                        }`}
+                                      >
+                                        {remainingStock.toLocaleString()} {p.unit}
+                                      </span>
+                                    ) : (
+                                      <span className="text-[10px] text-tertiary italic">N/A (External)</span>
+                                    )}
+                                  </td>
+                                  <td className="p-2.5 text-tertiary text-[11px] max-w-xs truncate">{p.instructions}</td>
+                                  <td className="p-2.5 text-right">
+                                    <button
+                                      type="button"
+                                      onClick={() => handleDeletePrescription(p.id)}
+                                      className="p-1.5 text-red-600 hover:bg-red-50 rounded-xl transition-all cursor-pointer"
+                                      title="Remove medication"
+                                    >
+                                      <span className="material-symbols-outlined text-sm">delete</span>
+                                    </button>
+                                  </td>
+                                </tr>
+                              );
+                            })}
+                          </tbody>
+                        </table>
+                      </div>
+                    </div>
                   )}
                 </div>
-                <span className="text-[10px] text-tertiary font-semibold">ICD-10 Categorized</span>
               </div>
 
-              <div>
-                <label className="text-[11px] font-bold text-tertiary block mb-1">Provisional Diagnosis</label>
-                <input
-                  type="text"
-                  placeholder="Enter provisional diagnosis or clinical impression..."
-                  value={soapDiagnosis}
-                  onChange={e => setSoapDiagnosis(e.target.value)}
-                  className="w-full px-3.5 py-2 bg-surface-container-low rounded-xl text-xs font-semibold border border-surface-container-high outline-none focus:border-primary"
-                />
+              {/* Diagnostic Lab Ordering */}
+              <div className="space-y-3 pt-4 border-t border-surface-container-high">
+                <span className="text-xs font-bold text-slate-800 uppercase tracking-wider block">Diagnostic Lab Investigations Order</span>
+                <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                  {[
+                    'Complete Blood Count (CBC)',
+                    'Rapid Malarial Antigen (Pf/Pv)',
+                    'Sickle Cell Solubility Test',
+                    'Fasting Blood Glucose',
+                    'Serum Creatinine & Electrolytes',
+                    'Urine Routine & Microscopic'
+                  ].map(lab => {
+                    const isSelected = selectedLabs.includes(lab);
+                    return (
+                      <button
+                        key={lab}
+                        onClick={() => toggleLab(lab)}
+                        className={`p-2.5 rounded-xl border text-left text-xs font-bold transition-all flex items-center gap-2 ${isSelected
+                            ? 'bg-teal-50 border-teal-500 text-teal-900 shadow-sm'
+                            : 'bg-white border-surface-container-high text-tertiary hover:bg-surface-container-low'
+                          }`}
+                      >
+                        <span className="material-symbols-outlined text-sm text-teal-600">
+                          {isSelected ? 'check_box' : 'check_box_outline_blank'}
+                        </span>
+                        <span className="truncate">{lab}</span>
+                      </button>
+                    );
+                  })}
+                </div>
               </div>
 
-              <div>
-                <label className="text-[11px] font-bold text-tertiary block mb-1">Subjective & Objective Clinical Findings</label>
-                <textarea
-                  rows={3}
-                  placeholder="Record subjective complaints, objective vitals assessment, and clinical review..."
-                  value={soapNotes}
-                  onChange={e => setSoapNotes(e.target.value)}
-                  className="w-full px-3.5 py-2 bg-surface-container-low rounded-xl text-xs font-semibold border border-surface-container-high outline-none focus:border-primary"
-                />
-              </div>
-            </div>
-
-            {/* Digital E-Prescriptions */}
-            <div className="space-y-3 pt-4 border-t border-surface-container-high">
-              <div className="flex items-center justify-between">
-                <div>
-                  <h3 className="text-xs font-bold text-slate-800 uppercase tracking-wider">E-Prescription & EDL Dispensing Form</h3>
-                  <p className="text-[10px] text-tertiary">Real-time prescription synchronization with SDH Pharmacy</p>
-                </div>
-                <span className="px-2.5 py-1 rounded-full text-[10px] font-black bg-teal-100 text-teal-800 border border-teal-200">
-                  Interaction Safe (NKDA Checked)
-                </span>
-              </div>
-
-              {/* Add Drug Form */}
-              <form onSubmit={handleAddDrug} className="grid grid-cols-1 sm:grid-cols-12 gap-2 bg-surface-container-low p-3.5 rounded-2xl border border-surface-container">
-                <div className="sm:col-span-4">
-                  <input
-                    name="drug"
-                    placeholder="Medicine Name (e.g. Paracetamol 500mg)"
-                    required
-                    className="w-full px-3 py-1.5 bg-white rounded-xl text-xs font-bold border border-surface-container-high outline-none focus:border-primary"
-                  />
-                </div>
-                <div className="sm:col-span-2">
-                  <input
-                    name="dosage"
-                    placeholder="Dosage (500mg)"
-                    className="w-full px-3 py-1.5 bg-white rounded-xl text-xs border border-surface-container-high outline-none focus:border-primary"
-                  />
-                </div>
-                <div className="sm:col-span-3">
-                  <select
-                    name="frequency"
-                    className="w-full px-3 py-1.5 bg-white rounded-xl text-xs border border-surface-container-high outline-none focus:border-primary"
-                  >
-                    <option value="OD (Once daily)">OD (Once daily)</option>
-                    <option value="BD (Twice daily)">BD (Twice daily)</option>
-                    <option value="TDS (3 times daily)">TDS (3 times daily)</option>
-                    <option value="QDS (4 times daily)">QDS (4 times daily)</option>
-                    <option value="SOS (As needed)">SOS (As needed)</option>
-                  </select>
-                </div>
-                <div className="sm:col-span-2">
-                  <input
-                    name="duration"
-                    placeholder="5 Days"
-                    className="w-full px-3 py-1.5 bg-white rounded-xl text-xs border border-surface-container-high outline-none focus:border-primary"
-                  />
-                </div>
-                <div className="sm:col-span-1">
+              {/* Action Buttons Footer */}
+              <div className="flex flex-wrap items-center justify-between gap-3 pt-4 border-t border-surface-container-high">
+                <div className="flex items-center gap-2">
                   <button
-                    type="submit"
-                    className="w-full h-full py-1.5 bg-primary hover:bg-primary/90 text-white font-bold rounded-xl text-xs flex items-center justify-center shadow-sm"
+                    disabled={submittingEncounter}
+                    onClick={handleSubmitEncounter}
+                    className={`px-5 py-2.5 bg-primary hover:bg-primary/90 text-white font-bold text-xs rounded-xl shadow-md transition-all flex items-center gap-2 cursor-pointer ${submittingEncounter ? 'opacity-70 cursor-not-allowed' : 'active:scale-95'
+                      }`}
                   >
-                    <span className="material-symbols-outlined text-base">add</span>
+                    <span className={`material-symbols-outlined text-base ${submittingEncounter ? 'animate-spin' : ''}`}>
+                      {submittingEncounter ? 'sync' : 'send'}
+                    </span>
+                    <span>{submittingEncounter ? t('actions.loading', 'Persisting...') : t('doctor.submitEncounter', 'Submit Encounter & Order EDL Drugs')}</span>
+                  </button>
+                  <button
+                    onClick={() => setShowAshaModal(true)}
+                    className="px-4 py-2.5 bg-amber-50 hover:bg-amber-100 text-amber-900 border border-amber-300 font-bold text-xs rounded-xl transition-all flex items-center gap-1.5 shadow-sm active:scale-95 cursor-pointer"
+                  >
+                    <span className="material-symbols-outlined text-base text-amber-700">home_health</span>
+                    <span>{t('doctor.assignAshaFollowup', 'Assign ASHA Follow-up')}</span>
                   </button>
                 </div>
-                <div className="sm:col-span-12">
-                  <input
-                    name="instructions"
-                    placeholder="Special instructions (e.g. Take with warm water after meals)"
-                    className="w-full px-3 py-1 bg-white rounded-xl text-[11px] border border-surface-container-high outline-none focus:border-primary"
-                  />
+
+                <div className="flex items-center gap-2">
+                  <Link
+                    href={`/referrals`}
+                    className="px-3.5 py-2.5 bg-teal-50 hover:bg-teal-100 text-teal-900 border border-teal-200 font-bold text-xs rounded-xl transition-all flex items-center gap-1.5"
+                  >
+                    <span className="material-symbols-outlined text-base text-teal-700">alt_route</span>
+                    <span>{t('doctor.referPatient', 'Refer Patient')}</span>
+                  </Link>
+                  <Link
+                    href={`/records?patientId=${selectedPatient.clientId || selectedPatient.id}`}
+                    className="px-3.5 py-2.5 bg-surface-container-low hover:bg-surface-container text-tertiary font-bold text-xs rounded-xl transition-all flex items-center gap-1.5"
+                  >
+                    <span className="material-symbols-outlined text-base">folder_shared</span>
+                    <span>{t('doctor.patientRecord', 'Patient Record')}</span>
+                  </Link>
                 </div>
-              </form>
-
-              {/* Active Prescriptions Table */}
-              <div className="overflow-x-auto rounded-2xl border border-surface-container-high">
-                {prescriptions.length === 0 ? (
-                  <div className="p-5 text-center bg-surface-container-low/50 text-tertiary text-xs space-y-1">
-                    <span className="material-symbols-outlined text-xl text-slate-400 block">medication</span>
-                    <span>No medications ordered for this encounter. Add EDL items above.</span>
-                  </div>
-                ) : (
-                  <table className="w-full text-left text-xs">
-                    <thead className="bg-surface-container-low text-tertiary uppercase font-black text-[9px] tracking-wider border-b border-surface-container-high">
-                      <tr>
-                        <th className="p-2.5">Medicine</th>
-                        <th className="p-2.5">Dosage</th>
-                        <th className="p-2.5">Frequency</th>
-                        <th className="p-2.5">Duration</th>
-                        <th className="p-2.5">Instructions</th>
-                        <th className="p-2.5 text-right">Action</th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-surface-container-high">
-                      {prescriptions.map(p => (
-                        <tr key={p.id} className="hover:bg-surface-container-low/50">
-                          <td className="p-2.5 font-bold text-on-surface">{p.drug}</td>
-                          <td className="p-2.5 text-slate-700">{p.dosage}</td>
-                          <td className="p-2.5 text-slate-700">{p.frequency}</td>
-                          <td className="p-2.5 text-slate-700">{p.duration}</td>
-                          <td className="p-2.5 text-tertiary text-[11px]">{p.instructions}</td>
-                          <td className="p-2.5 text-right">
-                            <button
-                              onClick={() => handleDeletePrescription(p.id)}
-                              className="p-1 text-red-600 hover:bg-red-50 rounded-lg"
-                              title="Remove medication"
-                            >
-                              <span className="material-symbols-outlined text-sm">delete</span>
-                            </button>
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                )}
               </div>
             </div>
-
-            {/* Diagnostic Lab Ordering */}
-            <div className="space-y-3 pt-4 border-t border-surface-container-high">
-              <span className="text-xs font-bold text-slate-800 uppercase tracking-wider block">Diagnostic Lab Investigations Order</span>
-              <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
-                {[
-                  'Complete Blood Count (CBC)',
-                  'Rapid Malarial Antigen (Pf/Pv)',
-                  'Sickle Cell Solubility Test',
-                  'Fasting Blood Glucose',
-                  'Serum Creatinine & Electrolytes',
-                  'Urine Routine & Microscopic'
-                ].map(lab => {
-                  const isSelected = selectedLabs.includes(lab);
-                  return (
-                    <button
-                      key={lab}
-                      onClick={() => toggleLab(lab)}
-                      className={`p-2.5 rounded-xl border text-left text-xs font-bold transition-all flex items-center gap-2 ${
-                        isSelected
-                          ? 'bg-teal-50 border-teal-500 text-teal-900 shadow-sm'
-                          : 'bg-white border-surface-container-high text-tertiary hover:bg-surface-container-low'
-                      }`}
-                    >
-                  <span className="material-symbols-outlined text-sm text-teal-600">
-                        {isSelected ? 'check_box' : 'check_box_outline_blank'}
-                      </span>
-                      <span className="truncate">{lab}</span>
-                    </button>
-                  );
-                })}
-              </div>
-            </div>
-
-            {/* Action Buttons Footer */}
-            <div className="flex flex-wrap items-center justify-between gap-3 pt-4 border-t border-surface-container-high">
-              <div className="flex items-center gap-2">
-                <button
-                  disabled={submittingEncounter}
-                  onClick={handleSubmitEncounter}
-                  className={`px-5 py-2.5 bg-primary hover:bg-primary/90 text-white font-bold text-xs rounded-xl shadow-md transition-all flex items-center gap-2 cursor-pointer ${
-                    submittingEncounter ? 'opacity-70 cursor-not-allowed' : 'active:scale-95'
-                  }`}
-                >
-                  <span className={`material-symbols-outlined text-base ${submittingEncounter ? 'animate-spin' : ''}`}>
-                    {submittingEncounter ? 'sync' : 'send'}
-                  </span>
-                  <span>{submittingEncounter ? t('actions.loading', 'Persisting...') : t('doctor.submitEncounter', 'Submit Encounter & Order EDL Drugs')}</span>
-                </button>
-                <button
-                  onClick={() => setShowAshaModal(true)}
-                  className="px-4 py-2.5 bg-amber-50 hover:bg-amber-100 text-amber-900 border border-amber-300 font-bold text-xs rounded-xl transition-all flex items-center gap-1.5 shadow-sm active:scale-95 cursor-pointer"
-                >
-                  <span className="material-symbols-outlined text-base text-amber-700">home_health</span>
-                  <span>{t('doctor.assignAshaFollowup', 'Assign ASHA Follow-up')}</span>
-                </button>
-              </div>
-
-              <div className="flex items-center gap-2">
-                <Link
-                  href={`/referrals`}
-                  className="px-3.5 py-2.5 bg-teal-50 hover:bg-teal-100 text-teal-900 border border-teal-200 font-bold text-xs rounded-xl transition-all flex items-center gap-1.5"
-                >
-                  <span className="material-symbols-outlined text-base text-teal-700">alt_route</span>
-                  <span>{t('doctor.referPatient', 'Refer Patient')}</span>
-                </Link>
-                <Link
-                  href={`/records?patientId=${selectedPatient.clientId || selectedPatient.id}`}
-                  className="px-3.5 py-2.5 bg-surface-container-low hover:bg-surface-container text-tertiary font-bold text-xs rounded-xl transition-all flex items-center gap-1.5"
-                >
-                  <span className="material-symbols-outlined text-base">folder_shared</span>
-                  <span>{t('doctor.patientRecord', 'Patient Record')}</span>
-                </Link>
-              </div>
-
-              <button
-                onClick={handleStartTeleconsult}
-                className="px-4 py-2.5 bg-teal-50 text-teal-800 hover:bg-teal-100 font-bold text-xs rounded-xl border border-teal-200 flex items-center gap-1.5 transition-all"
-              >
-                <span className="material-symbols-outlined text-base">video_call</span>
-                <span>Launch Teleconsult</span>
-              </button>
-            </div>
-          </div>
           )}
         </div>
       </div>
