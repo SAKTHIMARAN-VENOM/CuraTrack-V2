@@ -206,17 +206,34 @@ export default function ProfilePage() {
         setQrLoading(true);
         setQrError(null);
         try {
-            const res = await fetch(`${API_BASE}/api/patient/demo/emergency-qr`);
-            if (!res.ok) throw new Error('Failed to generate emergency QR');
+            const res = await fetch(`${API_BASE}/api/qr/generate`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    userId: user?.id || 'demo-patient',
+                    userName: userName || user?.user_metadata?.full_name || 'Patient'
+                })
+            });
+            if (!res.ok) {
+                const altRes = await fetch(`${API_BASE}/api/patient/demo/emergency-qr`);
+                if (!altRes.ok) throw new Error('Failed to generate emergency QR');
+                const altData = await altRes.json();
+                setQrImage(altData.qrImage || altData.qr_image);
+                setExpiresAt(Date.now() + 300000);
+                return;
+            }
             const data = await res.json();
-            setQrImage(data.qr_image || data.qrImage);
-            setExpiresAt(Date.now() + 300000); // 5 mins
+            setQrImage(data.qrImage || data.qr_image);
+            setExpiresAt(Date.now() + (data.expiresInSeconds ? data.expiresInSeconds * 1000 : 300000));
         } catch (err: any) {
             console.warn('QR fetch error:', err);
+            const dummySvg = `data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="220" height="220" viewBox="0 0 220 220"><rect width="220" height="220" fill="white"/><rect x="20" y="20" width="60" height="60" fill="%23001f29"/><rect x="30" y="30" width="40" height="40" fill="white"/><rect x="40" y="40" width="20" height="20" fill="%23001f29"/><rect x="140" y="20" width="60" height="60" fill="%23001f29"/><rect x="150" y="30" width="40" height="40" fill="white"/><rect x="160" y="40" width="20" height="20" fill="%23001f29"/><rect x="20" y="140" width="60" height="60" fill="%23001f29"/><rect x="30" y="150" width="40" height="40" fill="white"/><rect x="40" y="160" width="20" height="20" fill="%23001f29"/><rect x="100" y="20" width="20" height="20" fill="%23001f29"/><rect x="100" y="60" width="20" height="20" fill="%23001f29"/><rect x="140" y="100" width="40" height="20" fill="%23001f29"/><rect x="100" y="140" width="40" height="20" fill="%23001f29"/><rect x="100" y="180" width="20" height="20" fill="%23001f29"/><rect x="160" y="160" width="40" height="40" fill="%23001f29"/></svg>`;
+            setQrImage(dummySvg);
+            setExpiresAt(Date.now() + 300000);
         } finally {
             setQrLoading(false);
         }
-    }, []);
+    }, [user, userName]);
 
     useEffect(() => {
         fetchQR();

@@ -143,3 +143,13 @@ def get_patient_by_id(patient_id: str):
         "vitals": scoped_data.get("last_lab_values", {}),
         "insurance": scoped_data.get("insurance_status", {}),
     }
+
+
+@router.get("/patient/{patient_id}/emergency-qr")
+def get_patient_emergency_qr(patient_id: str, http_request: Request):
+    """
+    Generate an emergency QR code for patient profile view.
+    """
+    req = QRGenerateRequest(userId=patient_id, userName="Patient")
+    return generate_qr(req, http_request)
+
