@@ -130,4 +130,60 @@ describe('Frontend Website: Clinical Drug Safety & ASHA Frontline Portals', () =
       expect(screen.getByText(/Ramesh Tadvi/i)).toBeInTheDocument();
     });
   });
+
+  it('correctly prioritizes queue: today emergencies on top, scheduled future meetings lower', async () => {
+    const { calculatePatientQueuePriority } = await import('../app/(dashboard)/doctor/page');
+
+    const todayEmergency: any = {
+      id: 'p-today-emer',
+      name: 'Emergency Patient Today',
+      priority: 'EMERGENCY',
+      status: 'WAITING',
+      date: new Date().toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })
+    };
+
+    const todayPriority: any = {
+      id: 'p-today-prio',
+      name: 'Priority Patient Today',
+      priority: 'PRIORITY',
+      status: 'WAITING',
+      date: new Date().toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })
+    };
+
+    const todayRoutine: any = {
+      id: 'p-today-rout',
+      name: 'Routine Patient Today',
+      priority: 'ROUTINE',
+      status: 'WAITING',
+      date: new Date().toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })
+    };
+
+    const futureScheduled: any = {
+      id: 'p-future-sched',
+      name: 'Future Scheduled Patient',
+      priority: 'EMERGENCY',
+      status: 'WAITING',
+      date: '2029-12-31'
+    };
+
+    const completedPatient: any = {
+      id: 'p-done',
+      name: 'Done Patient',
+      priority: 'EMERGENCY',
+      status: 'COMPLETED',
+      date: new Date().toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })
+    };
+
+    const scoreTodayEmer = calculatePatientQueuePriority(todayEmergency);
+    const scoreTodayPrio = calculatePatientQueuePriority(todayPriority);
+    const scoreTodayRout = calculatePatientQueuePriority(todayRoutine);
+    const scoreFuture = calculatePatientQueuePriority(futureScheduled);
+    const scoreDone = calculatePatientQueuePriority(completedPatient);
+
+    // Today Emergency < Today Priority < Today Routine < Future Scheduled < Done
+    expect(scoreTodayEmer).toBeLessThan(scoreTodayPrio);
+    expect(scoreTodayPrio).toBeLessThan(scoreTodayRout);
+    expect(scoreTodayRout).toBeLessThan(scoreFuture);
+    expect(scoreFuture).toBeLessThan(scoreDone);
+  });
 });

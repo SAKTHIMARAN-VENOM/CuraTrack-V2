@@ -615,23 +615,23 @@ export default function PatientSelfTriagePage() {
               {redFlagTaxonomy.map((flag, idx) => {
                 const isSelected = selectedRedFlags.includes(flag);
                 return (
-                  <label
+                  <button
                     key={idx}
+                    type="button"
                     onClick={() => toggleRedFlag(flag)}
-                    className={`flex items-start gap-3 p-3.5 rounded-2xl border cursor-pointer transition-all ${
+                    className={`flex items-start gap-3 p-3.5 rounded-2xl border text-left cursor-pointer transition-all ${
                       isSelected
                         ? 'bg-red-600 text-white border-red-600 shadow-md font-bold'
                         : 'bg-white text-slate-800 border-red-100 hover:border-red-300 hover:bg-red-50/40'
                     }`}
                   >
-                    <input
-                      type="checkbox"
-                      checked={isSelected}
-                      onChange={() => {}}
-                      className="mt-0.5 rounded text-red-600 focus:ring-red-500 accent-red-600"
-                    />
+                    <span className={`w-5 h-5 rounded-md flex items-center justify-center shrink-0 mt-0.5 border ${
+                      isSelected ? 'bg-white text-red-600 border-white' : 'bg-red-50 border-red-200 text-transparent'
+                    }`}>
+                      <span className="material-symbols-outlined text-sm font-black">check</span>
+                    </span>
                     <span className="text-xs leading-snug">{flag}</span>
-                  </label>
+                  </button>
                 );
               })}
             </div>
@@ -744,17 +744,34 @@ export default function PatientSelfTriagePage() {
               {/* Duration in days & Pregnancy Checkbox */}
               <div className="space-y-4">
                 <div className="space-y-2">
-                  <label className="block text-xs font-bold text-on-surface">How many days have you had these symptoms?</label>
+                  <label htmlFor="duration-days-input" className="block text-xs font-bold text-on-surface">How many days have you had these symptoms?</label>
                   <div className="flex items-center gap-3">
                     <input
-                      type="number"
-                      min="1"
-                      max="60"
-                      value={durationDays}
-                      onChange={e => setDurationDays(Math.max(1, Number(e.target.value)))}
-                      className="w-24 p-2.5 text-xs font-bold rounded-xl border border-surface-container-high text-center"
+                      id="duration-days-input"
+                      type="text"
+                      inputMode="numeric"
+                      pattern="[0-9]*"
+                      value={durationDays || ''}
+                      onChange={e => {
+                        const val = e.target.value.replace(/[^0-9]/g, '');
+                        if (val === '') {
+                          setDurationDays(1);
+                        } else {
+                          const num = parseInt(val, 10);
+                          if (num >= 1) {
+                            setDurationDays(num);
+                          }
+                        }
+                      }}
+                      onBlur={() => {
+                        if (!durationDays || durationDays < 1) {
+                          setDurationDays(1);
+                        }
+                      }}
+                      placeholder="1"
+                      className="w-24 p-2.5 text-xs font-bold rounded-xl border border-surface-container-high text-center bg-surface-container-low focus:bg-white focus:border-primary outline-none"
                     />
-                    <span className="text-xs text-tertiary">day(s)</span>
+                    <span className="text-xs text-tertiary font-bold">day(s)</span>
                   </div>
                 </div>
 

@@ -546,14 +546,23 @@ export default function FrontlineHealthWorkerPage() {
                                     </div>
                                 </div>
 
-                                {/* Single Primary Action: Access Health Records */}
-                                <Link
-                                    href={`/records?patientId=${ben.patient_id || ben.id}`}
-                                    className="w-full py-2.5 px-3 bg-primary hover:bg-primary/90 text-white font-bold text-xs rounded-xl shadow-xs flex items-center justify-center gap-1.5 transition-all text-center"
-                                >
-                                    <span className="material-symbols-outlined text-base">folder_shared</span>
-                                    <span>Access Health Records</span>
-                                </Link>
+                                {/* Primary Actions: Access Health Records & Doctor Teleconsult */}
+                                <div className="grid grid-cols-2 gap-2">
+                                    <Link
+                                        href={`/records?patientId=${ben.patient_id || ben.id}`}
+                                        className="py-2.5 px-2 bg-surface-container-low hover:bg-surface-container text-on-surface font-bold text-[11px] rounded-xl border border-surface-container-high shadow-xs flex items-center justify-center gap-1 transition-all text-center"
+                                    >
+                                        <span className="material-symbols-outlined text-sm text-primary">folder_shared</span>
+                                        <span>Records</span>
+                                    </Link>
+                                    <Link
+                                        href={`/telemedicine?patientId=${ben.id}`}
+                                        className="py-2.5 px-2 bg-primary hover:bg-primary/90 text-white font-bold text-[11px] rounded-xl shadow-xs flex items-center justify-center gap-1 transition-all text-center"
+                                    >
+                                        <span className="material-symbols-outlined text-sm">video_call</span>
+                                        <span>Teleconsult</span>
+                                    </Link>
+                                </div>
                             </div>
                         );
                     })}

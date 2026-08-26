@@ -848,24 +848,31 @@ function DigitalTriageContent() {
                   <span>Clinical Severity &amp; Objective Telemetry</span>
                 </h2>
 
-                {/* Severity Slider */}
-                <div>
+                {/* Severity Input */}
+                <div className="space-y-2">
                   <div className="flex justify-between items-center text-xs mb-2">
-                    <span className="font-semibold text-on-surface-variant">Symptom Severity / Distress Score: <strong>{severity} / 10</strong></span>
+                    <label htmlFor="clinical-severity-input" className="font-semibold text-on-surface-variant">Symptom Severity / Distress Score (1 to 10):</label>
                     <span className={`font-bold px-2 py-0.5 rounded text-[11px] ${
                       severity >= 7 ? 'bg-red-100 text-red-700' : severity >= 4 ? 'bg-amber-100 text-amber-800' : 'bg-emerald-100 text-emerald-800'
                     }`}>
-                      {severity >= 8 ? 'Critical Distress' : severity >= 6 ? 'Severe Pain / Discomfort' : severity >= 4 ? 'Moderate' : 'Mild'}
+                      {severity} / 10 — {severity >= 8 ? 'Critical Distress' : severity >= 6 ? 'Severe Pain / Discomfort' : severity >= 4 ? 'Moderate' : 'Mild'}
                     </span>
                   </div>
-                  <input
-                    type="range"
-                    min="1"
-                    max="10"
-                    value={severity}
-                    onChange={(e) => setSeverity(parseInt(e.target.value))}
-                    className="w-full accent-primary h-2 bg-surface-container rounded-lg cursor-pointer"
-                  />
+                  <div className="flex items-center gap-3">
+                    <input
+                      id="clinical-severity-input"
+                      type="number"
+                      min="1"
+                      max="10"
+                      value={severity}
+                      onChange={(e) => {
+                        const val = parseInt(e.target.value);
+                        setSeverity(isNaN(val) ? 1 : Math.min(10, Math.max(1, val)));
+                      }}
+                      className="w-24 p-2.5 bg-surface-container-low rounded-xl text-xs font-bold text-center text-on-surface border border-surface-container-high outline-none focus:border-primary"
+                    />
+                    <span className="text-xs text-tertiary">Scale: 1 (Mild) to 10 (Critical Emergency)</span>
+                  </div>
                 </div>
 
                 {/* Age, Duration, Pregnant */}

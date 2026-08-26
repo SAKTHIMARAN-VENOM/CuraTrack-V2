@@ -847,6 +847,10 @@ describe('Medication & Prescription Synchronization Across Doctor & Patient Port
     );
     const docRender2 = render(<DoctorDashboardPage />);
 
+    // Since the appointment was completed upon encounter submission, open the Done tab
+    const doneTab = await screen.findByRole('button', { name: /Done/i });
+    fireEvent.click(doneTab);
+
     await waitFor(() => {
       expect(screen.getAllByText(/Kavita Bai/i).length).toBeGreaterThan(0);
     });

@@ -48,6 +48,7 @@ interface OPDQueuePatient {
   type: 'In-Person OPD' | 'Teleconsult' | 'Emergency Follow-Up';
   status: 'WAITING' | 'IN-CONSULT' | 'COMPLETED';
   waitTime: string;
+  date?: string;
   roomId?: string;
   ashaName?: string;
   villageName?: string;
@@ -105,6 +106,45 @@ interface PatientTriageDetails {
   pastDiagnoses: string[];
   medicalAlerts: Array<{ type: 'danger' | 'warning' | 'info'; text: string; icon: string }>;
 }
+
+export const calculatePatientQueuePriority = (patient: OPDQueuePatient): number => {
+  if (patient.status === 'COMPLETED') return 1_000_000_000_000_000;
+
+  const now = new Date();
+  const todayIso = now.toISOString().split('T')[0];
+  const todayFormatted = now.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
+
+  // Check if future scheduled appointment
+  let isFuture = false;
+  let scheduledTimeMs = 0;
+
+  if (patient.date) {
+    const parsed = new Date(patient.date);
+    if (!isNaN(parsed.getTime())) {
+      scheduledTimeMs = parsed.getTime();
+      const parsedIso = parsed.toISOString().split('T')[0];
+      if (parsedIso > todayIso && patient.date !== todayFormatted) {
+        isFuture = true;
+      }
+    }
+  }
+
+  let rank = 3;
+  if (!isFuture) {
+    // Today's immediate queue: Emergency highest (1), Priority (2), Routine (3)
+    if (patient.priority === 'EMERGENCY') rank = 1;
+    else if (patient.priority === 'PRIORITY') rank = 2;
+    else rank = 3;
+  } else {
+    // Future scheduled meetings have lower priority than today's live queue
+    if (patient.priority === 'EMERGENCY') rank = 10;
+    else if (patient.priority === 'PRIORITY') rank = 20;
+    else rank = 30;
+  }
+
+  // Weight rank by 1e12 + scheduled/creation timestamp
+  return rank * 1_000_000_000_000 + (scheduledTimeMs || Date.now());
+};
 
 export default function DoctorOPDPage() {
   const router = useRouter();
@@ -320,10 +360,46 @@ export default function DoctorOPDPage() {
         );
       }
 
-      const formattedQueue: OPDQueuePatient[] = dbAppts.map((a: any, idx: number) => {
+      const seenPatients = new Set<string>();
+      const deduplicatedQueue: OPDQueuePatient[] = [];
+
+      for (const a of dbAppts) {
         const resolvedClientId = a.client_id || a.patient_id || a.user_id || a.id;
+        const patientKey = resolvedClientId || a.patient_name || a.id;
+
+        if (seenPatients.has(patientKey)) {
+          continue; // Keep only one latest entry per patient in the queue
+        }
+        seenPatients.add(patientKey);
+
+        // Extract any assisted metadata if embedded in appointment notes
+        let extractedPatientName: string | null = null;
+        let extractedAshaName: string | null = null;
+        let extractedVillageName: string | null = null;
+        if (a.notes && typeof a.notes === 'string') {
+          const patMatch = a.notes.match(/for patient ([^\n\.\,]+)/i) || a.notes.match(/for ([^\n\.\,]+)\./i);
+          if (patMatch) extractedPatientName = patMatch[1].trim();
+
+          const ashaMatch = a.notes.match(/initiated by ([^\n\.\,]+) for/i);
+          if (ashaMatch) extractedAshaName = ashaMatch[1].trim();
+
+          const villMatch = a.notes.match(/Village:\s*([^\n\.]+)/i);
+          if (villMatch) extractedVillageName = villMatch[1].trim();
+        }
+
+        const isTele = Boolean(a.room_id || a.status === 'ringing' || a.type === 'video');
+        const isAssisted = a.consult_type === 'assisted_teleconsult' || Boolean(a.asha_name || a.beneficiary_id || extractedAshaName || (a.notes && a.notes.includes('Assisted teleconsult')));
+        const rawPriority = (a.priority || '').toUpperCase().trim();
+        const resolvedPriority: 'EMERGENCY' | 'PRIORITY' | 'ROUTINE' =
+          rawPriority === 'EMERGENCY' || rawPriority === 'RED'
+            ? 'EMERGENCY'
+            : rawPriority === 'PRIORITY' || rawPriority === 'YELLOW' || rawPriority === 'HIGH'
+              ? 'PRIORITY'
+              : 'ROUTINE';
+
         const clientProf = profilesMap[resolvedClientId] || profilesMap[a.client_id] || profilesMap[a.patient_id];
-        let pName = a.patient_name;
+
+        let pName = a.patient_name || extractedPatientName;
         if (!pName && clientProf) {
           if (clientProf.name && clientProf.name.trim().length > 0) {
             pName = clientProf.name.trim();
@@ -340,10 +416,6 @@ export default function DoctorOPDPage() {
           pName = 'Patient';
         }
 
-        const isTele = Boolean(a.room_id || a.status === 'ringing' || a.type === 'video');
-        const isAssisted = a.consult_type === 'assisted_teleconsult' || Boolean(a.asha_name || a.beneficiary_id);
-        const isEmergency = a.priority === 'EMERGENCY' || a.status === 'ringing';
-
         let uiStatus: 'WAITING' | 'IN-CONSULT' | 'COMPLETED' = 'WAITING';
         if (a.status === 'in-consult' || a.status === 'in_progress') {
           uiStatus = 'IN-CONSULT';
@@ -353,21 +425,27 @@ export default function DoctorOPDPage() {
           uiStatus = 'WAITING';
         }
 
+        const formattedDate = a.scheduled_time
+          ? new Date(a.scheduled_time).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })
+          : a.date
+            ? new Date(a.date).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })
+            : new Date().toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
+
         const formattedTime = a.scheduled_time
           ? new Date(a.scheduled_time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
           : a.time || 'Just now';
 
-        return {
+        deduplicatedQueue.push({
           id: a.id,
           clientId: resolvedClientId,
-          token: a.token || `TKN-${String(idx + 1).padStart(3, '0')}`,
+          token: a.token || `TKN-${String(deduplicatedQueue.length + 1).padStart(3, '0')}`,
           name: pName,
           age: clientProf?.age || (a.age ? Number(a.age) : 32),
           gender: clientProf?.gender || a.gender || 'Unspecified',
           abhaId: clientProf?.abha_id || a.abha_id || '91-4502-8819-2041',
           bloodGroup: clientProf?.blood_group || a.blood_group || 'O+',
           allergies: clientProf?.allergies || a.allergies || 'No Known Drug Allergies (NKDA)',
-          priority: isEmergency ? 'EMERGENCY' : a.priority === 'PRIORITY' ? 'PRIORITY' : 'ROUTINE',
+          priority: resolvedPriority,
           complaint: a.complaint || a.notes || (isAssisted ? 'ASHA-assisted teleconsultation request' : isTele ? 'Teleconsultation consultation request' : 'General clinical consultation'),
           vitals: {
             bp: a.vitals_bp || 'N/A',
@@ -378,18 +456,22 @@ export default function DoctorOPDPage() {
           },
           type: isTele ? 'Teleconsult' : 'In-Person OPD',
           status: uiStatus,
+          date: formattedDate,
           waitTime: formattedTime,
           roomId: a.room_id || undefined,
-          ashaName: a.asha_name || undefined,
-          villageName: a.village_name || undefined,
+          ashaName: a.asha_name || extractedAshaName || (isAssisted ? 'Sunita Tai (ASHA)' : undefined),
+          villageName: a.village_name || extractedVillageName || (isAssisted ? 'Borvihir Pada' : undefined),
           beneficiaryId: a.beneficiary_id || undefined,
-          consultType: a.consult_type || undefined,
-        };
-      });
+          consultType: a.consult_type || (isAssisted ? 'assisted_teleconsult' : undefined),
+        });
+      }
 
-      setQueue(formattedQueue);
-      if (formattedQueue.length > 0 && !selectedPatientId) {
-        setSelectedPatientId(formattedQueue[0].id);
+      // Sort queue: Today's Emergency first, then Priority, then Routine, followed by scheduled future meetings
+      deduplicatedQueue.sort((a, b) => calculatePatientQueuePriority(a) - calculatePatientQueuePriority(b));
+
+      setQueue(deduplicatedQueue);
+      if (deduplicatedQueue.length > 0 && !selectedPatientId) {
+        setSelectedPatientId(deduplicatedQueue[0].id);
       }
     } catch (err) {
       console.warn('Error fetching live OPD queue:', err);
@@ -449,6 +531,32 @@ export default function DoctorOPDPage() {
         await fetchLiveQueue(finalDocId);
         await fetchInboundReferrals();
 
+        // Helper to check if appointment is within 5 minutes of current time or a live ringing call
+        const isCallWithinFiveMinutes = (appt: any): boolean => {
+          if (!appt) return false;
+          const now = Date.now();
+
+          // If live ringing call initiated right now by ASHA
+          if (appt.status === 'ringing') {
+            if (appt.created_at) {
+              const createdMs = new Date(appt.created_at).getTime();
+              return Math.abs(now - createdMs) <= 5 * 60 * 1000;
+            }
+            return true;
+          }
+
+          // If scheduled appointment, only pop up if within 5 minutes
+          const timeStr = appt.scheduled_time || (appt.date && appt.time ? `${appt.date}T${appt.time}` : appt.created_at);
+          if (!timeStr) return false;
+
+          const scheduledMs = new Date(timeStr).getTime();
+          if (isNaN(scheduledMs)) return false;
+
+          const diffMs = scheduledMs - now;
+          // Trigger if starting within the next 5 minutes or started up to 10 minutes ago and still active
+          return diffMs <= 5 * 60 * 1000 && diffMs >= -10 * 60 * 1000;
+        };
+
         // Fetch active incoming telemedicine calls
         let activeQuery = supabase
           .from('appointments')
@@ -461,22 +569,30 @@ export default function DoctorOPDPage() {
           activeQuery = activeQuery.or(`doctor_id.eq.${finalDocId},doctor_id.eq.doc-david-ross,doctor_id.ilike.%doc-%`);
         }
 
-        const { data: activeAppts } = await activeQuery.limit(1);
+        const { data: activeAppts } = await activeQuery.limit(10);
 
         if (isMounted && activeAppts && activeAppts.length > 0) {
-          const appt = activeAppts[0];
-          let patientName = 'Patient';
-          if (appt.client_id) {
-            try {
-              const { data: prof } = await supabase.from('profiles').select('name, email').eq('id', appt.client_id).maybeSingle();
-              if (prof?.name) {
-                patientName = prof.name;
-              } else if (prof?.email) {
-                patientName = prof.email.split('@')[0].replace(/[._-]/g, ' ');
-              }
-            } catch { }
+          const eligibleAppt = activeAppts.find(a => isCallWithinFiveMinutes(a));
+          if (eligibleAppt) {
+            let patientName = eligibleAppt.patient_name;
+            if (!patientName && eligibleAppt.notes) {
+              const patMatch = eligibleAppt.notes.match(/for patient ([^\n\.\,]+)/i) || eligibleAppt.notes.match(/for ([^\n\.\,]+)\./i);
+              if (patMatch) patientName = patMatch[1].trim();
+            }
+            if (!patientName && eligibleAppt.client_id) {
+              try {
+                const { data: prof } = await supabase.from('profiles').select('name, email').eq('id', eligibleAppt.client_id).maybeSingle();
+                if (prof?.name) {
+                  patientName = prof.name;
+                } else if (prof?.email) {
+                  patientName = prof.email.split('@')[0].replace(/[._-]/g, ' ');
+                }
+              } catch { }
+            }
+            setIncomingCall({ ...eligibleAppt, patient_name: patientName || 'Patient' });
+          } else {
+            setIncomingCall(null);
           }
-          setIncomingCall({ ...appt, patient_name: patientName });
         }
       } catch (err) {
         console.warn('Error initializing doctor session:', err);
@@ -484,6 +600,29 @@ export default function DoctorOPDPage() {
     }
 
     initializeDoctorSessionAndRealtime();
+
+    // Helper for realtime listener
+    const isRealtimeCallWithinFiveMinutes = (appt: any): boolean => {
+      if (!appt) return false;
+      const now = Date.now();
+
+      if (appt.status === 'ringing') {
+        if (appt.created_at) {
+          const createdMs = new Date(appt.created_at).getTime();
+          return Math.abs(now - createdMs) <= 5 * 60 * 1000;
+        }
+        return true;
+      }
+
+      const timeStr = appt.scheduled_time || (appt.date && appt.time ? `${appt.date}T${appt.time}` : appt.created_at);
+      if (!timeStr) return false;
+
+      const scheduledMs = new Date(timeStr).getTime();
+      if (isNaN(scheduledMs)) return false;
+
+      const diffMs = scheduledMs - now;
+      return diffMs <= 5 * 60 * 1000 && diffMs >= -10 * 60 * 1000;
+    };
 
     // Subscribe to realtime changes on appointments table for live queue (INSERT, UPDATE, DELETE)
     const channel = supabase
@@ -503,8 +642,16 @@ export default function DoctorOPDPage() {
 
           const incoming = payload.new as Appointment;
           if (incoming && (incoming.status === 'active' || incoming.status === 'ringing') && incoming.room_id) {
-            let patientName = 'Patient';
-            if (incoming.client_id) {
+            if (!isRealtimeCallWithinFiveMinutes(incoming)) {
+              return;
+            }
+
+            let patientName = incoming.patient_name;
+            if (!patientName && incoming.notes) {
+              const patMatch = incoming.notes.match(/for patient ([^\n\.\,]+)/i) || incoming.notes.match(/for ([^\n\.\,]+)\./i);
+              if (patMatch) patientName = patMatch[1].trim();
+            }
+            if (!patientName && incoming.client_id) {
               try {
                 const { data: prof } = await supabase.from('profiles').select('name, email').eq('id', incoming.client_id).maybeSingle();
                 if (prof?.name) {
@@ -518,7 +665,7 @@ export default function DoctorOPDPage() {
             if (isMounted) {
               setIncomingCall({
                 ...incoming,
-                patient_name: patientName,
+                patient_name: patientName || 'Patient',
               });
               setRealtimeConnected(true);
             }
@@ -560,7 +707,9 @@ export default function DoctorOPDPage() {
 
   // Filtered Queue
   const filteredQueue = useMemo(() => {
-    return queue.filter(patient => {
+    const list = queue.filter(patient => {
+      // In [ALL] tab, do NOT show patients who are already marked as Done (COMPLETED)
+      if (filterType === 'ALL' && patient.status === 'COMPLETED') return false;
       if (filterType === 'WAITING' && patient.status !== 'WAITING') return false;
       if (filterType === 'EMERGENCY' && patient.priority !== 'EMERGENCY') return false;
       if (filterType === 'TELECONSULT' && patient.type !== 'Teleconsult') return false;
@@ -576,6 +725,8 @@ export default function DoctorOPDPage() {
       }
       return true;
     });
+
+    return list.sort((a, b) => calculatePatientQueuePriority(a) - calculatePatientQueuePriority(b));
   }, [queue, filterType, searchQuery]);
 
   // Selected Patient Object
@@ -1500,47 +1651,6 @@ export default function DoctorOPDPage() {
         </div>
       )}
 
-      {/* Top Header Bar from drawing: Hello, Doc | Search | Bell | Avatar */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 pb-2 border-b border-surface-container-high">
-        <div>
-          <div className="flex items-center gap-2">
-            <h1 className="text-3xl font-black text-on-surface tracking-tight">Hello, Doc</h1>
-            <span className="text-2xl">👋</span>
-          </div>
-          <p className="text-xs font-semibold text-tertiary mt-0.5">
-            Welcome back, <strong className="text-primary font-bold">{doctorInfo.name}</strong> • {doctorInfo.facility} ({doctorInfo.department})
-          </p>
-        </div>
-
-        <div className="flex items-center gap-3">
-          <div className="relative w-full sm:w-72 md:w-80">
-            <span className="material-symbols-outlined absolute left-3.5 top-1/2 -translate-y-1/2 text-tertiary text-lg">search</span>
-            <input
-              type="text"
-              placeholder="Search patient, token, ABHA..."
-              value={searchQuery}
-              onChange={e => setSearchQuery(e.target.value)}
-              className="w-full pl-10 pr-4 py-2.5 bg-white border border-surface-container-high rounded-2xl text-xs font-bold shadow-2xs outline-none focus:border-primary focus:ring-2 focus:ring-primary/10 transition-all"
-            />
-          </div>
-
-          <button
-            title="Notifications"
-            className="relative p-2.5 bg-white hover:bg-surface-container border border-surface-container-high rounded-2xl shadow-2xs text-tertiary hover:text-on-surface transition-all cursor-pointer shrink-0"
-          >
-            <span className="material-symbols-outlined text-xl">notifications</span>
-            {inboundReferrals.length > 0 && (
-              <span className="absolute top-1.5 right-1.5 w-2.5 h-2.5 bg-red-500 rounded-full ring-2 ring-white animate-pulse" />
-            )}
-          </button>
-
-          <div className="flex items-center gap-2.5 pl-2 border-l border-surface-container-high shrink-0">
-            <div className="w-10 h-10 rounded-2xl bg-gradient-to-tr from-teal-700 via-primary to-cyan-600 text-white font-black text-sm flex items-center justify-center shadow-md">
-              {doctorInfo.name.replace('Dr.', '').trim().split(' ').map(n => n[0]).join('').slice(0, 2) || 'DR'}
-            </div>
-          </div>
-        </div>
-      </div>
 
       {/* Hero Banner from drawing with + Telecon */}
       <div className="bg-gradient-to-r from-slate-900 via-teal-950 to-slate-900 rounded-3xl p-6 sm:p-7 text-white shadow-xl flex flex-col md:flex-row md:items-center justify-between gap-6 relative overflow-hidden">
@@ -1571,10 +1681,7 @@ export default function DoctorOPDPage() {
         {/* Section Header: Title on Left, Count Critical Patients on Right */}
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-surface-container">
           <div>
-            <h3 className="text-2xl font-black text-on-surface tracking-tight">Patient Records:</h3>
-            <p className="text-xs font-semibold text-tertiary mt-0.5">
-              Click any patient name or <strong className="text-slate-900">[ VIEW ]</strong> button to open the consultation pop-up and prescribe medications.
-            </p>
+            <h3 className="text-2xl font-black text-on-surface tracking-tight">Patient Details</h3>
           </div>
 
           {/* Count Critical Patients Badge Box from drawing */}
@@ -1606,7 +1713,7 @@ export default function DoctorOPDPage() {
         {/* Filter Tabs matching drawing: [ ALL ] [ Waiting ] [ Done ] */}
         <div className="flex flex-wrap items-center gap-2">
           {[
-            { id: 'ALL', label: 'ALL', count: queue.length },
+            { id: 'ALL', label: 'ALL', count: queue.filter(p => p.status !== 'COMPLETED').length },
             { id: 'WAITING', label: 'Waiting', count: queue.filter(p => p.status === 'WAITING' || p.status === 'IN-CONSULT').length },
             { id: 'COMPLETED', label: 'Done', count: queue.filter(p => p.status === 'COMPLETED').length },
             { id: 'EMERGENCY', label: 'Critical', count: queue.filter(p => p.priority === 'EMERGENCY').length },
@@ -1826,8 +1933,10 @@ export default function DoctorOPDPage() {
                         )}
                       </div>
 
-                      <div className="text-[11px] text-tertiary font-medium">
-                        Wait: <strong className="text-slate-800">{patient.waitTime}</strong>
+                      <div className="text-[11px] text-tertiary font-medium flex items-center gap-2">
+                        <span>Date: <strong className="text-slate-800 font-bold">{patient.date}</strong></span>
+                        <span>•</span>
+                        <span>Time: <strong className="text-slate-800 font-bold">{patient.waitTime}</strong></span>
                       </div>
                     </div>
 

@@ -11,12 +11,15 @@ export default function FacilityOperationsPage() {
     const [doctors, setDoctors] = useState<any[]>([]);
     const [allMedicines, setAllMedicines] = useState<any[]>([]);
     const [beds, setBeds] = useState<any>(null);
+    const [logs, setLogs] = useState<any[]>([]);
     const [loading, setLoading] = useState<boolean>(true);
-    const [activeTab, setActiveTab] = useState<'medicines' | 'doctors' | 'beds'>('medicines');
+    const [activeTab, setActiveTab] = useState<'medicines' | 'doctors' | 'beds' | 'archive'>('medicines');
 
     // Filter states
     const [docFilter, setDocFilter] = useState<string>('ALL');
     const [medFilter, setMedFilter] = useState<'ALL' | 'ADEQUATE' | 'LOW_STOCK' | 'CRITICAL_STOCKOUT_RISK'>('ALL');
+    const [logFilter, setLogFilter] = useState<'ALL' | 'MEDICATION' | 'BED'>('ALL');
+    const [logSearch, setLogSearch] = useState<string>('');
 
     // Stock Update / Adjustment Modal State
     const [isStockModalOpen, setIsStockModalOpen] = useState<boolean>(false);
@@ -41,16 +44,18 @@ export default function FacilityOperationsPage() {
     const fetchData = async () => {
         setLoading(true);
         try {
-            const [statsRes, docsRes, medsRes, bedsRes] = await Promise.all([
+            const [statsRes, docsRes, medsRes, bedsRes, logsRes] = await Promise.all([
                 apiFetch('/api/facility/stats'),
                 apiFetch(`/api/facility/doctors${docFilter !== 'ALL' ? `?status=${docFilter}` : ''}`),
                 apiFetch('/api/facility/medicines'),
-                apiFetch('/api/facility/beds')
+                apiFetch('/api/facility/beds'),
+                apiFetch('/api/facility/logs')
             ]);
             setStats(statsRes);
             if (docsRes.doctors) setDoctors(docsRes.doctors);
             if (medsRes.medicines) setAllMedicines(medsRes.medicines);
             setBeds(bedsRes);
+            if (logsRes?.logs) setLogs(logsRes.logs);
         } catch (err) {
             console.error('Failed to load facility data:', err);
         } finally {
@@ -439,6 +444,23 @@ export default function FacilityOperationsPage() {
                     <span className="material-symbols-outlined text-base">bed</span>
                     <span>{t('facility.bedAvailability', 'Bed Availability')}</span>
                 </button>
+
+                <button
+                    onClick={() => setActiveTab('archive')}
+                    className={`px-5 py-3 text-xs font-extrabold flex items-center gap-2 border-b-2 transition-all cursor-pointer ${
+                        activeTab === 'archive'
+                            ? 'border-primary text-primary'
+                            : 'border-transparent text-tertiary hover:text-on-surface'
+                    }`}
+                >
+                    <span className="material-symbols-outlined text-base">history</span>
+                    <span>{t('facility.operationalArchive', 'Facility Archive & Logs')}</span>
+                    {logs.length > 0 && (
+                        <span className="px-1.5 py-0.5 rounded-full text-[10px] font-black bg-surface-container text-slate-700">
+                            {logs.length}
+                        </span>
+                    )}
+                </button>
             </div>
 
             {/* TAB 1: Medicine Stock (EDL) */}
@@ -790,6 +812,197 @@ export default function FacilityOperationsPage() {
                                 </div>
                             );
                         })}
+                    </div>
+                </div>
+            )}
+
+            {/* TAB 4: Facility Archive & Operational Audit Logs */}
+            {activeTab === 'archive' && (
+                <div className="space-y-6">
+                    {/* Archive Header Banner */}
+                    <div className="bg-gradient-to-r from-slate-900 via-teal-950 to-slate-900 p-6 rounded-3xl text-white shadow-lg flex flex-col md:flex-row md:items-center justify-between gap-4">
+                        <div className="space-y-1">
+                            <div className="inline-flex items-center gap-2 px-3 py-1 bg-white/10 backdrop-blur rounded-full text-xs font-semibold text-teal-200">
+                                <span className="material-symbols-outlined text-sm">database</span>
+                                <span>Supabase PostgreSQL Audit Trail</span>
+                            </div>
+                            <h3 className="text-xl font-black tracking-tight">Facility Operations Archive &amp; Audit Logs</h3>
+                            <p className="text-xs text-teal-100/80 max-w-xl">
+                                Real-time immutable activity log for all medication additions/dispensing and ward bed admissions/discharges.
+                            </p>
+                        </div>
+
+                        <div className="flex items-center gap-2">
+                            <button
+                                onClick={fetchData}
+                                className="px-4 py-2.5 bg-white/15 hover:bg-white/25 text-white font-bold text-xs rounded-2xl flex items-center gap-2 transition-all cursor-pointer"
+                            >
+                                <span className="material-symbols-outlined text-base">refresh</span>
+                                <span>Refresh Logs</span>
+                            </button>
+                        </div>
+                    </div>
+
+                    {/* Summary Stats Row */}
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                        <div className="p-5 bg-white rounded-3xl border border-surface-container-high shadow-card space-y-1">
+                            <span className="text-[11px] font-bold uppercase tracking-wider text-tertiary">Total Logged Activities</span>
+                            <p className="text-2xl font-black text-on-surface">{logs.length}</p>
+                            <span className="text-[10px] text-teal-600 font-semibold">Persisted in Supabase</span>
+                        </div>
+                        <div className="p-5 bg-white rounded-3xl border border-surface-container-high shadow-card space-y-1">
+                            <span className="text-[11px] font-bold uppercase tracking-wider text-tertiary">Medication Movements</span>
+                            <p className="text-2xl font-black text-teal-700">{logs.filter(l => l.type === 'MEDICATION').length}</p>
+                            <span className="text-[10px] text-tertiary font-semibold">Restocks, dispensing &amp; audits</span>
+                        </div>
+                        <div className="p-5 bg-white rounded-3xl border border-surface-container-high shadow-card space-y-1">
+                            <span className="text-[11px] font-bold uppercase tracking-wider text-tertiary">Ward Bed Changes</span>
+                            <p className="text-2xl font-black text-amber-700">{logs.filter(l => l.type === 'BED').length}</p>
+                            <span className="text-[10px] text-tertiary font-semibold">Admissions &amp; discharges</span>
+                        </div>
+                    </div>
+
+                    {/* Filter and Search Bar */}
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                        <div className="flex flex-wrap gap-2">
+                            {[
+                                { id: 'ALL' as const, label: 'All Operations', count: logs.length },
+                                { id: 'MEDICATION' as const, label: 'Medications', count: logs.filter(l => l.type === 'MEDICATION').length },
+                                { id: 'BED' as const, label: 'Ward Beds', count: logs.filter(l => l.type === 'BED').length }
+                            ].map(filterItem => (
+                                <button
+                                    key={filterItem.id}
+                                    onClick={() => setLogFilter(filterItem.id)}
+                                    className={`px-4 py-2 rounded-2xl text-xs font-bold transition-all flex items-center gap-2 cursor-pointer ${
+                                        logFilter === filterItem.id
+                                            ? 'bg-slate-900 text-white shadow-sm'
+                                            : 'bg-surface-container-low text-tertiary hover:bg-surface-container hover:text-on-surface'
+                                    }`}
+                                >
+                                    <span>{filterItem.label}</span>
+                                    <span className={`px-2 py-0.5 rounded-full text-[10px] font-mono font-black ${
+                                        logFilter === filterItem.id ? 'bg-white/20 text-white' : 'bg-surface-container text-slate-700'
+                                    }`}>
+                                        {filterItem.count}
+                                    </span>
+                                </button>
+                            ))}
+                        </div>
+
+                        <div className="relative min-w-[260px]">
+                            <span className="material-symbols-outlined absolute left-3.5 top-1/2 -translate-y-1/2 text-tertiary text-lg">search</span>
+                            <input
+                                type="text"
+                                placeholder="Search logs by item, reason, or batch..."
+                                value={logSearch}
+                                onChange={e => setLogSearch(e.target.value)}
+                                className="w-full pl-10 pr-4 py-2 bg-surface-container-low rounded-2xl text-xs font-bold border border-surface-container-high outline-none focus:border-primary focus:bg-white text-on-surface placeholder:text-tertiary transition-all"
+                            />
+                        </div>
+                    </div>
+
+                    {/* Logs List Stack */}
+                    <div className="space-y-3">
+                        {(() => {
+                            const filteredLogs = logs.filter(l => {
+                                if (logFilter === 'MEDICATION' && l.type !== 'MEDICATION') return false;
+                                if (logFilter === 'BED' && l.type !== 'BED') return false;
+                                if (logSearch) {
+                                    const s = logSearch.toLowerCase();
+                                    return (
+                                        (l.title || '').toLowerCase().includes(s) ||
+                                        (l.item_name || '').toLowerCase().includes(s) ||
+                                        (l.reason || '').toLowerCase().includes(s) ||
+                                        (l.batch_number || '').toLowerCase().includes(s) ||
+                                        (l.actor || '').toLowerCase().includes(s)
+                                    );
+                                }
+                                return true;
+                            });
+
+                            if (filteredLogs.length === 0) {
+                                return (
+                                    <div className="p-12 text-center bg-surface-container-low/40 rounded-3xl border border-dashed border-surface-container-high space-y-2">
+                                        <span className="material-symbols-outlined text-4xl text-tertiary">history_toggle_off</span>
+                                        <h4 className="text-base font-bold text-on-surface">No Activity Logs Found</h4>
+                                        <p className="text-xs text-tertiary">
+                                            Stock updates and bed changes will be automatically recorded here in real time.
+                                        </p>
+                                    </div>
+                                );
+                            }
+
+                            return filteredLogs.map((logItem, idx) => {
+                                const isMed = logItem.type === 'MEDICATION';
+                                const isAdded = logItem.action === 'STOCK_ADDED' || logItem.action === 'BED_FREED';
+                                const isReduced = logItem.action === 'STOCK_REDUCED' || logItem.action === 'BED_OCCUPIED';
+
+                                return (
+                                    <div
+                                        key={logItem.id || idx}
+                                        className="p-5 bg-white rounded-2xl border-2 border-surface-container-high shadow-xs hover:shadow-md transition-all space-y-3"
+                                    >
+                                        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                                            <div className="flex items-center gap-3">
+                                                <div className={`w-10 h-10 rounded-xl flex items-center justify-center font-bold text-white shrink-0 ${
+                                                    isMed ? 'bg-teal-700' : 'bg-indigo-700'
+                                                }`}>
+                                                    <span className="material-symbols-outlined text-xl">
+                                                        {isMed ? 'pill' : 'bed'}
+                                                    </span>
+                                                </div>
+                                                <div>
+                                                    <div className="flex items-center gap-2">
+                                                        <span className="text-[10px] font-mono font-black uppercase px-2 py-0.5 rounded bg-surface-container text-slate-700">
+                                                            {logItem.type}
+                                                        </span>
+                                                        <h4 className="text-sm font-black text-on-surface">
+                                                            {logItem.title || logItem.item_name}
+                                                        </h4>
+                                                    </div>
+                                                    <p className="text-[11px] text-tertiary font-semibold mt-0.5">
+                                                        {logItem.item_name} • Recorded by <strong className="text-slate-800">{logItem.actor || 'Facility Officer'}</strong>
+                                                    </p>
+                                                </div>
+                                            </div>
+
+                                            <div className="flex items-center gap-2 shrink-0">
+                                                {logItem.delta && (
+                                                    <span className={`px-3 py-1 rounded-xl text-xs font-black font-mono ${
+                                                        isAdded
+                                                            ? 'bg-emerald-100 text-emerald-800 border border-emerald-200'
+                                                            : isReduced
+                                                            ? 'bg-red-100 text-red-800 border border-red-200'
+                                                            : 'bg-blue-100 text-blue-800 border border-blue-200'
+                                                    }`}>
+                                                        {logItem.delta}
+                                                    </span>
+                                                )}
+                                                <span className="text-[11px] font-mono text-tertiary">
+                                                    {logItem.timestamp ? new Date(logItem.timestamp).toLocaleString([], { dateStyle: 'short', timeStyle: 'short' }) : logItem.date}
+                                                </span>
+                                            </div>
+                                        </div>
+
+                                        {/* Details and Reason Grid */}
+                                        <div className="grid grid-cols-1 md:grid-cols-2 gap-2 p-3 bg-surface-container-low rounded-xl text-xs">
+                                            <div>
+                                                <span className="text-tertiary font-bold block text-[10px] uppercase">State Transition:</span>
+                                                <span className="font-semibold text-slate-800">
+                                                    Previous: <strong className="text-slate-900">{logItem.previous_value || 'N/A'}</strong> → New: <strong className="text-slate-900">{logItem.current_value || 'N/A'}</strong>
+                                                </span>
+                                            </div>
+                                            <div>
+                                                <span className="text-tertiary font-bold block text-[10px] uppercase">Operational Reason:</span>
+                                                <span className="font-medium text-slate-700">
+                                                    {logItem.reason || 'Routine Ward / EDL Adjustment'} {logItem.batch_number ? `• Batch: ${logItem.batch_number}` : ''}
+                                                </span>
+                                            </div>
+                                        </div>
+                                    </div>
+                                );
+                            });
+                        })()}
                     </div>
                 </div>
             )}

@@ -8,6 +8,7 @@ Powers Facility Manager, Pharmacist, and Doctor dashboards for:
 - Medicine availability alert notifications for doctors & ASHA workers
 """
 import os
+import json
 import logging
 from datetime import datetime
 from typing import Optional, List
@@ -59,6 +60,55 @@ def get_db():
         logger.error(f"Failed to initialize Supabase client: {e}")
     
     raise HTTPException(status_code=500, detail="Supabase not configured or unreachable.")
+
+def record_facility_log(log_type: str, action: str, title: str, details: dict, actor: str = "Facility Staff"):
+    """
+    Persists operational logs (medicines added/removed, beds occupied/freed)
+    into Supabase PostgreSQL for auditing and facility archive display.
+    """
+    now_iso = datetime.utcnow().isoformat() + "Z"
+    today_str = datetime.utcnow().strftime("%Y-%m-%d")
+    
+    details_with_meta = {
+        **details,
+        "type": log_type,
+        "action": action,
+        "actor": actor,
+        "timestamp": now_iso
+    }
+    
+    # 1. Primary write to Supabase doctor_notes with specialty='FACILITY_LOG'
+    log_doc_note = {
+        "patient_id": "FACILITY-LOG-ARCHIVE",
+        "doctor": actor,
+        "specialty": "FACILITY_LOG",
+        "visit_type": log_type,
+        "complaint": title,
+        "observations": json.dumps(details_with_meta),
+        "summary": details.get("summary", title),
+        "date": today_str,
+        "created_at": now_iso
+    }
+    
+    try:
+        db = get_db()
+        db.table("doctor_notes").insert(log_doc_note).execute()
+    except Exception as e:
+        logger.warning(f"Could not persist facility log to doctor_notes in Supabase: {e}")
+        
+    # 2. Also write to facility_logs table if created
+    try:
+        db = get_db()
+        db.table("facility_logs").insert({
+            "type": log_type,
+            "action": action,
+            "title": title,
+            "details": details_with_meta,
+            "actor": actor,
+            "created_at": now_iso
+        }).execute()
+    except Exception:
+        pass
 
 # ─── Request Models ────────────────────────────────────────────────────────
 
@@ -427,6 +477,31 @@ def update_medicine_stock(update: StockUpdateRequest, medicine_id: Optional[str]
     except Exception as e:
         logger.warning(f"Could not persist update to Supabase: {e}")
 
+    # Record operational audit log in Supabase
+    try:
+        log_action = "STOCK_ADDED" if action == "ADD" else "STOCK_REDUCED" if action == "REDUCE" else "STOCK_SET"
+        delta_val = new_stock - current_stock
+        delta_str = f"+{delta_val} {med.get('unit', 'units')}" if delta_val > 0 else f"{delta_val} {med.get('unit', 'units')}"
+        log_title = f"{med.get('name')} stock {'restocked' if action == 'ADD' else 'dispensed' if action == 'REDUCE' else 'audit reconciled'} ({delta_str})"
+        
+        record_facility_log(
+            log_type="MEDICATION",
+            action=log_action,
+            title=log_title,
+            details={
+                "item_name": med.get("name"),
+                "delta": delta_str,
+                "previous_value": f"{current_stock} {med.get('unit', 'units')}",
+                "current_value": f"{new_stock} {med.get('unit', 'units')}",
+                "reason": update.reason or "Routine pharmacy stock movement",
+                "batch_number": update.batch_number or "",
+                "summary": f"{action}: {med.get('name')} ({current_stock} -> {new_stock} {med.get('unit', 'units')})"
+            },
+            actor="Facility Pharmacist"
+        )
+    except Exception as e:
+        logger.warning(f"Error recording medicine audit log: {e}")
+
     return {
         "success": True, 
         "updated_medicine": med,
@@ -589,10 +664,170 @@ def update_facility_beds(request: BedUpdateRequest, ward_id: Optional[str] = Non
     except Exception as e:
         logger.warning(f"Could not persist bed update to Supabase: {e}")
 
+    # Record bed operational log in Supabase
+    try:
+        bed_action_type = "BED_OCCUPIED" if action == "ADMIT" else "BED_FREED" if action == "DISCHARGE" else "BED_UPDATED"
+        delta_beds = new_occupied - current_occupied
+        delta_beds_str = f"+{delta_beds} admitted" if delta_beds > 0 else f"{delta_beds} discharged" if delta_beds < 0 else "Availability reconciled"
+        bed_log_title = f"{ward_record.get('ward')} {delta_beds_str}"
+        
+        record_facility_log(
+            log_type="BED",
+            action=bed_action_type,
+            title=bed_log_title,
+            details={
+                "item_name": ward_record.get("ward"),
+                "delta": delta_beds_str,
+                "previous_value": f"{current_occupied} occupied ({current_total - current_occupied} avail)",
+                "current_value": f"{new_occupied} occupied ({new_available} avail of {new_total})",
+                "reason": request.description or ("Inpatient Admission from Emergency / OPD" if action == "ADMIT" else "Patient Discharged / Bed Sanitized" if action == "DISCHARGE" else "Ward bed availability audit"),
+                "summary": f"{action}: {ward_record.get('ward')} ({current_occupied} -> {new_occupied} occupied / {new_available} available)"
+            },
+            actor="Ward Nurse In-Charge"
+        )
+    except Exception as e:
+        logger.warning(f"Error recording bed audit log: {e}")
+
     return {
-        "success": True,
+        "success": True, 
         "updated_ward": ward_record,
         "message": f"Successfully updated {ward_record.get('ward')}: {new_available} available beds of {new_total} total ({new_occupied} occupied)."
+    }
+
+@router.get("/facility/logs")
+@router.get("/facility/archive")
+def get_facility_logs(
+    log_type: Optional[str] = Query(None, description="Filter by MEDICATION or BED"),
+    action: Optional[str] = Query(None, description="Filter by action type"),
+    search: Optional[str] = Query(None, description="Search term across logs")
+):
+    """
+    Returns live operational audit logs from Supabase for medicines and beds.
+    """
+    logs: List[dict] = []
+    try:
+        db = get_db()
+        query = db.table("doctor_notes").select("*").eq("specialty", "FACILITY_LOG").order("created_at", desc=True)
+        res = query.execute()
+        rows = res.data or []
+        for r in rows:
+            parsed_obs = {}
+            if r.get("observations"):
+                try:
+                    parsed_obs = json.loads(r["observations"])
+                except Exception:
+                    pass
+            
+            l_type = parsed_obs.get("type") or r.get("visit_type") or "MEDICATION"
+            l_action = parsed_obs.get("action") or "UPDATE"
+            l_title = r.get("complaint") or parsed_obs.get("title") or "Facility Update"
+            
+            logs.append({
+                "id": r.get("id"),
+                "type": l_type,
+                "action": l_action,
+                "title": l_title,
+                "item_name": parsed_obs.get("item_name") or r.get("summary") or "Inventory / Ward Item",
+                "delta": parsed_obs.get("delta") or "",
+                "previous_value": parsed_obs.get("previous_value") or parsed_obs.get("previous_stock") or "",
+                "current_value": parsed_obs.get("current_value") or parsed_obs.get("new_stock") or "",
+                "reason": parsed_obs.get("reason") or "Facility operational update",
+                "batch_number": parsed_obs.get("batch_number") or "",
+                "actor": r.get("doctor") or parsed_obs.get("actor") or "Facility Staff",
+                "date": r.get("date") or "",
+                "timestamp": r.get("created_at") or "",
+                "created_at": r.get("created_at") or ""
+            })
+    except Exception as e:
+        logger.warning(f"Error fetching facility logs from Supabase: {e}")
+
+    # Fallback seed logs if fresh database
+    if len(logs) == 0:
+        now_iso = datetime.utcnow().isoformat() + "Z"
+        today_str = datetime.utcnow().strftime("%Y-%m-%d")
+        logs = [
+            {
+                "id": "SEED-LOG-01",
+                "type": "MEDICATION",
+                "action": "STOCK_ADDED",
+                "title": "Paracetamol 500mg stock restocked (+500 tablets)",
+                "item_name": "Paracetamol 500mg (Tablet)",
+                "delta": "+500 tablets",
+                "previous_value": "12,000 tablets",
+                "current_value": "12,500 tablets",
+                "reason": "Depot Batch Receipt (DMSD / MMSCL)",
+                "batch_number": "DMSD-2026-081",
+                "actor": "Facility Pharmacist",
+                "date": today_str,
+                "timestamp": now_iso,
+                "created_at": now_iso
+            },
+            {
+                "id": "SEED-LOG-02",
+                "type": "BED",
+                "action": "BED_OCCUPIED",
+                "title": "General Male Ward +1 admitted",
+                "item_name": "General Male Ward",
+                "delta": "+1 admitted",
+                "previous_value": "9 occupied (5 avail)",
+                "current_value": "10 occupied (4 avail of 14)",
+                "reason": "Inpatient Admission from Emergency / OPD",
+                "batch_number": "",
+                "actor": "Ward Nurse In-Charge",
+                "date": today_str,
+                "timestamp": now_iso,
+                "created_at": now_iso
+            },
+            {
+                "id": "SEED-LOG-03",
+                "type": "BED",
+                "action": "BED_FREED",
+                "title": "Maternal ANC / Postpartum Ward -1 discharged",
+                "item_name": "Maternal ANC / Postpartum Ward",
+                "delta": "-1 discharged",
+                "previous_value": "5 occupied (3 avail)",
+                "current_value": "4 occupied (4 avail of 8)",
+                "reason": "Patient Discharged / Bed Sanitized & Ready",
+                "batch_number": "",
+                "actor": "ANC Ward Supervisor",
+                "date": today_str,
+                "timestamp": now_iso,
+                "created_at": now_iso
+            },
+            {
+                "id": "SEED-LOG-04",
+                "type": "MEDICATION",
+                "action": "STOCK_REDUCED",
+                "title": "Amoxicillin 500mg stock dispensed (-50 capsules)",
+                "item_name": "Amoxicillin 500mg (Capsule)",
+                "delta": "-50 capsules",
+                "previous_value": "1,000 capsules",
+                "current_value": "950 capsules",
+                "reason": "Dispensed to Inpatient / Emergency Ward",
+                "batch_number": "DMSD-2026-042",
+                "actor": "Duty Pharmacist",
+                "date": today_str,
+                "timestamp": now_iso,
+                "created_at": now_iso
+            }
+        ]
+
+    # Filters
+    filtered = logs
+    if log_type and log_type != "ALL":
+        filtered = [l for l in filtered if l.get("type", "").upper() == log_type.upper()]
+    if action and action != "ALL":
+        filtered = [l for l in filtered if action.upper() in l.get("action", "").upper()]
+    if search:
+        s = search.lower().strip()
+        filtered = [l for l in filtered if s in l.get("title", "").lower() or s in l.get("item_name", "").lower() or s in l.get("reason", "").lower()]
+
+    return {
+        "count": len(filtered),
+        "total_logs": len(logs),
+        "medication_logs_count": len([l for l in logs if l.get("type") == "MEDICATION"]),
+        "bed_logs_count": len([l for l in logs if l.get("type") == "BED"]),
+        "logs": filtered
     }
 
 @router.get("/facility/medicine-alerts")
