@@ -327,39 +327,11 @@ function HealthRecordsContent() {
         console.warn('Note loading patient profile info:', profErr);
       }
 
-      // 1. Fetch medications
+      // 1. Fetch medications (active schedule)
       const { data: dbMeds } = await supabase
         .from('medications')
         .select('*')
         .eq('patient_id', targetId);
-
-      if (dbMeds && dbMeds.length > 0) {
-        const todayStr = new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
-        const mapped = dbMeds.map((m: any) => {
-          const actionDate = m.date_action || (m.created_at ? new Date(m.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : todayStr);
-          const isNewDay = actionDate !== todayStr;
-          const activeStatus = isNewDay ? 'UPCOMING' : (m.status || 'UPCOMING');
-          return {
-            id: m.id,
-            name: m.name,
-            dosage: m.dosage,
-            frequency: m.frequency || 'Once daily',
-            time: m.time || 'Morning',
-            status: activeStatus,
-            date_action: actionDate,
-            historical_status: m.status || 'UPCOMING',
-            color: '#d4f0fa',
-            icon: 'pill',
-            isError: activeStatus === 'MISSED',
-            prescription_type: m.prescription_type || (m.is_inventory === false ? 'NON-INVENTORY' : (m.is_inventory === true || m.inventory_id ? 'INVENTORY' : 'INVENTORY')),
-            is_inventory: m.is_inventory ?? (m.prescription_type === 'INVENTORY' || !!m.inventory_id),
-            inventory_id: m.inventory_id || null,
-          };
-        });
-        setActiveMedications(mapped);
-      } else {
-        setActiveMedications([]);
-      }
 
       // 2. Fetch prescriptions
       const { data: dbRx } = await supabase
@@ -369,6 +341,74 @@ function HealthRecordsContent() {
         .order('created_at', { ascending: false });
 
       setUserPrescriptions(dbRx || []);
+
+      const todayStr = new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+      
+      const rxStatusMap = new Map<string, string>();
+      (dbRx || []).forEach((r: any) => {
+        const rName = (r.medication || r.name || '').toLowerCase().trim();
+        if (rName && r.status) rxStatusMap.set(rName, r.status);
+        if (r.id && r.status) rxStatusMap.set(r.id, r.status);
+      });
+
+      const mappedMeds = (dbMeds || []).map((m: any) => {
+        const medKey = (m.name || '').toLowerCase().trim();
+        const persistedStatus = m.status || rxStatusMap.get(m.id) || rxStatusMap.get(medKey) || 'UPCOMING';
+        const actionDate = m.date_action || todayStr;
+        const isTaken = persistedStatus === 'TAKEN' || persistedStatus === 'COMPLETED' || persistedStatus === 'GIVEN';
+        const activeStatus = isTaken ? 'TAKEN' : (persistedStatus === 'MISSED' ? 'MISSED' : 'UPCOMING');
+
+        return {
+          id: m.id,
+          name: m.name,
+          dosage: m.dosage,
+          frequency: m.frequency || 'Once daily',
+          time: m.time || 'Morning',
+          status: activeStatus,
+          date_action: actionDate,
+          historical_status: persistedStatus,
+          color: '#d4f0fa',
+          icon: 'pill',
+          isError: activeStatus === 'MISSED',
+          prescription_type: m.prescription_type || (m.is_inventory === false ? 'NON-INVENTORY' : (m.is_inventory === true || m.inventory_id ? 'INVENTORY' : 'INVENTORY')),
+          is_inventory: m.is_inventory ?? (m.prescription_type === 'INVENTORY' || !!m.inventory_id),
+          inventory_id: m.inventory_id || null,
+        };
+      });
+
+      // Supplementary merge from prescriptions table so no prescribed drug is omitted
+      const existingNames = new Set(mappedMeds.map(m => (m.name || '').toLowerCase().trim()));
+      const supplementaryMeds: any[] = [];
+      if (dbRx && dbRx.length > 0) {
+        for (const rx of dbRx) {
+          const rxName = (rx.medication || rx.name || '').trim();
+          if (rxName && !existingNames.has(rxName.toLowerCase())) {
+            existingNames.add(rxName.toLowerCase());
+            const rxStatus = rx.status || 'UPCOMING';
+            const isTaken = rxStatus === 'TAKEN' || rxStatus === 'COMPLETED' || rxStatus === 'GIVEN';
+            const activeStatus = isTaken ? 'TAKEN' : (rxStatus === 'MISSED' ? 'MISSED' : 'UPCOMING');
+
+            supplementaryMeds.push({
+              id: rx.id || `rx-${rxName}`,
+              name: rxName,
+              dosage: rx.dosage || 'Standard',
+              frequency: rx.frequency || 'Once daily',
+              time: 'Morning',
+              status: activeStatus,
+              date_action: todayStr,
+              historical_status: rxStatus,
+              color: '#d4f0fa',
+              icon: 'pill',
+              isError: rxStatus === 'MISSED',
+              prescription_type: rx.prescription_type || (rx.is_inventory === false ? 'NON-INVENTORY' : 'INVENTORY'),
+              is_inventory: rx.is_inventory ?? (rx.prescription_type === 'INVENTORY' || !!rx.inventory_id),
+              inventory_id: rx.inventory_id || null,
+            });
+          }
+        }
+      }
+
+      setActiveMedications([...mappedMeds, ...supplementaryMeds]);
 
       // 3. Fetch doctor notes
       const { data: dbNotes } = await supabase
@@ -647,16 +687,33 @@ function HealthRecordsContent() {
     try {
       const supabase = createClient();
       if (medToUpdate.id && typeof medToUpdate.id === 'string' && !medToUpdate.id.startsWith('rx-')) {
-        await supabase
+        const { error: medErr1 } = await supabase
           .from('medications')
+          .update({ status: nextStatus, date_action: updatedDate })
+          .eq('id', medToUpdate.id);
+        if (medErr1) console.warn('Error updating medication status by id:', medErr1);
+
+        const { error: rxErr1 } = await supabase
+          .from('prescriptions')
           .update({ status: nextStatus })
           .eq('id', medToUpdate.id);
-      } else if (userId && medToUpdate.name) {
-        await supabase
+        if (rxErr1) console.warn('Error updating prescription status by id:', rxErr1);
+      }
+
+      if (userId && medToUpdate.name) {
+        const { error: medErr2 } = await supabase
           .from('medications')
-          .update({ status: nextStatus })
+          .update({ status: nextStatus, date_action: updatedDate })
           .eq('patient_id', userId)
           .eq('name', medToUpdate.name);
+        if (medErr2) console.warn('Error updating medication status by name:', medErr2);
+
+        const { error: rxErr2 } = await supabase
+          .from('prescriptions')
+          .update({ status: nextStatus })
+          .eq('patient_id', userId)
+          .eq('medication', medToUpdate.name);
+        if (rxErr2) console.warn('Error updating prescription status by medication name:', rxErr2);
       }
     } catch (err) {
       console.warn('Could not update medication status in Supabase:', err);

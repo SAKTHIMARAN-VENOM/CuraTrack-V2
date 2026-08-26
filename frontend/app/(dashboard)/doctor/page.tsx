@@ -12,6 +12,8 @@ export interface DoctorPrescriptionItem {
   id: string;
   inventory_id?: string;
   is_inventory: boolean;
+  prescription_type?: 'INVENTORY' | 'NON-INVENTORY' | string;
+  status?: string;
   drug: string;
   category?: string;
   dosage: string;
@@ -615,9 +617,15 @@ export default function DoctorOPDPage() {
         .eq('patient_id', patientClientId)
         .order('created_at', { ascending: false });
 
-      // 3. Fetch active Prescriptions for this patient
+      // 3. Fetch active Prescriptions and Medications for this patient
       const { data: rxData } = await supabase
         .from('prescriptions')
+        .select('*')
+        .eq('patient_id', patientClientId)
+        .order('created_at', { ascending: false });
+
+      const { data: medData } = await supabase
+        .from('medications')
         .select('*')
         .eq('patient_id', patientClientId)
         .order('created_at', { ascending: false });
@@ -756,18 +764,38 @@ export default function DoctorOPDPage() {
         setSoapNotes(currentPat?.complaint && currentPat.complaint !== 'General clinical consultation' ? `Chief Complaint: ${currentPat.complaint}` : '');
       }
 
-      // Set Prescriptions (avoid duplicates by medication name)
+      // Build map of medication statuses (e.g. TAKEN, COMPLETED, UPCOMING)
+      const medStatusMap = new Map<string, any>();
+      if (medData && medData.length > 0) {
+        for (const m of medData) {
+          const medName = (m.name || '').toLowerCase().trim();
+          if (medName) medStatusMap.set(medName, m);
+          if (m.id) medStatusMap.set(m.id, m);
+        }
+      }
+
+      // Reconcile Prescriptions (avoid duplicates, preserve taken/completed status)
+      const reconciledRx: DoctorPrescriptionItem[] = [];
+      const seenDrugs = new Set<string>();
+
+      // 1. Process prescriptions from prescriptions table
       if (rxData && rxData.length > 0) {
-        const seenDrugs = new Set<string>();
-        const uniqueRxList: DoctorPrescriptionItem[] = [];
         for (const r of rxData) {
-          const drugName = (r.medication || '').trim();
-          if (drugName && !seenDrugs.has(drugName.toLowerCase())) {
+          const drugName = (r.medication || r.drug || '').trim();
+          const key = (r.id || drugName).toLowerCase();
+          if (drugName && !seenDrugs.has(key) && !seenDrugs.has(drugName.toLowerCase())) {
+            seenDrugs.add(key);
             seenDrugs.add(drugName.toLowerCase());
-            uniqueRxList.push({
+
+            const matchingMed = medStatusMap.get(r.id) || medStatusMap.get(drugName.toLowerCase());
+            const currentStatus = r.status || matchingMed?.status || 'PRESCRIBED';
+
+            reconciledRx.push({
               id: r.id,
               inventory_id: r.inventory_id || undefined,
               is_inventory: r.prescription_type ? r.prescription_type === 'INVENTORY' : (r.is_inventory ?? !!r.inventory_id),
+              prescription_type: r.prescription_type || (r.is_inventory || r.inventory_id ? 'INVENTORY' : 'NON-INVENTORY'),
+              status: currentStatus,
               drug: drugName,
               category: r.category || 'Prescribed Drug',
               dosage: r.dosage || 'Standard',
@@ -779,10 +807,37 @@ export default function DoctorOPDPage() {
             });
           }
         }
-        setPrescriptions(uniqueRxList);
-      } else {
-        setPrescriptions([]);
       }
+
+      // 2. Include any medications from medications table not yet represented in prescriptions
+      if (medData && medData.length > 0) {
+        for (const m of medData) {
+          const drugName = (m.name || '').trim();
+          const key = (m.id || drugName).toLowerCase();
+          if (drugName && !seenDrugs.has(key) && !seenDrugs.has(drugName.toLowerCase())) {
+            seenDrugs.add(key);
+            seenDrugs.add(drugName.toLowerCase());
+
+            reconciledRx.push({
+              id: m.id,
+              inventory_id: m.inventory_id || undefined,
+              is_inventory: m.prescription_type ? m.prescription_type === 'INVENTORY' : (m.is_inventory ?? !!m.inventory_id),
+              prescription_type: m.prescription_type || (m.is_inventory || m.inventory_id ? 'INVENTORY' : 'NON-INVENTORY'),
+              status: m.status || 'UPCOMING',
+              drug: drugName,
+              category: m.category || 'Active Medication',
+              dosage: m.dosage || 'Standard',
+              frequency: m.frequency || 'OD (Once daily)',
+              duration: m.duration || '5 Days',
+              quantity: m.quantity || 10,
+              unit: m.unit || 'tablets',
+              instructions: m.instructions || 'Take as directed',
+            });
+          }
+        }
+      }
+
+      setPrescriptions(reconciledRx);
 
       // Set Labs
       if (labData && labData.length > 0) {
@@ -968,43 +1023,123 @@ export default function DoctorOPDPage() {
         }]);
       }
 
-      // 3. Persist Prescriptions to prescriptions & medications tables (clean sync)
-      await supabase.from('prescriptions').delete().eq('patient_id', patientClientId);
-      await supabase.from('medications').delete().eq('patient_id', patientClientId);
-
+      // 3. Persist Prescriptions & Medications (Incremental Upsert/Merge without deleting history)
       if (prescriptions.length > 0) {
-        const rxInserts = prescriptions.map(p => ({
-          patient_id: patientClientId,
-          medication: p.drug,
-          dosage: p.dosage,
-          frequency: p.frequency,
-          doctor_name: docName,
-          date: p.duration || todayStr,
-          instructions: p.instructions,
-          inventory_id: p.inventory_id || null,
-          quantity: p.quantity,
-          is_inventory: p.is_inventory,
-          prescription_type: p.is_inventory ? 'INVENTORY' : 'NON-INVENTORY'
-        }));
-        await supabase.from('prescriptions').insert(rxInserts);
+        // Query existing records to prevent duplicates and keep taken/completed status
+        const { data: existingRx } = await supabase
+          .from('prescriptions')
+          .select('*')
+          .eq('patient_id', patientClientId);
 
-        const medInserts = prescriptions.map(p => ({
-          patient_id: patientClientId,
-          name: p.drug,
-          dosage: p.dosage,
-          frequency: p.frequency,
-          instructions: p.instructions,
-          doctor: docName,
-          status: 'UPCOMING',
-          active: true,
-          inventory_id: p.inventory_id || null,
-          is_inventory: p.is_inventory,
-          prescription_type: p.is_inventory ? 'INVENTORY' : 'NON-INVENTORY'
-        }));
-        await supabase.from('medications').insert(medInserts);
+        const { data: existingMeds } = await supabase
+          .from('medications')
+          .select('*')
+          .eq('patient_id', patientClientId);
+
+        const existingRxIdSet = new Set((existingRx || []).map((r: any) => r.id));
+        const existingRxNameSet = new Set((existingRx || []).map((r: any) => (r.medication || r.drug || '').toLowerCase().trim()));
+
+        const existingMedMap = new Map<string, any>();
+        (existingMeds || []).forEach((m: any) => {
+          if (m.id) existingMedMap.set(m.id, m);
+          if (m.name) existingMedMap.set(m.name.toLowerCase().trim(), m);
+        });
+
+        const newRxInserts: any[] = [];
+        const newMedInserts: any[] = [];
+        const newlyAddedInventoryItems: DoctorPrescriptionItem[] = [];
+
+        for (const p of prescriptions) {
+          const isPersistedRx = existingRxIdSet.has(p.id) || existingRxNameSet.has(p.drug.toLowerCase().trim());
+          const existingMed = existingMedMap.get(p.id) || existingMedMap.get(p.drug.toLowerCase().trim());
+
+          if (!isPersistedRx) {
+            newRxInserts.push({
+              id: p.id,
+              patient_id: patientClientId,
+              medication: p.drug,
+              dosage: p.dosage,
+              frequency: p.frequency,
+              doctor_name: docName,
+              date: p.duration || todayStr,
+              instructions: p.instructions,
+              inventory_id: p.inventory_id || null,
+              quantity: p.quantity,
+              is_inventory: p.is_inventory,
+              prescription_type: p.is_inventory ? 'INVENTORY' : 'NON-INVENTORY',
+              status: p.status || 'PRESCRIBED'
+            });
+
+            if (p.is_inventory && p.inventory_id) {
+              newlyAddedInventoryItems.push(p);
+            }
+          } else if (p.status) {
+            // Update status of existing persisted prescription & medication
+            const { error: syncRxErr } = await supabase
+              .from('prescriptions')
+              .update({ status: p.status })
+              .eq('patient_id', patientClientId)
+              .eq('medication', p.drug);
+            if (syncRxErr) console.warn('Error syncing existing prescription status:', syncRxErr);
+
+            const { error: syncMedErr } = await supabase
+              .from('medications')
+              .update({ status: p.status, date_action: todayStr })
+              .eq('patient_id', patientClientId)
+              .eq('name', p.drug);
+            if (syncMedErr) console.warn('Error syncing existing medication status:', syncMedErr);
+          }
+
+          if (!existingMed) {
+            newMedInserts.push({
+              id: p.id,
+              patient_id: patientClientId,
+              name: p.drug,
+              dosage: p.dosage,
+              frequency: p.frequency,
+              instructions: p.instructions,
+              doctor: docName,
+              status: p.status || 'UPCOMING',
+              active: true,
+              inventory_id: p.inventory_id || null,
+              is_inventory: p.is_inventory,
+              prescription_type: p.is_inventory ? 'INVENTORY' : 'NON-INVENTORY'
+            });
+          }
+        }
+
+        if (newRxInserts.length > 0) {
+          await supabase.from('prescriptions').insert(newRxInserts);
+        }
+
+        if (newMedInserts.length > 0) {
+          await supabase.from('medications').insert(newMedInserts);
+        }
+
+        // 4. Atomically deduct EDL medicines stock from facility inventory for newly added items
+        if (newlyAddedInventoryItems.length > 0) {
+          try {
+            const rxId = `rx-${patientClientId}-${Date.now()}`;
+            await apiFetch('/api/facility/medicines/deduct-stock', {
+              method: 'POST',
+              body: JSON.stringify({
+                prescription_id: rxId,
+                patient_id: patientClientId,
+                items: newlyAddedInventoryItems.map(p => ({
+                  medicine_id: p.inventory_id,
+                  medicine_name: p.drug,
+                  quantity: p.quantity || 1
+                })),
+                dispensed_by: docName
+              })
+            });
+          } catch (stockErr) {
+            console.warn('EDL stock deduction notification failed:', stockErr);
+          }
+        }
       }
 
-      // 4. Persist Diagnostic Lab Orders (clean sync)
+      // 5. Persist Diagnostic Lab Orders (clean sync)
       await supabase.from('lab_results').delete().eq('patient_id', patientClientId).eq('status', 'Pending');
       if (selectedLabs.length > 0) {
         const labInserts = selectedLabs.map(lab => ({
@@ -1018,7 +1153,7 @@ export default function DoctorOPDPage() {
         await supabase.from('lab_results').insert(labInserts);
       }
 
-      // 5. Update Appointment status to completed in database
+      // 6. Update Appointment status to completed in database
       if (selectedPatient.id) {
         await supabase
           .from('appointments')
@@ -1027,30 +1162,6 @@ export default function DoctorOPDPage() {
             notes: `Encounter completed. Dx: ${soapDiagnosis.trim() || 'Reviewed'}`,
           })
           .eq('id', selectedPatient.id);
-      }
-
-      // 6. Atomically deduct EDL medicines stock from facility inventory (Phase 8)
-      // Only inventory medicines with valid inventory_id trigger inventory deduction
-      const inventoryItems = prescriptions.filter(p => p.is_inventory && p.inventory_id);
-      if (inventoryItems.length > 0) {
-        try {
-          const rxId = `rx-${patientClientId}-${Date.now()}`;
-          await apiFetch('/api/facility/medicines/deduct-stock', {
-            method: 'POST',
-            body: JSON.stringify({
-              prescription_id: rxId,
-              patient_id: patientClientId,
-              items: inventoryItems.map(p => ({
-                medicine_id: p.inventory_id,
-                medicine_name: p.drug,
-                quantity: p.quantity || 1
-              })),
-              dispensed_by: docName
-            })
-          });
-        } catch (stockErr) {
-          console.warn('EDL stock deduction notification failed:', stockErr);
-        }
       }
 
       handleStatusChange(selectedPatient.id, 'COMPLETED');
@@ -1127,6 +1238,61 @@ export default function DoctorOPDPage() {
     }
   };
 
+  const handleTogglePrescriptionStatus = async (prescriptionId: string) => {
+    const targetPrescription = prescriptions.find(p => p.id === prescriptionId);
+    if (!targetPrescription) return;
+
+    const nextStatus = (targetPrescription.status === 'TAKEN' || targetPrescription.status === 'COMPLETED') ? 'PRESCRIBED' : 'TAKEN';
+    const updatedDate = new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+
+    // 1. Update React local state immediately
+    setPrescriptions(prev =>
+      prev.map(item =>
+        item.id === prescriptionId
+          ? { ...item, status: nextStatus }
+          : item
+      )
+    );
+
+    // 2. Persist status update to Supabase
+    if (selectedPatient) {
+      const patientClientId = selectedPatient.clientId || selectedPatient.id;
+      try {
+        if (prescriptionId && !prescriptionId.startsWith('rx-')) {
+          const { error: rxErr1 } = await supabase
+            .from('prescriptions')
+            .update({ status: nextStatus })
+            .eq('id', prescriptionId);
+          if (rxErr1) console.warn('Error updating prescription status by id:', rxErr1);
+
+          const { error: medErr1 } = await supabase
+            .from('medications')
+            .update({ status: nextStatus, date_action: updatedDate })
+            .eq('id', prescriptionId);
+          if (medErr1) console.warn('Error updating medication status by id:', medErr1);
+        }
+
+        if (patientClientId && targetPrescription.drug) {
+          const { error: rxErr2 } = await supabase
+            .from('prescriptions')
+            .update({ status: nextStatus })
+            .eq('patient_id', patientClientId)
+            .eq('medication', targetPrescription.drug);
+          if (rxErr2) console.warn('Error updating prescription status by medication name:', rxErr2);
+
+          const { error: medErr2 } = await supabase
+            .from('medications')
+            .update({ status: nextStatus, date_action: updatedDate })
+            .eq('patient_id', patientClientId)
+            .eq('name', targetPrescription.drug);
+          if (medErr2) console.warn('Error updating medication status by name:', medErr2);
+        }
+      } catch (err) {
+        console.error('Failed to persist medication status update:', err);
+      }
+    }
+  };
+
   const handleAddDrug = (e?: React.FormEvent) => {
     if (e) e.preventDefault();
     const drugName = isNonInventoryMode ? draftDrugName.trim() : (selectedInventoryMed?.name || draftDrugName.trim());
@@ -1147,6 +1313,8 @@ export default function DoctorOPDPage() {
       id: crypto.randomUUID(),
       inventory_id: (!isNonInventoryMode && selectedInventoryMed) ? selectedInventoryMed.id : undefined,
       is_inventory: !isNonInventoryMode && !!selectedInventoryMed,
+      prescription_type: (!isNonInventoryMode && selectedInventoryMed) ? 'INVENTORY' : 'NON-INVENTORY',
+      status: 'PRESCRIBED',
       drug: drugName,
       category: selectedInventoryMed?.category || (isNonInventoryMode ? 'Non-Inventory' : 'General EDL'),
       dosage: draftDosage.trim() || '500mg',
@@ -2117,8 +2285,21 @@ export default function DoctorOPDPage() {
                                     )}
                                   </td>
                                   <td className="p-2.5">
-                                    <span className="font-bold text-on-surface block">{p.drug}</span>
-                                    <span className="text-[10px] text-tertiary">
+                                    <div className="flex items-center gap-2">
+                                      <span className="font-bold text-on-surface">{p.drug}</span>
+                                      {p.status && (
+                                        <span className={`px-1.5 py-0.5 rounded text-[8px] font-black uppercase tracking-wider ${
+                                          p.status === 'TAKEN' || p.status === 'COMPLETED'
+                                            ? 'bg-emerald-100 text-emerald-800 border border-emerald-300'
+                                            : p.status === 'MISSED'
+                                            ? 'bg-amber-100 text-amber-800 border border-amber-300'
+                                            : 'bg-blue-50 text-blue-800 border border-blue-200'
+                                        }`}>
+                                          {p.status === 'TAKEN' ? '✓ Taken' : p.status}
+                                        </span>
+                                      )}
+                                    </div>
+                                    <span className="text-[10px] text-tertiary block">
                                       {p.category || (p.is_inventory ? 'EDL' : 'Non-Inventory')}
                                       {p.inventory_id && ` • ID: ${p.inventory_id}`}
                                     </span>
@@ -2146,14 +2327,31 @@ export default function DoctorOPDPage() {
                                   </td>
                                   <td className="p-2.5 text-tertiary text-[11px] max-w-xs truncate">{p.instructions}</td>
                                   <td className="p-2.5 text-right">
-                                    <button
-                                      type="button"
-                                      onClick={() => handleDeletePrescription(p.id)}
-                                      className="p-1.5 text-red-600 hover:bg-red-50 rounded-xl transition-all cursor-pointer"
-                                      title="Remove medication"
-                                    >
-                                      <span className="material-symbols-outlined text-sm">delete</span>
-                                    </button>
+                                    <div className="flex items-center justify-end gap-1.5">
+                                      <button
+                                        type="button"
+                                        onClick={() => handleTogglePrescriptionStatus(p.id)}
+                                        className={`px-2.5 py-1 rounded-xl text-[10px] font-bold transition-all cursor-pointer flex items-center gap-1 shadow-2xs ${
+                                          p.status === 'TAKEN' || p.status === 'COMPLETED'
+                                            ? 'bg-emerald-100 text-emerald-900 border border-emerald-300 hover:bg-emerald-200'
+                                            : 'bg-teal-600 text-white hover:bg-teal-700 shadow-xs'
+                                        }`}
+                                        title={p.status === 'TAKEN' ? t('doctor.markedGiven', 'Marked as Given / Taken') : t('doctor.giveMedicine', 'Give / Administer Medicine')}
+                                      >
+                                        <span className="material-symbols-outlined text-xs">
+                                          {p.status === 'TAKEN' || p.status === 'COMPLETED' ? 'check_circle' : 'medication'}
+                                        </span>
+                                        <span>{p.status === 'TAKEN' || p.status === 'COMPLETED' ? t('doctor.given', 'Given') : t('doctor.give', 'Give')}</span>
+                                      </button>
+                                      <button
+                                        type="button"
+                                        onClick={() => handleDeletePrescription(p.id)}
+                                        className="p-1.5 text-red-600 hover:bg-red-50 rounded-xl transition-all cursor-pointer"
+                                        title="Remove medication"
+                                      >
+                                        <span className="material-symbols-outlined text-sm">delete</span>
+                                      </button>
+                                    </div>
                                   </td>
                                 </tr>
                               );
