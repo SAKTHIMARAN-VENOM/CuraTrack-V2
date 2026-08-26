@@ -56,9 +56,12 @@ export default function AlertsPage() {
         const fetchNews = async () => {
             try {
                 const data = await apiFetch('/api/health-news');
-                if (data.articles) {
+                if (data?.articles) {
                     setHealthNews(data.articles);
                     offlineStorage.saveHealthNews(data.articles);
+                } else {
+                    const cached = offlineStorage.getHealthNews();
+                    if (cached) setHealthNews(cached);
                 }
             } catch (err) {
                 console.error("Failed to fetch health news", err);
@@ -73,8 +76,13 @@ export default function AlertsPage() {
         const fetchActivity = async () => {
              try {
                 const data = await apiFetch('/api/fit-data');
-                setActivityData(data);
-                offlineStorage.saveFitData(data);
+                if (data && Object.keys(data).length > 0) {
+                    setActivityData(data);
+                    offlineStorage.saveFitData(data);
+                } else {
+                    const cached = offlineStorage.getFitData();
+                    if (cached) setActivityData(cached);
+                }
              } catch (err) {
                  console.error("Failed to fetch activity data", err);
                  const cached = offlineStorage.getFitData();
@@ -89,9 +97,17 @@ export default function AlertsPage() {
         const fetchRisks = async () => {
              try {
                 const data = await apiFetch('/api/health-risks');
-                setHealthRisks(data.risks || []);
-                setSeasonInfo({ season: data.season, month_name: data.month_name });
-                offlineStorage.saveHealthRisks(data);
+                if (data?.risks) {
+                    setHealthRisks(data.risks || []);
+                    setSeasonInfo({ season: data.season, month_name: data.month_name });
+                    offlineStorage.saveHealthRisks(data);
+                } else {
+                    const cached = offlineStorage.getHealthRisks();
+                    if (cached) {
+                        setHealthRisks(cached.risks || []);
+                        setSeasonInfo({ season: cached.season, month_name: cached.month_name });
+                    }
+                }
              } catch (err) {
                  console.error("Failed to fetch seasonal health risks", err);
                  const cached = offlineStorage.getHealthRisks();

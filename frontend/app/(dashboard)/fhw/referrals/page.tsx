@@ -107,11 +107,11 @@ export default function FhwReferralsPage() {
         setLoading(true);
         try {
             const data = await apiFetch(`/api/referrals?status=${filterStatus}&urgency=${filterUrgency}&referring_role=fhw`);
-            if (data.referrals) {
+            if (data?.referrals) {
                 // Filter to show village referrals initiated by ASHA / FHW or community patients
                 setReferrals(data.referrals);
             }
-            if (data.metrics) {
+            if (data?.metrics) {
                 setMetrics(data.metrics);
             }
         } catch (err) {

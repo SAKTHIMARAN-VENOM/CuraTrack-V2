@@ -57,7 +57,7 @@ export async function apiFetch<T = any>(
     if (throwOnError) {
       throw new Error(msg);
     }
-    return null as unknown as T;
+    return ({} as unknown) as T;
   }
 
   if (!res.ok) {
@@ -67,8 +67,8 @@ export async function apiFetch<T = any>(
     if (throwOnError) {
       throw new Error(msg);
     }
-    return null as unknown as T;
+    return ({} as unknown) as T;
   }
 
-  return res.json().catch(() => (null as unknown as T));
+  return res.json().catch(() => ({} as unknown as T));
 }

@@ -319,8 +319,12 @@ export default function FrontlineHealthWorkerPage() {
         { value: 'LOW', label: t('fhw.lowRisk', 'Low Risk'), icon: 'check_circle', badge: 'Low', badgeColor: 'bg-emerald-100 text-emerald-800' },
     ];
 
+    if (!mounted) {
+        return null;
+    }
+
     return (
-        <div className="space-y-6 max-w-7xl mx-auto pb-16" suppressHydrationWarning>
+        <div className="space-y-6 max-w-7xl mx-auto pb-16">
             {/* Clean Header Banner */}
             <div className="bg-gradient-to-r from-primary via-[#004d40] to-teal-900 rounded-3xl p-6 sm:p-8 text-white shadow-xl relative overflow-hidden">
                 <div className="flex flex-col md:flex-row md:items-center justify-between gap-5 relative z-10">
