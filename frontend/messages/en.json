@@ -421,7 +421,17 @@
     "vaccinations": "Immunization History",
     "noRecordsFound": "No medical records found.",
     "viewReport": "View Full Report",
-    "downloadPdf": "Download PDF"
+    "downloadPdf": "Download PDF",
+    "orderMedicine": "Order",
+    "orderMedicineFull": "Order Medicine",
+    "confirmMedicineOrder": "Confirm Medicine Order",
+    "orderedStatus": "ORDERED",
+    "placingOrder": "Placing Order...",
+    "confirmAndDispatchOrder": "Confirm & Dispatch Order",
+    "hospitalPharmacyDispensing": "Hospital Pharmacy Dispensing",
+    "freeUnderPmjay": "Nandurbar SDH Dispensary • Free under PMJAY & EDL",
+    "orderPlacedSuccess": "Medicine order for \"{medicine}\" placed successfully. Dispensing request sent to Nandurbar SDH Hospital Pharmacy.",
+    "orderFailed": "Failed to place medicine order. Please try again."
   },
   "telemedicine": {
     "title": "e-Sanjeevani Teleconsultation Room",

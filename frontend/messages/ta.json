@@ -397,7 +397,17 @@
     "vaccinations": "தடுப்பூசி வரலாறு",
     "noRecordsFound": "மருத்துவ பதிவுகள் எதுவும் கிடைக்கவில்லை.",
     "viewReport": "முழு அறிக்கையையும் பார்க்கவும்",
-    "downloadPdf": "PDF பதிவிறக்கம்"
+    "downloadPdf": "PDF பதிவிறக்கம்",
+    "orderMedicine": "ஆர்டர் செய்",
+    "orderMedicineFull": "மருந்து ஆர்டர் செய்",
+    "confirmMedicineOrder": "மருந்து ஆர்டரை உறுதிப்படுத்தவும்",
+    "orderedStatus": "ஆர்டர் செய்யப்பட்டது",
+    "placingOrder": "ஆர்டர் செய்யப்படுகிறது...",
+    "confirmAndDispatchOrder": "உறுதிசெய்து ஆர்டரை அனுப்பவும்",
+    "hospitalPharmacyDispensing": "மருத்துவமனை மருந்தக விநியோகம்",
+    "freeUnderPmjay": "நந்தூர்பார் SDH மருந்தகம் • PMJAY & EDL கீழ் இலவசம்",
+    "orderPlacedSuccess": "\"{medicine}\" மருந்துக்கான ஆர்டர் வெற்றிகரமாக வைக்கப்பட்டது. நந்தூர்பார் SDH மருத்துவமனை மருந்தகத்திற்கு விநியோக கோரிக்கை அனுப்பப்பட்டுள்ளது.",
+    "orderFailed": "மருந்து ஆர்டர் செய்வதில் தோல்வி. மீண்டும் முயற்சிக்கவும்."
   },
   "telemedicine": {
     "title": "ஈ-சஞ்சீவனி தொலைமருத்துவ அறை",

@@ -153,6 +153,15 @@ const createPdfBlob = (title: string, rawLines: string[]) => {
   return buildPdfBlob(pages);
 };
 
+const isNonInventoryMedicine = (item: any): boolean => {
+  if (!item) return false;
+  if (item.prescription_type === 'NON-INVENTORY') return true;
+  if (item.prescription_type === 'INVENTORY') return false;
+  if (item.is_inventory === false) return true;
+  if (item.is_inventory === true || item.inventory_id) return false;
+  return false;
+};
+
 function HealthRecordsContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -176,6 +185,14 @@ function HealthRecordsContent() {
   const [currentRole, setCurrentRole] = useState<string>('doctor');
   const [facilityArchiveTab, setFacilityArchiveTab] = useState<'dispenses' | 'edl_receipts' | 'labs' | 'waste_logs'>('dispenses');
   const [facilitySearchQuery, setFacilitySearchQuery] = useState<string>('');
+
+  // Non-inventory medicine direct ordering state (Phase 8 integration)
+  const [orderModalOpen, setOrderModalOpen] = useState<boolean>(false);
+  const [orderingRx, setOrderingRx] = useState<any>(null);
+  const [orderPlacing, setOrderPlacing] = useState<boolean>(false);
+  const [orderSuccessMsg, setOrderSuccessMsg] = useState<string | null>(null);
+  const [orderErrorMsg, setOrderErrorMsg] = useState<string | null>(null);
+  const [placedOrdersMap, setPlacedOrdersMap] = useState<Record<string, any>>({});
 
   // Doctor Patient Selection States
   const [patients, setPatients] = useState<RealPatientInfo[]>([]);
@@ -334,6 +351,9 @@ function HealthRecordsContent() {
             color: '#d4f0fa',
             icon: 'pill',
             isError: activeStatus === 'MISSED',
+            prescription_type: m.prescription_type || (m.is_inventory === false ? 'NON-INVENTORY' : (m.is_inventory === true || m.inventory_id ? 'INVENTORY' : 'INVENTORY')),
+            is_inventory: m.is_inventory ?? (m.prescription_type === 'INVENTORY' || !!m.inventory_id),
+            inventory_id: m.inventory_id || null,
           };
         });
         setActiveMedications(mapped);
@@ -375,6 +395,23 @@ function HealthRecordsContent() {
         results: Array.isArray(lab.results) ? lab.results : [],
       }));
       setUserLabReports(mappedLabs);
+
+      // 5. Fetch existing medicine orders to show ORDERED status
+      const { data: dbOrders } = await supabase
+        .from('medicine_orders')
+        .select('*')
+        .eq('patient_id', targetId);
+
+      if (dbOrders && dbOrders.length > 0) {
+        const orderMap: Record<string, any> = {};
+        dbOrders.forEach((o: any) => {
+          if (o.prescription_id) orderMap[o.prescription_id] = o;
+          if (o.medicine_name) orderMap[o.medicine_name.toLowerCase().trim()] = o;
+        });
+        setPlacedOrdersMap(orderMap);
+      } else {
+        setPlacedOrdersMap({});
+      }
 
 
     } catch (err) {
@@ -858,7 +895,80 @@ function HealthRecordsContent() {
     setActiveTab('medications'); // Switch to medications tab to see the result
   };
 
+  // Medicine direct ordering handlers (Non-inventory medicines only)
+  const handleInitiateOrder = (rx: any) => {
+    setOrderingRx(rx);
+    setOrderErrorMsg(null);
+    setOrderModalOpen(true);
+  };
 
+  const handleConfirmOrder = async () => {
+    if (!orderingRx) return;
+    setOrderPlacing(true);
+    setOrderErrorMsg(null);
+
+    const activePatient = getActivePatientInfo();
+    const rxId = orderingRx.id || `rx-${Date.now()}`;
+    const medName = orderingRx.name || orderingRx.medication || 'Prescribed Medicine';
+    const patientId = userId || activePatient?.id || 'P-001';
+    const patientName = activePatient?.name || 'Patient';
+
+    try {
+      // 1. Post to backend facility medicine-orders endpoint
+      await apiFetch('/api/facility/medicine-orders', {
+        method: 'POST',
+        body: JSON.stringify({
+          patient_id: patientId,
+          patient_name: patientName,
+          prescription_id: rxId,
+          medicine_name: medName,
+          dosage: orderingRx.dosage || 'Standard',
+          quantity: orderingRx.quantity || 10,
+          frequency: orderingRx.frequency || 'Once daily',
+          instructions: orderingRx.instructions || 'Take as directed',
+          pharmacy: 'Nandurbar SDH Hospital Pharmacy (EDL Dispensary)'
+        })
+      });
+
+      // 2. Also record in Supabase medicine_orders table for real-time reactivity
+      try {
+        const supabase = createClient();
+        await supabase.from('medicine_orders').insert({
+          patient_id: patientId,
+          patient_name: patientName,
+          prescription_id: rxId,
+          medicine_name: medName,
+          dosage: orderingRx.dosage || 'Standard',
+          quantity: orderingRx.quantity || 10,
+          frequency: orderingRx.frequency || 'Once daily',
+          instructions: orderingRx.instructions || 'Take as directed',
+          pharmacy: 'Nandurbar SDH Hospital Pharmacy (EDL Dispensary)',
+          status: 'ORDERED',
+          created_at: new Date().toISOString()
+        });
+      } catch (dbErr) {
+        console.warn('Note on direct supabase medicine_orders insert:', dbErr);
+      }
+
+      // 3. Update placedOrdersMap state
+      setPlacedOrdersMap(prev => ({
+        ...prev,
+        [rxId]: { status: 'ORDERED', medicine_name: medName, created_at: new Date().toISOString() },
+        [medName.toLowerCase().trim()]: { status: 'ORDERED', medicine_name: medName, created_at: new Date().toISOString() }
+      }));
+
+      setOrderModalOpen(false);
+      setOrderSuccessMsg(
+        t('records.orderPlacedSuccess', { medicine: medName }, `Medicine order for "${medName}" placed successfully. Dispensing request sent to Nandurbar SDH Hospital Pharmacy.`)
+      );
+      setTimeout(() => setOrderSuccessMsg(null), 6000);
+    } catch (err: any) {
+      console.error('Order placement failed:', err);
+      setOrderErrorMsg(err?.message || t('records.orderFailed', {}, 'Failed to place medicine order. Please try again.'));
+    } finally {
+      setOrderPlacing(false);
+    }
+  };
 
   const toggleSection = (id: string) => {
     setOpenSections(prev => ({ ...prev, [id]: !prev[id] }));
@@ -1585,6 +1695,25 @@ function HealthRecordsContent() {
             </div>
           </div>
 
+          {/* Order Placement Success Alert */}
+          {orderSuccessMsg && (
+            <div className="p-4 bg-emerald-500/10 border border-emerald-500/30 rounded-2xl flex items-start gap-3 animate-fadeIn">
+              <span className="material-symbols-outlined text-emerald-600 mt-0.5">check_circle</span>
+              <div className="flex-1">
+                <p className="text-sm font-bold text-emerald-800 dark:text-emerald-300">{orderSuccessMsg}</p>
+                <p className="text-xs text-emerald-700/80 dark:text-emerald-400/80 mt-0.5">
+                  {t('records.freeUnderPmjay', {}, 'Nandurbar SDH Dispensary • Free under PMJAY & EDL')}
+                </p>
+              </div>
+              <button 
+                onClick={() => setOrderSuccessMsg(null)}
+                className="text-emerald-700 hover:text-emerald-900 p-1"
+              >
+                <span className="material-symbols-outlined text-sm">close</span>
+              </button>
+            </div>
+          )}
+
           {/* Today's Schedule */}
           <div className="section-card p-6 lg:p-8">
             <div className="flex justify-between items-center mb-6">
@@ -1620,6 +1749,26 @@ function HealthRecordsContent() {
                         <div className={med.isError ? "" : "progress-fill"} style={med.isError ? { width: '0%', height: '100%', borderRadius: '9999px', background: '#ba1a1a' } : { width: med.status === 'TAKEN' ? '100%' : '0%' }}></div>
                       </div>
                     </div>
+
+                    {/* Non-Inventory Ordering Action - Patient Portal Only */}
+                    {currentRole === 'patient' && isNonInventoryMedicine(med) && (
+                      <div className="flex items-center gap-2 shrink-0">
+                        {placedOrdersMap[med.id] || placedOrdersMap[(med.name || '').toLowerCase().trim()] ? (
+                          <span className="px-3 py-1.5 rounded-xl text-xs font-black bg-emerald-100 text-emerald-900 border border-emerald-300 flex items-center gap-1 shadow-sm">
+                            <span className="material-symbols-outlined text-sm text-emerald-700">check_circle</span>
+                            <span>{placedOrdersMap[med.id]?.status || placedOrdersMap[(med.name || '').toLowerCase().trim()]?.status || t('records.orderedStatus', {}, 'ORDERED')}</span>
+                          </span>
+                        ) : (
+                          <button
+                            onClick={() => handleInitiateOrder(med)}
+                            className="px-3.5 py-2 rounded-xl text-xs font-bold text-teal-900 bg-teal-50 hover:bg-teal-100 border border-teal-300 transition-all flex items-center gap-1.5 shadow-sm active:scale-95"
+                          >
+                            <span className="material-symbols-outlined text-sm text-teal-700">shopping_cart_checkout</span>
+                            <span>{t('records.orderMedicine', {}, 'Order')}</span>
+                          </button>
+                        )}
+                      </div>
+                    )}
 
                     <button 
                       onClick={() => handleToggleMedicationStatus(idx)}
@@ -2024,6 +2173,26 @@ function HealthRecordsContent() {
                           </div>
                         </div>
 
+                        {/* Order Medicine Action Column - Patient Portal Only for Non-Inventory Prescriptions */}
+                        {currentRole === 'patient' && isNonInventoryMedicine(rx) && (
+                          <div className="flex gap-2 shrink-0 self-start sm:self-center">
+                            {placedOrdersMap[rx.id] || placedOrdersMap[(rx.name || rx.medication || '').toLowerCase().trim()] ? (
+                              <div className="px-3.5 py-2 rounded-xl text-xs font-black bg-emerald-100 text-emerald-900 border border-emerald-300 flex items-center gap-1.5 shadow-sm">
+                                <span className="material-symbols-outlined text-sm text-emerald-700">check_circle</span>
+                                <span>{placedOrdersMap[rx.id]?.status || placedOrdersMap[(rx.name || rx.medication || '').toLowerCase().trim()]?.status || t('records.orderedStatus', {}, 'ORDERED')}</span>
+                              </div>
+                            ) : (
+                              <button 
+                                onClick={() => handleInitiateOrder(rx)}
+                                className="px-4 py-2.5 rounded-xl text-xs font-bold text-white transition-all flex items-center gap-1.5 shadow-sm active:scale-95 hover:opacity-90" 
+                                style={{ background: 'linear-gradient(135deg,#00647e,#2c7d99)' }}
+                              >
+                                <span className="material-symbols-outlined text-base">shopping_cart_checkout</span>
+                                <span>{t('records.orderMedicineFull', {}, 'Order Medicine')}</span>
+                              </button>
+                            )}
+                          </div>
+                        )}
 
                       </div>
                     </div>
@@ -2138,6 +2307,96 @@ function HealthRecordsContent() {
         />
       )}
 
+      {/* Confirm Medicine Order Modal (For Non-Inventory Prescriptions) */}
+      {orderModalOpen && orderingRx && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-fadeIn">
+          <div className="bg-surface rounded-3xl p-6 lg:p-8 max-w-lg w-full border border-outline-variant/20 shadow-2xl space-y-6">
+            <div className="flex items-center justify-between pb-4 border-b border-outline-variant/10">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-2xl bg-teal-500/10 flex items-center justify-center text-teal-700">
+                  <span className="material-symbols-outlined">shopping_cart_checkout</span>
+                </div>
+                <div>
+                  <h3 className="font-headline text-lg font-bold text-on-surface">
+                    {t('records.confirmMedicineOrder', {}, 'Confirm Medicine Order')}
+                  </h3>
+                  <p className="text-xs text-tertiary">
+                    {t('records.hospitalPharmacyDispensing', {}, 'Hospital Pharmacy Dispensing')}
+                  </p>
+                </div>
+              </div>
+              <button 
+                onClick={() => setOrderModalOpen(false)}
+                className="p-1 rounded-xl text-tertiary hover:text-on-surface hover:bg-surface-container"
+              >
+                <span className="material-symbols-outlined">close</span>
+              </button>
+            </div>
+
+            {orderErrorMsg && (
+              <div className="p-3.5 bg-red-500/10 border border-red-500/20 rounded-xl text-xs font-bold text-red-700 flex items-center gap-2">
+                <span className="material-symbols-outlined text-base">error</span>
+                <span>{orderErrorMsg}</span>
+              </div>
+            )}
+
+            <div className="p-4 bg-surface-container-low rounded-2xl space-y-3">
+              <div className="flex items-start justify-between">
+                <div>
+                  <p className="font-headline font-bold text-base text-on-surface">
+                    {orderingRx.name || orderingRx.medication || 'Medicine'}
+                  </p>
+                  <p className="text-xs text-tertiary mt-0.5">
+                    {orderingRx.dosage || 'Standard'} • {orderingRx.frequency || 'Once daily'}
+                  </p>
+                </div>
+                <span className="px-2.5 py-1 rounded-full text-[10px] font-black bg-primary/10 text-primary uppercase">
+                  {t('records.freeUnderPmjay', {}, 'Free via PMJAY/EDL')}
+                </span>
+              </div>
+
+              {orderingRx.instructions && (
+                <p className="text-xs text-on-surface-variant bg-surface p-2.5 rounded-xl border border-outline-variant/10">
+                  📋 <span className="font-semibold">Instructions:</span> {orderingRx.instructions}
+                </p>
+              )}
+
+              <div className="pt-2 border-t border-outline-variant/10 text-xs flex justify-between items-center text-tertiary">
+                <span>Fulfilling Pharmacy:</span>
+                <span className="font-bold text-on-surface">Nandurbar SDH Hospital Pharmacy</span>
+              </div>
+            </div>
+
+            <div className="flex items-center justify-end gap-3 pt-2">
+              <button
+                onClick={() => setOrderModalOpen(false)}
+                className="px-5 py-2.5 rounded-xl text-xs font-bold text-on-surface-variant hover:bg-surface-container transition-colors"
+                disabled={orderPlacing}
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleConfirmOrder}
+                disabled={orderPlacing}
+                className="px-6 py-2.5 rounded-xl text-xs font-bold text-white transition-all flex items-center gap-2 shadow-md active:scale-95 disabled:opacity-50"
+                style={{ background: 'linear-gradient(135deg,#00647e,#2c7d99)' }}
+              >
+                {orderPlacing ? (
+                  <>
+                    <span className="material-symbols-outlined text-sm animate-spin">sync</span>
+                    <span>{t('records.placingOrder', {}, 'Placing Order...')}</span>
+                  </>
+                ) : (
+                  <>
+                    <span className="material-symbols-outlined text-sm">local_shipping</span>
+                    <span>{t('records.confirmAndDispatchOrder', {}, 'Confirm & Dispatch Order')}</span>
+                  </>
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
     </div>
   );

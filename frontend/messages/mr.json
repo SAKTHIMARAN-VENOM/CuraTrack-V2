@@ -397,7 +397,17 @@
     "vaccinations": "लसीकरण इतिहास",
     "noRecordsFound": "कोणत्याही वैद्यकीय नोंदी आढळल्या नाहीत.",
     "viewReport": "संपूर्ण अहवाल पहा",
-    "downloadPdf": "पीडीएफ डाउनलोड करा"
+    "downloadPdf": "पीडीएफ डाउनलोड करा",
+    "orderMedicine": "ऑर्डर करा",
+    "orderMedicineFull": "औषध ऑर्डर करा",
+    "confirmMedicineOrder": "औषध ऑर्डरची पुष्टी करा",
+    "orderedStatus": "ऑर्डर दिली",
+    "placingOrder": "ऑर्डर दिली जात आहे...",
+    "confirmAndDispatchOrder": "पुष्टी करा आणि ऑर्डर पाठवा",
+    "hospitalPharmacyDispensing": "रुग्णालय फार्मसी वितरण",
+    "freeUnderPmjay": "नंदुरबार एसडीएच औषधालय • पीएमजेएवाय आणि ईडीएल अंतर्गत मोफत",
+    "orderPlacedSuccess": "\"{medicine}\" साठी औषध ऑर्डर यशस्वीरित्या दिली गेली. नंदुरबार एसडीएच रुग्णालय फार्मसीकडे वितरण विनंती पाठवली आहे.",
+    "orderFailed": "औषधाची ऑर्डर देण्यात अयशस्वी. कृपया पुन्हा प्रयत्न करा."
   },
   "telemedicine": {
     "title": "ई-संजीवनी टेलिकन्सल्टेशन कक्ष",

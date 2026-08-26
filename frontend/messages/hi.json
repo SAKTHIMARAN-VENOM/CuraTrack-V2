@@ -397,7 +397,17 @@
     "vaccinations": "टीकाकरण इतिहास",
     "noRecordsFound": "कोई मेडिकल रिकॉर्ड नहीं मिला।",
     "viewReport": "पूरी रिपोर्ट देखें",
-    "downloadPdf": "पीडीएफ डाउनलोड करें"
+    "downloadPdf": "पीडीएफ डाउनलोड करें",
+    "orderMedicine": "ऑर्डर करें",
+    "orderMedicineFull": "दवा ऑर्डर करें",
+    "confirmMedicineOrder": "दवा ऑर्डर की पुष्टि करें",
+    "orderedStatus": "ऑर्डर किया गया",
+    "placingOrder": "ऑर्डर दिया जा रहा है...",
+    "confirmAndDispatchOrder": "पुष्टि करें और ऑर्डर भेजें",
+    "hospitalPharmacyDispensing": "अस्पताल फार्मेसी वितरण",
+    "freeUnderPmjay": "नंदुरबार एसडीएच औषधालय • पीएमजेएवाई और ईडीएल के तहत निःशुल्क",
+    "orderPlacedSuccess": "\"{medicine}\" के लिए दवा ऑर्डर सफलतापूर्वक दिया गया। नंदुरबार एसडीएच अस्पताल फार्मेसी को वितरण अनुरोध भेजा गया।",
+    "orderFailed": "दवा का ऑर्डर देने में विफल। कृपया पुनः प्रयास करें।"
   },
   "telemedicine": {
     "title": "ई-संजीवनी टेलीकंसल्टेशन कक्ष",

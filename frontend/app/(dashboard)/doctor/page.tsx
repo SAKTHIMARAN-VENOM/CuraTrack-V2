@@ -767,7 +767,7 @@ export default function DoctorOPDPage() {
             uniqueRxList.push({
               id: r.id,
               inventory_id: r.inventory_id || undefined,
-              is_inventory: !!r.inventory_id,
+              is_inventory: r.prescription_type ? r.prescription_type === 'INVENTORY' : (r.is_inventory ?? !!r.inventory_id),
               drug: drugName,
               category: r.category || 'Prescribed Drug',
               dosage: r.dosage || 'Standard',
@@ -981,8 +981,10 @@ export default function DoctorOPDPage() {
           doctor_name: docName,
           date: p.duration || todayStr,
           instructions: p.instructions,
-          inventory_id: p.inventory_id,
-          quantity: p.quantity
+          inventory_id: p.inventory_id || null,
+          quantity: p.quantity,
+          is_inventory: p.is_inventory,
+          prescription_type: p.is_inventory ? 'INVENTORY' : 'NON-INVENTORY'
         }));
         await supabase.from('prescriptions').insert(rxInserts);
 
@@ -995,6 +997,9 @@ export default function DoctorOPDPage() {
           doctor: docName,
           status: 'UPCOMING',
           active: true,
+          inventory_id: p.inventory_id || null,
+          is_inventory: p.is_inventory,
+          prescription_type: p.is_inventory ? 'INVENTORY' : 'NON-INVENTORY'
         }));
         await supabase.from('medications').insert(medInserts);
       }
