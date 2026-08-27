@@ -91,7 +91,7 @@ export default function LoginPage() {
                 router.push('/facility');
                 break;
             case 'admin':
-                router.push('/admin');
+                router.push('/admin/dashboard');
                 break;
             default:
                 router.push('/dashboard');

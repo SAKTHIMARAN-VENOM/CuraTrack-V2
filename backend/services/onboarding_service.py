@@ -301,6 +301,103 @@ def get_all_pending_doctors() -> list[dict]:
     doctors_list = []
     seen_ids = set()
 
+    # Pre-seeded doctors with rich profile for admin review
+    default_doctors = [
+        {
+            "doctor_id": "00000000-0000-4000-a000-000000000003",
+            "personal_details": {
+                "name": "Dr. David Ross",
+                "email": "doctor@curatrack.com",
+                "phone": "+91 98220 11234"
+            },
+            "professional_details": {
+                "reg_number": "MED-00471-TX",
+                "qualification": "MBBS, MD General Medicine",
+                "specialization": "General Medicine / Physician",
+                "hospital_name": "Nandurbar District Civil Hospital",
+                "department": "OPD & Critical Care",
+                "experience_years": 12
+            },
+            "verification_documents": {
+                "medical_council_reg": "MCI-TX-44091",
+                "degree_certificate": "MBBS-MD-MUHS-2012.pdf",
+                "experience_letter": "Exp_CivilHospital_7yr.pdf"
+            },
+            "verification_status": _local_onboarding_db.get("verifications", {}).get("00000000-0000-4000-a000-000000000003", "verified")
+        },
+        {
+            "doctor_id": "doc-mo-102",
+            "personal_details": {
+                "name": "Dr. Ananya Sharma",
+                "email": "ananya.sharma@curatrack.gov.in",
+                "phone": "+91 98224 88710"
+            },
+            "professional_details": {
+                "reg_number": "MCI-MH-88124",
+                "qualification": "MBBS, DGO (Obstetrics & Gynaecology)",
+                "specialization": "Maternal & Child Health",
+                "hospital_name": "PHC Nandurbar Rural",
+                "department": "Maternal ANC & Delivery",
+                "experience_years": 6
+            },
+            "verification_documents": {
+                "medical_council_reg": "MCI-MH-88124",
+                "degree_certificate": "MBBS-DGO-2018.pdf"
+            },
+            "verification_status": _local_onboarding_db.get("verifications", {}).get("doc-mo-102", "verified")
+        },
+        {
+            "doctor_id": "doc-app-205",
+            "personal_details": {
+                "name": "Dr. Vikram Deshmukh",
+                "email": "dr.deshmukh@curatrack.com",
+                "phone": "+91 94231 66720"
+            },
+            "professional_details": {
+                "reg_number": "MMC-2021-0941",
+                "qualification": "MBBS, MD Pediatrics",
+                "specialization": "Pediatric Critical Care",
+                "hospital_name": "Shahada Community Health Centre",
+                "department": "Pediatrics & SNCU",
+                "experience_years": 4
+            },
+            "verification_documents": {
+                "medical_council_reg": "MMC-2021-0941",
+                "degree_certificate": "MD_Pediatrics_Cert.pdf",
+                "id_proof": "Aadhaar_Doc_Verified.pdf"
+            },
+            "verification_status": _local_onboarding_db.get("verifications", {}).get("doc-app-205", "pending")
+        },
+        {
+            "doctor_id": "doc-app-309",
+            "personal_details": {
+                "name": "Dr. Rajesh Patil",
+                "email": "dr.rajesh.patil@hospital.org",
+                "phone": "+91 91580 44102"
+            },
+            "professional_details": {
+                "reg_number": "MMC-2023-1184",
+                "qualification": "MBBS",
+                "specialization": "General Practitioner",
+                "hospital_name": "Taloda Rural Hospital",
+                "department": "Emergency & OPD",
+                "experience_years": 2
+            },
+            "verification_documents": {
+                "medical_council_reg": "MMC-2023-1184",
+                "degree_certificate": "MBBS_Graduation_Degree.pdf"
+            },
+            "verification_status": _local_onboarding_db.get("verifications", {}).get("doc-app-309", "pending")
+        }
+    ]
+
+    for d in default_doctors:
+        seen_ids.add(d["doctor_id"])
+        ver = _local_onboarding_db.get("verifications", {}).get(d["doctor_id"])
+        if ver:
+            d["verification_status"] = ver
+        doctors_list.append(d)
+
     if _supabase:
         try:
             profiles_res = _supabase.table("profiles").select("id, name, email").eq("role", "doctor").execute()
@@ -312,23 +409,31 @@ def get_all_pending_doctors() -> list[dict]:
 
             for p in (profiles_res.data or []):
                 doc_id = p["id"]
-                seen_ids.add(doc_id)
-                dp = doc_prof_map.get(doc_id, {})
-                status = ver_map.get(doc_id, _local_onboarding_db["verifications"].get(doc_id, "pending"))
-                doctors_list.append({
-                    "doctor_id": doc_id,
-                    "personal_details": {
-                        "name": p.get("name") or "Dr. Practitioner",
-                        "email": p.get("email") or "doctor@hospital.org"
-                    },
-                    "professional_details": {
-                        "reg_number": dp.get("reg_number") or "MED-00471-TX",
-                        "qualification": dp.get("qualification") or "MBBS, MD Cardiology",
-                        "hospital_name": dp.get("hospital_name") or "Metropolitan Health System",
-                        "experience_years": dp.get("experience_years") or 12
-                    },
-                    "verification_status": status
-                })
+                if doc_id not in seen_ids:
+                    seen_ids.add(doc_id)
+                    dp = doc_prof_map.get(doc_id, {})
+                    status = ver_map.get(doc_id, _local_onboarding_db.get("verifications", {}).get(doc_id, "pending"))
+                    doctors_list.append({
+                        "doctor_id": doc_id,
+                        "personal_details": {
+                            "name": p.get("name") or "Dr. Practitioner",
+                            "email": p.get("email") or "doctor@hospital.org",
+                            "phone": "+91 98000 00000"
+                        },
+                        "professional_details": {
+                            "reg_number": dp.get("reg_number") or "MED-00471-TX",
+                            "qualification": dp.get("qualification") or "MBBS, MD General Medicine",
+                            "specialization": dp.get("specialization") or "General Medicine",
+                            "hospital_name": dp.get("hospital_name") or "Metropolitan Health System",
+                            "department": dp.get("department") or "OPD",
+                            "experience_years": dp.get("experience_years") or 5
+                        },
+                        "verification_documents": {
+                            "medical_council_reg": dp.get("reg_number") or "MED-00471-TX",
+                            "degree_certificate": "MBBS_Degree.pdf"
+                        },
+                        "verification_status": status
+                    })
         except Exception as e:
             logger.warning("Error fetching doctors from Supabase: %s", e)
 
@@ -342,13 +447,14 @@ def get_all_pending_doctors() -> list[dict]:
                 "verification_documents": doc.get("verification_documents", {}),
                 "verification_status": status
             })
+
     return doctors_list
 
 
 def update_doctor_verification_status(doctor_id: str, status: str, admin_id: str = "admin-1") -> dict:
     """Admin function: Approve ('verified') or Reject ('rejected') doctor registration."""
     timestamp = datetime.utcnow().isoformat() + "Z"
-    _local_onboarding_db["verifications"][doctor_id] = status
+    _local_onboarding_db.setdefault("verifications", {})[doctor_id] = status
 
     if _supabase:
         try:
@@ -362,3 +468,196 @@ def update_doctor_verification_status(doctor_id: str, status: str, admin_id: str
             logger.error("Failed to update doctor verification in Supabase: %s", e)
 
     return {"success": True, "doctor_id": doctor_id, "verification_status": status}
+
+
+def get_all_asha_workers() -> list[dict]:
+    """Admin function: List ASHA workers and their verification status."""
+    asha_list = []
+    seen_ids = set()
+
+    # Pre-seeded official ASHA workers for district
+    default_ashas = [
+        {
+            "asha_id": "ASHA-402",
+            "user_id": "00000000-0000-4000-a000-000000000006",
+            "name": "Sunita Tai (ASHA)",
+            "email": "asha@curatrack.com",
+            "phone": "+91 98221 44019",
+            "village_name": "Borvihir Pada",
+            "block": "Nandurbar Taluk",
+            "sub_centre": "Borvihir Sub-Centre",
+            "parent_phc": "PHC Nandurbar Rural",
+            "experience_years": 8,
+            "beneficiaries_count": 48,
+            "pending_followups": 3,
+            "completed_activities": 124,
+            "status": "active",
+            "verification_status": _local_onboarding_db.get("asha_verifications", {}).get("00000000-0000-4000-a000-000000000006", "verified"),
+            "documents": [
+                {"name": "Govt ASHA Certification Badge", "type": "pdf", "status": "VERIFIED"},
+                {"name": "Aadhaar Identity Proof", "type": "pdf", "status": "VERIFIED"},
+                {"name": "Gram Panchayat Allocation Letter", "type": "pdf", "status": "VERIFIED"}
+            ],
+            "registration_date": "2024-01-15"
+        },
+        {
+            "asha_id": "ASHA-104",
+            "user_id": "fhw-ash-104",
+            "name": "Rani Vasave",
+            "email": "rani.vasave@asha.curatrack.gov.in",
+            "phone": "+91 94032 55671",
+            "village_name": "Dongargaon Pada",
+            "block": "Nandurbar Taluk",
+            "sub_centre": "Dongargaon Sub-Centre",
+            "parent_phc": "PHC Nandurbar Rural",
+            "experience_years": 4,
+            "beneficiaries_count": 36,
+            "pending_followups": 1,
+            "completed_activities": 88,
+            "status": "active",
+            "verification_status": _local_onboarding_db.get("asha_verifications", {}).get("fhw-ash-104", "verified"),
+            "documents": [
+                {"name": "NHM ASHA Enrolment Letter", "type": "pdf", "status": "VERIFIED"},
+                {"name": "Aadhaar Card", "type": "pdf", "status": "VERIFIED"}
+            ],
+            "registration_date": "2024-06-10"
+        },
+        {
+            "asha_id": "ASHA-208",
+            "user_id": "fhw-ash-208",
+            "name": "Kavita Gavit",
+            "email": "kavita.gavit@asha.curatrack.gov.in",
+            "phone": "+91 97654 33120",
+            "village_name": "Dhanora Pada",
+            "block": "Shahada Taluk",
+            "sub_centre": "Dhanora SC",
+            "parent_phc": "Shahada Rural PHC",
+            "experience_years": 2,
+            "beneficiaries_count": 29,
+            "pending_followups": 4,
+            "completed_activities": 42,
+            "status": "active",
+            "verification_status": _local_onboarding_db.get("asha_verifications", {}).get("fhw-ash-208", "pending"),
+            "documents": [
+                {"name": "NHM Trainee Certificate", "type": "pdf", "status": "PENDING_REVIEW"},
+                {"name": "Secondary School Leaving Certificate", "type": "pdf", "status": "PENDING_REVIEW"},
+                {"name": "ASHA Induction Training Module 6 & 7", "type": "pdf", "status": "PENDING_REVIEW"}
+            ],
+            "registration_date": "2026-08-12"
+        },
+        {
+            "asha_id": "ASHA-312",
+            "user_id": "fhw-ash-312",
+            "name": "Rekha Valvi",
+            "email": "rekha.valvi@asha.curatrack.gov.in",
+            "phone": "+91 91580 99841",
+            "village_name": "Ranipur",
+            "block": "Taloda Taluk",
+            "sub_centre": "Ranipur Sub-Centre",
+            "parent_phc": "Taloda CHC",
+            "experience_years": 1,
+            "beneficiaries_count": 22,
+            "pending_followups": 2,
+            "completed_activities": 18,
+            "status": "under_review",
+            "verification_status": _local_onboarding_db.get("asha_verifications", {}).get("fhw-ash-312", "under_review"),
+            "documents": [
+                {"name": "District Health Society Appointment Letter", "type": "pdf", "status": "PENDING_REVIEW"},
+                {"name": "Voter ID Card", "type": "pdf", "status": "VERIFIED"}
+            ],
+            "registration_date": "2026-08-18"
+        },
+        {
+            "asha_id": "ASHA-409",
+            "user_id": "fhw-ash-409",
+            "name": "Lata Padvi",
+            "email": "lata.padvi@asha.curatrack.gov.in",
+            "phone": "+91 98229 11094",
+            "village_name": "Toranmal",
+            "block": "Shahada Taluk",
+            "sub_centre": "Toranmal SC",
+            "parent_phc": "Shahada Rural PHC",
+            "experience_years": 5,
+            "beneficiaries_count": 51,
+            "pending_followups": 5,
+            "completed_activities": 96,
+            "status": "active",
+            "verification_status": _local_onboarding_db.get("asha_verifications", {}).get("fhw-ash-409", "verified"),
+            "documents": [
+                {"name": "Senior ASHA Certificate", "type": "pdf", "status": "VERIFIED"}
+            ],
+            "registration_date": "2023-11-04"
+        }
+    ]
+
+    for a in default_ashas:
+        seen_ids.add(a["user_id"])
+        # Update with runtime verification status if modified
+        ver = _local_onboarding_db.get("asha_verifications", {}).get(a["user_id"])
+        if ver:
+            a["verification_status"] = ver
+        asha_list.append(a)
+
+    if _supabase:
+        try:
+            fhw_res = _supabase.table("fhw_profile").select("*").execute()
+            profiles_res = _supabase.table("profiles").select("id, name, email").eq("role", "fhw").execute()
+            prof_map = {p["id"]: p for p in (profiles_res.data or [])}
+
+            for f in (fhw_res.data or []):
+                uid = f.get("fhw_id")
+                if uid and uid not in seen_ids:
+                    seen_ids.add(uid)
+                    p = prof_map.get(uid, {})
+                    ver_status = _local_onboarding_db.get("asha_verifications", {}).get(uid, "verified")
+                    asha_list.append({
+                        "asha_id": f.get("asha_id") or f"ASHA-{uid[:6]}",
+                        "user_id": uid,
+                        "name": f.get("name") or p.get("name") or "ASHA Worker",
+                        "email": p.get("email") or "asha@curatrack.gov.in",
+                        "phone": f.get("contact_phone") or "+91 98000 00000",
+                        "village_name": f.get("village_name") or "Nandurbar Block",
+                        "block": "Nandurbar Taluk",
+                        "sub_centre": f.get("sub_centre") or "Sub-Centre",
+                        "parent_phc": f.get("parent_phc") or "PHC",
+                        "experience_years": 3,
+                        "beneficiaries_count": 30,
+                        "pending_followups": 2,
+                        "completed_activities": 45,
+                        "status": "active",
+                        "verification_status": ver_status,
+                        "documents": [
+                            {"name": "Govt ASHA Certification Badge", "type": "pdf", "status": "VERIFIED"}
+                        ],
+                        "registration_date": datetime.utcnow().strftime("%Y-%m-%d")
+                    })
+        except Exception as e:
+            logger.warning("Error fetching ASHA workers from Supabase: %s", e)
+
+    return asha_list
+
+
+def update_asha_verification_status(asha_id: str, status: str, admin_id: str = "admin-1", notes: str = "") -> dict:
+    """Admin function: Verify, Reject, or Request Correction for ASHA registration."""
+    timestamp = datetime.utcnow().isoformat() + "Z"
+    _local_onboarding_db.setdefault("asha_verifications", {})[asha_id] = status
+
+    if _supabase:
+        try:
+            _supabase.table("verification_status").upsert({
+                "doctor_id": asha_id,  # reused verification_status table with worker id
+                "status": status,
+                "verified_at": timestamp,
+                "verified_by": admin_id
+            }).execute()
+        except Exception as e:
+            logger.error("Failed to update ASHA verification in Supabase: %s", e)
+
+    return {
+        "success": True,
+        "asha_id": asha_id,
+        "verification_status": status,
+        "notes": notes,
+        "timestamp": timestamp
+    }
+

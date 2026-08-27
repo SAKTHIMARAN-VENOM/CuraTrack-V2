@@ -12,14 +12,14 @@ try:
     from routes import passport, ingest, activity, insights, ocr, onboarding
     from routes import google_fit_auth, drug_checker, sdoh, vitals_alerts
     from routes import triage, referrals, fhw, facility, translation
-    from routes import chatbot
+    from routes import chatbot, admin
     from services.ocr_service import validate_tesseract_on_startup
 except ImportError:
     from backend.routes import insurance, government, health_news, health_risks, qr  # type: ignore
     from backend.routes import passport, ingest, activity, insights, ocr, onboarding  # type: ignore
     from backend.routes import google_fit_auth, drug_checker, sdoh, vitals_alerts  # type: ignore
     from backend.routes import triage, referrals, fhw, facility, translation  # type: ignore
-    from backend.routes import chatbot  # type: ignore
+    from backend.routes import chatbot, admin  # type: ignore
     from backend.services.ocr_service import validate_tesseract_on_startup  # type: ignore
 
 app = FastAPI(title="CuraTrack API", version="2.0.0")
@@ -67,6 +67,7 @@ app.include_router(fhw.router, prefix="/api", tags=["Frontline Health Worker"])
 app.include_router(facility.router, prefix="/api", tags=["Facility Operations"])
 app.include_router(translation.router, prefix="/api", tags=["Translation"])
 app.include_router(chatbot.router, prefix="/api", tags=["Chatbot"])
+app.include_router(admin.router, prefix="/api", tags=["District Health Admin"])
 
 @app.get("/")
 def read_root():

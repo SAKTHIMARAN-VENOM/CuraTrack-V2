@@ -47,11 +47,19 @@ const FACILITY_NAV_ITEMS = [
 ];
 
 const ADMIN_NAV_ITEMS = [
-    { href: '/admin', icon: 'admin_panel_settings', i18nKey: 'navigation.districtAdmin', label: 'District Admin' },
-    { href: '/facility', icon: 'local_hospital', i18nKey: 'navigation.facilityOversight', label: 'Facility Oversight' },
-    { href: '/referrals', icon: 'alt_route', i18nKey: 'navigation.referralAudit', label: 'Referral Audit Track' },
-    { href: '/fhw', icon: 'volunteer_activism', i18nKey: 'navigation.catchmentMetrics', label: 'Catchment Metrics' },
-    { href: '/profile', icon: 'person', i18nKey: 'navigation.adminProfile', label: 'Admin Profile' }
+    { href: '/admin/dashboard', icon: 'dashboard', i18nKey: 'navigation.districtDashboard', label: 'District Dashboard' },
+    { href: '/admin/district', icon: 'map', i18nKey: 'navigation.districtOverview', label: 'District Overview' },
+    { href: '/admin/villages', icon: 'holiday_village', i18nKey: 'navigation.villages', label: 'Villages & Rural' },
+    { href: '/admin/workers', icon: 'badge', i18nKey: 'navigation.workforce', label: 'Healthcare Workers' },
+    { href: '/admin/verification', icon: 'verified_user', i18nKey: 'navigation.verification', label: 'Worker Verification' },
+    { href: '/admin/facilities', icon: 'local_hospital', i18nKey: 'navigation.facilities', label: 'Healthcare Facilities' },
+    { href: '/admin/patients', icon: 'groups', i18nKey: 'navigation.patients', label: 'Beneficiaries & Patients' },
+    { href: '/admin/diseases', icon: 'coronavirus', i18nKey: 'navigation.diseaseMonitoring', label: 'Disease Monitoring' },
+    { href: '/admin/alerts', icon: 'warning', i18nKey: 'navigation.outbreakAlerts', label: 'Outbreak Alerts' },
+    { href: '/admin/referrals', icon: 'alt_route', i18nKey: 'navigation.referralPipeline', label: 'Referral Pipeline' },
+    { href: '/admin/reports', icon: 'summarize', i18nKey: 'navigation.reports', label: 'District Reports' },
+    { href: '/admin/notifications', icon: 'notifications', i18nKey: 'navigation.notifications', label: 'Notifications' },
+    { href: '/admin/settings', icon: 'settings', i18nKey: 'navigation.settings', label: 'Admin Settings' }
 ];
 
 export function SideNavBar() {
