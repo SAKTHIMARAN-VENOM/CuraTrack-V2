@@ -2,14 +2,17 @@
 
 [![Next.js](https://img.shields.io/badge/Next.js-16.2_Turbopack-black?style=for-the-badge&logo=next.js)](https://nextjs.org/)
 [![FastAPI](https://img.shields.io/badge/FastAPI-0.115+-009688?style=for-the-badge&logo=fastapi)](https://fastapi.tiangolo.com/)
+[![Groq AI](https://img.shields.io/badge/Groq_AI-Llama_3_CuraBot-F55036?style=for-the-badge)](https://groq.com/)
+[![Google Gemini](https://img.shields.io/badge/Google_Gemini-Vision_OCR-4285F4?style=for-the-badge&logo=google)](https://ai.google.dev/)
+[![Sarvam AI](https://img.shields.io/badge/Sarvam_AI-Multilingual_Indic-FF6B35?style=for-the-badge)](https://www.sarvam.ai/)
 [![Capacitor](https://img.shields.io/badge/Capacitor-8.5_Android-119EFF?style=for-the-badge&logo=capacitor)](https://capacitorjs.com/)
 [![Supabase](https://img.shields.io/badge/Supabase-PostgreSQL_|_RLS-3ECF8E?style=for-the-badge&logo=supabase)](https://supabase.com/)
-[![Sarvam AI](https://img.shields.io/badge/Sarvam_AI-Multilingual-FF6B35?style=for-the-badge)](https://www.sarvam.ai/)
 [![WebRTC](https://img.shields.io/badge/WebRTC-P2P_Video-333333?style=for-the-badge&logo=webrtc)](https://webrtc.org/)
-[![Tests](https://img.shields.io/badge/Tests-146_Automated-4CAF50?style=for-the-badge)](tests/)
+[![CGHS India](https://img.shields.io/badge/CGHS_Hospitals-2%2C599_Empaneled-138808?style=for-the-badge)](https://data.gov.in/)
+[![Tests](https://img.shields.io/badge/Tests-149_Automated-4CAF50?style=for-the-badge)](tests/)
 [![License](https://img.shields.io/badge/License-MIT-blue.svg?style=for-the-badge)](LICENSE)
 
-> **Empathetic Precision in Modern Digital Public Health** — **CuraTrack V2** is a comprehensive, production-grade healthcare ecosystem designed for India's public and rural health infrastructure. It bridges citizens, ASHA frontline health workers, primary health centres (PHCs), community health centres (CHCs), and district hospitals through seamless digital clinical triage, end-to-end referral pipelines, EDL drug stock tracking, real-time wearable telemetry, peer-to-peer WebRTC teleconsultation, **Sarvam AI multilingual translation (English, Hindi, Marathi, Tamil)**, **Capacitor-powered native Android builds**, **Web Bluetooth medical device integration**, **offline-first progressive caching**, and emergency 108/112 dispatch.
+> **Empathetic Precision in Modern Digital Public Health** — **CuraTrack V2** is a comprehensive, production-grade healthcare ecosystem designed for India's public and rural health infrastructure. It bridges citizens, ASHA frontline health workers, primary health centres (PHCs), community health centres (CHCs), and district hospitals through seamless digital clinical triage, end-to-end referral pipelines, EDL drug stock tracking, real-time wearable telemetry, peer-to-peer WebRTC teleconsultation, **Groq-powered CuraBot AI clinical support**, **Gemini Vision multimodal OCR document ingestion**, **Sarvam AI multilingual translation (English, Hindi, Marathi, Tamil)**, **2,599 CGHS empaneled hospitals lookup**, **Capacitor-powered native Android builds**, **Web Bluetooth medical peripheral integration**, **offline-first progressive caching**, and emergency 108/112 dispatch.
 
 ---
 
@@ -23,7 +26,8 @@ graph TD
         P3["Ayushman PM-JAY & ABHA ID"]
         P4["Wearable Telemetry & OCR Records"]
         P5["108 Ambulance SOS Dispatch"]
-        P6["Bluetooth Vitals Sync"]
+        P6["Bluetooth Vitals Sync & QR Passport"]
+        P7["CuraBot AI Support Assistant"]
     end
 
     subgraph Frontline["2. Frontline Health Workers (ASHA / ANM)"]
@@ -31,7 +35,7 @@ graph TD
         F2["Maternal ANC & Immunization Tracker"]
         F3["High-Risk Pregnancy Alerts (HRP)"]
         F4["Assisted Teleconsultation Video Bridge"]
-        F5["Bluetooth Device Pairing"]
+        F5["Bluetooth Device Pairing Bridge"]
     end
 
     subgraph Clinical["3. Medical Officers & Specialists"]
@@ -45,7 +49,7 @@ graph TD
 
     subgraph Operations["4. Facility & Pharmacy Managers"]
         H1["Essential Drug List (EDL) Inventory"]
-        H2["Stockout Countdown Alerts"]
+        H2["Stockout Countdown Alerts (Days of Supply)"]
         H3["Diagnostic Lab Order Pipeline (AFB, CBC, USG)"]
         H4["Live OPD Queue & Bed Availability"]
         H5["Consultation Services Scheduling"]
@@ -58,19 +62,22 @@ graph TD
         A4["Catchment Disease & Maternal Metrics"]
     end
 
-    subgraph Platform["6. Platform Services"]
-        T1["Sarvam AI Multilingual Translation"]
-        T2["Redis / In-Memory Token Blacklist"]
-        T3["Offline-First Progressive Caching"]
-        T4["Capacitor Native Android Build"]
+    subgraph Platform["6. Platform & Intelligence Services"]
+        T1["Groq AI CuraBot (Streaming SSE)"]
+        T2["Google Gemini Vision + RapidOCR + Tesseract"]
+        T3["Sarvam AI Multilingual Translation"]
+        T4["2,599 CGHS Empaneled Hospitals Registry"]
+        T5["Redis / In-Memory Token Blacklist"]
+        T6["Capacitor Native Android Build"]
+        T7["Web Bluetooth BLE Peripheral Sync"]
     end
 
-    Citizens -->|Ingest / Consult| CoreBackend["FastAPI Backend Engine + Supabase PostgreSQL (RLS)"]
-    Frontline -->|Sync / Refer| CoreBackend
-    Clinical -->|Examine / Prescribe| CoreBackend
-    Operations -->|Stock / Lab Orders| CoreBackend
-    Governance -->|Audit / Verify| CoreBackend
-    Platform -->|Translate / Cache| CoreBackend
+    Citizens -->|Ingest / Consult / Chat| CoreBackend["FastAPI Backend Engine + Supabase PostgreSQL (RLS)"]
+    Frontline -->|Sync / Refer / Bridge| CoreBackend
+    Clinical -->|Examine / Prescribe / Triage| CoreBackend
+    Operations -->|Stock / Lab Orders / Beds| CoreBackend
+    Governance -->|Audit / Verify / Oversee| CoreBackend
+    Platform -->|Translate / Parse / Stream| CoreBackend
 ```
 
 ---
@@ -81,7 +88,7 @@ CuraTrack V2 implements strict **1-user-1-role access control**. Users are stric
 
 | Stakeholder Role | Portal Route | Primary Capabilities | Default Demo Credentials |
 | :--- | :--- | :--- | :--- |
-| 👤 **Patient / Citizen** | `/dashboard` | Wearables vitals sync, Bluetooth device pairing, symptom self-triage, instant & scheduled doctor consult, OCR prescription records, Ayushman Bharat PM-JAY schemes, scoped QR passport, health alerts & seasonal outbreak radar, 108 SOS, multilingual UI. | `patient@curatrack.in`<br>`Patient@123` |
+| 👤 **Patient / Citizen** | `/dashboard` | Wearables vitals sync, Bluetooth device pairing, symptom self-triage, CuraBot AI assistant, instant & scheduled doctor consult, OCR prescription records, 2,599 CGHS hospitals & PM-JAY schemes, scoped QR passport, health alerts & seasonal outbreak radar, 108 SOS, multilingual UI. | `patient@curatrack.in`<br>`Patient@123` |
 | 🩺 **Medical Officer / Doctor** | `/doctor`<br>`/doctor/triage`<br>`/doctor/referrals` | Clinical OPD patient queue, incoming video call ringer, clinical triage scoring, multi-tier referral generation (`REF-xxxx`), prescription-to-pharmacy pipeline with EDL stock deduction, diagnostic orders, openFDA drug interaction safety, Bluetooth vitals intake. | `doctor@curatrack.in`<br>`Doctor@123` |
 | 👩‍⚕️ **ASHA / ANM Frontline Worker** | `/fhw`<br>`/fhw/referrals` | Village catchment roster, Maternal ANC tracking (ANC 1-4), child immunization tracker, rural beneficiary registration, assisted teleconsultation video bridge, outbreak alerts, community triage, Bluetooth device bridge. | `asha@curatrack.in`<br>`Asha@123` |
 | 🏥 **Facility & Pharmacy In-Charge** | `/facility`<br>`/facility/clinical-schedule`<br>`/facility/consultation-service` | Essential Drug List (EDL) stock management, Days of Supply calculation, diagnostic lab test queue (CBC, AFB, Ultrasound), live OPD token number and bed tracking, consultation services scheduling, doctor roster management. | `facility@curatrack.in`<br>`Facility@123` |
@@ -91,7 +98,13 @@ CuraTrack V2 implements strict **1-user-1-role access control**. Users are stric
 
 ## ✨ In-Depth Feature Breakdown
 
-### 🚨 1. Digital Clinical Triage System (`/triage`)
+### 🤖 1. CuraBot AI Clinical Support & Navigation Assistant
+* **Groq-Powered Conversational Intelligence**: Blazing-fast conversational reasoning powered by Llama 3 via Groq (`/api/chatbot` and `/api/chatbot/stream`).
+* **Real-Time Streaming Responses**: Server-Sent Events (SSE) streaming token delivery for immediate, low-latency conversational feedback.
+* **Context-Aware Medical Navigation**: Grounded in CuraTrack features, medical record workflows, triage protocols, government scheme qualification, and hospital discovery.
+* **Persistent Session State**: Seamless session storage (`sessionStorage`) keeping conversation history intact across page transitions.
+
+### 🚨 2. Digital Clinical Triage System (`/triage`, `/self-triage`)
 * **10-Body-System Clinical Taxonomy**: Covers Cardiovascular, Respiratory, Neurological, Gastrointestinal, Maternal/Obstetric, Trauma, Endocrine, Infectious, Renal, and Dermatological conditions.
 * **Intelligent Urgency Classification**:
   * 🔴 **RED (Emergency)**: Life-threatening indicators triggering automatic advice for immediate **108 Indian Ambulance dispatch** and tertiary care referral.
@@ -101,79 +114,80 @@ CuraTrack V2 implements strict **1-user-1-role access control**. Users are stric
 * **1-Click Auto-Booking & Referral Pipeline**: Converts triage outputs immediately into a confirmed doctor visit or referral pass.
 * **Doctor Triage Dashboard (`/doctor/triage`)**: Live incoming triage alerts with consult pathway router (in-person visit vs teleconsultation).
 
-### 🔄 2. End-to-End Referral Pipeline (`/referrals`)
+### 🔄 3. End-to-End Referral Pipeline (`/referrals`)
 * **Public Health Referral Lifecycle**: Tracks patient flow across `INITIATED` ➔ `PENDING_REVIEW` ➔ `ACCEPTED` ➔ `SCHEDULED` ➔ `COMPLETED` / `REJECTED`.
 * **Unique Identification**: Generates cryptographically secure, traceable referral codes (e.g. `REF-2026-8921`).
 * **Clinical Handshake & Continuity of Care**: Encapsulates clinical summary, tentative diagnosis, requested investigation, transport modality (108 Ambulance / Patient Travel), and receiving physician notes.
 * **Multi-Role Referral Access**: Dedicated views for Doctors (`/doctor/referrals`), FHW (`/fhw/referrals`), and Admin (`/referrals`) with role-specific actions and audit trails.
 * **ABHA ID Integration**: Links referrals to Ayushman Bharat Health Account identifiers for national health record continuity.
 
-### 👩‍⚕️ 3. Frontline Health Worker (ASHA / ANM) Catchment Suite (`/fhw`)
+### 👩‍⚕️ 4. Frontline Health Worker (ASHA / ANM) Catchment Suite (`/fhw`)
 * **Village Population Surveillance**: Comprehensive roster tracking rural beneficiaries across age, socio-economic band, and health vulnerability.
 * **Maternal ANC Milestones**: Automated tracking of Antenatal Care checkups (ANC1 at registration, ANC2 at 14–26 weeks, ANC3 at 28–34 weeks, ANC4 at 36 weeks).
 * **Under-5 Immunization Surveillance**: National immunization schedule tracker for BCG, OPV, Pentavalent, Rotavirus, Measles-Rubella (MR), and DPT boosters.
 * **High-Risk Pregnancy (HRP) Radar**: Instant flags for severe anemia ($Hb < 7\text{ g/dL}$), gestational hypertension, previous C-section history, and adolescent pregnancy.
-* **Assisted Teleconsultation Bridge**: Enables ASHA workers to initiate joint WebRTC video calls bridging remote rural patients with district medical officers in real time.
+* **Assisted Teleconsultation Bridge**: Enables ASHA workers to select beneficiaries and initiate joint WebRTC video calls bridging remote rural patients with district medical officers in real time.
 * **Community Triage & Outbreak Alerts**: Direct access to clinical triage and seasonal health outbreak notifications for proactive village-level surveillance.
 
-### 🏥 4. Facility Operations, EDL Drug Inventory & Diagnostics (`/facility`)
+### 🏥 5. Facility Operations, EDL Drug Inventory & Diagnostics (`/facility`)
 * **Essential Medicine List (EDL) Management**: Live inventory tracking for public health medicines (Amoxicillin, Metformin, ORS, IFA tablets, Paracetamol, Ceftriaxone, Amlodipine, Tetanus Toxoid, etc.).
 * **Days of Supply & Stockout Radar**: Automated mathematical countdown of remaining stock based on daily burn rate with high-visibility alerts when inventory drops below 7 days.
 * **Diagnostic Lab Order Pipeline**: End-to-end lab workflow management for Complete Blood Count (CBC), Sputum AFB (Tuberculosis), Ultrasound Obstetrics, Rapid Malaria Dipstick, and ECG.
 * **Live OPD Token Queue & Bed Capacity**: Real-time tracking of active consultation token numbers and inpatient ward occupancy with ward-level bed breakdown (General Male/Female, Pediatric, Maternity, ICU, Isolation).
-* **Consultation Services Scheduling (`/facility/clinical-schedule`)**: Manages doctor appointment slots, consultation service calendars, and clinic session planning.
+* **Consultation Services Scheduling (`/facility/clinical-schedule`, `/facility/consultation-service`)**: Manages doctor appointment slots, consultation service calendars, and clinic session planning.
 * **Prescription-to-Pharmacy Pipeline**: Doctor prescriptions auto-deduct from facility EDL stock; non-inventory medicines surface "Order" buttons for patients while inventory medicines are dispensed directly.
 
-### 🎥 5. Zero-Latency WebRTC P2P Telemedicine (`/call/[roomId]`)
+### 🎥 6. Zero-Latency WebRTC P2P Telemedicine (`/call/[roomId]`)
 * **Direct Peer-to-Peer Media Streaming**: Real-time audio and video transmission utilizing Google STUN servers and Supabase Realtime broadcast channels for SDP offer/answer signaling.
 * **Incoming Call Ringer for Doctors**: Live audio chime and visual popups on the doctor's dashboard when a patient or ASHA worker connects to their room.
 * **In-Call Clinical Tools**: Dynamic consultation timer, device switching (mic, camera, speaker), and auto-cleanup upon call completion.
 
-### 📄 6. Multimodal OCR Document Ingestion (`/records`)
-* **Dual-Engine OCR**: Ingests printed prescriptions, lab summaries, and diagnostic reports using **Tesseract OCR v5**, **RapidOCR (ONNX Runtime)**, and **Google Gemini API** (`gemini-flash-latest`) or offline **Ollama (Llama 3.1:8b)**.
+### 📄 7. Multimodal OCR Document Ingestion (`/records`)
+* **Multi-Engine OCR with Gemini Vision Fallback**: Ingests printed prescriptions, lab summaries, and diagnostic reports using **Google Gemini Vision API** (`gemini-flash-latest`), **RapidOCR (ONNX Runtime)**, **Tesseract OCR v5**, and offline **Ollama (Llama 3.1:8b)**.
 * **Structured Data Extraction**: Automatically detects medications, dosages, frequency, test biomarkers, and physician impressions and records them directly into the patient's database timeline.
 
-### 💊 7. openFDA Drug Interaction & Safety Engine (`/drug-checker`)
+### 🏛️ 8. 2,599 CGHS Empaneled Hospitals & PM-JAY Schemes (`/benefits`)
+* **Official CGHS Empaneled Hospitals Registry**: Ingests **2,599 CGHS empaneled hospitals and diagnostic centres** nationwide from Open Government Data (data.gov.in).
+* **Dynamic Search & Multi-Filter**: Filter by City, State, Specialities (Cardiology, Oncology, Orthopaedics, Nephrology), and NABH/NABL accreditation status.
+* **Ayushman Bharat PM-JAY Engine**: Automated eligibility matching based on SECC criteria, socio-economic band, and family composition with cashless claim pre-authorization calculation.
+
+### 💊 9. openFDA Drug Interaction & Safety Engine (`/drug-checker`)
 * **Official openFDA Integration**: Real-time cross-referencing against the official United States Food and Drug Administration (openFDA) database.
 * **Multi-Drug Collision Detection**: Detects severe contraindications, synergistic toxicities, and recommended dosage intervals for multi-drug regimens.
 
-### 🎫 8. Encrypted Patient Passport & Scoped Emergency QR (`/passport`)
+### 🎫 10. Encrypted Patient Passport & Scoped Emergency QR (`/passport`, `/profile`)
 * **Time-Bound 256-Bit Tokens**: Generates signed, auto-expiring JWT tokens encoded into QR codes for emergency first responders and external specialists.
 * **Configurable Scopes**: Granular access control selecting whether emergency viewers can see Vitals, Allergies, Medications, Diagnoses, or Insurance.
 * **Immutable Audit Logging**: Logs every QR scan with timestamp, IP address, and accessing clinician identifiers.
 * **Redis-Backed Token Blacklisting**: Consumed tokens are blacklisted via Redis (or in-memory fallback in dev mode) to prevent replay attacks.
 
-### 🌐 9. Sarvam AI Multilingual Translation Engine
+### 🌐 11. Sarvam AI Multilingual Translation Engine
 * **4-Language Real-Time Translation**: Full UI translation across **English (en)**, **Hindi (hi)**, **Marathi (mr)**, and **Tamil (ta)** powered by the [Sarvam AI Translation API](https://www.sarvam.ai/).
 * **High-Throughput Concurrent Batching**: Translates page-level UI strings via `ThreadPoolExecutor` with automatic batch splitting for optimal API throughput.
 * **Server-Side Translation Caching**: In-memory `src:tgt:text` cache eliminates redundant API calls and reduces latency for repeated strings.
 * **Frontend `next-intl` Integration**: Client-side `I18nProvider` with `useI18n()` hook, static JSON dictionaries (`messages/en.json`, `hi.json`, `mr.json`, `ta.json`), and live `LanguageToggle` component for instant language switching.
 
-### 📡 10. Web Bluetooth Medical Device Integration (`/bluetooth`)
+### 📡 12. Web Bluetooth Medical Device Integration (`/bluetooth`)
 * **Role-Specific Bluetooth Pairing**: Dedicated Bluetooth device sync pages for Patients (`/bluetooth/patient`), Doctors (`/bluetooth/doctor`), and ASHA workers (`/bluetooth/fhw`).
 * **BLE Vitals Intake**: Pairs with Bluetooth Low Energy medical peripherals (pulse oximeters, blood pressure monitors, glucometers) for real-time clinical vitals transmission.
 * **API-Backed Device Transfer**: Bluetooth data transfer routes (`/api/bluetooth/transfers`, `/api/bluetooth/requests`, `/api/bluetooth/presence`) for device handoff and presence tracking.
 
-### 🔔 11. Health Alerts & Seasonal Outbreak Radar (`/alerts`)
+### 🔔 13. Health Alerts & Seasonal Outbreak Radar (`/alerts`)
 * **12-Month Seasonal Disease Intelligence**: Comprehensive monthly outbreak data covering Influenza, Dengue, Malaria, Chikungunya, RSV, Typhoid, Leptospirosis, Cholera, Heat Stroke, and more.
 * **Real-Time Health News Feed**: Aggregated health advisories and public health news from backend API.
 * **Activity & Fitness Summary**: Displays Google Fit synced activity data alongside health risk alerts.
 * **Offline-First Caching**: All alerts, health risks, and news are cached to `localStorage` for offline access via `offlineStorage` utility.
 
-### 📱 12. Fully Database-Driven Mobile Application (`mobile/`)
+### 📱 14. Fully Database-Driven Mobile Application (`mobile/`)
 * **100% Database-Driven**: Zero mock or hardcoded data—all profiles, scheduled appointments, prescriptions, uploaded records, and notifications are bound to Supabase PostgreSQL.
 * **Google Fit Wearable Telemetry**: Real-time synchronization of step count, resting heart rate, blood oxygen ($SpO_2$), and sleep duration via `/api/fit-data`.
 * **Local Emergency Protocols**: Dedicated **108 Indian Ambulance Emergency SOS** and **112 National Emergency Dispatch** buttons with instant telemetry transmission.
 * **Medical ID QR Modal**: Patient medical identity QR code generation and display for rapid identification by first responders.
 
-### 🏥 13. Stakeholder Onboarding & SDOH Assessment
+### 👤 15. Profile, Existing Diseases, Allergies & SDOH (`/profile`, `/onboarding`)
+* **Existing Diseases & Allergies Tracking**: Comprehensive health profile tracking chronic ailments (Hypertension, Diabetes, Asthma) and drug/food allergies for automatic contraindication warnings.
+* **Social Determinants of Health (SDOH) Assessment (`/onboarding/sdoh`)**: Structured questionnaire capturing housing, food security, transportation, employment, and social support metrics.
 * **4-Pathway Role Onboarding (`/onboarding`)**: Guided registration flows for Patients, Doctors, ASHA Workers, and Admins with role-specific profile setup and verification steps.
-* **Social Determinants of Health (SDOH) Assessment (`/onboarding/sdoh`)**: Structured questionnaire capturing housing, food security, transportation, employment, and social support metrics for holistic patient profiling.
-
-### 👤 14. Profile & Medical Identity (`/profile`)
-* **Comprehensive Health Profile**: Full patient medical identity with demographics, blood group, allergies, chronic conditions, and emergency contacts.
-* **Health Profile Modal**: Interactive modal for editing and updating medical identity, including ABHA ID linkage.
-* **Prescription Review Modal**: Dedicated interface for reviewing active and historical prescriptions with medication status tracking.
 
 ---
 
@@ -184,6 +198,7 @@ CuraTrack V2 implements strict **1-user-1-role access control**. Users are stric
 | **Web Frontend** | Core Framework | Next.js 16.2+ (App Router & Turbopack), React 19, TypeScript |
 | | Styling & Components | Tailwind CSS v4, shadcn/ui, Lucide Icons, Material Symbols, Recharts |
 | | Internationalization | `next-intl`, Sarvam AI API, Static JSON Dictionaries (EN/HI/MR/TA) |
+| | AI Chatbot Widget | CuraBot Floating Assistant (Groq SSE Streaming) |
 | | Device Integration | Web Bluetooth API, Capacitor 8.5 (Android Native) |
 | | Offline & Caching | `offlineStorage` utility with `localStorage` progressive caching |
 | **Mobile App** | Core Framework | Next.js 16.2+, React 19, TypeScript |
@@ -192,15 +207,15 @@ CuraTrack V2 implements strict **1-user-1-role access control**. Users are stric
 | **Backend API** | Server Framework | Python 3.10+, FastAPI (0.115+), Uvicorn, Pydantic v2, HTTPX |
 | | Caching & Tokens | Redis (production) / In-Memory Fallback (dev) for token blacklisting |
 | | Translation | Sarvam AI API with `ThreadPoolExecutor` concurrent batching |
-| **AI & Vision** | Multimodal LLMs | Google Gemini API (`gemini-flash-latest`), Ollama Llama 3.1 |
-| | OCR Engines | Tesseract OCR v5, RapidOCR (ONNX Runtime) |
+| **AI, LLM & Vision** | Conversational Support | Groq Cloud API (`llama-3.3-70b-versatile` / `llama3-8b-8192`) |
+| | Multimodal Vision & OCR | Google Gemini API (`gemini-flash-latest`), Ollama Llama 3.1, RapidOCR, Tesseract v5 |
 | **Database & Realtime** | Data Storage | Supabase PostgreSQL with Row Level Security (RLS) |
 | | Signaling & Auth | Supabase Auth, SSR Middleware, Supabase Realtime Channels |
-| **Integrations** | External APIs | openFDA REST API, Google Fit REST API, Sarvam AI, STUN/WebRTC |
-| **Testing** | Backend | Pytest (93 test cases across 14 test modules) + Coverage |
+| **Integrations** | External APIs | openFDA REST API, Google Fit REST API, Sarvam AI, CGHS / Data.gov.in, STUN/WebRTC |
+| **Testing** | Backend | Pytest (96 automated test cases across 14 test modules) + Coverage |
 | | Frontend Website | Vitest + JSDOM (30 component & integration tests) |
 | | Mobile App | Vitest + JSDOM (23 component, context & API tests) |
-| **CI/CD** | Push Protection | Git Pre-Push Hook + GitHub Actions CI Matrix |
+| **CI/CD** | Push Protection | Git Pre-Push Hook + GitHub Actions CI Matrix (Python 3.11 + 3.12) |
 | | Deployment | Vercel (Frontend/Mobile), Render (Backend API) |
 
 ---
@@ -210,7 +225,8 @@ CuraTrack V2 implements strict **1-user-1-role access control**. Users are stric
 ```
 curatrack-v2/
 ├── backend/                        # Python FastAPI Microservice Backend
-│   ├── routes/                     # API Routers (21 route modules)
+│   ├── routes/                     # API Routers (22 route modules)
+│   │   ├── chatbot.py              # Groq-powered CuraBot support assistant & SSE stream
 │   │   ├── triage.py               # Digital clinical triage & urgency scoring
 │   │   ├── referrals.py            # End-to-end referral pipeline (REF-xxxx)
 │   │   ├── fhw.py                  # ASHA / ANM village catchment & maternal ANC
@@ -224,35 +240,38 @@ curatrack-v2/
 │   │   ├── vitals_alerts.py        # Wearable vitals threshold alerts
 │   │   ├── google_fit_auth.py      # Google Fit OAuth2 & data sync
 │   │   ├── insurance.py            # PM-JAY & Ayushman Bharat scheme eligibility
-│   │   ├── government.py           # Government scheme data ingestion
+│   │   ├── government.py           # 2,599 CGHS hospitals registry & government schemes
 │   │   ├── sdoh.py                 # Social Determinants of Health assessment
-│   │   ├── ocr.py                  # OCR text extraction endpoint
+│   │   ├── ocr.py                  # OCR text extraction endpoint (Gemini Vision + RapidOCR)
 │   │   ├── ingest.py               # Document ingestion & structured parsing
 │   │   ├── qr.py                   # QR Health ID generation
 │   │   ├── activity.py             # Activity & fitness data
 │   │   └── insights.py             # AI-powered health insights
-│   ├── services/                   # Business Logic (15 service modules)
+│   ├── services/                   # Business Logic (16 service modules)
+│   │   ├── chatbot_service.py      # Groq AI conversation & streaming engine
 │   │   ├── sarvam_translation.py   # Sarvam AI concurrent batch translation engine
 │   │   ├── redis_client.py         # Redis / in-memory token blacklist
-│   │   ├── ocr_service.py          # Tesseract + RapidOCR + Gemini OCR pipeline
+│   │   ├── ocr_service.py          # Gemini Vision + Tesseract + RapidOCR pipeline
 │   │   ├── llm_service.py          # Gemini / Ollama LLM abstraction
-│   │   ├── government_schemes.py   # PM-JAY scheme matching engine
+│   │   ├── government_schemes.py   # 2,599 CGHS hospitals lookup & PM-JAY matching
 │   │   ├── onboarding_service.py   # Role-based onboarding logic
 │   │   ├── jwt_helper.py           # JWT token signing & verification
 │   │   ├── audit_logger.py         # Passport access audit trail
-│   │   ├── patient_data.py         # Patient data aggregation
+│   │   ├── patient_data.py         # Patient data aggregation & profile sync
 │   │   ├── eligibility.py          # Insurance eligibility checks
 │   │   ├── insights_service.py     # Health insights generation
 │   │   ├── parser_service.py       # Document parsing utilities
 │   │   ├── save_service.py         # Record persistence service
 │   │   └── supabase_client.py      # Supabase client initialization
+│   ├── data/                       # Static & offline reference data
+│   │   └── cghs_hospitals.json     # 2,599 CGHS Empaneled Hospitals dataset
 │   ├── main.py                     # FastAPI application entry point & CORS configuration
 │   └── requirements.txt            # Python dependencies
 ├── frontend/                       # Next.js 16 Web Application
 │   ├── app/                        # Next.js App Router
 │   │   ├── (dashboard)/            # Authenticated stakeholder routes
 │   │   │   ├── dashboard/          # Citizen / Patient health overview
-│   │   │   ├── self-triage/        # Patient Emergency Self-Assessment & Emergency Alerting
+│   │   │   ├── self-triage/        # Patient Emergency Self-Assessment & Alerting
 │   │   │   ├── triage/             # Digital Clinical Triage Suite
 │   │   │   ├── referrals/          # Public Health Referral Tracking Pipeline
 │   │   │   ├── fhw/                # ASHA Frontline Worker Catchment Center
@@ -266,19 +285,18 @@ curatrack-v2/
 │   │   │   │   └── clinical-schedule/ # Doctor Clinical Schedule
 │   │   │   ├── telemedicine/       # WebRTC Video Consult Launcher
 │   │   │   ├── records/            # OCR Medical Document Archive
-│   │   │   ├── benefits/           # PM-JAY & Ayushman Bharat Scheme Ingestion
+│   │   │   ├── benefits/           # 2,599 CGHS Hospitals & PM-JAY Schemes
 │   │   │   ├── alerts/             # Health Alerts & Seasonal Outbreak Radar
 │   │   │   ├── bluetooth/          # Web Bluetooth Device Integration
 │   │   │   │   ├── patient/        # Patient Bluetooth Vitals Sync
 │   │   │   │   ├── doctor/         # Doctor Bluetooth Vitals Intake
 │   │   │   │   └── fhw/            # ASHA Worker Bluetooth Bridge
 │   │   │   ├── drug-checker/       # openFDA Drug Interaction Checker
-│   │   │   └── profile/            # Medical ID & Health Passport
-│   │   ├── doctor/                 # Doctor Clinical Schedule (legacy route)
+│   │   │   └── profile/            # Medical ID, Allergies & Health Passport
 │   │   ├── admin/                  # District Administrator Portal & Verification
 │   │   ├── patient/[id]/           # Individual Patient Detail View
 │   │   ├── onboarding/             # Role-Based Onboarding Flows
-│   │   │   ├── patient/            # Patient Registration
+│   │   │   ├── patient/            # Patient Registration (Allergies, Diseases)
 │   │   │   ├── doctor/             # Doctor Verification & Registration
 │   │   │   ├── admin/              # Admin Setup
 │   │   │   └── sdoh/               # Social Determinants of Health Assessment
@@ -287,37 +305,19 @@ curatrack-v2/
 │   │   ├── drug-checker/           # Standalone Drug Checker Page
 │   │   ├── login/                  # 5-Tier 1-Click Demo Login & Authentication
 │   │   └── api/                    # Next.js Serverless Route Handlers
-│   │       ├── auth/               # Authentication callbacks
-│   │       ├── auth-status/        # Session status check
-│   │       ├── bluetooth/          # Bluetooth API (presence, requests, transfers)
-│   │       ├── debug/              # Debug utilities
-│   │       ├── fit-data/           # Google Fit data sync
-│   │       ├── logout/             # Session termination
-│   │       ├── oauth2callback/     # OAuth2 callback handler
-│   │       ├── offline/            # Offline data transfer
-│   │       └── profile/            # Profile data API
 │   ├── components/                 # UI Components
+│   │   ├── ChatBubble.tsx          # Groq-powered CuraBot AI support assistant
 │   │   ├── layout/                 # SideNavBar, TopNavBar, MobileNav
 │   │   ├── AddRecordModal.tsx      # Medical record creation modal
-│   │   ├── HealthProfileModal.tsx  # Health profile editing modal
+│   │   ├── HealthProfileModal.tsx  # Health profile & allergies editing modal
 │   │   ├── HeartRateChart.tsx      # Recharts heart rate visualization
 │   │   ├── LanguageToggle.tsx      # Multilingual language switcher
 │   │   ├── MedicineSearchDropdown.tsx # EDL medicine search autocomplete
 │   │   ├── PassportQRModal.tsx     # Emergency QR passport display
 │   │   ├── ReviewMedicationModal.tsx # Prescription review interface
 │   │   └── ui/                     # shadcn/ui base components
-│   ├── lib/                        # Utility Libraries
-│   │   ├── supabase/               # Supabase SSR client, server, and middleware
-│   │   ├── i18n.tsx                # I18nProvider & Sarvam AI translation hooks
-│   │   ├── offline-storage.ts      # Offline-first localStorage caching
-│   │   ├── api.ts                  # Backend API client
-│   │   ├── google.ts               # Google OAuth helpers
-│   │   └── webrtc.ts               # WebRTC signaling utilities
-│   ├── messages/                   # Static i18n Translation Dictionaries
-│   │   ├── en.json                 # English (29KB)
-│   │   ├── hi.json                 # Hindi (45KB)
-│   │   ├── mr.json                 # Marathi (45KB)
-│   │   └── ta.json                 # Tamil (53KB)
+│   ├── lib/                        # Utility Libraries (Supabase, i18n, WebRTC, API)
+│   ├── messages/                   # Static i18n Translation Dictionaries (EN/HI/MR/TA)
 │   ├── supabase/                   # Database Schema Definitions (10 SQL files)
 │   ├── android/                    # Capacitor Android Native Build
 │   ├── __tests__/                  # Vitest Frontend Test Suite (7 test files, 30 tests)
@@ -342,8 +342,8 @@ curatrack-v2/
 │   ├── context/                    # AppContext (Live Supabase database-driven state management)
 │   ├── lib/                        # Mobile API clients, Supabase client, Google Fit sync
 │   └── __tests__/                  # Vitest Mobile Test Suite (6 test files, 23 tests)
-├── tests/                          # Automated Verification Test Suite (93 Pytest tests)
-│   ├── test_backend_core.py        # Core API health & SDOH tests
+├── tests/                          # Automated Verification Test Suite (96 Pytest tests)
+│   ├── test_backend_core.py        # Core API health, CGHS & SDOH tests
 │   ├── test_triage_and_referrals.py# Triage scoring & referral lifecycle tests
 │   ├── test_fhw.py                 # ASHA catchment & maternal ANC tests
 │   ├── test_facility_and_rbac.py   # Facility EDL inventory & RBAC tests
@@ -378,7 +378,9 @@ curatrack-v2/
 - **Node.js**: v18.0.0 or higher
 - **Python**: v3.10 or higher
 - **Supabase Project**: Free tier or self-hosted Supabase instance
-- **Sarvam AI API Key** *(optional)*: For multilingual translation
+- **Groq API Key** *(optional)*: For CuraBot AI support assistant (`llama-3.3-70b-versatile`)
+- **Gemini API Key** *(optional)*: For Gemini Vision multimodal OCR extraction
+- **Sarvam AI API Key** *(optional)*: For real-time multilingual translation
 - **Redis** *(optional)*: For production token blacklisting (falls back to in-memory in dev)
 
 ---
@@ -390,7 +392,7 @@ curatrack-v2/
 cd backend
 
 # Create and activate Python virtual environment
-python -m venv .venv
+python3 -m venv .venv
 
 # On Windows:
 .venv\Scripts\activate
@@ -401,7 +403,7 @@ source .venv/bin/activate
 pip install -r requirements.txt
 
 # Launch FastAPI Server
-python -m uvicorn main:app --reload --port 8000
+python3 -m uvicorn main:app --reload --port 8000
 ```
 *Interactive Swagger API documentation will be available at `http://localhost:8000/docs`.*
 
@@ -469,6 +471,7 @@ Create `.env` files in the relevant directories:
 ```env
 SUPABASE_URL=<your-supabase-url>
 SUPABASE_SERVICE_KEY=<your-service-role-key>
+GROQ_API_KEY=<your-groq-api-key>
 GEMINI_API_KEY=<your-gemini-api-key>
 SARVAM_API_KEY=<your-sarvam-api-key>
 REDIS_URL=<redis-url-optional>
@@ -503,7 +506,7 @@ CuraTrack V2 enforces a **three-tier automated testing and push protection syste
                    ▼                       ▼                       ▼
           ┌─────────────────┐    ┌─────────────────┐    ┌─────────────────┐
           │  Python Backend │    │ Website Portal  │    │ Mobile Web App  │
-          │  Pytest (93/93) │    │ Vitest + JSDOM  │    │ Vitest + JSDOM  │
+          │  Pytest (96/96) │    │ Vitest + JSDOM  │    │ Vitest + JSDOM  │
           │  14 Test Modules│    │  30 Tests / 7   │    │  23 Tests / 6   │
           │  + Coverage     │    │  Test Files     │    │  Test Files     │
           └────────┬────────┘    └────────┬────────┘    └────────┬────────┘
@@ -538,24 +541,24 @@ Run tests across all workspaces from the project root:
 
 ```bash
 # 1. Run all test suites across Backend, Website, and Mobile
-python tests/run_all_tests.py
+python3 tests/run_all_tests.py
 # Or via npm:
 npm test
 
 # 2. Run with production build verification (Next.js compilation check)
-python tests/run_all_tests.py --with-build
+python3 tests/run_all_tests.py --with-build
 # Or via npm:
 npm run test:all
 
 # 3. Target individual subsystems
-npm run test:backend   # 93 Pytest cases + coverage
+npm run test:backend   # 96 Pytest cases + coverage
 npm run test:frontend  # Website Vitest suite (30 tests)
 npm run test:mobile    # Mobile Vitest suite (23 tests)
 
 # 4. Subsystem-only modes
-python tests/run_all_tests.py --backend-only
-python tests/run_all_tests.py --frontend-only
-python tests/run_all_tests.py --mobile-only
+python3 tests/run_all_tests.py --backend-only
+python3 tests/run_all_tests.py --frontend-only
+python3 tests/run_all_tests.py --mobile-only
 ```
 
 ### 2. Installing Push Protection (Git Pre-Push Hook)
@@ -564,7 +567,7 @@ To activate automatic test enforcement on `git push`:
 
 ```bash
 # Run one-time installer:
-python scripts/install_hooks.py
+python3 scripts/install_hooks.py
 
 # Or via npm:
 npm run prepare
@@ -614,7 +617,7 @@ To protect the `master` / `main` branch on GitHub without forcing a Pull Request
 * **Zero PII Leakage in Passport QR**: Encrypts transient health passports with signed RS256/HS256 tokens that automatically expire within 5 minutes.
 * **Redis Token Blacklisting**: Consumed passport tokens are blacklisted via Redis (or in-memory fallback) to prevent single-use token replay.
 * **Peer-to-Peer Encryption**: Video streams never traverse intermediate media servers, ensuring doctor-patient confidentiality.
-* **Multilingual Data Safety**: Sarvam AI translation service never logs or exposes API keys or sensitive health data.
+* **Multilingual & AI Data Safety**: Sarvam AI and Groq AI integrations never log or expose API keys or sensitive health data.
 
 ---
 
