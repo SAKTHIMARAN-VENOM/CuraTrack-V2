@@ -124,7 +124,21 @@ export async function generatePassportQR(payload: PassportGenerateRequest): Prom
   return res;
 }
 
-export async function generatePassport(input: string | { patient_id: string; name?: string; blood_type?: string; allergies?: string[]; conditions?: string[]; emergency_contact?: any }) {
+export interface PassportQRData {
+  schema: string;
+  patient_id: string;
+  name?: string;
+  blood_type?: string;
+  allergies?: string[];
+  conditions?: string[];
+  emergency_contact?: any;
+  token: string;
+  passportId: string;
+}
+
+export async function generatePassport(input: string): Promise<PassportGenerateResponse>;
+export async function generatePassport(input: { patient_id: string; name?: string; blood_type?: string; allergies?: string[]; conditions?: string[]; emergency_contact?: any }): Promise<PassportGenerateResponse & { qr_data: PassportQRData }>;
+export async function generatePassport(input: string | { patient_id: string; name?: string; blood_type?: string; allergies?: string[]; conditions?: string[]; emergency_contact?: any }): Promise<PassportGenerateResponse | (PassportGenerateResponse & { qr_data: PassportQRData })> {
   if (typeof input === 'string') {
     return generatePassportQR({
       userId: input,

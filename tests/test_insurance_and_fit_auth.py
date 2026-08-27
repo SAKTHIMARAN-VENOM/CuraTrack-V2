@@ -199,3 +199,35 @@ def test_patient_insurance_profile_fetch(client):
     assert data["insuranceId"] == "INS-123"
     assert data["status"] == "active"
     assert "Mock Health Insurance Corp" in data["provider"]
+
+
+def test_asha_assisted_scheme_enrolment(client):
+    """Verify ASHA worker assisted scheme enrolment on behalf of rural beneficiary."""
+    payload = {
+        "schemeId": "gov_pmmvy",
+        "schemeName": "Pradhan Mantri Matru Vandana Yojana (PMMVY)",
+        "recommendationReason": "Maternal ANC Nutrition and Delivery Installment Benefit",
+        "amount": 6000,
+        "patientName": "Kavita Bai",
+        "beneficiaryId": "BEN-101",
+        "assignedAsha": "Sunita Tai (ASHA #402)"
+    }
+    response = client.post("/api/patient/BEN-101/claims", json=payload)
+    assert response.status_code == 200
+    data = response.json()
+    assert data["status"] == "success"
+    assert "Kavita Bai" in data["message"]
+    assert "Sunita Tai (ASHA #402)" in data["message"]
+    assert data["patientName"] == "Kavita Bai"
+    assert data["claimId"].startswith("CLM-")
+
+
+def test_dynamic_government_scheme_evaluation_maternal_beneficiary(client):
+    """Verify dynamic evaluation returns maternal schemes for Maternal ANC beneficiary."""
+    response = client.get("/api/patient/BEN-101/government-schemes")
+    assert response.status_code == 200
+    data = response.json()
+    assert "schemes" in data
+    scheme_names = [s["schemeName"] for s in data["schemes"]]
+    assert any("Matru Vandana" in s or "Janani Suraksha" in s or "PM-JAY" in s for s in scheme_names)
+

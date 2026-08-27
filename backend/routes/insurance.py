@@ -69,18 +69,27 @@ class ClaimRequest(BaseModel):
     recommendationReason: str
     amount: Optional[int] = None
     schemeId: Optional[str] = None
+    patientName: Optional[str] = None
+    beneficiaryId: Optional[str] = None
+    assignedAsha: Optional[str] = None
 
 @router.post("/patient/{patient_id}/claims")
 def submit_claim(patient_id: str, request: ClaimRequest):
     """
     Submit a claim / application request for a recommended scheme or government benefit.
+    Supports citizen self-claim or ASHA worker assisted enrolment.
     """
     claim_num = random.randint(10000, 99999)
     claim_id = f"CLM-{claim_num}"
+    p_name = request.patientName or f"Patient {patient_id}"
+    asha_note = f" (Enrolled by {request.assignedAsha})" if request.assignedAsha else ""
     return {
         "status": "success",
-        "message": f"Claim for '{request.schemeName}' initiated successfully! Tracking ID: {claim_id}",
+        "message": f"Pre-authorization & claim for '{request.schemeName}' initiated successfully for {p_name}{asha_note}! Tracking ID: {claim_id}",
         "claimId": claim_id,
+        "patientId": patient_id,
+        "patientName": p_name,
+        "schemeName": request.schemeName,
         "amount": request.amount or 50000
     }
 

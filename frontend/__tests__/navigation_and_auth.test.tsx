@@ -39,6 +39,7 @@ describe('Frontend Website: Navigation & Role-Based Workspaces', () => {
     await waitFor(() => {
       expect(screen.getByText(/ASHA Catchment Center/i)).toBeInTheDocument();
       expect(screen.getByText(/Community Triage/i)).toBeInTheDocument();
+      expect(screen.getByText(/Gov Schemes & Hospitals/i)).toBeInTheDocument();
     });
   });
 

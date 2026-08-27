@@ -3,6 +3,7 @@ import { useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
 import { LanguageToggle } from '@/components/LanguageToggle';
 import { useI18n } from '@/lib/i18n';
+import { getCachedUser } from '@/lib/auth-cache';
 
 export function TopNavBar() {
   const router = useRouter();
@@ -10,10 +11,9 @@ export function TopNavBar() {
   const [user, setUser] = useState<any>(null);
 
   useEffect(() => {
-    fetch('/api/auth-status')
-      .then(r => r.json())
-      .then(d => { if (d.isAuthenticated) setUser(d.user); })
-      .catch(() => {});
+    getCachedUser().then(u => {
+      if (u) setUser(u);
+    });
   }, []);
 
   const userName = user?.name?.split(' ')[0] || t('topNav.user', 'User');

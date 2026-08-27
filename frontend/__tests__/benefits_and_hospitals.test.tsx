@@ -155,4 +155,30 @@ describe('Frontend Website: Benefits, Empanelled Hospitals & Diagnostic Centres'
       expect(screen.getByText(/Ayushman Bharat – PMJAY/i)).toBeInTheDocument();
     });
   });
+
+  it('renders ASHA beneficiary selector when fhw role is active and allows enrolling patient in scheme', async () => {
+    localStorage.setItem('curatrack_active_role', 'fhw');
+    render(<BenefitsPage />);
+
+    await waitFor(() => {
+      expect(screen.getByText(/ASHA Assisted Beneficiary Enrolment/i)).toBeInTheDocument();
+      expect(screen.getByText(/Switch Beneficiary/i)).toBeInTheDocument();
+    });
+
+    // Open beneficiary picker
+    const switchBtn = screen.getByText(/Switch Beneficiary/i);
+    fireEvent.click(switchBtn);
+
+    await waitFor(() => {
+      expect(screen.getByPlaceholderText(/Search by beneficiary name/i)).toBeInTheDocument();
+    });
+
+    // Switch to Schemes tab
+    const schemesTab = screen.getByText(/Government Schemes & Eligibility/i);
+    fireEvent.click(schemesTab);
+
+    await waitFor(() => {
+      expect(screen.getByText(/Ayushman Bharat – PMJAY/i)).toBeInTheDocument();
+    });
+  });
 });

@@ -913,14 +913,117 @@ def get_filter_metadata() -> Dict[str, Any]:
         "facility_types": facility_types
     }
 
+def get_patient_profile(patient_id: str) -> dict:
+    """
+    Resolve patient or frontline worker beneficiary profile for scheme evaluation.
+    """
+    if patient_id in PATIENT_DB:
+        return PATIENT_DB[patient_id]
+    
+    # Check Supabase beneficiaries and profiles
+    try:
+        from services.supabase_client import get_supabase_client
+        sb = get_supabase_client()
+        if sb:
+            # Check beneficiaries table
+            b_res = sb.table("beneficiaries").select("*").or_(f"id.eq.{patient_id},patient_id.eq.{patient_id}").execute()
+            if b_res.data and len(b_res.data) > 0:
+                b = b_res.data[0]
+                cat = b.get("category", "")
+                conds = []
+                if "NCD" in cat or "Chronic" in cat:
+                    conds.extend(["hypertension", "diabetes"])
+                if "TB" in cat:
+                    conds.append("tuberculosis")
+                if "Maternal" in cat or "ANC" in cat:
+                    conds.append("maternal_anc")
+                return {
+                    "name": b.get("name", "Beneficiary"),
+                    "age": b.get("age", 25),
+                    "gender": (b.get("gender") or "female").lower(),
+                    "income": 110000,
+                    "category": cat,
+                    "medicalConditions": conds,
+                    "location": "Maharashtra",
+                }
+            # Check profiles table
+            p_res = sb.table("profiles").select("*").eq("id", patient_id).execute()
+            if p_res.data and len(p_res.data) > 0:
+                p = p_res.data[0]
+                return {
+                    "name": p.get("name") or "Patient",
+                    "age": p.get("age", 30),
+                    "gender": (p.get("gender") or "female").lower(),
+                    "income": 140000,
+                    "category": "General Citizen",
+                    "medicalConditions": ["hypertension"] if (p.get("age") or 30) > 45 else [],
+                    "location": "Maharashtra",
+                }
+    except Exception as e:
+        logger.debug(f"Profile lookup fallback for schemes: {e}")
+
+    # Fallback rural catchment mapping
+    p_lower = str(patient_id).lower()
+    if "ben-101" in p_lower or "p-204" in p_lower or "kavita" in p_lower:
+        return {
+            "name": "Kavita Bai",
+            "age": 23,
+            "gender": "female",
+            "income": 95000,
+            "category": "Maternal ANC",
+            "medicalConditions": ["maternal_anc", "anemia"],
+            "location": "Maharashtra",
+        }
+    if "ben-102" in p_lower or "p-302" in p_lower or "aarav" in p_lower:
+        return {
+            "name": "Master Aarav Gavit",
+            "age": 1,
+            "gender": "male",
+            "income": 80000,
+            "category": "Child Immunization",
+            "medicalConditions": ["malnutrition"],
+            "location": "Maharashtra",
+        }
+    if "ben-103" in p_lower or "p-101" in p_lower or "tukaram" in p_lower:
+        return {
+            "name": "Tukaram Patil",
+            "age": 58,
+            "gender": "male",
+            "income": 110000,
+            "category": "NCD Chronic",
+            "medicalConditions": ["hypertension", "diabetes"],
+            "location": "Maharashtra",
+        }
+    if "ben-104" in p_lower or "p-405" in p_lower or "lalita" in p_lower:
+        return {
+            "name": "Lalita Vasave",
+            "age": 34,
+            "gender": "female",
+            "income": 90000,
+            "category": "TB / Communicable",
+            "medicalConditions": ["tuberculosis"],
+            "location": "Maharashtra",
+        }
+
+    return PATIENT_DB.get(patient_id, {
+        "name": "Village Beneficiary",
+        "age": 28,
+        "gender": "female",
+        "income": 120000,
+        "category": "Rural Catchment",
+        "medicalConditions": ["hypertension"],
+        "location": "Maharashtra"
+    })
+
 # ==========================================
 # RULE ENGINE: SCHEME ELIGIBILITY
 # ==========================================
 
 def _rule_ayushman_bharat(patient: dict) -> Optional[dict]:
     """Ayushman Bharat - PMJAY: income < ₹2,50,000"""
-    if patient["income"] < 250000:
-        score = 95 if patient["income"] < 150000 else 88
+    income = patient.get("income", 150000)
+    if income < 250000:
+        score = 95 if income < 150000 else 88
         return {
             "id": "gov_ayushman",
             "schemeName": "Ayushman Bharat - PMJAY",
@@ -928,18 +1031,79 @@ def _rule_ayushman_bharat(patient: dict) -> Optional[dict]:
             "eligibilityPercentage": score,
             "coverage": "Up to ₹5,00,000 per family per year",
             "recommendationReason": (
-                f"Your annual household income (₹{patient['income']:,}) is below the ₹2,50,000 threshold. "
-                "You qualify for cashless treatment and free diagnostic tests at empanelled hospitals across India."
+                f"Annual household income (₹{income:,}) is below the ₹2,50,000 threshold. "
+                "Qualifies for 100% cashless treatment and free diagnostic tests at empanelled hospitals across India."
             ),
             "estimatedBenefit": 500000,
         }
     return None
 
 
+def _rule_maternal_pmmvy(patient: dict) -> Optional[dict]:
+    """Pradhan Mantri Matru Vandana Yojana (PMMVY): Pregnant women / Maternal ANC"""
+    cat = patient.get("category", "")
+    conds = patient.get("medicalConditions", [])
+    if "Maternal" in cat or "ANC" in cat or "maternal_anc" in conds or (patient.get("gender") == "female" and 18 <= patient.get("age", 0) <= 45):
+        return {
+            "id": "gov_pmmvy",
+            "schemeName": "Pradhan Mantri Matru Vandana Yojana (PMMVY)",
+            "type": "Direct Benefit Transfer (DBT)",
+            "eligibilityPercentage": 98 if ("Maternal" in cat or "maternal_anc" in conds) else 91,
+            "coverage": "₹5,000 - ₹6,000 Direct Cash Benefit for Nutrition & Delivery",
+            "recommendationReason": (
+                "Registered maternal ANC beneficiary. Qualifies for DBT cash installments upon early ANC registration, "
+                "iron-folic acid supplementation, and institutional delivery under Ministry of Women & Child Development."
+            ),
+            "estimatedBenefit": 6000,
+        }
+    return None
+
+
+def _rule_child_rbsk(patient: dict) -> Optional[dict]:
+    """Rashtriya Bal Swasthya Karyakram (RBSK) & Mission Indradhanush: Children 0-18"""
+    cat = patient.get("category", "")
+    age = patient.get("age", 0)
+    if "Child" in cat or age <= 18:
+        return {
+            "id": "gov_rbsk",
+            "schemeName": "Rashtriya Bal Swasthya Karyakram (RBSK)",
+            "type": "Child Health & Immunization",
+            "eligibilityPercentage": 96 if age <= 6 else 89,
+            "coverage": "100% Free Screening & Tertiary Treatment for 4Ds (Defects, Deficiencies, Diseases, Delays)",
+            "recommendationReason": (
+                f"Eligible child beneficiary (age {age}y). Covers full free immunization schedule under Mission Indradhanush "
+                "plus zero-cost surgery and specialized developmental therapy at District Early Intervention Centres (DEIC)."
+            ),
+            "estimatedBenefit": 150000,
+        }
+    return None
+
+
+def _rule_tb_nikshay(patient: dict) -> Optional[dict]:
+    """Nikshay Poshan Yojana: TB patients DBT"""
+    cat = patient.get("category", "")
+    conds = patient.get("medicalConditions", [])
+    if "TB" in cat or "tuberculosis" in conds:
+        return {
+            "id": "gov_nikshay",
+            "schemeName": "Nikshay Poshan Yojana (NTEP)",
+            "type": "Direct Benefit Transfer (TB Nutrition)",
+            "eligibilityPercentage": 99,
+            "coverage": "₹1,000 / month nutritional support + 100% Free DOTS Medication",
+            "recommendationReason": (
+                "Enrolled under National Tuberculosis Elimination Program (NTEP). Eligible for monthly direct bank transfer "
+                "of ₹1,000 for nutritional support throughout treatment duration plus free CBNAAT/molecular testing."
+            ),
+            "estimatedBenefit": 12000,
+        }
+    return None
+
+
 def _rule_senior_citizen_health(patient: dict) -> Optional[dict]:
     """Senior Citizen Health Scheme: age ≥ 60"""
-    if patient["age"] >= 60:
-        score = 96 if patient["age"] >= 70 else 90
+    age = patient.get("age", 0)
+    if age >= 60:
+        score = 96 if age >= 70 else 90
         return {
             "id": "gov_senior",
             "schemeName": "Rashtriya Vayoshri Yojana",
@@ -947,7 +1111,7 @@ def _rule_senior_citizen_health(patient: dict) -> Optional[dict]:
             "eligibilityPercentage": score,
             "coverage": "Free assistive devices + ₹1,00,000 medical cover",
             "recommendationReason": (
-                f"At age {patient['age']}, you qualify for senior citizen healthcare benefits "
+                f"At age {age}, qualifies for senior citizen healthcare benefits "
                 "including free assistive living devices and subsidized specialist consultations."
             ),
             "estimatedBenefit": 100000,
@@ -957,17 +1121,17 @@ def _rule_senior_citizen_health(patient: dict) -> Optional[dict]:
 
 def _rule_women_health(patient: dict) -> Optional[dict]:
     """Women Health Scheme: gender === female"""
-    if patient["gender"] == "female":
+    if patient.get("gender") == "female":
         score = 92
         return {
             "id": "gov_women",
-            "schemeName": "Janani Suraksha Yojana",
+            "schemeName": "Janani Suraksha Yojana (JSY)",
             "type": "Government Subsidy",
             "eligibilityPercentage": score,
             "coverage": "₹1,400 - ₹6,000 institutional delivery benefit",
             "recommendationReason": (
-                "As a female beneficiary, you are eligible for maternal and reproductive healthcare "
-                "subsidies covering institutional delivery and ante-natal care."
+                "Eligible for maternal and reproductive healthcare "
+                "subsidies covering institutional delivery, ASHA escort assistance, and ante-natal care."
             ),
             "estimatedBenefit": 6000,
         }
@@ -978,8 +1142,10 @@ def _rule_chronic_disease(patient: dict) -> Optional[dict]:
     """Chronic Disease Programme: has chronic conditions"""
     chronic_conditions = {"diabetes", "hypertension", "cancer", "cardiovascular", "kidney_disease", "copd"}
     matched = [c for c in patient.get("medicalConditions", []) if c.lower() in chronic_conditions]
-    if matched:
-        score = min(97, 80 + len(matched) * 8)
+    cat = patient.get("category", "")
+    if matched or "NCD" in cat or "Chronic" in cat:
+        score = min(97, 85 + len(matched) * 6)
+        display_conds = matched if matched else ["Hypertension / Diabetes Screening"]
         return {
             "id": "gov_npcdcs",
             "schemeName": "NPCDCS (National Programme for NCDs)",
@@ -987,8 +1153,8 @@ def _rule_chronic_disease(patient: dict) -> Optional[dict]:
             "eligibilityPercentage": score,
             "coverage": "Free screening, treatment & medication for chronic conditions",
             "recommendationReason": (
-                f"Your medical records indicate: {', '.join(matched)}. "
-                "You qualify for free diagnosis, medication, and follow-up under NPCDCS at district-level health facilities."
+                f"Clinical profile indicates: {', '.join(display_conds)}. "
+                "Qualifies for free diagnosis, medication, and regular follow-up under NPCDCS at district-level health facilities."
             ),
             "estimatedBenefit": 50000,
         }
@@ -1024,7 +1190,7 @@ def _rule_state_health_scheme(patient: dict) -> Optional[dict]:
             "benefit": 500000,
         }
     }
-    location = patient.get("location", "")
+    location = patient.get("location", "Maharashtra")
     scheme_info = state_schemes.get(location)
     if scheme_info:
         return {
@@ -1034,7 +1200,7 @@ def _rule_state_health_scheme(patient: dict) -> Optional[dict]:
             "eligibilityPercentage": 88,
             "coverage": scheme_info["coverage"],
             "recommendationReason": (
-                f"As a resident of {location}, you are eligible for your state's flagship healthcare scheme "
+                f"As a resident of {location}, eligible for your state's flagship healthcare scheme "
                 "providing cashless treatment and diagnostic coverage at network hospitals."
             ),
             "estimatedBenefit": scheme_info["benefit"],
@@ -1045,6 +1211,9 @@ def _rule_state_health_scheme(patient: dict) -> Optional[dict]:
 # All rules collected in execution order
 _ALL_RULES = [
     _rule_ayushman_bharat,
+    _rule_maternal_pmmvy,
+    _rule_child_rbsk,
+    _rule_tb_nikshay,
     _rule_senior_citizen_health,
     _rule_women_health,
     _rule_chronic_disease,
@@ -1054,15 +1223,17 @@ _ALL_RULES = [
 
 def evaluate_government_schemes(request: GovSchemeRequest) -> GovSchemeResponse:
     """
-    Run the full rule engine against a patient profile.
+    Run the full rule engine against a patient or beneficiary profile.
     Returns sorted list of eligible government schemes (highest eligibility first).
     """
-    patient = PATIENT_DB.get(request.patientId) or PATIENT_DB["PAT-123"]
+    patient = get_patient_profile(request.patientId)
 
     eligible: List[dict] = []
+    seen_ids = set()
     for rule_fn in _ALL_RULES:
         result = rule_fn(patient)
-        if result is not None:
+        if result is not None and result["id"] not in seen_ids:
+            seen_ids.add(result["id"])
             eligible.append(result)
 
     # Sort by eligibilityPercentage DESC

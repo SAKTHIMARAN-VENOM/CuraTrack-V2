@@ -315,29 +315,19 @@ export function ChatBubble() {
       {/* FAB Button */}
       <button
         onClick={() => setIsOpen(!isOpen)}
-        className={`fixed bottom-6 right-6 z-[60] w-14 h-14 rounded-2xl flex items-center justify-center shadow-lg transition-all duration-300 cursor-pointer hover:scale-105 active:scale-95 ${
-          isOpen ? 'rotate-0' : ''
-        }`}
-        style={{ background: 'linear-gradient(135deg, #006782, #35B0AB)' }}
+        className="fixed bottom-6 right-6 z-[60] w-12 h-12 sm:w-14 sm:h-14 rounded-2xl bg-[#006782] hover:bg-[#005268] text-white flex items-center justify-center shadow-lg transition-colors cursor-pointer"
         title="Chat with CuraBot"
       >
         <span
-          className="material-symbols-outlined text-white text-2xl transition-transform duration-300"
-          style={{ fontVariationSettings: "'FILL' 1", transform: isOpen ? 'rotate(0deg)' : 'rotate(0deg)' }}
+          className="material-symbols-outlined text-white text-2xl"
+          style={{ fontVariationSettings: "'FILL' 1" }}
         >
           {isOpen ? 'close' : 'chat'}
         </span>
 
-        {/* Unread indicator */}
+        {/* Static unread indicator */}
         {hasUnread && !isOpen && (
-          <span className="absolute -top-0.5 -right-0.5 w-4 h-4 bg-red-500 rounded-full border-2 border-white animate-pulse" />
-        )}
-
-        {/* Pulse ring when closed */}
-        {!isOpen && !hasUnread && (
-          <span className="absolute inset-0 rounded-2xl animate-ping opacity-20"
-            style={{ background: 'linear-gradient(135deg, #006782, #35B0AB)' }}
-          />
+          <span className="absolute top-0 right-0 w-3 h-3 bg-red-500 rounded-full border-2 border-white" />
         )}
       </button>
     </>

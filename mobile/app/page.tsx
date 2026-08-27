@@ -362,8 +362,8 @@ export default function HomeDashboardPage() {
 
             {/* Doctor Info */}
             <div className="p-4 text-center border-b border-slate-800">
-              <h3 className="font-bold text-base text-white">{nextAppointment.doctorName}</h3>
-              <p className="text-xs text-teal-300 mt-0.5">{nextAppointment.specialty}</p>
+              <h3 className="font-bold text-base text-white">{nextAppointment?.doctorName || 'Dr. Assigned'}</h3>
+              <p className="text-xs text-teal-300 mt-0.5">{nextAppointment?.specialty || 'General Physician'}</p>
               <div className="mt-2 flex items-center justify-center gap-1.5 text-[11px] text-emerald-400">
                 <ShieldCheck className="w-3.5 h-3.5" />
                 <span>Encrypted HD Medical Stream</span>

@@ -247,43 +247,6 @@ export default function FrontlineHealthWorkerPage() {
         }
     };
 
-    const handleSaveVisit = (e: React.FormEvent) => {
-        e.preventDefault();
-        if (!selectedPatient) return;
-        setSavingVisit(true);
-        try {
-            const updated = beneficiaries.map(b => {
-                if (b.id === selectedPatient.id) {
-                    return {
-                        ...b,
-                        status: 'COMPLETED',
-                        last_visited_date: new Date().toISOString().split('T')[0],
-                        vitals: {
-                            ...b.vitals,
-                            bp: visitVitals.bp.includes('mmHg') ? visitVitals.bp : `${visitVitals.bp} mmHg`,
-                            spo2: visitVitals.spo2.includes('%') ? visitVitals.spo2 : `${visitVitals.spo2}%`,
-                            hr: visitVitals.hr.includes('bpm') ? visitVitals.hr : `${visitVitals.hr} bpm`,
-                            glucose: visitVitals.glucose.includes('mg/dL') ? visitVitals.glucose : `${visitVitals.glucose} mg/dL`,
-                            temp: visitVitals.temp.includes('°C') ? visitVitals.temp : `${visitVitals.temp}°C`
-                        },
-                        visit_notes: visitNotes || 'Routine field checkup completed. Vitals stable.'
-                    };
-                }
-                return b;
-            });
-            setBeneficiaries(updated);
-            try {
-                localStorage.setItem('curatrack_fhw_cached_beneficiaries', JSON.stringify(updated));
-            } catch {}
-
-            setSelectedPatient(null);
-            setVisitNotes('');
-            setSyncSuccessMsg(`Health record updated. ${selectedPatient.name} marked as Visited.`);
-            setTimeout(() => setSyncSuccessMsg(null), 3500);
-        } finally {
-            setSavingVisit(false);
-        }
-    };
 
     // Calculate real numbers with zero mock fallbacks
     const totalPatients = beneficiaries.length;
@@ -343,6 +306,14 @@ export default function FrontlineHealthWorkerPage() {
                             <span>Sync ({offlineSyncPending})</span>
                         </button>
                     )}
+
+                    <Link
+                        href="/benefits"
+                        className="px-4 py-2.5 bg-surface-container-low hover:bg-surface-container text-on-surface font-bold text-xs rounded-xl flex items-center gap-2 border border-surface-container-high shadow-xs transition-all cursor-pointer"
+                    >
+                        <span className="material-symbols-outlined text-base text-primary">account_balance_wallet</span>
+                        <span>{t('navigation.benefits', 'Gov Schemes & Hospitals')}</span>
+                    </Link>
 
                     <button
                         onClick={() => setIsRegisterOpen(true)}
@@ -536,17 +507,19 @@ export default function FrontlineHealthWorkerPage() {
                                 </div>
 
                                 {/* Primary Actions: Access Health Records & Doctor Teleconsult */}
-                                <div className="grid grid-cols-2 gap-2">
+                                <div className="grid grid-cols-2 gap-2 pt-1">
                                     <Link
                                         href={`/records?patientId=${ben.patient_id || ben.id}`}
-                                        className="py-2.5 px-2 bg-surface-container-low hover:bg-surface-container text-on-surface font-bold text-[11px] rounded-xl border border-surface-container-high shadow-xs flex items-center justify-center gap-1 transition-all text-center"
+                                        className="py-2.5 px-3 bg-surface-container-low hover:bg-surface-container text-on-surface font-bold text-xs rounded-xl border border-surface-container-high shadow-xs flex items-center justify-center gap-1.5 transition-all text-center"
+                                        title="View Medical Records"
                                     >
                                         <span className="material-symbols-outlined text-sm text-primary">folder_shared</span>
                                         <span>Records</span>
                                     </Link>
                                     <Link
                                         href={`/telemedicine?patientId=${ben.id}`}
-                                        className="py-2.5 px-2 bg-primary hover:bg-primary/90 text-white font-bold text-[11px] rounded-xl shadow-xs flex items-center justify-center gap-1 transition-all text-center"
+                                        className="py-2.5 px-3 bg-primary hover:bg-primary/90 text-white font-bold text-xs rounded-xl shadow-xs flex items-center justify-center gap-1.5 transition-all text-center"
+                                        title="Teleconsult Doctor"
                                     >
                                         <span className="material-symbols-outlined text-sm">video_call</span>
                                         <span>Teleconsult</span>

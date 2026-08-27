@@ -7,7 +7,7 @@ import ReviewMedicationModal from '@/components/ReviewMedicationModal';
 import { offlineStorage } from '@/lib/offline-storage';
 import { createClient } from '@/lib/supabase/client';
 import { useI18n } from '@/lib/i18n';
-import { API_BASE } from '@/lib/api';
+import { API_BASE, apiFetch } from '@/lib/api';
 
 interface RealPatientInfo {
   id: string;
@@ -210,7 +210,7 @@ function HealthRecordsContent() {
     try {
       const raw = localStorage.getItem('curatrack_auth_user');
       if (raw) savedAuthUser = JSON.parse(raw);
-    } catch {}
+    } catch { }
 
     return {
       id: userId || 'P-001',
@@ -299,7 +299,7 @@ function HealthRecordsContent() {
         try {
           const raw = localStorage.getItem('curatrack_auth_user');
           if (raw) savedAuthUser = JSON.parse(raw);
-        } catch {}
+        } catch { }
 
         const pName = prof?.name || (savedAuthUser?.id === targetId ? savedAuthUser?.name : null) || selectedPatient?.name || 'Patient';
         const pEmail = prof?.email || (savedAuthUser?.id === targetId ? savedAuthUser?.email : null) || selectedPatient?.email || 'N/A';
@@ -344,7 +344,7 @@ function HealthRecordsContent() {
       setUserPrescriptions(dbRx || []);
 
       const todayStr = new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
-      
+
       const normalizeBase = (name: string) => {
         return (name || '')
           .toLowerCase()
@@ -365,12 +365,12 @@ function HealthRecordsContent() {
       // Deduplicate mappedMeds by unique ID and normalized medicine name
       const seenMedKeys = new Set<string>();
       const mappedMeds: any[] = [];
-      
+
       (dbMeds || []).forEach((m: any) => {
         const medKey = (m.name || '').toLowerCase().trim();
         const idKey = m.id ? String(m.id).toLowerCase().trim() : '';
         const baseKey = 'base:' + normalizeBase(m.name);
-        
+
         if ((idKey && seenMedKeys.has(idKey)) || (medKey && seenMedKeys.has(medKey)) || (baseKey && seenMedKeys.has(baseKey))) {
           return; // Skip duplicate medication record
         }
@@ -517,7 +517,7 @@ function HealthRecordsContent() {
       try {
         const raw = localStorage.getItem('curatrack_auth_user');
         if (raw) savedAuthUser = JSON.parse(raw);
-      } catch {}
+      } catch { }
 
       const activeRole = localStorage.getItem('curatrack_active_role') || savedAuthUser?.role || 'doctor';
       setCurrentRole(activeRole);
@@ -597,8 +597,8 @@ function HealthRecordsContent() {
   // Dynamic summary stats & weekly adherence calculation
   const takenCount = activeMedications.filter(m => m.status === 'TAKEN').length;
   const missedCount = activeMedications.filter(m => m.status === 'MISSED').length;
-  const adherencePercentage = activeMedications.length > 0 
-    ? Math.round((takenCount / activeMedications.length) * 100) 
+  const adherencePercentage = activeMedications.length > 0
+    ? Math.round((takenCount / activeMedications.length) * 100)
     : 100;
   const nextDoseMed = activeMedications.find(m => m.status === 'UPCOMING');
 
@@ -704,7 +704,7 @@ function HealthRecordsContent() {
     const medToUpdate = activeMedications[index];
     if (!medToUpdate) return;
 
-    const nextStatus: 'TAKEN' | 'MISSED' | 'UPCOMING' = 
+    const nextStatus: 'TAKEN' | 'MISSED' | 'UPCOMING' =
       medToUpdate.status === 'TAKEN' ? 'MISSED' : medToUpdate.status === 'MISSED' ? 'UPCOMING' : 'TAKEN';
     const updatedDate = new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
 
@@ -776,9 +776,9 @@ function HealthRecordsContent() {
     const digitalScanLines = digitalScanText
       ? digitalScanText.split(/\r?\n/).map((line) => line.trim()).filter(Boolean)
       : [
-          'No OCR transcript was stored for this report.',
-          'The structured digital values below were extracted from the uploaded scan.',
-        ];
+        'No OCR transcript was stored for this report.',
+        'The structured digital values below were extracted from the uploaded scan.',
+      ];
 
     const lines = [
       '================================================================================',
@@ -804,10 +804,10 @@ function HealthRecordsContent() {
       '--------------------------------------------------------------------------------',
       ...(results.length > 0
         ? results.map((result: any) => {
-            const status = normalizeLabStatus(result.status);
-            const label = status === 'unknown' ? 'STATUS NOT FOUND' : status.toUpperCase();
-            return `- ${result.key || 'Metric'} | Result Value: ${result.value || '-'} ${result.unit || ''} | Standard Flag: [ ${label} ]`;
-          })
+          const status = normalizeLabStatus(result.status);
+          const label = status === 'unknown' ? 'STATUS NOT FOUND' : status.toUpperCase();
+          return `- ${result.key || 'Metric'} | Result Value: ${result.value || '-'} ${result.unit || ''} | Standard Flag: [ ${label} ]`;
+        })
         : ['No structured lab values were extracted from the scan.']),
       '',
       '--------------------------------------------------------------------------------',
@@ -834,10 +834,10 @@ function HealthRecordsContent() {
         : 'Reference Note: Extracted parameters fall within expected physiological ranges.',
       ...(insights.urgent_warning_signs?.length > 0
         ? [
-            '',
-            'Urgent Warning Signs & Red Flags:',
-            ...(insights.urgent_warning_signs || []).map((warning: string) => `- Warning: ${warning}`),
-          ]
+          '',
+          'Urgent Warning Signs & Red Flags:',
+          ...(insights.urgent_warning_signs || []).map((warning: string) => `- Warning: ${warning}`),
+        ]
         : []),
       '',
       '--------------------------------------------------------------------------------',
@@ -979,15 +979,15 @@ function HealthRecordsContent() {
     // Add to active medications
     setActiveMedications(prev => {
       const updated = [...prev, {
-          ...updatedMed,
-          status: 'UPCOMING', // Default status for new confirms
-          color: '#d4f0fa',
-          icon: 'pill'
+        ...updatedMed,
+        status: 'UPCOMING', // Default status for new confirms
+        color: '#d4f0fa',
+        icon: 'pill'
       }];
       offlineStorage.saveMedications(updated);
       return updated;
     });
-    
+
     // Remove the item from the extracted list
     setExtractedMedications(prev => prev.filter((_, i) => i !== reviewIndex));
     setReviewingMedication(null);
@@ -1105,48 +1105,48 @@ function HealthRecordsContent() {
         : `I reviewed the extracted values from this scan. ${normalResults.length > 0 ? `${normalResults.length} result${normalResults.length === 1 ? '' : 's'} were marked normal. ` : ''}No high or low value was extracted, but the result still needs clinical context.`,
       key_findings: abnormalResults.length > 0
         ? abnormalResults.map((result: any) => {
-            const status = normalizeLabStatus(result.status);
-            return {
-              title: `${result.key || 'Lab value'} is ${status}`,
-              explanation: `${result.key || 'This value'} was read as ${result.value || '-'} ${result.unit || ''}. A ${status} result can be temporary, lab-specific, or related to diet, hydration, medicines, infection, chronic disease, or the reason your doctor ordered the test.`,
-              severity: status === 'high' || status === 'low' ? 'watch' : 'unknown',
-              related_tests: [result.key || 'Lab value'],
-            };
-          })
+          const status = normalizeLabStatus(result.status);
+          return {
+            title: `${result.key || 'Lab value'} is ${status}`,
+            explanation: `${result.key || 'This value'} was read as ${result.value || '-'} ${result.unit || ''}. A ${status} result can be temporary, lab-specific, or related to diet, hydration, medicines, infection, chronic disease, or the reason your doctor ordered the test.`,
+            severity: status === 'high' || status === 'low' ? 'watch' : 'unknown',
+            related_tests: [result.key || 'Lab value'],
+          };
+        })
         : [
-            {
-              title: flagged ? 'Flagged lab report' : 'No high/low value extracted',
-              explanation: flagged
-                ? 'The report is marked as flagged, but CuraTrack could not identify exactly which extracted row was high or low. Compare each value with the reference range printed on the original scan.'
-                : 'The scan did not provide an obvious abnormal marker that CuraTrack could identify. Normal-looking values can still matter when symptoms are present.',
-              severity: flagged ? 'watch' : 'normal',
-              related_tests: resultNames.slice(0, 5),
-            },
-          ],
+          {
+            title: flagged ? 'Flagged lab report' : 'No high/low value extracted',
+            explanation: flagged
+              ? 'The report is marked as flagged, but CuraTrack could not identify exactly which extracted row was high or low. Compare each value with the reference range printed on the original scan.'
+              : 'The scan did not provide an obvious abnormal marker that CuraTrack could identify. Normal-looking values can still matter when symptoms are present.',
+            severity: flagged ? 'watch' : 'normal',
+            related_tests: resultNames.slice(0, 5),
+          },
+        ],
       possible_meaning: flagged
         ? 'An out-of-range lab value is a signal to interpret the result, not a diagnosis by itself. The next step is to match it with your symptoms, previous reports, medications, and the lab reference range.'
         : 'These values can be useful as a baseline for future comparison, especially if your doctor is tracking a condition over time.',
       recommended_next_steps: flagged
         ? [
-            'Book a review with your doctor or the doctor who ordered the test, especially if this is new or worsening.',
-            'Compare the flagged value with the lab reference range printed on the report.',
-            'Check whether you have older reports to see if this is a trend or a one-time change.',
-            'Do not start or stop medication based only on this scan.',
-          ]
+          'Book a review with your doctor or the doctor who ordered the test, especially if this is new or worsening.',
+          'Compare the flagged value with the lab reference range printed on the report.',
+          'Check whether you have older reports to see if this is a trend or a one-time change.',
+          'Do not start or stop medication based only on this scan.',
+        ]
         : [
-            'Keep this report saved for trend comparison.',
-            'Discuss it during your next visit if symptoms continue or if this was part of ongoing monitoring.',
-          ],
+          'Keep this report saved for trend comparison.',
+          'Discuss it during your next visit if symptoms continue or if this was part of ongoing monitoring.',
+        ],
       questions_for_doctor: flagged
         ? [
-            'Which value is outside range, and how serious is it for me?',
-            'Do I need a repeat test or another related test?',
-            'Could my medicines, diet, or recent illness affect this result?',
-          ]
+          'Which value is outside range, and how serious is it for me?',
+          'Do I need a repeat test or another related test?',
+          'Could my medicines, diet, or recent illness affect this result?',
+        ]
         : [
-            'Are these values appropriate for my age and medical history?',
-            'When should I repeat this test?',
-          ],
+          'Are these values appropriate for my age and medical history?',
+          'When should I repeat this test?',
+        ],
       urgent_warning_signs: flagged
         ? ['Seek urgent care if you have severe chest pain, fainting, severe breathlessness, confusion, heavy bleeding, or rapidly worsening symptoms.']
         : [],
@@ -1285,30 +1285,30 @@ function HealthRecordsContent() {
       { disposalId: 'DSP-LOG-020', batchNo: 'BATCH-OLD-2024-Y2', itemName: 'Expired Rapid Test Strips (Batch 2024)', quantity: '150 Kits', disposalMethod: 'Autoclaving & Shredding Protocol', date: '2026-08-05', authorizedBy: 'Anil Deshmukh (Ops)' },
     ];
 
-    const filteredDispenses = PHARMACY_DISPENSES.filter(d => 
-      !facilitySearchQuery || 
-      d.patientName.toLowerCase().includes(facilitySearchQuery.toLowerCase()) || 
+    const filteredDispenses = PHARMACY_DISPENSES.filter(d =>
+      !facilitySearchQuery ||
+      d.patientName.toLowerCase().includes(facilitySearchQuery.toLowerCase()) ||
       d.medicine.toLowerCase().includes(facilitySearchQuery.toLowerCase()) ||
       d.token.toLowerCase().includes(facilitySearchQuery.toLowerCase())
     );
 
-    const filteredEDL = EDL_BATCH_RECEIPTS.filter(e => 
-      !facilitySearchQuery || 
-      e.item.toLowerCase().includes(facilitySearchQuery.toLowerCase()) || 
+    const filteredEDL = EDL_BATCH_RECEIPTS.filter(e =>
+      !facilitySearchQuery ||
+      e.item.toLowerCase().includes(facilitySearchQuery.toLowerCase()) ||
       e.batchNo.toLowerCase().includes(facilitySearchQuery.toLowerCase()) ||
       e.supplier.toLowerCase().includes(facilitySearchQuery.toLowerCase())
     );
 
-    const filteredLabs = LAB_ARCHIVES.filter(l => 
-      !facilitySearchQuery || 
-      l.testName.toLowerCase().includes(facilitySearchQuery.toLowerCase()) || 
+    const filteredLabs = LAB_ARCHIVES.filter(l =>
+      !facilitySearchQuery ||
+      l.testName.toLowerCase().includes(facilitySearchQuery.toLowerCase()) ||
       l.patientName.toLowerCase().includes(facilitySearchQuery.toLowerCase()) ||
       l.orderId.toLowerCase().includes(facilitySearchQuery.toLowerCase())
     );
 
-    const filteredWaste = WASTE_DISPOSAL_LOGS.filter(w => 
-      !facilitySearchQuery || 
-      w.itemName.toLowerCase().includes(facilitySearchQuery.toLowerCase()) || 
+    const filteredWaste = WASTE_DISPOSAL_LOGS.filter(w =>
+      !facilitySearchQuery ||
+      w.itemName.toLowerCase().includes(facilitySearchQuery.toLowerCase()) ||
       w.batchNo.toLowerCase().includes(facilitySearchQuery.toLowerCase())
     );
 
@@ -1365,9 +1365,8 @@ function HealthRecordsContent() {
           <div className="flex flex-wrap gap-2">
             <button
               onClick={() => setFacilityArchiveTab('dispenses')}
-              className={`px-4 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 ${
-                facilityArchiveTab === 'dispenses' ? 'bg-primary text-white shadow-sm' : 'bg-surface-container-low text-tertiary hover:bg-surface-container'
-              }`}
+              className={`px-4 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 ${facilityArchiveTab === 'dispenses' ? 'bg-primary text-white shadow-sm' : 'bg-surface-container-low text-tertiary hover:bg-surface-container'
+                }`}
             >
               <span className="material-symbols-outlined text-sm">pill</span>
               <span>Pharmacy Dispenses ({filteredDispenses.length})</span>
@@ -1375,9 +1374,8 @@ function HealthRecordsContent() {
 
             <button
               onClick={() => setFacilityArchiveTab('edl_receipts')}
-              className={`px-4 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 ${
-                facilityArchiveTab === 'edl_receipts' ? 'bg-primary text-white shadow-sm' : 'bg-surface-container-low text-tertiary hover:bg-surface-container'
-              }`}
+              className={`px-4 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 ${facilityArchiveTab === 'edl_receipts' ? 'bg-primary text-white shadow-sm' : 'bg-surface-container-low text-tertiary hover:bg-surface-container'
+                }`}
             >
               <span className="material-symbols-outlined text-sm">inventory_2</span>
               <span>EDL Stock Ingestions ({filteredEDL.length})</span>
@@ -1385,9 +1383,8 @@ function HealthRecordsContent() {
 
             <button
               onClick={() => setFacilityArchiveTab('labs')}
-              className={`px-4 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 ${
-                facilityArchiveTab === 'labs' ? 'bg-primary text-white shadow-sm' : 'bg-surface-container-low text-tertiary hover:bg-surface-container'
-              }`}
+              className={`px-4 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 ${facilityArchiveTab === 'labs' ? 'bg-primary text-white shadow-sm' : 'bg-surface-container-low text-tertiary hover:bg-surface-container'
+                }`}
             >
               <span className="material-symbols-outlined text-sm">biotech</span>
               <span>Diagnostic Lab Archive ({filteredLabs.length})</span>
@@ -1395,9 +1392,8 @@ function HealthRecordsContent() {
 
             <button
               onClick={() => setFacilityArchiveTab('waste_logs')}
-              className={`px-4 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 ${
-                facilityArchiveTab === 'waste_logs' ? 'bg-primary text-white shadow-sm' : 'bg-surface-container-low text-tertiary hover:bg-surface-container'
-              }`}
+              className={`px-4 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 ${facilityArchiveTab === 'waste_logs' ? 'bg-primary text-white shadow-sm' : 'bg-surface-container-low text-tertiary hover:bg-surface-container'
+                }`}
             >
               <span className="material-symbols-outlined text-sm">delete_sweep</span>
               <span>Disposal & Waste Logs ({filteredWaste.length})</span>
@@ -1649,7 +1645,7 @@ function HealthRecordsContent() {
               ) : (
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                   {patients
-                    .filter(p => 
+                    .filter(p =>
                       !patientSearch ||
                       p.name.toLowerCase().includes(patientSearch.toLowerCase()) ||
                       p.id.toLowerCase().includes(patientSearch.toLowerCase()) ||
@@ -1763,660 +1759,655 @@ function HealthRecordsContent() {
 
 
 
-      {/* ===== MEDICATIONS SECTION ===== */}
-      {activeTab === 'medications' && (
-        <div className="space-y-6">
-          {/* Summary row */}
-          <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-            <div className="section-card p-5">
-              <p className="text-xs font-bold text-tertiary uppercase tracking-widest mb-1">Active</p>
-              <p className="font-headline text-3xl font-extrabold text-on-surface">{activeMedications.length}</p>
-              <p className="text-xs text-tertiary mt-1">Medications</p>
-            </div>
-            <div className="section-card p-5">
-              <p className="text-xs font-bold text-tertiary uppercase tracking-widest mb-1">Next Dose</p>
-              <p className="font-headline text-3xl font-extrabold text-primary">{nextDoseMed ? nextDoseMed.time.split(' ')[0] : 'None'}</p>
-              <p className="text-xs text-tertiary mt-1">{nextDoseMed ? `${nextDoseMed.name} · ${nextDoseMed.dosage}` : 'All complete'}</p>
-            </div>
-            <div className="section-card p-5">
-              <p className="text-xs font-bold text-tertiary uppercase tracking-widest mb-1">Adherence</p>
-              <p className="font-headline text-3xl font-extrabold text-secondary">{adherencePercentage}%</p>
-              <p className="text-xs text-tertiary mt-1">This month</p>
-            </div>
-            <div className="section-card p-5">
-              <p className="text-xs font-bold text-tertiary uppercase tracking-widest mb-1">Refill Due</p>
-              <p className="font-headline text-3xl font-extrabold text-error">{activeMedications.length > 0 ? '7d' : 'None'}</p>
-              <p className="text-xs text-tertiary mt-1">{activeMedications.length > 0 ? 'Days remaining' : 'No active refills'}</p>
-            </div>
-          </div>
-
-          {/* Order Placement Success Alert */}
-          {orderSuccessMsg && (
-            <div className="p-4 bg-emerald-500/10 border border-emerald-500/30 rounded-2xl flex items-start gap-3 animate-fadeIn">
-              <span className="material-symbols-outlined text-emerald-600 mt-0.5">check_circle</span>
-              <div className="flex-1">
-                <p className="text-sm font-bold text-emerald-800 dark:text-emerald-300">{orderSuccessMsg}</p>
-                <p className="text-xs text-emerald-700/80 dark:text-emerald-400/80 mt-0.5">
-                  {t('records.freeUnderPmjay', {}, 'Nandurbar SDH Dispensary • Free under PMJAY & EDL')}
-                </p>
-              </div>
-              <button 
-                onClick={() => setOrderSuccessMsg(null)}
-                className="text-emerald-700 hover:text-emerald-900 p-1"
-              >
-                <span className="material-symbols-outlined text-sm">close</span>
-              </button>
-            </div>
-          )}
-
-          {/* Today's Schedule */}
-          <div className="section-card p-6 lg:p-8">
-            <div className="flex justify-between items-center mb-6">
-              <h3 className="font-headline text-xl font-bold text-on-surface">Today's Medication Schedule</h3>
-              <span suppressHydrationWarning className="text-xs font-bold text-tertiary uppercase tracking-wider">{new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'short', day: 'numeric' })}</span>
-            </div>
-            <div className="space-y-4">
-              {activeMedications.length === 0 ? (
-                <div className="text-center py-8 text-tertiary">
-                  <span className="material-symbols-outlined text-4xl mb-2 opacity-50">medication</span>
-                  <p className="font-semibold text-sm">No active medications added yet.</p>
-                  <p className="text-xs mt-1">Click "Add Record" above to upload or log your medications.</p>
+          {/* ===== MEDICATIONS SECTION ===== */}
+          {activeTab === 'medications' && (
+            <div className="space-y-6">
+              {/* Summary row */}
+              <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+                <div className="section-card p-5">
+                  <p className="text-xs font-bold text-tertiary uppercase tracking-widest mb-1">Active</p>
+                  <p className="font-headline text-3xl font-extrabold text-on-surface">{activeMedications.length}</p>
+                  <p className="text-xs text-tertiary mt-1">Medications</p>
                 </div>
-              ) : (
-                activeMedications.map((med, idx) => (
-                  <div key={`active-${idx}`} className={`flex items-center gap-5 p-4 ${med.isError ? 'bg-error-container/40' : 'bg-surface-container-low'} rounded-2xl group hover:bg-surface-container transition-colors`}>
-                    <div className={`w-12 h-12 rounded-2xl flex items-center justify-center shrink-0 ${med.isError ? 'bg-error-container' : ''}`} style={!med.isError ? { background: med.color } : {}}>
-                      <span className={`material-symbols-outlined fill-icon ${med.isError ? 'text-error' : 'text-primary'}`}>
-                        {(!med.icon || med.icon === 'capsule') ? 'pill' : med.icon}
-                      </span>
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-2 mb-0.5">
-                        <p className="font-headline font-bold text-on-surface">{med.name}</p>
-                        <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${
-                          med.status === 'TAKEN' ? 'status-badge-stable' : 
-                          med.status === 'MISSED' ? 'status-badge-urgent' : 
-                          'status-badge-pending'
-                        }`}>{med.status}</span>
-                      </div>
-                      <p className="text-sm text-tertiary">{med.dosage} · {med.frequency} · {med.time}</p>
-                      <div className="progress-bar mt-3 w-40" style={med.isError ? { background: '#ffdad6' } : {}}>
-                        <div className={med.isError ? "" : "progress-fill"} style={med.isError ? { width: '0%', height: '100%', borderRadius: '9999px', background: '#ba1a1a' } : { width: med.status === 'TAKEN' ? '100%' : '0%' }}></div>
-                      </div>
-                    </div>
-
-                    {/* Non-Inventory Ordering Action - Patient Portal Only */}
-                    {currentRole === 'patient' && isNonInventoryMedicine(med) && (
-                      <div className="flex items-center gap-2 shrink-0">
-                        {placedOrdersMap[med.id] || placedOrdersMap[(med.name || '').toLowerCase().trim()] ? (
-                          <span className="px-3 py-1.5 rounded-xl text-xs font-black bg-emerald-100 text-emerald-900 border border-emerald-300 flex items-center gap-1 shadow-sm">
-                            <span className="material-symbols-outlined text-sm text-emerald-700">check_circle</span>
-                            <span>{placedOrdersMap[med.id]?.status || placedOrdersMap[(med.name || '').toLowerCase().trim()]?.status || t('records.orderedStatus', {}, 'ORDERED')}</span>
-                          </span>
-                        ) : (
-                          <button
-                            onClick={() => handleInitiateOrder(med)}
-                            className="px-3.5 py-2 rounded-xl text-xs font-bold text-teal-900 bg-teal-50 hover:bg-teal-100 border border-teal-300 transition-all flex items-center gap-1.5 shadow-sm active:scale-95"
-                          >
-                            <span className="material-symbols-outlined text-sm text-teal-700">shopping_cart_checkout</span>
-                            <span>{t('records.orderMedicine', {}, 'Order')}</span>
-                          </button>
-                        )}
-                      </div>
-                    )}
-
-                    <button 
-                      onClick={() => handleToggleMedicationStatus(idx)}
-                      className={`shrink-0 px-4 py-2 rounded-xl text-xs font-bold transition-all ${
-                        med.status === 'TAKEN' 
-                          ? 'bg-secondary/10 text-secondary hover:bg-secondary/20' 
-                          : med.status === 'MISSED' 
-                          ? 'bg-error-container text-on-error-container hover:bg-error/20' 
-                          : 'text-white'
-                      }`}
-                      style={med.status === 'UPCOMING' ? { background: 'linear-gradient(135deg, #00647e, #2c7d99)' } : {}}
-                    >
-                      {med.status === 'TAKEN' ? '✓ Taken' : med.status === 'MISSED' ? 'Mark Taken' : 'Mark Taken'}
-                    </button>
-                  </div>
-                ))
-              )}
-            </div>
-          </div>
-
-          {/* Adherence chart + Refill tracker */}
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            {/* Weekly adherence */}
-            <div className="section-card p-6">
-              <div className="flex justify-between items-center mb-5">
-                <h3 className="font-headline text-lg font-bold text-on-surface">Weekly Adherence</h3>
-                <span className="text-xs font-extrabold text-secondary px-2.5 py-1 bg-secondary/10 rounded-full">{activeWeeklyAdherencePct}% Average</span>
+                <div className="section-card p-5">
+                  <p className="text-xs font-bold text-tertiary uppercase tracking-widest mb-1">Next Dose</p>
+                  <p className="font-headline text-3xl font-extrabold text-primary">{nextDoseMed ? nextDoseMed.time.split(' ')[0] : 'None'}</p>
+                  <p className="text-xs text-tertiary mt-1">{nextDoseMed ? `${nextDoseMed.name} · ${nextDoseMed.dosage}` : 'All complete'}</p>
+                </div>
+                <div className="section-card p-5">
+                  <p className="text-xs font-bold text-tertiary uppercase tracking-widest mb-1">Adherence</p>
+                  <p className="font-headline text-3xl font-extrabold text-secondary">{adherencePercentage}%</p>
+                  <p className="text-xs text-tertiary mt-1">This month</p>
+                </div>
+                <div className="section-card p-5">
+                  <p className="text-xs font-bold text-tertiary uppercase tracking-widest mb-1">Refill Due</p>
+                  <p className="font-headline text-3xl font-extrabold text-error">{activeMedications.length > 0 ? '7d' : 'None'}</p>
+                  <p className="text-xs text-tertiary mt-1">{activeMedications.length > 0 ? 'Days remaining' : 'No active refills'}</p>
+                </div>
               </div>
-              <div className="flex items-end gap-3 h-28">
-                {weeklyAdherenceData.map((d, idx) => (
-                  <div key={d.day} className="flex flex-col items-center gap-2 flex-1">
-                    <div 
-                      className="w-full rounded-lg transition-all duration-500" 
-                      style={{ 
-                        height: `${Math.max(d.percentage, 12)}%`, 
-                        background: d.percentage >= 80 
-                          ? 'linear-gradient(180deg,#00647e,#2c7d99)' 
-                          : d.percentage > 0 
-                          ? 'linear-gradient(180deg,#d97706,#f59e0b)' 
-                          : '#f87171',
-                        opacity: idx > currentDayIndex ? 0.35 : 1 
-                      }}
-                      title={`${d.day}: ${d.percentage}% adherence`}
-                    ></div>
-                    <span className={`text-[10px] font-bold ${idx === currentDayIndex ? 'text-primary font-black' : 'text-tertiary'}`}>{d.day}</span>
+
+              {/* Order Placement Success Alert */}
+              {orderSuccessMsg && (
+                <div className="p-4 bg-emerald-500/10 border border-emerald-500/30 rounded-2xl flex items-start gap-3 animate-fadeIn">
+                  <span className="material-symbols-outlined text-emerald-600 mt-0.5">check_circle</span>
+                  <div className="flex-1">
+                    <p className="text-sm font-bold text-emerald-800 dark:text-emerald-300">{orderSuccessMsg}</p>
+                    <p className="text-xs text-emerald-700/80 dark:text-emerald-400/80 mt-0.5">
+                      {t('records.freeUnderPmjay', {}, 'Nandurbar SDH Dispensary • Free under PMJAY & EDL')}
+                    </p>
                   </div>
-                ))}
-              </div>
-              <div className="mt-4 flex items-center gap-4">
-                <div className="flex items-center gap-1.5"><div className="w-3 h-3 rounded-sm" style={{ background: '#00647e' }}></div><span className="text-xs text-tertiary">Taken (≥80%)</span></div>
-                <div className="flex items-center gap-1.5"><div className="w-3 h-3 rounded-sm bg-amber-500"></div><span className="text-xs text-tertiary">Partial</span></div>
-                <div className="flex items-center gap-1.5"><div className="w-3 h-3 rounded-sm bg-red-400"></div><span className="text-xs text-tertiary">Missed</span></div>
-              </div>
-            </div>
-            {/* Refill tracker */}
-            <div className="section-card p-6">
-              <h3 className="font-headline text-lg font-bold text-on-surface mb-5">Refill Tracker</h3>
-              <div className="space-y-4">
-                {activeMedications.length === 0 ? (
-                  <div className="text-center py-6 text-tertiary">
-                    <p className="text-sm font-semibold">No active medication refills tracked.</p>
-                  </div>
-                ) : (
-                  activeMedications.map((med, idx) => (
-                    <div key={`refill-${idx}`}>
-                      <div className="flex justify-between mb-1.5">
-                        <span className="text-sm font-bold text-on-surface">{med.name} {med.dosage}</span>
-                        <span className="text-xs font-bold text-on-surface-variant">Active</span>
-                      </div>
-                      <div className="progress-bar">
-                        <div className="progress-fill" style={{ width: med.status === 'TAKEN' ? '100%' : '50%' }}></div>
-                      </div>
-                    </div>
-                  ))
-                )}
-                {activeMedications.length > 0 && (
-                  <button 
-                    onClick={() => handleRequestRefill()}
-                    className="w-full mt-2 py-3 bg-surface-container-low hover:bg-surface-container rounded-xl text-sm font-bold text-primary transition-colors flex items-center justify-center gap-2"
+                  <button
+                    onClick={() => setOrderSuccessMsg(null)}
+                    className="text-emerald-700 hover:text-emerald-900 p-1"
                   >
-                    <span className="material-symbols-outlined text-base">local_pharmacy</span> Request Refill
+                    <span className="material-symbols-outlined text-sm">close</span>
                   </button>
-                )}
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* ===== LAB RESULTS SECTION ===== */}
-      {activeTab === 'lab' && (
-        <div className="space-y-6">
-          <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-            <div className="section-card p-5">
-              <p className="text-xs font-bold text-tertiary uppercase tracking-widest mb-1">Total Tests</p>
-              <p className="font-headline text-3xl font-extrabold text-on-surface">{userLabReports.length}</p>
-              <p className="text-xs text-tertiary mt-1">Uploaded tests</p>
-            </div>
-            <div className="section-card p-5">
-              <p className="text-xs font-bold text-tertiary uppercase tracking-widest mb-1">Normal</p>
-              <p className="font-headline text-3xl font-extrabold text-secondary">{userLabReports.filter(l => l.status === 'Normal').length}</p>
-              <p className="text-xs text-tertiary mt-1">Results</p>
-            </div>
-            <div className="section-card p-5">
-              <p className="text-xs font-bold text-tertiary uppercase tracking-widest mb-1">Flagged</p>
-              <p className="font-headline text-3xl font-extrabold text-error">{userLabReports.filter(l => l.status === 'Flagged').length}</p>
-              <p className="text-xs text-tertiary mt-1">Needs attention</p>
-            </div>
-            <div className="section-card p-5">
-              <p className="text-xs font-bold text-tertiary uppercase tracking-widest mb-1">Pending</p>
-              <p className="font-headline text-3xl font-extrabold text-primary">{userLabReports.filter(l => l.status === 'Pending').length}</p>
-              <p className="text-xs text-tertiary mt-1">In progress</p>
-            </div>
-          </div>
-
-          {/* Lab results list */}
-          <div className="section-card p-6 lg:p-8">
-            <div className="flex justify-between items-center mb-6">
-              <h3 className="font-headline text-xl font-bold text-on-surface">Recent Lab Results</h3>
-              <div className="flex gap-2">
-                <button className="px-3 py-1.5 rounded-xl text-xs font-bold tab-active">All</button>
-                <button className="px-3 py-1.5 rounded-xl text-xs font-bold tab-inactive hover:bg-surface-container">Flagged</button>
-                <button className="px-3 py-1.5 rounded-xl text-xs font-bold tab-inactive hover:bg-surface-container">Normal</button>
-              </div>
-            </div>
-
-            <div className="space-y-3">
-              {userLabReports.length === 0 ? (
-                <div className="text-center py-10 text-tertiary">
-                  <span className="material-symbols-outlined text-4xl mb-2 opacity-50">biotech</span>
-                  <p className="font-semibold text-sm">No lab results uploaded yet.</p>
-                  <p className="text-xs mt-1">Upload a lab report PDF or prescription to automatically extract test values.</p>
                 </div>
-              ) : (
-                userLabReports.map((lab, idx) => (
-                  <div key={`user-lab-${idx}`} className="rounded-2xl overflow-hidden">
-                    <button onClick={() => toggleSection(`user-lab-${idx}`)} className={`w-full flex items-center gap-4 p-5 ${lab.status === 'Flagged' ? 'bg-error-container/30 hover:bg-error-container/50' : 'bg-surface-container-low hover:bg-surface-container'} transition-colors text-left`}>
-                      <div className={`w-11 h-11 rounded-xl flex items-center justify-center shrink-0 ${lab.status === 'Flagged' ? 'bg-error-container' : 'bg-primary/10'}`}>
-                        <span className={`material-symbols-outlined ${lab.status === 'Flagged' ? 'text-error' : 'text-primary'}`}>biotech</span>
-                      </div>
-                      <div className="flex-1">
-                        <div className="flex items-center gap-2 mb-0.5">
-                          <p className="font-headline font-bold text-on-surface">{lab.testName}</p>
-                          <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${lab.status === 'Flagged' ? 'status-badge-urgent' : lab.status === 'Pending' ? 'status-badge-pending' : 'status-badge-stable'}`}>{lab.status?.toUpperCase()}</span>
-                          <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-primary/10 text-primary">NEW</span>
-                        </div>
-                        <p className="text-xs text-tertiary">{lab.date} · {lab.labName || 'Unknown Lab'} · {lab.doctor || 'Unknown Doctor'}</p>
-                      </div>
-                      <span className={`material-symbols-outlined rotate-icon text-tertiary ${openSections[`user-lab-${idx}`] ? 'open' : ''}`}>expand_more</span>
-                    </button>
-                    <div className={`collapsible-content ${openSections[`user-lab-${idx}`] ? 'open' : ''}`}>
-                      <div className="p-5 bg-surface-container-lowest border-t border-outline-variant/10 space-y-3">
-                        {renderLabInsights(lab)}
-
-                        {lab.results && lab.results.length > 0 && (
-                          <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-                            {lab.results.map((r: any, ri: number) => (
-                              <div key={ri} className="p-4 bg-surface-container-low rounded-xl text-center">
-                                <p className="text-[10px] font-bold text-tertiary uppercase tracking-wider mb-1">{r.key}</p>
-                                <p className="font-headline text-xl font-extrabold text-on-surface">{r.value}</p>
-                                {r.unit && <p className="text-[10px] text-tertiary">{r.unit}</p>}
-                                {normalizeLabStatus(r.status) !== 'unknown' && (
-                                  <span className={`inline-flex mt-2 px-2 py-0.5 rounded-full text-[10px] font-black uppercase ${
-                                    normalizeLabStatus(r.status) === 'normal'
-                                      ? 'bg-secondary/10 text-secondary'
-                                      : 'bg-amber-100 text-amber-800'
-                                  }`}>
-                                    {normalizeLabStatus(r.status)}
-                                  </span>
-                                )}
-                              </div>
-                            ))}
-                          </div>
-                        )}
-                        <button 
-                          onClick={() => handleDownloadReport(lab)}
-                          className="flex items-center gap-2 text-xs font-bold text-primary hover:underline"
-                        >
-                          <span className="material-symbols-outlined text-base">download</span> Download report (PDF)
-                        </button>
-                      </div>
-                    </div>
-                  </div>
-                ))
               )}
-            </div>
-          </div>
-        </div>
-      )}
 
-      {/* ===== DOCTOR'S NOTES SECTION ===== */}
-      {activeTab === 'notes' && (
-        <div className="space-y-6">
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-            {/* Main notes list */}
-            <div className="lg:col-span-2 space-y-4">
-              {userNotes.length === 0 ? (
-                <div className="section-card p-10 text-center text-tertiary">
-                  <span className="material-symbols-outlined text-4xl mb-2 opacity-50">description</span>
-                  <p className="font-semibold text-sm">No doctor's notes recorded yet.</p>
-                  <p className="text-xs mt-1">Uploaded clinical notes and consultation summaries will appear here.</p>
+              {/* Today's Schedule */}
+              <div className="section-card p-6 lg:p-8">
+                <div className="flex justify-between items-center mb-6">
+                  <h3 className="font-headline text-xl font-bold text-on-surface">Today's Medication Schedule</h3>
+                  <span suppressHydrationWarning className="text-xs font-bold text-tertiary uppercase tracking-wider">{new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'short', day: 'numeric' })}</span>
                 </div>
-              ) : (
-                userNotes.map((note, idx) => (
-                  <div key={`user-note-${idx}`} className="section-card overflow-hidden">
-                    <div className="p-6 lg:p-8 border-b border-outline-variant/10">
-                      <div className="flex items-start justify-between gap-4">
-                        <div className="flex items-start gap-4">
-                          <div className="w-12 h-12 rounded-2xl bg-primary/10 flex items-center justify-center shrink-0">
-                            <span className="material-symbols-outlined fill-icon text-primary text-2xl">person</span>
+                <div className="space-y-4">
+                  {activeMedications.length === 0 ? (
+                    <div className="text-center py-8 text-tertiary">
+                      <span className="material-symbols-outlined text-4xl mb-2 opacity-50">medication</span>
+                      <p className="font-semibold text-sm">No active medications added yet.</p>
+                      <p className="text-xs mt-1">Click "Add Record" above to upload or log your medications.</p>
+                    </div>
+                  ) : (
+                    activeMedications.map((med, idx) => (
+                      <div key={`active-${idx}`} className={`flex items-center gap-5 p-4 ${med.isError ? 'bg-error-container/40' : 'bg-surface-container-low'} rounded-2xl group hover:bg-surface-container transition-colors`}>
+                        <div className={`w-12 h-12 rounded-2xl flex items-center justify-center shrink-0 ${med.isError ? 'bg-error-container' : ''}`} style={!med.isError ? { background: med.color } : {}}>
+                          <span className={`material-symbols-outlined fill-icon ${med.isError ? 'text-error' : 'text-primary'}`}>
+                            {(!med.icon || med.icon === 'capsule') ? 'pill' : med.icon}
+                          </span>
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-2 mb-0.5">
+                            <p className="font-headline font-bold text-on-surface">{med.name}</p>
+                            <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${med.status === 'TAKEN' ? 'status-badge-stable' :
+                              med.status === 'MISSED' ? 'status-badge-urgent' :
+                                'status-badge-pending'
+                              }`}>{med.status}</span>
                           </div>
-                          <div>
-                            <div className="flex items-center gap-2">
-                              <p className="font-headline font-bold text-on-surface">{note.doctor}</p>
-                              <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-primary/10 text-primary">RECORDED</span>
-                            </div>
-                            <p className="text-xs text-tertiary">{note.specialty || 'General'} · {note.date}</p>
-                            {(note.visit_type === 'Triage Assessment' || note.visitType === 'Triage Assessment') ? (
-                              <span className={`inline-block mt-1.5 px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase ${
-                                note.summary?.includes('RED') || note.observations?.includes('EMERGENCY')
-                                  ? 'bg-red-100 text-red-800 border border-red-300'
-                                  : note.summary?.includes('YELLOW') || note.observations?.includes('PRIORITY')
-                                  ? 'bg-amber-100 text-amber-800 border border-amber-300'
-                                  : 'bg-emerald-100 text-emerald-800 border border-emerald-300'
-                              }`}>
-                                {note.summary?.includes('RED') || note.observations?.includes('EMERGENCY')
-                                  ? '🚨 TRIAGE: RED (EMERGENCY)'
-                                  : note.summary?.includes('YELLOW') || note.observations?.includes('PRIORITY')
-                                  ? '⚠️ TRIAGE: YELLOW (PRIORITY)'
-                                  : '✅ TRIAGE: GREEN (ROUTINE)'}
+                          <p className="text-sm text-tertiary">{med.dosage} · {med.frequency} · {med.time}</p>
+                          <div className="progress-bar mt-3 w-40" style={med.isError ? { background: '#ffdad6' } : {}}>
+                            <div className={med.isError ? "" : "progress-fill"} style={med.isError ? { width: '0%', height: '100%', borderRadius: '9999px', background: '#ba1a1a' } : { width: med.status === 'TAKEN' ? '100%' : '0%' }}></div>
+                          </div>
+                        </div>
+
+                        {/* Non-Inventory Ordering Action - Patient Portal Only */}
+                        {currentRole === 'patient' && isNonInventoryMedicine(med) && (
+                          <div className="flex items-center gap-2 shrink-0">
+                            {placedOrdersMap[med.id] || placedOrdersMap[(med.name || '').toLowerCase().trim()] ? (
+                              <span className="px-3 py-1.5 rounded-xl text-xs font-black bg-emerald-100 text-emerald-900 border border-emerald-300 flex items-center gap-1 shadow-sm">
+                                <span className="material-symbols-outlined text-sm text-emerald-700">check_circle</span>
+                                <span>{placedOrdersMap[med.id]?.status || placedOrdersMap[(med.name || '').toLowerCase().trim()]?.status || t('records.orderedStatus', {}, 'ORDERED')}</span>
                               </span>
                             ) : (
-                              (note.visitType || note.visit_type) && (
-                                <span className="inline-block mt-1.5 px-2 py-0.5 rounded-full text-[10px] font-bold status-badge-stable">
-                                  {(note.visitType || note.visit_type).toUpperCase()}
-                                </span>
-                              )
+                              <button
+                                onClick={() => handleInitiateOrder(med)}
+                                className="px-3.5 py-2 rounded-xl text-xs font-bold text-teal-900 bg-teal-50 hover:bg-teal-100 border border-teal-300 transition-all flex items-center gap-1.5 shadow-sm active:scale-95"
+                              >
+                                <span className="material-symbols-outlined text-sm text-teal-700">shopping_cart_checkout</span>
+                                <span>{t('records.orderMedicine', {}, 'Order')}</span>
+                              </button>
                             )}
                           </div>
-                        </div>
+                        )}
+
+                        <button
+                          onClick={() => handleToggleMedicationStatus(idx)}
+                          className={`shrink-0 px-4 py-2 rounded-xl text-xs font-bold transition-all ${med.status === 'TAKEN'
+                            ? 'bg-secondary/10 text-secondary hover:bg-secondary/20'
+                            : med.status === 'MISSED'
+                              ? 'bg-error-container text-on-error-container hover:bg-error/20'
+                              : 'text-white'
+                            }`}
+                          style={med.status === 'UPCOMING' ? { background: 'linear-gradient(135deg, #00647e, #2c7d99)' } : {}}
+                        >
+                          {med.status === 'TAKEN' ? '✓ Taken' : med.status === 'MISSED' ? 'Mark Taken' : 'Mark Taken'}
+                        </button>
                       </div>
-                    </div>
-                    <div className="p-6 lg:p-8 space-y-5">
-                      {note.complaint && (
-                        <div>
-                          <p className="text-xs font-bold text-tertiary uppercase tracking-widest mb-2">Chief Complaint / Symptoms</p>
-                          <p className="text-sm text-on-surface leading-relaxed">{note.complaint}</p>
-                        </div>
-                      )}
-                      {note.observations && (
-                        <div>
-                          <p className="text-xs font-bold text-tertiary uppercase tracking-widest mb-2">Clinical Observations & Findings</p>
-                          <p className="text-sm text-on-surface leading-relaxed">{note.observations}</p>
-                        </div>
-                      )}
-                      {note.summary && (
-                        <div>
-                          <p className="text-xs font-bold text-tertiary uppercase tracking-widest mb-2">Triage & Care Summary</p>
-                          <p className="text-sm font-semibold text-primary leading-relaxed">{note.summary}</p>
-                        </div>
-                      )}
-                      {note.plan && (
-                        <div>
-                          <p className="text-xs font-bold text-tertiary uppercase tracking-widest mb-2">Assessment &amp; Plan</p>
-                          <p className="text-sm text-on-surface leading-relaxed">{note.plan}</p>
-                        </div>
-                      )}
-                      {note.followUp && (
-                        <div className="p-4 bg-primary-fixed/40 rounded-xl">
-                          <p className="text-xs font-bold text-primary uppercase tracking-widest mb-1">Follow-up</p>
-                          <p className="text-sm text-on-surface font-semibold">Next appointment: {note.followUp}</p>
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                ))
-              )}
-            </div>
-
-            {/* Right sidebar: doctors list & archive */}
-            <div className="space-y-4">
-              <div className="section-card p-6">
-                <h3 className="font-headline text-base font-bold text-on-surface mb-4">Care Team</h3>
-                {(() => {
-                  const doctors = Array.from(new Set([
-                    ...userNotes.map(n => n.doctor),
-                    ...userPrescriptions.map(p => p.doctor),
-                    ...userLabReports.map(l => l.doctor)
-                  ].filter(Boolean)));
-
-                  if (doctors.length === 0) {
-                    return (
-                      <p className="text-xs text-tertiary text-center py-4">No care team members linked yet.</p>
-                    );
-                  }
-
-                  return (
-                    <div className="space-y-4">
-                      {doctors.map((docName, idx) => (
-                        <div key={idx} className="flex items-center gap-3">
-                          <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center shrink-0">
-                            <span className="material-symbols-outlined text-primary text-xl">person</span>
-                          </div>
-                          <div>
-                            <p className="text-sm font-bold text-on-surface">{docName}</p>
-                            <p className="text-xs text-tertiary">Physician</p>
-                          </div>
-                          <button onClick={() => handleMessageDoctor(docName)} className="ml-auto text-tertiary hover:text-primary"><span className="material-symbols-outlined text-xl">message</span></button>
-                        </div>
-                      ))}
-                    </div>
-                  );
-                })()}
+                    ))
+                  )}
+                </div>
               </div>
 
-              <div className="section-card p-6">
-                <h3 className="font-headline text-base font-bold text-on-surface mb-4">Notes Archive</h3>
-                {userNotes.length === 0 ? (
-                  <p className="text-xs text-tertiary text-center py-4">No notes archived.</p>
-                ) : (
-                  <div className="space-y-2">
-                    {userNotes.map((note, idx) => (
-                      <div key={idx} className="flex items-center gap-3 p-3 bg-surface-container-low rounded-xl hover:bg-surface-container transition-colors cursor-pointer">
-                        <span className="material-symbols-outlined text-tertiary text-lg">description</span>
-                        <div className="flex-1 min-w-0">
-                          <p className="text-xs font-bold text-on-surface truncate">{note.doctor} - Note</p>
-                          <p className="text-[10px] text-tertiary">{note.date}</p>
-                        </div>
+              {/* Adherence chart + Refill tracker */}
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                {/* Weekly adherence */}
+                <div className="section-card p-6">
+                  <div className="flex justify-between items-center mb-5">
+                    <h3 className="font-headline text-lg font-bold text-on-surface">Weekly Adherence</h3>
+                    <span className="text-xs font-extrabold text-secondary px-2.5 py-1 bg-secondary/10 rounded-full">{activeWeeklyAdherencePct}% Average</span>
+                  </div>
+                  <div className="flex items-end gap-3 h-28">
+                    {weeklyAdherenceData.map((d, idx) => (
+                      <div key={d.day} className="flex flex-col items-center gap-2 flex-1">
+                        <div
+                          className="w-full rounded-lg transition-all duration-500"
+                          style={{
+                            height: `${Math.max(d.percentage, 12)}%`,
+                            background: d.percentage >= 80
+                              ? 'linear-gradient(180deg,#00647e,#2c7d99)'
+                              : d.percentage > 0
+                                ? 'linear-gradient(180deg,#d97706,#f59e0b)'
+                                : '#f87171',
+                            opacity: idx > currentDayIndex ? 0.35 : 1
+                          }}
+                          title={`${d.day}: ${d.percentage}% adherence`}
+                        ></div>
+                        <span className={`text-[10px] font-bold ${idx === currentDayIndex ? 'text-primary font-black' : 'text-tertiary'}`}>{d.day}</span>
                       </div>
                     ))}
                   </div>
-                )}
+                  <div className="mt-4 flex items-center gap-4">
+                    <div className="flex items-center gap-1.5"><div className="w-3 h-3 rounded-sm" style={{ background: '#00647e' }}></div><span className="text-xs text-tertiary">Taken (≥80%)</span></div>
+                    <div className="flex items-center gap-1.5"><div className="w-3 h-3 rounded-sm bg-amber-500"></div><span className="text-xs text-tertiary">Partial</span></div>
+                    <div className="flex items-center gap-1.5"><div className="w-3 h-3 rounded-sm bg-red-400"></div><span className="text-xs text-tertiary">Missed</span></div>
+                  </div>
+                </div>
+                {/* Refill tracker */}
+                <div className="section-card p-6">
+                  <h3 className="font-headline text-lg font-bold text-on-surface mb-5">Refill Tracker</h3>
+                  <div className="space-y-4">
+                    {activeMedications.length === 0 ? (
+                      <div className="text-center py-6 text-tertiary">
+                        <p className="text-sm font-semibold">No active medication refills tracked.</p>
+                      </div>
+                    ) : (
+                      activeMedications.map((med, idx) => (
+                        <div key={`refill-${idx}`}>
+                          <div className="flex justify-between mb-1.5">
+                            <span className="text-sm font-bold text-on-surface">{med.name} {med.dosage}</span>
+                            <span className="text-xs font-bold text-on-surface-variant">Active</span>
+                          </div>
+                          <div className="progress-bar">
+                            <div className="progress-fill" style={{ width: med.status === 'TAKEN' ? '100%' : '50%' }}></div>
+                          </div>
+                        </div>
+                      ))
+                    )}
+                    {activeMedications.length > 0 && (
+                      <button
+                        onClick={() => handleRequestRefill()}
+                        className="w-full mt-2 py-3 bg-surface-container-low hover:bg-surface-container rounded-xl text-sm font-bold text-primary transition-colors flex items-center justify-center gap-2"
+                      >
+                        <span className="material-symbols-outlined text-base">local_pharmacy</span> Request Refill
+                      </button>
+                    )}
+                  </div>
+                </div>
               </div>
             </div>
-          </div>
-        </div>
-      )}
+          )}
 
-      {/* ===== PRESCRIPTIONS SECTION ===== */}
-      {activeTab === 'prescriptions' && (
-        <div className="space-y-6">
-          <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-            <div className="section-card p-5">
-              <p className="text-xs font-bold text-tertiary uppercase tracking-widest mb-1">Active Rx</p>
-              <p className="font-headline text-3xl font-extrabold text-on-surface">{userPrescriptions.length + extractedMedications.length}</p>
-            </div>
-            <div className="section-card p-5">
-              <p className="text-xs font-bold text-tertiary uppercase tracking-widest mb-1">Renewed</p>
-              <p className="font-headline text-3xl font-extrabold text-secondary">0</p>
-              <p className="text-xs text-tertiary mt-1">This month</p>
-            </div>
-            <div className="section-card p-5">
-              <p className="text-xs font-bold text-tertiary uppercase tracking-widest mb-1">Expired</p>
-              <p className="font-headline text-3xl font-extrabold text-error">0</p>
-            </div>
-            <div className="section-card p-5">
-              <p className="text-xs font-bold text-tertiary uppercase tracking-widest mb-1">Refills Left</p>
-              <p className="font-headline text-3xl font-extrabold text-primary">0</p>
-            </div>
-          </div>
-
-          <div className="section-card p-6 lg:p-8">
-            <div className="flex justify-between items-center mb-6">
-              <h3 className="font-headline text-xl font-bold text-on-surface">Active Prescriptions</h3>
-            </div>
-
-            <div className="space-y-4">
-              {userPrescriptions.length === 0 && extractedMedications.length === 0 ? (
-                <div className="text-center py-10 text-tertiary">
-                  <span className="material-symbols-outlined text-4xl mb-2 opacity-50">receipt_long</span>
-                  <p className="font-semibold text-sm">No active prescriptions logged yet.</p>
-                  <p className="text-xs mt-1">Click "Add Record" above to upload a prescription PDF or image.</p>
+          {/* ===== LAB RESULTS SECTION ===== */}
+          {activeTab === 'lab' && (
+            <div className="space-y-6">
+              <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+                <div className="section-card p-5">
+                  <p className="text-xs font-bold text-tertiary uppercase tracking-widest mb-1">Total Tests</p>
+                  <p className="font-headline text-3xl font-extrabold text-on-surface">{userLabReports.length}</p>
+                  <p className="text-xs text-tertiary mt-1">Uploaded tests</p>
                 </div>
-              ) : (
-                <>
-                  {userPrescriptions.map((rx, idx) => {
-                    const rxName = rx.medication || rx.name || 'Prescription';
-                    const rxType = rx.prescription_type || (rx.is_inventory ? 'INVENTORY' : (rx.inventory_id ? 'INVENTORY' : 'NON-INVENTORY'));
-                    const isInv = rxType === 'INVENTORY' || rx.is_inventory === true || !!rx.inventory_id;
-                    const rxDate = rx.date || (rx.created_at ? new Date(rx.created_at).toLocaleDateString() : 'Today');
-                    const rxStatus = rx.status || 'ACTIVE';
+                <div className="section-card p-5">
+                  <p className="text-xs font-bold text-tertiary uppercase tracking-widest mb-1">Normal</p>
+                  <p className="font-headline text-3xl font-extrabold text-secondary">{userLabReports.filter(l => l.status === 'Normal').length}</p>
+                  <p className="text-xs text-tertiary mt-1">Results</p>
+                </div>
+                <div className="section-card p-5">
+                  <p className="text-xs font-bold text-tertiary uppercase tracking-widest mb-1">Flagged</p>
+                  <p className="font-headline text-3xl font-extrabold text-error">{userLabReports.filter(l => l.status === 'Flagged').length}</p>
+                  <p className="text-xs text-tertiary mt-1">Needs attention</p>
+                </div>
+                <div className="section-card p-5">
+                  <p className="text-xs font-bold text-tertiary uppercase tracking-widest mb-1">Pending</p>
+                  <p className="font-headline text-3xl font-extrabold text-primary">{userLabReports.filter(l => l.status === 'Pending').length}</p>
+                  <p className="text-xs text-tertiary mt-1">In progress</p>
+                </div>
+              </div>
 
-                    return (
-                      <div key={`user-rx-${rx.id || idx}`} className="p-6 bg-primary-container/20 border border-primary/20 rounded-2xl hover:bg-primary-container/30 transition-colors">
-                        <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-4">
-                          <div className="flex items-start gap-4">
-                            <div className="w-14 h-14 rounded-2xl flex items-center justify-center shrink-0" style={{ background: 'linear-gradient(135deg,#00647e,#2c7d99)' }}>
-                              <span className="material-symbols-outlined fill-icon text-white text-2xl">medication</span>
+              {/* Lab results list */}
+              <div className="section-card p-6 lg:p-8">
+                <div className="flex justify-between items-center mb-6">
+                  <h3 className="font-headline text-xl font-bold text-on-surface">Recent Lab Results</h3>
+                  <div className="flex gap-2">
+                    <button className="px-3 py-1.5 rounded-xl text-xs font-bold tab-active">All</button>
+                    <button className="px-3 py-1.5 rounded-xl text-xs font-bold tab-inactive hover:bg-surface-container">Flagged</button>
+                    <button className="px-3 py-1.5 rounded-xl text-xs font-bold tab-inactive hover:bg-surface-container">Normal</button>
+                  </div>
+                </div>
+
+                <div className="space-y-3">
+                  {userLabReports.length === 0 ? (
+                    <div className="text-center py-10 text-tertiary">
+                      <span className="material-symbols-outlined text-4xl mb-2 opacity-50">biotech</span>
+                      <p className="font-semibold text-sm">No lab results uploaded yet.</p>
+                      <p className="text-xs mt-1">Upload a lab report PDF or prescription to automatically extract test values.</p>
+                    </div>
+                  ) : (
+                    userLabReports.map((lab, idx) => (
+                      <div key={`user-lab-${idx}`} className="rounded-2xl overflow-hidden">
+                        <button onClick={() => toggleSection(`user-lab-${idx}`)} className={`w-full flex items-center gap-4 p-5 ${lab.status === 'Flagged' ? 'bg-error-container/30 hover:bg-error-container/50' : 'bg-surface-container-low hover:bg-surface-container'} transition-colors text-left`}>
+                          <div className={`w-11 h-11 rounded-xl flex items-center justify-center shrink-0 ${lab.status === 'Flagged' ? 'bg-error-container' : 'bg-primary/10'}`}>
+                            <span className={`material-symbols-outlined ${lab.status === 'Flagged' ? 'text-error' : 'text-primary'}`}>biotech</span>
+                          </div>
+                          <div className="flex-1">
+                            <div className="flex items-center gap-2 mb-0.5">
+                              <p className="font-headline font-bold text-on-surface">{lab.testName}</p>
+                              <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${lab.status === 'Flagged' ? 'status-badge-urgent' : lab.status === 'Pending' ? 'status-badge-pending' : 'status-badge-stable'}`}>{lab.status?.toUpperCase()}</span>
+                              <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-primary/10 text-primary">NEW</span>
                             </div>
-                            <div>
-                              <div className="flex flex-wrap items-center gap-2 mb-1">
-                                <h4 className="font-headline font-bold text-on-surface text-lg">{rxName}</h4>
-                                <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${
-                                  rxStatus === 'TAKEN' || rxStatus === 'COMPLETED' ? 'bg-emerald-100 text-emerald-900 border border-emerald-300' :
-                                  rxStatus === 'MISSED' ? 'bg-error-container text-on-error-container' :
-                                  'status-badge-stable'
-                                }`}>{rxStatus}</span>
-                                {isInv ? (
-                                  <span className="px-2 py-0.5 rounded-full text-[10px] font-black bg-emerald-50 text-emerald-800 border border-emerald-200 uppercase">
-                                    Facility EDL
+                            <p className="text-xs text-tertiary">{lab.date} · {lab.labName || 'Unknown Lab'} · {lab.doctor || 'Unknown Doctor'}</p>
+                          </div>
+                          <span className={`material-symbols-outlined rotate-icon text-tertiary ${openSections[`user-lab-${idx}`] ? 'open' : ''}`}>expand_more</span>
+                        </button>
+                        <div className={`collapsible-content ${openSections[`user-lab-${idx}`] ? 'open' : ''}`}>
+                          <div className="p-5 bg-surface-container-lowest border-t border-outline-variant/10 space-y-3">
+                            {renderLabInsights(lab)}
+
+                            {lab.results && lab.results.length > 0 && (
+                              <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                                {lab.results.map((r: any, ri: number) => (
+                                  <div key={ri} className="p-4 bg-surface-container-low rounded-xl text-center">
+                                    <p className="text-[10px] font-bold text-tertiary uppercase tracking-wider mb-1">{r.key}</p>
+                                    <p className="font-headline text-xl font-extrabold text-on-surface">{r.value}</p>
+                                    {r.unit && <p className="text-[10px] text-tertiary">{r.unit}</p>}
+                                    {normalizeLabStatus(r.status) !== 'unknown' && (
+                                      <span className={`inline-flex mt-2 px-2 py-0.5 rounded-full text-[10px] font-black uppercase ${normalizeLabStatus(r.status) === 'normal'
+                                        ? 'bg-secondary/10 text-secondary'
+                                        : 'bg-amber-100 text-amber-800'
+                                        }`}>
+                                        {normalizeLabStatus(r.status)}
+                                      </span>
+                                    )}
+                                  </div>
+                                ))}
+                              </div>
+                            )}
+                            <button
+                              onClick={() => handleDownloadReport(lab)}
+                              className="flex items-center gap-2 text-xs font-bold text-primary hover:underline"
+                            >
+                              <span className="material-symbols-outlined text-base">download</span> Download report (PDF)
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+                    ))
+                  )}
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* ===== DOCTOR'S NOTES SECTION ===== */}
+          {activeTab === 'notes' && (
+            <div className="space-y-6">
+              <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                {/* Main notes list */}
+                <div className="lg:col-span-2 space-y-4">
+                  {userNotes.length === 0 ? (
+                    <div className="section-card p-10 text-center text-tertiary">
+                      <span className="material-symbols-outlined text-4xl mb-2 opacity-50">description</span>
+                      <p className="font-semibold text-sm">No doctor's notes recorded yet.</p>
+                      <p className="text-xs mt-1">Uploaded clinical notes and consultation summaries will appear here.</p>
+                    </div>
+                  ) : (
+                    userNotes.map((note, idx) => (
+                      <div key={`user-note-${idx}`} className="section-card overflow-hidden">
+                        <div className="p-6 lg:p-8 border-b border-outline-variant/10">
+                          <div className="flex items-start justify-between gap-4">
+                            <div className="flex items-start gap-4">
+                              <div className="w-12 h-12 rounded-2xl bg-primary/10 flex items-center justify-center shrink-0">
+                                <span className="material-symbols-outlined fill-icon text-primary text-2xl">person</span>
+                              </div>
+                              <div>
+                                <div className="flex items-center gap-2">
+                                  <p className="font-headline font-bold text-on-surface">{note.doctor}</p>
+                                  <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-primary/10 text-primary">RECORDED</span>
+                                </div>
+                                <p className="text-xs text-tertiary">{note.specialty || 'General'} · {note.date}</p>
+                                {(note.visit_type === 'Triage Assessment' || note.visitType === 'Triage Assessment') ? (
+                                  <span className={`inline-block mt-1.5 px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase ${note.summary?.includes('RED') || note.observations?.includes('EMERGENCY')
+                                    ? 'bg-red-100 text-red-800 border border-red-300'
+                                    : note.summary?.includes('YELLOW') || note.observations?.includes('PRIORITY')
+                                      ? 'bg-amber-100 text-amber-800 border border-amber-300'
+                                      : 'bg-emerald-100 text-emerald-800 border border-emerald-300'
+                                    }`}>
+                                    {note.summary?.includes('RED') || note.observations?.includes('EMERGENCY')
+                                      ? '🚨 TRIAGE: RED (EMERGENCY)'
+                                      : note.summary?.includes('YELLOW') || note.observations?.includes('PRIORITY')
+                                        ? '⚠️ TRIAGE: YELLOW (PRIORITY)'
+                                        : '✅ TRIAGE: GREEN (ROUTINE)'}
                                   </span>
                                 ) : (
-                                  <span className="px-2 py-0.5 rounded-full text-[10px] font-black bg-purple-50 text-purple-800 border border-purple-200 uppercase">
-                                    Non-Inventory
-                                  </span>
+                                  (note.visitType || note.visit_type) && (
+                                    <span className="inline-block mt-1.5 px-2 py-0.5 rounded-full text-[10px] font-bold status-badge-stable">
+                                      {(note.visitType || note.visit_type).toUpperCase()}
+                                    </span>
+                                  )
                                 )}
-                              </div>
-                              <p className="text-sm text-tertiary mb-2">
-                                {rx.dosage || 'Standard'} · {rx.frequency || 'As directed'} · Duration: {rx.duration || rx.date || '5 Days'}{rx.quantity ? ` · Qty: ${rx.quantity}` : ''}
-                              </p>
-                              {rx.instructions && (
-                                <p className="text-xs text-on-surface-variant bg-surface-container-low p-2 rounded-xl mb-2 border border-outline-variant/10">
-                                  📋 <span className="font-semibold">Instructions:</span> {rx.instructions}
-                                </p>
-                              )}
-                              {rx.notes && (
-                                <p className="text-xs text-on-surface-variant bg-surface-container-low p-2.5 rounded-xl mb-2 border border-outline-variant/10">
-                                  💡 <span className="font-semibold">Doctor Note:</span> {rx.notes}
-                                </p>
-                              )}
-                              <div className="flex flex-wrap gap-3 text-xs">
-                                {(rx.doctor || rx.doctor_name || rx.doctorName) && (
-                                  <div className="px-3 py-1.5 bg-surface-container-lowest rounded-lg">
-                                    <span className="text-tertiary">Prescribed by: </span><span className="font-bold text-on-surface">{rx.doctor || rx.doctor_name || rx.doctorName}</span>
-                                  </div>
-                                )}
-                                <div className="px-3 py-1.5 bg-surface-container-lowest rounded-lg">
-                                  <span className="text-tertiary">Date: </span><span className="font-bold text-on-surface">{rxDate}</span>
-                                </div>
                               </div>
                             </div>
                           </div>
-
-                          {/* Order Medicine Action Column - Patient Portal Only for Non-Inventory Prescriptions */}
-                          {currentRole === 'patient' && isNonInventoryMedicine(rx) && (
-                            <div className="flex gap-2 shrink-0 self-start sm:self-center">
-                              {placedOrdersMap[rx.id] || placedOrdersMap[(rx.name || rx.medication || '').toLowerCase().trim()] ? (
-                                <div className="px-3.5 py-2 rounded-xl text-xs font-black bg-emerald-100 text-emerald-900 border border-emerald-300 flex items-center gap-1.5 shadow-sm">
-                                  <span className="material-symbols-outlined text-sm text-emerald-700">check_circle</span>
-                                  <span>{placedOrdersMap[rx.id]?.status || placedOrdersMap[(rx.name || rx.medication || '').toLowerCase().trim()]?.status || t('records.orderedStatus', {}, 'ORDERED')}</span>
-                                </div>
-                              ) : (
-                                <button 
-                                  onClick={() => handleInitiateOrder(rx)}
-                                  className="px-4 py-2.5 rounded-xl text-xs font-bold text-white transition-all flex items-center gap-1.5 shadow-sm active:scale-95 hover:opacity-90" 
-                                  style={{ background: 'linear-gradient(135deg,#00647e,#2c7d99)' }}
-                                >
-                                  <span className="material-symbols-outlined text-base">shopping_cart_checkout</span>
-                                  <span>{t('records.orderMedicineFull', {}, 'Order Medicine')}</span>
-                                </button>
-                              )}
+                        </div>
+                        <div className="p-6 lg:p-8 space-y-5">
+                          {note.complaint && (
+                            <div>
+                              <p className="text-xs font-bold text-tertiary uppercase tracking-widest mb-2">Chief Complaint / Symptoms</p>
+                              <p className="text-sm text-on-surface leading-relaxed">{note.complaint}</p>
+                            </div>
+                          )}
+                          {note.observations && (
+                            <div>
+                              <p className="text-xs font-bold text-tertiary uppercase tracking-widest mb-2">Clinical Observations & Findings</p>
+                              <p className="text-sm text-on-surface leading-relaxed">{note.observations}</p>
+                            </div>
+                          )}
+                          {note.summary && (
+                            <div>
+                              <p className="text-xs font-bold text-tertiary uppercase tracking-widest mb-2">Triage & Care Summary</p>
+                              <p className="text-sm font-semibold text-primary leading-relaxed">{note.summary}</p>
+                            </div>
+                          )}
+                          {note.plan && (
+                            <div>
+                              <p className="text-xs font-bold text-tertiary uppercase tracking-widest mb-2">Assessment &amp; Plan</p>
+                              <p className="text-sm text-on-surface leading-relaxed">{note.plan}</p>
+                            </div>
+                          )}
+                          {note.followUp && (
+                            <div className="p-4 bg-primary-fixed/40 rounded-xl">
+                              <p className="text-xs font-bold text-primary uppercase tracking-widest mb-1">Follow-up</p>
+                              <p className="text-sm text-on-surface font-semibold">Next appointment: {note.followUp}</p>
                             </div>
                           )}
                         </div>
                       </div>
-                    );
-                  })}
+                    ))
+                  )}
+                </div>
 
-                  {extractedMedications.map((med, idx) => (
-                    <div key={`extracted-${idx}`} className="p-6 bg-primary-container/20 border border-primary/20 rounded-2xl hover:bg-primary-container/30 transition-colors">
-                      <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-4">
+                {/* Right sidebar: doctors list & archive */}
+                <div className="space-y-4">
+                  <div className="section-card p-6">
+                    <h3 className="font-headline text-base font-bold text-on-surface mb-4">Care Team</h3>
+                    {(() => {
+                      const doctors = Array.from(new Set([
+                        ...userNotes.map(n => n.doctor),
+                        ...userPrescriptions.map(p => p.doctor),
+                        ...userLabReports.map(l => l.doctor)
+                      ].filter(Boolean)));
+
+                      if (doctors.length === 0) {
+                        return (
+                          <p className="text-xs text-tertiary text-center py-4">No care team members linked yet.</p>
+                        );
+                      }
+
+                      return (
+                        <div className="space-y-4">
+                          {doctors.map((docName, idx) => (
+                            <div key={idx} className="flex items-center gap-3">
+                              <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center shrink-0">
+                                <span className="material-symbols-outlined text-primary text-xl">person</span>
+                              </div>
+                              <div>
+                                <p className="text-sm font-bold text-on-surface">{docName}</p>
+                                <p className="text-xs text-tertiary">Physician</p>
+                              </div>
+                              <button onClick={() => handleMessageDoctor(docName)} className="ml-auto text-tertiary hover:text-primary"><span className="material-symbols-outlined text-xl">message</span></button>
+                            </div>
+                          ))}
+                        </div>
+                      );
+                    })()}
+                  </div>
+
+                  <div className="section-card p-6">
+                    <h3 className="font-headline text-base font-bold text-on-surface mb-4">Notes Archive</h3>
+                    {userNotes.length === 0 ? (
+                      <p className="text-xs text-tertiary text-center py-4">No notes archived.</p>
+                    ) : (
+                      <div className="space-y-2">
+                        {userNotes.map((note, idx) => (
+                          <div key={idx} className="flex items-center gap-3 p-3 bg-surface-container-low rounded-xl hover:bg-surface-container transition-colors cursor-pointer">
+                            <span className="material-symbols-outlined text-tertiary text-lg">description</span>
+                            <div className="flex-1 min-w-0">
+                              <p className="text-xs font-bold text-on-surface truncate">{note.doctor} - Note</p>
+                              <p className="text-[10px] text-tertiary">{note.date}</p>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* ===== PRESCRIPTIONS SECTION ===== */}
+          {activeTab === 'prescriptions' && (
+            <div className="space-y-6">
+              <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+                <div className="section-card p-5">
+                  <p className="text-xs font-bold text-tertiary uppercase tracking-widest mb-1">Active Rx</p>
+                  <p className="font-headline text-3xl font-extrabold text-on-surface">{userPrescriptions.length + extractedMedications.length}</p>
+                </div>
+                <div className="section-card p-5">
+                  <p className="text-xs font-bold text-tertiary uppercase tracking-widest mb-1">Renewed</p>
+                  <p className="font-headline text-3xl font-extrabold text-secondary">0</p>
+                  <p className="text-xs text-tertiary mt-1">This month</p>
+                </div>
+                <div className="section-card p-5">
+                  <p className="text-xs font-bold text-tertiary uppercase tracking-widest mb-1">Expired</p>
+                  <p className="font-headline text-3xl font-extrabold text-error">0</p>
+                </div>
+                <div className="section-card p-5">
+                  <p className="text-xs font-bold text-tertiary uppercase tracking-widest mb-1">Refills Left</p>
+                  <p className="font-headline text-3xl font-extrabold text-primary">0</p>
+                </div>
+              </div>
+
+              <div className="section-card p-6 lg:p-8">
+                <div className="flex justify-between items-center mb-6">
+                  <h3 className="font-headline text-xl font-bold text-on-surface">Active Prescriptions</h3>
+                </div>
+
+                <div className="space-y-4">
+                  {userPrescriptions.length === 0 && extractedMedications.length === 0 ? (
+                    <div className="text-center py-10 text-tertiary">
+                      <span className="material-symbols-outlined text-4xl mb-2 opacity-50">receipt_long</span>
+                      <p className="font-semibold text-sm">No active prescriptions logged yet.</p>
+                      <p className="text-xs mt-1">Click "Add Record" above to upload a prescription PDF or image.</p>
+                    </div>
+                  ) : (
+                    <>
+                      {userPrescriptions.map((rx, idx) => {
+                        const rxName = rx.medication || rx.name || 'Prescription';
+                        const rxType = rx.prescription_type || (rx.is_inventory ? 'INVENTORY' : (rx.inventory_id ? 'INVENTORY' : 'NON-INVENTORY'));
+                        const isInv = rxType === 'INVENTORY' || rx.is_inventory === true || !!rx.inventory_id;
+                        const rxDate = rx.date || (rx.created_at ? new Date(rx.created_at).toLocaleDateString() : 'Today');
+                        const rxStatus = rx.status || 'ACTIVE';
+
+                        return (
+                          <div key={`user-rx-${rx.id || idx}`} className="p-6 bg-primary-container/20 border border-primary/20 rounded-2xl hover:bg-primary-container/30 transition-colors">
+                            <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-4">
+                              <div className="flex items-start gap-4">
+                                <div className="w-14 h-14 rounded-2xl flex items-center justify-center shrink-0" style={{ background: 'linear-gradient(135deg,#00647e,#2c7d99)' }}>
+                                  <span className="material-symbols-outlined fill-icon text-white text-2xl">medication</span>
+                                </div>
+                                <div>
+                                  <div className="flex flex-wrap items-center gap-2 mb-1">
+                                    <h4 className="font-headline font-bold text-on-surface text-lg">{rxName}</h4>
+                                    <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${rxStatus === 'TAKEN' || rxStatus === 'COMPLETED' ? 'bg-emerald-100 text-emerald-900 border border-emerald-300' :
+                                      rxStatus === 'MISSED' ? 'bg-error-container text-on-error-container' :
+                                        'status-badge-stable'
+                                      }`}>{rxStatus}</span>
+                                    {isInv ? (
+                                      <span className="px-2 py-0.5 rounded-full text-[10px] font-black bg-emerald-50 text-emerald-800 border border-emerald-200 uppercase">
+                                        Facility EDL
+                                      </span>
+                                    ) : (
+                                      <span className="px-2 py-0.5 rounded-full text-[10px] font-black bg-purple-50 text-purple-800 border border-purple-200 uppercase">
+                                        Non-Inventory
+                                      </span>
+                                    )}
+                                  </div>
+                                  <p className="text-sm text-tertiary mb-2">
+                                    {rx.dosage || 'Standard'} · {rx.frequency || 'As directed'} · Duration: {rx.duration || rx.date || '5 Days'}{rx.quantity ? ` · Qty: ${rx.quantity}` : ''}
+                                  </p>
+                                  {rx.instructions && (
+                                    <p className="text-xs text-on-surface-variant bg-surface-container-low p-2 rounded-xl mb-2 border border-outline-variant/10">
+                                      📋 <span className="font-semibold">Instructions:</span> {rx.instructions}
+                                    </p>
+                                  )}
+                                  {rx.notes && (
+                                    <p className="text-xs text-on-surface-variant bg-surface-container-low p-2.5 rounded-xl mb-2 border border-outline-variant/10">
+                                      💡 <span className="font-semibold">Doctor Note:</span> {rx.notes}
+                                    </p>
+                                  )}
+                                  <div className="flex flex-wrap gap-3 text-xs">
+                                    {(rx.doctor || rx.doctor_name || rx.doctorName) && (
+                                      <div className="px-3 py-1.5 bg-surface-container-lowest rounded-lg">
+                                        <span className="text-tertiary">Prescribed by: </span><span className="font-bold text-on-surface">{rx.doctor || rx.doctor_name || rx.doctorName}</span>
+                                      </div>
+                                    )}
+                                    <div className="px-3 py-1.5 bg-surface-container-lowest rounded-lg">
+                                      <span className="text-tertiary">Date: </span><span className="font-bold text-on-surface">{rxDate}</span>
+                                    </div>
+                                  </div>
+                                </div>
+                              </div>
+
+                              {/* Order Medicine Action Column - Patient Portal Only for Non-Inventory Prescriptions */}
+                              {currentRole === 'patient' && isNonInventoryMedicine(rx) && (
+                                <div className="flex gap-2 shrink-0 self-start sm:self-center">
+                                  {placedOrdersMap[rx.id] || placedOrdersMap[(rx.name || rx.medication || '').toLowerCase().trim()] ? (
+                                    <div className="px-3.5 py-2 rounded-xl text-xs font-black bg-emerald-100 text-emerald-900 border border-emerald-300 flex items-center gap-1.5 shadow-sm">
+                                      <span className="material-symbols-outlined text-sm text-emerald-700">check_circle</span>
+                                      <span>{placedOrdersMap[rx.id]?.status || placedOrdersMap[(rx.name || rx.medication || '').toLowerCase().trim()]?.status || t('records.orderedStatus', {}, 'ORDERED')}</span>
+                                    </div>
+                                  ) : (
+                                    <button
+                                      onClick={() => handleInitiateOrder(rx)}
+                                      className="px-4 py-2.5 rounded-xl text-xs font-bold text-white transition-all flex items-center gap-1.5 shadow-sm active:scale-95 hover:opacity-90"
+                                      style={{ background: 'linear-gradient(135deg,#00647e,#2c7d99)' }}
+                                    >
+                                      <span className="material-symbols-outlined text-base">shopping_cart_checkout</span>
+                                      <span>{t('records.orderMedicineFull', {}, 'Order Medicine')}</span>
+                                    </button>
+                                  )}
+                                </div>
+                              )}
+                            </div>
+                          </div>
+                        );
+                      })}
+
+                      {extractedMedications.map((med, idx) => (
+                        <div key={`extracted-${idx}`} className="p-6 bg-primary-container/20 border border-primary/20 rounded-2xl hover:bg-primary-container/30 transition-colors">
+                          <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-4">
+                            <div className="flex items-start gap-4">
+                              <div className="w-14 h-14 rounded-2xl flex items-center justify-center shrink-0" style={{ background: 'linear-gradient(135deg,#00647e,#2c7d99)' }}>
+                                <span className="material-symbols-outlined fill-icon text-white text-2xl">medication</span>
+                              </div>
+                              <div>
+                                <div className="flex items-center gap-2 mb-1">
+                                  <h4 className="font-headline font-bold text-on-surface text-lg">{med.name || "Unknown Medication"}</h4>
+                                  <span className="px-2 py-0.5 rounded-full text-[10px] font-bold status-badge-stable bg-primary/10 text-primary">NEW (EXTRACTED)</span>
+                                </div>
+                                <p className="text-sm text-tertiary mb-3">{med.dosage || "N/A"} · {med.frequency || "N/A"} · {med.time || "N/A"}</p>
+                              </div>
+                            </div>
+                            <div className="flex gap-2 shrink-0">
+                              <button
+                                onClick={() => startReview(med, idx)}
+                                className="px-4 py-2.5 rounded-xl text-sm font-bold text-white transition-all"
+                                style={{ background: 'linear-gradient(135deg,#00647e,#2c7d99)' }}
+                              >
+                                Review
+                              </button>
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+                    </>
+                  )}
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* ===== MISSED MEDICATIONS SECTION ===== */}
+          {activeTab === 'missed' && (
+            <div className="space-y-6">
+              <div className="section-card p-6 lg:p-8">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6 pb-4 border-b border-outline-variant/10">
+                  <div>
+                    <h3 className="font-headline text-xl font-bold text-on-surface">Missed Medications Log</h3>
+                    <p className="text-xs text-tertiary mt-1">Review missed or skipped doses with recorded dates to track adherence.</p>
+                  </div>
+                  <span className="self-start sm:self-auto px-3 py-1.5 bg-error-container text-on-error-container text-xs font-black rounded-xl">
+                    {activeMedications.filter(m => m.status === 'MISSED' || m.historical_status === 'MISSED').length} Missed Doses
+                  </span>
+                </div>
+
+                <div className="space-y-4">
+                  {activeMedications.filter(m => m.status === 'MISSED' || m.historical_status === 'MISSED').length === 0 ? (
+                    <div className="text-center py-12 text-tertiary">
+                      <span className="material-symbols-outlined text-5xl mb-3 text-emerald-600">task_alt</span>
+                      <p className="font-headline font-bold text-base text-on-surface">No Missed Doses Recorded!</p>
+                      <p className="text-xs mt-1">All active medication doses are logged or marked taken.</p>
+                    </div>
+                  ) : (
+                    activeMedications.filter(m => m.status === 'MISSED' || m.historical_status === 'MISSED').map((med, idx) => (
+                      <div key={`missed-${idx}`} className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-5 bg-error-container/20 border border-error/20 rounded-2xl hover:bg-error-container/30 transition-colors">
                         <div className="flex items-start gap-4">
-                          <div className="w-14 h-14 rounded-2xl flex items-center justify-center shrink-0" style={{ background: 'linear-gradient(135deg,#00647e,#2c7d99)' }}>
-                            <span className="material-symbols-outlined fill-icon text-white text-2xl">medication</span>
+                          <div className="w-12 h-12 rounded-2xl bg-error-container flex items-center justify-center shrink-0 text-error">
+                            <span className="material-symbols-outlined fill-icon text-2xl">event_busy</span>
                           </div>
                           <div>
                             <div className="flex items-center gap-2 mb-1">
-                              <h4 className="font-headline font-bold text-on-surface text-lg">{med.name || "Unknown Medication"}</h4>
-                              <span className="px-2 py-0.5 rounded-full text-[10px] font-bold status-badge-stable bg-primary/10 text-primary">NEW (EXTRACTED)</span>
+                              <h4 className="font-headline font-bold text-on-surface text-base">{med.name}</h4>
+                              <span className="status-badge-urgent px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase">MISSED</span>
                             </div>
-                            <p className="text-sm text-tertiary mb-3">{med.dosage || "N/A"} · {med.frequency || "N/A"} · {med.time || "N/A"}</p>
+                            <p className="text-xs text-tertiary font-medium mb-1">
+                              {med.dosage} · {med.frequency} · Scheduled: {med.time}
+                            </p>
+                            <p className="text-xs text-error font-bold flex items-center gap-1.5">
+                              <span className="material-symbols-outlined text-sm">calendar_month</span>
+                              <span>Date Recorded: {med.date_action || new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}</span>
+                            </p>
                           </div>
                         </div>
-                        <div className="flex gap-2 shrink-0">
-                          <button 
-                            onClick={() => startReview(med, idx)}
-                            className="px-4 py-2.5 rounded-xl text-sm font-bold text-white transition-all" 
-                            style={{ background: 'linear-gradient(135deg,#00647e,#2c7d99)' }}
-                          >
-                            Review
-                          </button>
-                        </div>
+                        <button
+                          onClick={() => handleToggleMedicationStatus(activeMedications.findIndex(m => m.name === med.name))}
+                          className="shrink-0 px-4 py-2.5 bg-primary text-white text-xs font-bold rounded-xl shadow-sm hover:opacity-90 transition-all flex items-center gap-1.5"
+                        >
+                          <span className="material-symbols-outlined text-base">check</span> Mark Taken Now
+                        </button>
                       </div>
-                    </div>
-                  ))}
-                </>
-              )}
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* ===== MISSED MEDICATIONS SECTION ===== */}
-      {activeTab === 'missed' && (
-        <div className="space-y-6">
-          <div className="section-card p-6 lg:p-8">
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6 pb-4 border-b border-outline-variant/10">
-              <div>
-                <h3 className="font-headline text-xl font-bold text-on-surface">Missed Medications Log</h3>
-                <p className="text-xs text-tertiary mt-1">Review missed or skipped doses with recorded dates to track adherence.</p>
-              </div>
-              <span className="self-start sm:self-auto px-3 py-1.5 bg-error-container text-on-error-container text-xs font-black rounded-xl">
-                {activeMedications.filter(m => m.status === 'MISSED' || m.historical_status === 'MISSED').length} Missed Doses
-              </span>
-            </div>
-
-            <div className="space-y-4">
-              {activeMedications.filter(m => m.status === 'MISSED' || m.historical_status === 'MISSED').length === 0 ? (
-                <div className="text-center py-12 text-tertiary">
-                  <span className="material-symbols-outlined text-5xl mb-3 text-emerald-600">task_alt</span>
-                  <p className="font-headline font-bold text-base text-on-surface">No Missed Doses Recorded!</p>
-                  <p className="text-xs mt-1">All active medication doses are logged or marked taken.</p>
+                    ))
+                  )}
                 </div>
-              ) : (
-                activeMedications.filter(m => m.status === 'MISSED' || m.historical_status === 'MISSED').map((med, idx) => (
-                  <div key={`missed-${idx}`} className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-5 bg-error-container/20 border border-error/20 rounded-2xl hover:bg-error-container/30 transition-colors">
-                    <div className="flex items-start gap-4">
-                      <div className="w-12 h-12 rounded-2xl bg-error-container flex items-center justify-center shrink-0 text-error">
-                        <span className="material-symbols-outlined fill-icon text-2xl">event_busy</span>
-                      </div>
-                      <div>
-                        <div className="flex items-center gap-2 mb-1">
-                          <h4 className="font-headline font-bold text-on-surface text-base">{med.name}</h4>
-                          <span className="status-badge-urgent px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase">MISSED</span>
-                        </div>
-                        <p className="text-xs text-tertiary font-medium mb-1">
-                          {med.dosage} · {med.frequency} · Scheduled: {med.time}
-                        </p>
-                        <p className="text-xs text-error font-bold flex items-center gap-1.5">
-                          <span className="material-symbols-outlined text-sm">calendar_month</span>
-                          <span>Date Recorded: {med.date_action || new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}</span>
-                        </p>
-                      </div>
-                    </div>
-                    <button
-                      onClick={() => handleToggleMedicationStatus(activeMedications.findIndex(m => m.name === med.name))}
-                      className="shrink-0 px-4 py-2.5 bg-primary text-white text-xs font-bold rounded-xl shadow-sm hover:opacity-90 transition-all flex items-center gap-1.5"
-                    >
-                      <span className="material-symbols-outlined text-base">check</span> Mark Taken Now
-                    </button>
-                  </div>
-                ))
-              )}
+              </div>
             </div>
-          </div>
-        </div>
+          )}
+        </>
       )}
-      </>
-      )}
-      <AddRecordModal 
-        isOpen={isAddRecordModalOpen} 
-        onClose={() => setIsAddRecordModalOpen(false)} 
-        onSuccess={handleRecordAdded} 
+      <AddRecordModal
+        isOpen={isAddRecordModalOpen}
+        onClose={() => setIsAddRecordModalOpen(false)}
+        onSuccess={handleRecordAdded}
       />
 
       {reviewingMedication && (
@@ -2449,7 +2440,7 @@ function HealthRecordsContent() {
                   </p>
                 </div>
               </div>
-              <button 
+              <button
                 onClick={() => setOrderModalOpen(false)}
                 className="p-1 rounded-xl text-tertiary hover:text-on-surface hover:bg-surface-container"
               >

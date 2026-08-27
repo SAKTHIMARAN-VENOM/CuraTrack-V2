@@ -88,6 +88,7 @@ interface DoctorProfileInfo {
   facility: string;
   license: string;
   department: string;
+  specialty?: string;
 }
 
 interface PatientTriageDetails {

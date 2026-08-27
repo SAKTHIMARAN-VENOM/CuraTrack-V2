@@ -4,6 +4,7 @@ import React, { useState, useEffect } from 'react';
 import { createClient } from '@/lib/supabase/client';
 import { offlineStorage } from '@/lib/offline-storage';
 import { useI18n } from '@/lib/i18n';
+import { getCachedUser } from '@/lib/auth-cache';
 
 const BLOOD_GROUPS = ['A+', 'A-', 'B+', 'B-', 'AB+', 'AB-', 'O+', 'O-'];
 const GENDER_OPTIONS = [
@@ -122,7 +123,7 @@ export function HealthProfileModal() {
         const raw = localStorage.getItem('curatrack_auth_user');
         if (raw) savedUser = JSON.parse(raw);
         if (!currentUid && savedUser?.id) currentUid = savedUser.id;
-      } catch {}
+      } catch { }
 
       const offlineProf = offlineStorage.getProfile();
       if (!currentUid && offlineProf?.id) currentUid = offlineProf.id;
@@ -341,7 +342,7 @@ export function HealthProfileModal() {
 
       {isOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-md animate-in fade-in duration-200">
-          <div 
+          <div
             className="bg-white dark:bg-surface rounded-3xl max-w-lg w-full max-h-[88vh] overflow-y-auto overflow-x-hidden p-6 sm:p-7 shadow-2xl border border-surface-container-high relative font-body text-on-surface animate-in zoom-in-95 duration-200"
             onClick={e => e.stopPropagation()}
           >
@@ -406,11 +407,10 @@ export function HealthProfileModal() {
                         type="button"
                         key={bg}
                         onClick={() => setBloodGroup(bg)}
-                        className={`py-2.5 rounded-xl font-headline font-black text-xs transition-all flex flex-col items-center justify-center cursor-pointer border ${
-                          isSelected
-                            ? 'bg-red-600 text-white border-red-600 shadow-md shadow-red-600/30 scale-105'
-                            : 'bg-surface-container-low text-on-surface border-surface-container-high hover:border-red-300 hover:bg-red-50/50'
-                        }`}
+                        className={`py-2.5 rounded-xl font-headline font-black text-xs transition-all flex flex-col items-center justify-center cursor-pointer border ${isSelected
+                          ? 'bg-red-600 text-white border-red-600 shadow-md shadow-red-600/30 scale-105'
+                          : 'bg-surface-container-low text-on-surface border-surface-container-high hover:border-red-300 hover:bg-red-50/50'
+                          }`}
                       >
                         <span>{bg}</span>
                       </button>
@@ -436,11 +436,10 @@ export function HealthProfileModal() {
                         type="button"
                         key={opt.value}
                         onClick={() => setGender(opt.value)}
-                        className={`p-2.5 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-1.5 cursor-pointer border ${
-                          isSelected
-                            ? 'bg-primary text-white border-primary shadow-md shadow-primary/20 scale-[1.02]'
-                            : 'bg-surface-container-low text-on-surface border-surface-container-high hover:border-primary/40 hover:bg-primary/5'
-                        }`}
+                        className={`p-2.5 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-1.5 cursor-pointer border ${isSelected
+                          ? 'bg-primary text-white border-primary shadow-md shadow-primary/20 scale-[1.02]'
+                          : 'bg-surface-container-low text-on-surface border-surface-container-high hover:border-primary/40 hover:bg-primary/5'
+                          }`}
                       >
                         <span className="material-symbols-outlined text-sm">{opt.icon}</span>
                         <span className="truncate">{t(opt.labelKey, opt.label)}</span>
@@ -472,13 +471,12 @@ export function HealthProfileModal() {
                         type="button"
                         key={item.value}
                         onClick={() => handleToggleChip(item.value)}
-                        className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer border ${
-                          isSelected
-                            ? item.isNone
-                              ? 'bg-emerald-600 text-white border-emerald-600 shadow-sm'
-                              : 'bg-amber-600 text-white border-amber-600 shadow-sm'
-                            : 'bg-surface-container-low text-on-surface border-surface-container-high hover:border-amber-300 hover:bg-amber-50/40'
-                        }`}
+                        className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer border ${isSelected
+                          ? item.isNone
+                            ? 'bg-emerald-600 text-white border-emerald-600 shadow-sm'
+                            : 'bg-amber-600 text-white border-amber-600 shadow-sm'
+                          : 'bg-surface-container-low text-on-surface border-surface-container-high hover:border-amber-300 hover:bg-amber-50/40'
+                          }`}
                       >
                         <span className="material-symbols-outlined text-xs">{item.icon}</span>
                         <span>{item.label}</span>

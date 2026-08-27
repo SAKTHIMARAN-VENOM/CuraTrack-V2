@@ -33,6 +33,7 @@ const FHW_NAV_ITEMS = [
     { href: '/fhw', icon: 'volunteer_activism', i18nKey: 'navigation.fhwCatchment', label: 'ASHA Catchment Center' },
     { href: '/triage', icon: 'medical_information', i18nKey: 'navigation.communityTriage', label: 'Community Triage' },
     { href: '/fhw/referrals', icon: 'alt_route', i18nKey: 'navigation.villageReferrals', label: 'Village Referrals' },
+    { href: '/benefits', icon: 'account_balance_wallet', i18nKey: 'navigation.benefits', label: 'Gov Schemes & Hospitals' },
     { href: '/telemedicine', icon: 'video_chat', i18nKey: 'navigation.assistedTeleconsult', label: 'Assisted Teleconsult' },
     { href: '/alerts', icon: 'notifications_active', i18nKey: 'navigation.outbreakAlerts', label: 'Outbreak Alerts' },
     { href: '/profile', icon: 'person', i18nKey: 'navigation.ashaProfile', label: 'ASHA Profile' }
