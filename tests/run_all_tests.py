@@ -66,7 +66,18 @@ def main():
 
     # 1. Backend Python Tests
     if not (args.frontend_only or args.mobile_only):
-        pytest_cmd = [sys.executable, "-m", "pytest", "tests/", "-v", "--tb=short"]
+        backend_python = sys.executable
+        possible_venvs = [
+            os.path.join(root_dir, "backend", ".venv", "Scripts", "python.exe"),
+            os.path.join(root_dir, ".venv", "Scripts", "python.exe"),
+            os.path.join(root_dir, "backend", ".venv", "bin", "python"),
+            os.path.join(root_dir, ".venv", "bin", "python"),
+        ]
+        for venv_py in possible_venvs:
+            if os.path.exists(venv_py):
+                backend_python = venv_py
+                break
+        pytest_cmd = [backend_python, "-m", "pytest", "tests/", "-v", "--tb=short"]
         results["Backend (Python Pytest + Coverage)"] = run_step("Backend Pytest Suite", pytest_cmd, root_dir)
 
     # 2. Website Frontend Tests
